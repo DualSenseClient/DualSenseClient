@@ -28,6 +28,7 @@ public static class ServiceConfigurator
         services.AddSingleton<IApplicationSettings, ApplicationSettings>();
         services.AddSingleton<IProfileRenameService, ProfileRenameService>();
         services.AddSingleton<TrayIconService>();
+        services.AddSingleton<IAutoStartService, AutoStartService>();
         services.AddSingleton<ThemeService>(provider =>
         {
             ThemeService themeService = new ThemeService();
@@ -68,6 +69,11 @@ public static class ServiceConfigurator
         Logger.Debug<App>($"Setting log level from settings: {logLevel}");
         Logger.SetLogLevel(LogLevelHelper.FromString(logLevel));
 
+        // Initialize auto-start setting to match user preference
+        IAutoStartService autoStartService = serviceProvider.GetRequiredService<IAutoStartService>();
+        bool startOnLaunchSetting = serviceProvider.GetRequiredService<ISettingsManager>().Application.Ui.StartOnLaunch;
+        autoStartService.SetAutoStart(startOnLaunchSetting);
+
         DualSenseManager dualSenseManager = serviceProvider.GetRequiredService<DualSenseManager>();
         DualSenseProfileManager profileManager = serviceProvider.GetRequiredService<DualSenseProfileManager>();
         SpecialActionService specialActionService = serviceProvider.GetRequiredService<SpecialActionService>();
@@ -82,7 +88,7 @@ public static class ServiceConfigurator
 
         // Complete dualsense manager initialization after all services are registered
         dualSenseManager.CompleteInitialization();
-        
+
         // Initialize ThemeService
         _ = serviceProvider.GetRequiredService<ThemeService>();
 

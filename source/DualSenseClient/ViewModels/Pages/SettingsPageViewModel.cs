@@ -7,6 +7,7 @@ using DualSenseClient.Core.Logging;
 using DualSenseClient.Core.Settings;
 using DualSenseClient.Core.Settings.Models;
 using DualSenseClient.Services;
+using Microsoft.Extensions.DependencyInjection;
 using NLog;
 using Logger = DualSenseClient.Core.Logging.Logger;
 
@@ -40,6 +41,8 @@ public partial class SettingsPageViewModel : ViewModelBase
     [ObservableProperty] private bool closeToTray;
 
     [ObservableProperty] private bool startMinimized;
+
+    [ObservableProperty] private bool startOnLaunch;
 
     [ObservableProperty] private bool trayBatteryTracking;
 
@@ -137,6 +140,9 @@ public partial class SettingsPageViewModel : ViewModelBase
             // Start minimized settings
             StartMinimized = settings.Ui.StartMinimized;
 
+            // Start on launch settings
+            StartOnLaunch = settings.Ui.StartOnLaunch;
+
             // Tray battery tracking settings
             TrayBatteryTracking = settings.Ui.TrayBatteryTracking;
 
@@ -148,6 +154,7 @@ public partial class SettingsPageViewModel : ViewModelBase
             Logger.Info<SettingsPageViewModel>($"Theme: {settings.Ui.Theme}");
             Logger.Info<SettingsPageViewModel>($"Close to Tray: {settings.Ui.CloseToTray}");
             Logger.Info<SettingsPageViewModel>($"Start Minimized: {settings.Ui.StartMinimized}");
+            Logger.Info<SettingsPageViewModel>($"Start on Launch: {settings.Ui.StartOnLaunch}");
             Logger.Info<SettingsPageViewModel>($"Tray Battery Tracking: {settings.Ui.TrayBatteryTracking}");
             Logger.Info<SettingsPageViewModel>($"Log Level: {settings.Debug.Logger.Level}");
         }
@@ -200,6 +207,26 @@ public partial class SettingsPageViewModel : ViewModelBase
         _settingsManager.Application.Ui.StartMinimized = value;
         SaveSettings();
         Logger.Info<SettingsPageViewModel>($"Start minimized setting changed to: {value}");
+    }
+
+    partial void OnStartOnLaunchChanged(bool value)
+    {
+        _settingsManager.Application.Ui.StartOnLaunch = value;
+        SaveSettings();
+        Logger.Info<SettingsPageViewModel>($"Start on launch setting changed to: {value}");
+
+        // Also update the system auto-start setting
+        try
+        {
+            IAutoStartService autoStartService = App.Services.GetRequiredService<IAutoStartService>();
+            autoStartService.SetAutoStart(value);
+            Logger.Info<SettingsPageViewModel>($"System auto-start setting updated to: {value}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error<SettingsPageViewModel>("Failed to update system auto-start setting");
+            Logger.LogExceptionDetails<SettingsPageViewModel>(ex);
+        }
     }
 
     partial void OnTrayBatteryTrackingChanged(bool value)

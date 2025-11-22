@@ -95,6 +95,16 @@
                             <ToggleSwitch IsChecked="{Binding StartMinimized}" />
                         </ui:SettingsExpander.Footer>
                     </ui:SettingsExpander>
+                    <!-- Start on Launch Toggle -->
+                    <ui:SettingsExpander Header="Start on Launch"
+                                         Description="Automatically start the application when the system starts">
+                        <ui:SettingsExpander.IconSource>
+                            <ic:SymbolIconSource Symbol="Power" />
+                        </ui:SettingsExpander.IconSource>
+                        <ui:SettingsExpander.Footer>
+                            <ToggleSwitch IsChecked="{Binding StartOnLaunch}" />
+                        </ui:SettingsExpander.Footer>
+                    </ui:SettingsExpander>
                     <!-- Tray Battery Tracking Toggle -->
                     <ui:SettingsExpander Header="Tray Battery Tracking"
                                          Description="Show battery percentage in the system tray icon">

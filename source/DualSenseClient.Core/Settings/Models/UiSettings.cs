@@ -15,6 +15,9 @@ public class UiSettings
 
     [JsonPropertyName("tray_battery_tracking")]
     public bool TrayBatteryTracking { get; set; } = true;
+
+    [JsonPropertyName("start_on_launch")]
+    public bool StartOnLaunch { get; set; } = false;
 }
 
 public enum AppTheme
