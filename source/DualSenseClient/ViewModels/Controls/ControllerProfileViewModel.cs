@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -39,6 +40,17 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
 
     // Microphone LED Control
     [ObservableProperty] private MicLed _micLed;
+
+    // Virtual Controller Settings
+    [ObservableProperty] private bool _enableEmulation;
+    [ObservableProperty] private int _emulationTypeIndex;
+    [ObservableProperty] private bool _forceStopRumble;
+    [ObservableProperty] private bool _ignoreDS4Lightbar;
+    [ObservableProperty] private int _leftTriggerThreshold;
+    [ObservableProperty] private int _rightTriggerThreshold;
+
+    // OS Detection
+    [ObservableProperty] private bool _isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 
     [ObservableProperty] private ObservableCollection<ControllerProfile> _profiles = new ObservableCollection<ControllerProfile>();
     [ObservableProperty] private ControllerProfile? _selectedProfile;
@@ -85,6 +97,27 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
         // Microphone Led
         MicLed = _controller.CurrentMicLed;
         Logger.Trace<ControllerProfileViewModel>($"Mic LED: {MicLed}");
+
+        // Virtual Controller Settings (Initialize from controller's emulation service if available)
+        if (_controller.ControllerEmulationService != null)
+        {
+            EnableEmulation = _controller.ControllerEmulationService.IsEmulating;
+            EmulationTypeIndex = _controller.ControllerEmulationService.IsEmulating360 ? 0 : (_controller.ControllerEmulationService.IsViGEMBusInstalled ? 1 : 0); // 0 = X360, 1 = DS4
+            ForceStopRumble = _controller.ControllerEmulationService.ForceStopRumble;
+            IgnoreDS4Lightbar = _controller.ControllerEmulationService.IgnoreDS4Lightbar;
+            LeftTriggerThreshold = _controller.ControllerEmulationService.LeftTriggerThreshold;
+            RightTriggerThreshold = _controller.ControllerEmulationService.RightTriggerThreshold;
+        }
+        else
+        {
+            EnableEmulation = false;
+            EmulationTypeIndex = 0;
+            ForceStopRumble = false;
+            IgnoreDS4Lightbar = false;
+            LeftTriggerThreshold = 0;
+            RightTriggerThreshold = 0;
+        }
+        Logger.Trace<ControllerProfileViewModel>($"Virtual Controller: Enabled={EnableEmulation}, TypeIndex={EmulationTypeIndex}, ForceStopRumble={ForceStopRumble}, IgnoreDS4Lightbar={IgnoreDS4Lightbar}");
     }
 
     private void LoadProfiles()
@@ -180,6 +213,20 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
         MicLed = profile.MicLed;
         Logger.Trace<ControllerProfileViewModel>($"  Mic LED: {MicLed}");
 
+        // Load Virtual Controller Settings
+        EnableEmulation = profile.VirtualControllerSettings.EnableEmulation;
+        EmulationTypeIndex = profile.VirtualControllerSettings.EmulationType switch
+        {
+            VirtualControllerType.X360 => 0,
+            VirtualControllerType.DS4 => 1,
+            _ => 0  // Default to first option (X360)
+        };
+        ForceStopRumble = profile.VirtualControllerSettings.ForceStopRumble;
+        IgnoreDS4Lightbar = profile.VirtualControllerSettings.IgnoreDS4Lightbar;
+        LeftTriggerThreshold = profile.VirtualControllerSettings.LeftTriggerThreshold;
+        RightTriggerThreshold = profile.VirtualControllerSettings.RightTriggerThreshold;
+        Logger.Trace<ControllerProfileViewModel>($"  Virtual Controller: Enabled={EnableEmulation}, Type={profile.VirtualControllerSettings.EmulationType}, ForceStopRumble={ForceStopRumble}, IgnoreDS4Lightbar={IgnoreDS4Lightbar}");
+
         Logger.Debug<ControllerProfileViewModel>("Profile loaded into controls successfully");
     }
 
@@ -261,10 +308,24 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
                 Pattern = GetCurrentPlayerLedPattern(),
                 Brightness = GetCurrentPlayerLedBrightness()
             },
-            MicLed = MicLed
+            MicLed = MicLed,
+            VirtualControllerSettings = new VirtualControllerSettings
+            {
+                EnableEmulation = EnableEmulation,
+                EmulationType = EmulationTypeIndex switch
+                {
+                    0 => VirtualControllerType.X360,
+                    1 => VirtualControllerType.DS4,
+                    _ => VirtualControllerType.X360  // Default to X360 if invalid index
+                },
+                ForceStopRumble = ForceStopRumble,
+                IgnoreDS4Lightbar = IgnoreDS4Lightbar,
+                LeftTriggerThreshold = LeftTriggerThreshold,
+                RightTriggerThreshold = RightTriggerThreshold
+            }
         };
 
-        Logger.Debug<ControllerProfileViewModel>($"Profile details: ID={profile.Id}, Lightbar=RGB({profile.Lightbar.Red},{profile.Lightbar.Green},{profile.Lightbar.Blue}), PlayerLEDs={profile.PlayerLeds.Pattern}, MicLED={profile.MicLed}");
+        Logger.Debug<ControllerProfileViewModel>($"Profile details: ID={profile.Id}, Lightbar=RGB({profile.Lightbar.Red},{profile.Lightbar.Green},{profile.Lightbar.Blue}), PlayerLEDs={profile.PlayerLeds.Pattern}, MicLED={profile.MicLed}, VirtualControllerEnabled={profile.VirtualControllerSettings.EnableEmulation}");
 
         _profileManager.SaveProfile(profile);
         LoadProfiles();
@@ -292,8 +353,19 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
         SelectedProfile.PlayerLeds.Pattern = GetCurrentPlayerLedPattern();
         SelectedProfile.PlayerLeds.Brightness = GetCurrentPlayerLedBrightness();
         SelectedProfile.MicLed = MicLed;
+        SelectedProfile.VirtualControllerSettings.EnableEmulation = EnableEmulation;
+        SelectedProfile.VirtualControllerSettings.EmulationType = EmulationTypeIndex switch
+        {
+            0 => VirtualControllerType.X360,
+            1 => VirtualControllerType.DS4,
+            _ => VirtualControllerType.X360  // Default to X360 if invalid index
+        };
+        SelectedProfile.VirtualControllerSettings.ForceStopRumble = ForceStopRumble;
+        SelectedProfile.VirtualControllerSettings.IgnoreDS4Lightbar = IgnoreDS4Lightbar;
+        SelectedProfile.VirtualControllerSettings.LeftTriggerThreshold = LeftTriggerThreshold;
+        SelectedProfile.VirtualControllerSettings.RightTriggerThreshold = RightTriggerThreshold;
 
-        Logger.Debug<ControllerProfileViewModel>($"Updated values: Lightbar=RGB({LightbarRed},{LightbarGreen},{LightbarBlue}), PlayerLEDs={SelectedProfile.PlayerLeds.Pattern}, MicLED={MicLed}");
+        Logger.Debug<ControllerProfileViewModel>($"Updated values: Lightbar=RGB({LightbarRed},{LightbarGreen},{LightbarBlue}), PlayerLEDs={SelectedProfile.PlayerLeds.Pattern}, MicLED={MicLed}, VirtualControllerEnabled={SelectedProfile.VirtualControllerSettings.EnableEmulation}");
 
         _profileManager.SaveProfile(SelectedProfile);
         Logger.Info<ControllerProfileViewModel>("Profile updated successfully");
@@ -434,6 +506,38 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
         _controller.SetMicLed(MicLed);
         Logger.Debug<ControllerProfileViewModel>($"Applied mic LED: {MicLed}");
 
+        // Apply Virtual Controller Settings if available
+        if (_controller.ControllerEmulationService != null)
+        {
+            _controller.ControllerEmulationService.ForceStopRumble = ForceStopRumble;
+            _controller.ControllerEmulationService.IgnoreDS4Lightbar = IgnoreDS4Lightbar;
+            _controller.ControllerEmulationService.LeftTriggerThreshold = LeftTriggerThreshold;
+            _controller.ControllerEmulationService.RightTriggerThreshold = RightTriggerThreshold;
+
+            // Start or stop emulation based on settings
+            if (EnableEmulation)
+            {
+                if (EmulationTypeIndex == 1) // X360
+                {
+                    _controller.ControllerEmulationService.StartX360Emulation();
+                }
+                else if (EmulationTypeIndex == 2) // DS4
+                {
+                    _controller.ControllerEmulationService.StartDS4Emulation();
+                }
+            }
+            else
+            {
+                _controller.ControllerEmulationService.StopEmulation();
+            }
+
+            Logger.Debug<ControllerProfileViewModel>($"Applied virtual controller settings: Enabled={EnableEmulation}, Type={EmulationTypeIndex}, ForceStopRumble={ForceStopRumble}, IgnoreDS4Lightbar={IgnoreDS4Lightbar}");
+        }
+        else
+        {
+            Logger.Debug<ControllerProfileViewModel>("ControllerEmulationService not available, skipping virtual controller settings");
+        }
+
         // Update controls to reflect current state
         InitializeLightControls();
         Logger.Info<ControllerProfileViewModel>("All settings applied successfully");
@@ -545,6 +649,46 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
         _controller.SetMicLed(MicLed.Off);
         InitializeLightControls();
         Logger.Debug<ControllerProfileViewModel>("All lights turned off successfully");
+    }
+
+    [RelayCommand]
+    private void ApplyVirtualControllerSettings()
+    {
+        Logger.Info<ControllerProfileViewModel>("Applying virtual controller settings to controller");
+
+        if (_controller.ControllerEmulationService != null)
+        {
+            _controller.ControllerEmulationService.ForceStopRumble = ForceStopRumble;
+            _controller.ControllerEmulationService.IgnoreDS4Lightbar = IgnoreDS4Lightbar;
+            _controller.ControllerEmulationService.LeftTriggerThreshold = LeftTriggerThreshold;
+            _controller.ControllerEmulationService.RightTriggerThreshold = RightTriggerThreshold;
+
+            // Start or stop emulation based on settings
+            if (EnableEmulation)
+            {
+                if (EmulationTypeIndex == 1) // X360
+                {
+                    _controller.ControllerEmulationService.StartX360Emulation();
+                }
+                else if (EmulationTypeIndex == 2) // DS4
+                {
+                    _controller.ControllerEmulationService.StartDS4Emulation();
+                }
+            }
+            else
+            {
+                _controller.ControllerEmulationService.StopEmulation();
+            }
+
+            Logger.Debug<ControllerProfileViewModel>($"Virtual controller settings applied: Enabled={EnableEmulation}, Type={EmulationTypeIndex}, ForceStopRumble={ForceStopRumble}, IgnoreDS4Lightbar={IgnoreDS4Lightbar}");
+        }
+        else
+        {
+            Logger.Warning<ControllerProfileViewModel>("ControllerEmulationService not available, cannot apply virtual controller settings");
+        }
+
+        InitializeLightControls();
+        Logger.Info<ControllerProfileViewModel>("Virtual controller settings applied successfully");
     }
 
     [RelayCommand]

@@ -296,6 +296,7 @@ public class DualSenseProfileManager
         Logger.Debug<DualSenseProfileManager>($"  Lightbar: RGB({profile.Lightbar.Red}, {profile.Lightbar.Green}, {profile.Lightbar.Blue})");
         Logger.Debug<DualSenseProfileManager>($"  Player LEDs: {profile.PlayerLeds.Pattern} @ {profile.PlayerLeds.Brightness}");
         Logger.Debug<DualSenseProfileManager>($"  Mic LED: {profile.MicLed}");
+        Logger.Debug<DualSenseProfileManager>($"  Virtual Controller: Enabled={profile.VirtualControllerSettings.EnableEmulation}, Type={profile.VirtualControllerSettings.EmulationType}");
 
         try
         {
@@ -310,6 +311,38 @@ public class DualSenseProfileManager
             // Apply mic LED
             controller.SetMicLed(profile.MicLed);
             Logger.Trace<DualSenseProfileManager>("Mic LED applied");
+
+            // Apply virtual controller settings if available
+            if (controller.ControllerEmulationService != null)
+            {
+                controller.ControllerEmulationService.ForceStopRumble = profile.VirtualControllerSettings.ForceStopRumble;
+                controller.ControllerEmulationService.IgnoreDS4Lightbar = profile.VirtualControllerSettings.IgnoreDS4Lightbar;
+                controller.ControllerEmulationService.LeftTriggerThreshold = profile.VirtualControllerSettings.LeftTriggerThreshold;
+                controller.ControllerEmulationService.RightTriggerThreshold = profile.VirtualControllerSettings.RightTriggerThreshold;
+
+                // Start or stop emulation based on settings
+                if (profile.VirtualControllerSettings.EnableEmulation)
+                {
+                    if (profile.VirtualControllerSettings.EmulationType == VirtualControllerType.X360)
+                    {
+                        controller.ControllerEmulationService.StartX360Emulation();
+                    }
+                    else if (profile.VirtualControllerSettings.EmulationType == VirtualControllerType.DS4)
+                    {
+                        controller.ControllerEmulationService.StartDS4Emulation();
+                    }
+                }
+                else
+                {
+                    controller.ControllerEmulationService.StopEmulation();
+                }
+
+                Logger.Trace<DualSenseProfileManager>($"Virtual controller settings applied: Enabled={profile.VirtualControllerSettings.EnableEmulation}, Type={profile.VirtualControllerSettings.EmulationType}");
+            }
+            else
+            {
+                Logger.Debug<DualSenseProfileManager>("ControllerEmulationService not available, skipping virtual controller settings");
+            }
 
             Logger.Info<DualSenseProfileManager>("Profile applied successfully");
         }
@@ -371,7 +404,8 @@ public class DualSenseProfileManager
             Name = "Default",
             Lightbar = new LightbarSettings { Red = 0, Green = 0, Blue = 0 },
             PlayerLeds = new PlayerLedSettings { Pattern = PlayerLed.None },
-            MicLed = MicLed.Off
+            MicLed = MicLed.Off,
+            VirtualControllerSettings = new VirtualControllerSettings { EnableEmulation = false, EmulationType = VirtualControllerType.X360 }
         };
 
         Logger.Debug<DualSenseProfileManager>("Default profile settings: Lightbar=Off, PlayerLEDs=None, MicLED=Off");
@@ -582,7 +616,8 @@ public class DualSenseProfileManager
                 Pattern = PlayerLed.None,
                 Brightness = PlayerLedBrightness.High
             },
-            MicLed = MicLed.Off
+            MicLed = MicLed.Off,
+            VirtualControllerSettings = new VirtualControllerSettings { EnableEmulation = false, EmulationType = VirtualControllerType.X360 }
         };
 
         Logger.Debug<DualSenseProfileManager>($"Profile ID: {profile.Id}");
@@ -728,7 +763,16 @@ public class DualSenseProfileManager
                 Pattern = sourceProfile.PlayerLeds.Pattern,
                 Brightness = sourceProfile.PlayerLeds.Brightness
             },
-            MicLed = sourceProfile.MicLed
+            MicLed = sourceProfile.MicLed,
+            VirtualControllerSettings = new VirtualControllerSettings
+            {
+                EnableEmulation = sourceProfile.VirtualControllerSettings.EnableEmulation,
+                EmulationType = sourceProfile.VirtualControllerSettings.EmulationType,
+                ForceStopRumble = sourceProfile.VirtualControllerSettings.ForceStopRumble,
+                IgnoreDS4Lightbar = sourceProfile.VirtualControllerSettings.IgnoreDS4Lightbar,
+                LeftTriggerThreshold = sourceProfile.VirtualControllerSettings.LeftTriggerThreshold,
+                RightTriggerThreshold = sourceProfile.VirtualControllerSettings.RightTriggerThreshold
+            }
         };
 
         Logger.Debug<DualSenseProfileManager>($"New profile ID: {newProfile.Id}");
@@ -769,7 +813,8 @@ public class DualSenseProfileManager
                 Pattern = controller.CurrentPlayerLeds,
                 Brightness = controller.CurrentPlayerLedBrightness
             },
-            MicLed = controller.CurrentMicLed
+            MicLed = controller.CurrentMicLed,
+            VirtualControllerSettings = new VirtualControllerSettings { EnableEmulation = false, EmulationType = VirtualControllerType.X360 }
         };
 
         Logger.Debug<DualSenseProfileManager>($"Profile ID: {profile.Id}");

@@ -18,6 +18,7 @@ public partial class ProfilePageViewModel : ViewModelBase
     [ObservableProperty] private ControllerInfo? _selectedControllerInfo;
     [ObservableProperty] private ControllerProfileViewModel? _profileViewModel;
     [ObservableProperty] private SpecialActionsViewModel? _specialActionsViewModel;
+    [ObservableProperty] private VirtualControllerSettingsViewModel? _virtualControllerSettingsViewModel;
 
     public ProfilePageViewModel(SelectedControllerService selectedControllerService, DualSenseProfileManager profileManager, NavigationService navigationService)
     {
@@ -71,6 +72,29 @@ public partial class ProfilePageViewModel : ViewModelBase
         }
     }
 
+    // To coordinate profile changes between ViewModels
+    private void OnProfileSelected(ControllerProfile? profile)
+    {
+        if (profile != null && VirtualControllerSettingsViewModel != null)
+        {
+            VirtualControllerSettingsViewModel.LoadFromProfile(profile);
+        }
+    }
+
+    private void SubscribeToProfileChanges()
+    {
+        if (ProfileViewModel != null)
+        {
+            ProfileViewModel.PropertyChanged += (sender, e) =>
+            {
+                if (e.PropertyName == nameof(ControllerProfileViewModel.SelectedProfile))
+                {
+                    OnProfileSelected(ProfileViewModel.SelectedProfile);
+                }
+            };
+        }
+    }
+
     private void InitializeControllerViewModels()
     {
         Logger.Debug<ProfilePageViewModel>("Initializing controller ViewModels");
@@ -93,6 +117,12 @@ public partial class ProfilePageViewModel : ViewModelBase
 
             Logger.Debug<ProfilePageViewModel>("Creating SpecialActionsViewModel");
             SpecialActionsViewModel = new SpecialActionsViewModel(SelectedController.Controller, SelectedControllerInfo, _profileManager);
+
+            Logger.Debug<ProfilePageViewModel>("Creating VirtualControllerSettingsViewModel");
+            VirtualControllerSettingsViewModel = new VirtualControllerSettingsViewModel(SelectedController.Controller, SelectedControllerInfo, _profileManager);
+
+            // Subscribe to profile changes to keep VirtualControllerSettings in sync
+            SubscribeToProfileChanges();
 
             Logger.Info<ProfilePageViewModel>("Controller ViewModels initialized successfully");
         }
@@ -120,6 +150,13 @@ public partial class ProfilePageViewModel : ViewModelBase
             Logger.Trace<ProfilePageViewModel>("Disposing SpecialActionsViewModel");
             SpecialActionsViewModel.Dispose();
             SpecialActionsViewModel = null;
+        }
+
+        if (VirtualControllerSettingsViewModel != null)
+        {
+            Logger.Trace<ProfilePageViewModel>("Disposing VirtualControllerSettingsViewModel");
+            VirtualControllerSettingsViewModel.Dispose();
+            VirtualControllerSettingsViewModel = null;
         }
 
         SelectedControllerInfo = null;

@@ -58,6 +58,9 @@ public class ControllerProfile
 
     [JsonPropertyName("special_actions")]
     public List<SpecialActionSettings> SpecialActions { get; set; } = new List<SpecialActionSettings>();
+
+    [JsonPropertyName("virtualControllerSettings")]
+    public VirtualControllerSettings VirtualControllerSettings { get; set; } = new();
 }
 
 public class LightbarSettings
@@ -83,3 +86,25 @@ public class PlayerLedSettings
     [JsonPropertyName("brightness")]
     public PlayerLedBrightness Brightness { get; set; } = PlayerLedBrightness.High;
 }
+
+public class VirtualControllerSettings
+{
+    [JsonPropertyName("enableEmulation")]
+    public bool EnableEmulation { get; set; } = false;
+
+    [JsonPropertyName("emulationType")]
+    public VirtualControllerType EmulationType { get; set; } = VirtualControllerType.X360;
+
+    [JsonPropertyName("forceStopRumble")]
+    public bool ForceStopRumble { get; set; } = false;
+
+    [JsonPropertyName("ignoreDS4Lightbar")]
+    public bool IgnoreDS4Lightbar { get; set; } = false;
+
+    [JsonPropertyName("leftTriggerThreshold")]
+    public int LeftTriggerThreshold { get; set; } = 0;
+
+    [JsonPropertyName("rightTriggerThreshold")]
+    public int RightTriggerThreshold { get; set; } = 0;
+}
+

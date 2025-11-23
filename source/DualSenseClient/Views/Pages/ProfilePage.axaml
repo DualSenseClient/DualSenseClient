@@ -19,6 +19,12 @@
                 <controls:ControllerLights DataContext="{Binding ProfileViewModel}" />
             </StackPanel>
 
+            <!-- Virtual Controller Settings - Windows only -->
+            <Border CornerRadius="8"
+                    IsVisible="{Binding VirtualControllerSettingsViewModel, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <controls:VirtualControllerSettings DataContext="{Binding VirtualControllerSettingsViewModel}" />
+            </Border>
+
             <!-- Special Actions -->
             <Border CornerRadius="8"
                     IsVisible="{Binding SpecialActionsViewModel, Converter={x:Static ObjectConverters.IsNotNull}}">

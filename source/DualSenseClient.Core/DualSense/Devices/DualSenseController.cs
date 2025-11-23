@@ -48,6 +48,7 @@ public class DualSenseController : IDisposable
     public MotionState Motion { get; private set; } = new MotionState();
     public byte LargeMotorValue { get; private set; } = 0;
     public byte SmallMotorValue { get; private set; } = 0;
+    public ControllerEmulationService? ControllerEmulationService { get; private set; }
     public SpecialActionService? SpecialActionService { get; }
 
     // Events
@@ -100,6 +101,18 @@ public class DualSenseController : IDisposable
             {
                 Logger.Info<DualSenseController>($"MAC address from controller: {MacAddress}");
             }
+        }
+
+        // Initialize Controller Emulation Service
+        try
+        {
+            ControllerEmulationService = new ControllerEmulationService();
+            ControllerEmulationService.DualSenseController = this;
+        }
+        catch (Exception ex)
+        {
+            Logger.Warning<DualSenseController>($"Could not initialize ControllerEmulationService: {ex.Message}");
+            ControllerEmulationService = null;
         }
 
         _cts = new CancellationTokenSource();
@@ -981,6 +994,19 @@ public class DualSenseController : IDisposable
         catch (Exception ex)
         {
             Logger.Warning<DualSenseController>($"Exception while waiting for read task: {ex.Message}");
+        }
+
+        // Dispose Controller Emulation Service
+        if (ControllerEmulationService != null)
+        {
+            try
+            {
+                ControllerEmulationService.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning<DualSenseController>($"Exception while disposing ControllerEmulationService: {ex.Message}");
+            }
         }
 
         _cts.Dispose();
