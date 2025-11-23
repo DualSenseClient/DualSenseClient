@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DualSenseClient.Core.DualSense;
@@ -15,6 +16,7 @@ using DualSenseClient.Core.DualSense.Devices;
 using DualSenseClient.Core.DualSense.Enums;
 using DualSenseClient.Core.Settings.Models;
 using DualSenseClient.Core.Logging;
+using DualSenseClient.Core.DualSense.Events;
 
 namespace DualSenseClient.ViewModels.Controls;
 
@@ -77,6 +79,10 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
     {
         Logger.Debug<ControllerProfileViewModel>($"Creating ControllerProfileViewModel for controller: {controllerInfo?.Name ?? "Unknown"}");
         _profileManager = profileManager;
+
+        // Subscribe to profile changes to handle external profile changes (e.g., from tray icon)
+        _profileManager.ProfileChanged += OnProfileChanged;
+
         InitializeLightControls();
         LoadProfiles();
         Logger.Debug<ControllerProfileViewModel>("ControllerProfileViewModel initialized successfully");
@@ -199,6 +205,46 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
         }
     }
 
+    private void OnProfileChanged(object? sender, ProfileChangedEventArgs e)
+    {
+        // Check if this event is for our controller
+        if (e.ControllerId != _controllerInfo?.Id)
+        {
+            return;
+        }
+        Logger.Info<ControllerProfileViewModel>($"External profile change detected for this controller: {e.Profile.Name} (ID: {e.Profile.Id})");
+
+        // Update the SelectedProfile property to match the changed profile
+        // This will trigger the OnSelectedProfileChanged method to update the UI
+        Dispatcher.UIThread.Post(() =>
+        {
+            ControllerProfile? matchingProfile = Profiles.FirstOrDefault(p => p.Id == e.Profile.Id);
+
+            if (matchingProfile != null)
+            {
+                Logger.Debug<ControllerProfileViewModel>($"Updating SelectedProfile to match external change: {matchingProfile.Name}");
+                SelectedProfile = matchingProfile;
+            }
+            else
+            {
+                Logger.Warning<ControllerProfileViewModel>($"Profile with ID {e.Profile.Id} not found in local Profiles collection, reloading profiles");
+                // Reload profiles since this one might be new or updated
+                LoadProfiles();
+                // Try to find the profile again after reload
+                matchingProfile = Profiles.FirstOrDefault(p => p.Id == e.Profile.Id);
+                if (matchingProfile != null)
+                {
+                    SelectedProfile = matchingProfile;
+                    Logger.Debug<ControllerProfileViewModel>($"Found profile after reload: {matchingProfile.Name}");
+                }
+                else
+                {
+                    Logger.Warning<ControllerProfileViewModel>($"Profile with ID {e.Profile.Id} still not found after reload");
+                }
+            }
+        });
+    }
+
     private void LoadProfileIntoControls(ControllerProfile profile)
     {
         Logger.Debug<ControllerProfileViewModel>($"Loading profile '{profile.Name}' into controls");
@@ -235,7 +281,7 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
         {
             VirtualControllerType.X360 => 0,
             VirtualControllerType.DS4 => 1,
-            _ => 0  // Default to first option (X360)
+            _ => 0 // Default to first option (X360)
         };
         ForceStopRumble = profile.VirtualControllerSettings.ForceStopRumble;
         IgnoreDS4Lightbar = profile.VirtualControllerSettings.IgnoreDS4Lightbar;
@@ -332,7 +378,7 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
                 {
                     0 => VirtualControllerType.X360,
                     1 => VirtualControllerType.DS4,
-                    _ => VirtualControllerType.X360  // Default to X360 if invalid index
+                    _ => VirtualControllerType.X360 // Default to X360 if invalid index
                 },
                 ForceStopRumble = ForceStopRumble,
                 IgnoreDS4Lightbar = IgnoreDS4Lightbar,
@@ -341,7 +387,8 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
             }
         };
 
-        Logger.Debug<ControllerProfileViewModel>($"Profile details: ID={profile.Id}, Lightbar=RGB({profile.Lightbar.Red},{profile.Lightbar.Green},{profile.Lightbar.Blue}), PlayerLEDs={profile.PlayerLeds.Pattern}, MicLED={profile.MicLed}, VirtualControllerEnabled={profile.VirtualControllerSettings.EnableEmulation}");
+        Logger.Debug<ControllerProfileViewModel>(
+            $"Profile details: ID={profile.Id}, Lightbar=RGB({profile.Lightbar.Red},{profile.Lightbar.Green},{profile.Lightbar.Blue}), PlayerLEDs={profile.PlayerLeds.Pattern}, MicLED={profile.MicLed}, VirtualControllerEnabled={profile.VirtualControllerSettings.EnableEmulation}");
 
         _profileManager.SaveProfile(profile);
         LoadProfiles();
@@ -384,7 +431,7 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
                 {
                     0 => VirtualControllerType.X360,
                     1 => VirtualControllerType.DS4,
-                    _ => VirtualControllerType.X360  // Default to X360 if invalid index
+                    _ => VirtualControllerType.X360 // Default to X360 if invalid index
                 };
                 SelectedProfile.VirtualControllerSettings.ForceStopRumble = _virtualControllerSettingsViewModel.ForceStopRumble;
                 SelectedProfile.VirtualControllerSettings.IgnoreDS4Lightbar = _virtualControllerSettingsViewModel.IgnoreDS4Lightbar;
@@ -399,7 +446,7 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
                 {
                     0 => VirtualControllerType.X360,
                     1 => VirtualControllerType.DS4,
-                    _ => VirtualControllerType.X360  // Default to X360 if invalid index
+                    _ => VirtualControllerType.X360 // Default to X360 if invalid index
                 };
                 SelectedProfile.VirtualControllerSettings.ForceStopRumble = ForceStopRumble;
                 SelectedProfile.VirtualControllerSettings.IgnoreDS4Lightbar = IgnoreDS4Lightbar;
@@ -434,7 +481,7 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
             {
                 0 => VirtualControllerType.X360,
                 1 => VirtualControllerType.DS4,
-                _ => VirtualControllerType.X360  // Default to X360 if invalid index
+                _ => VirtualControllerType.X360 // Default to X360 if invalid index
             };
             SelectedProfile.VirtualControllerSettings.ForceStopRumble = ForceStopRumble;
             SelectedProfile.VirtualControllerSettings.IgnoreDS4Lightbar = IgnoreDS4Lightbar;
@@ -442,7 +489,8 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
             SelectedProfile.VirtualControllerSettings.RightTriggerThreshold = RightTriggerThreshold;
         }
 
-        Logger.Debug<ControllerProfileViewModel>($"Updated values: Lightbar=RGB({LightbarRed},{LightbarGreen},{LightbarBlue}), PlayerLEDs={SelectedProfile.PlayerLeds.Pattern}, MicLED={MicLed}, VirtualControllerEnabled={SelectedProfile.VirtualControllerSettings.EnableEmulation}, SpecialActionsCount={SelectedProfile.SpecialActions.Count}");
+        Logger.Debug<ControllerProfileViewModel>(
+            $"Updated values: Lightbar=RGB({LightbarRed},{LightbarGreen},{LightbarBlue}), PlayerLEDs={SelectedProfile.PlayerLeds.Pattern}, MicLED={MicLed}, VirtualControllerEnabled={SelectedProfile.VirtualControllerSettings.EnableEmulation}, SpecialActionsCount={SelectedProfile.SpecialActions.Count}");
 
         _profileManager.SaveProfile(SelectedProfile);
         Logger.Info<ControllerProfileViewModel>("Profile updated successfully");
@@ -551,7 +599,7 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
                 {
                     0 => VirtualControllerType.X360,
                     1 => VirtualControllerType.DS4,
-                    _ => VirtualControllerType.X360  // Default to X360 if invalid index
+                    _ => VirtualControllerType.X360 // Default to X360 if invalid index
                 };
                 newProfile.VirtualControllerSettings.ForceStopRumble = _virtualControllerSettingsViewModel.ForceStopRumble;
                 newProfile.VirtualControllerSettings.IgnoreDS4Lightbar = _virtualControllerSettingsViewModel.IgnoreDS4Lightbar;
@@ -972,6 +1020,13 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
     public override void Dispose()
     {
         Logger.Debug<ControllerProfileViewModel>($"Disposing ControllerProfileViewModel for controller: {_controllerInfo?.Name ?? "Unknown"}");
+
+        // Unsubscribe from profile changes to prevent memory leaks
+        if (_profileManager != null)
+        {
+            _profileManager.ProfileChanged -= OnProfileChanged;
+        }
+
         base.Dispose();
     }
 }
