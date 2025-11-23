@@ -56,6 +56,22 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
     [ObservableProperty] private ControllerProfile? _selectedProfile;
     [ObservableProperty] private string _newProfileName = string.Empty;
 
+    // References to other ViewModels to coordinate profile updates
+    private SpecialActionsViewModel? _specialActionsViewModel;
+    private VirtualControllerSettingsViewModel? _virtualControllerSettingsViewModel;
+
+    public SpecialActionsViewModel? SpecialActionsViewModel
+    {
+        get => _specialActionsViewModel;
+        set => _specialActionsViewModel = value;
+    }
+
+    public VirtualControllerSettingsViewModel? VirtualControllerSettingsViewModel
+    {
+        get => _virtualControllerSettingsViewModel;
+        set => _virtualControllerSettingsViewModel = value;
+    }
+
     // Constructor
     public ControllerProfileViewModel(DualSenseController controller, ControllerInfo? controllerInfo, DualSenseProfileManager profileManager) : base(controller, controllerInfo)
     {
@@ -346,26 +362,87 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
 
         Logger.Info<ControllerProfileViewModel>($"Updating profile '{SelectedProfile.Name}' (ID: {SelectedProfile.Id})");
 
-        // Update the selected profile with current control values
-        SelectedProfile.Lightbar.Red = LightbarRed;
-        SelectedProfile.Lightbar.Green = LightbarGreen;
-        SelectedProfile.Lightbar.Blue = LightbarBlue;
-        SelectedProfile.PlayerLeds.Pattern = GetCurrentPlayerLedPattern();
-        SelectedProfile.PlayerLeds.Brightness = GetCurrentPlayerLedBrightness();
-        SelectedProfile.MicLed = MicLed;
-        SelectedProfile.VirtualControllerSettings.EnableEmulation = EnableEmulation;
-        SelectedProfile.VirtualControllerSettings.EmulationType = EmulationTypeIndex switch
+        // Check if we have references to other ViewModels to coordinate the update
+        if (_specialActionsViewModel != null || _virtualControllerSettingsViewModel != null)
         {
-            0 => VirtualControllerType.X360,
-            1 => VirtualControllerType.DS4,
-            _ => VirtualControllerType.X360  // Default to X360 if invalid index
-        };
-        SelectedProfile.VirtualControllerSettings.ForceStopRumble = ForceStopRumble;
-        SelectedProfile.VirtualControllerSettings.IgnoreDS4Lightbar = IgnoreDS4Lightbar;
-        SelectedProfile.VirtualControllerSettings.LeftTriggerThreshold = LeftTriggerThreshold;
-        SelectedProfile.VirtualControllerSettings.RightTriggerThreshold = RightTriggerThreshold;
+            // Update with coordinated approach using all ViewModel settings
+            Logger.Debug<ControllerProfileViewModel>("Using coordinated update approach with all ViewModels");
 
-        Logger.Debug<ControllerProfileViewModel>($"Updated values: Lightbar=RGB({LightbarRed},{LightbarGreen},{LightbarBlue}), PlayerLEDs={SelectedProfile.PlayerLeds.Pattern}, MicLED={MicLed}, VirtualControllerEnabled={SelectedProfile.VirtualControllerSettings.EnableEmulation}");
+            // Update the selected profile with current control values
+            SelectedProfile.Lightbar.Red = LightbarRed;
+            SelectedProfile.Lightbar.Green = LightbarGreen;
+            SelectedProfile.Lightbar.Blue = LightbarBlue;
+            SelectedProfile.PlayerLeds.Pattern = GetCurrentPlayerLedPattern();
+            SelectedProfile.PlayerLeds.Brightness = GetCurrentPlayerLedBrightness();
+            SelectedProfile.MicLed = MicLed;
+
+            // Update virtual controller settings from the dedicated ViewModel if available
+            if (_virtualControllerSettingsViewModel != null)
+            {
+                SelectedProfile.VirtualControllerSettings.EnableEmulation = _virtualControllerSettingsViewModel.EnableEmulation;
+                SelectedProfile.VirtualControllerSettings.EmulationType = _virtualControllerSettingsViewModel.EmulationTypeIndex switch
+                {
+                    0 => VirtualControllerType.X360,
+                    1 => VirtualControllerType.DS4,
+                    _ => VirtualControllerType.X360  // Default to X360 if invalid index
+                };
+                SelectedProfile.VirtualControllerSettings.ForceStopRumble = _virtualControllerSettingsViewModel.ForceStopRumble;
+                SelectedProfile.VirtualControllerSettings.IgnoreDS4Lightbar = _virtualControllerSettingsViewModel.IgnoreDS4Lightbar;
+                SelectedProfile.VirtualControllerSettings.LeftTriggerThreshold = _virtualControllerSettingsViewModel.LeftTriggerThreshold;
+                SelectedProfile.VirtualControllerSettings.RightTriggerThreshold = _virtualControllerSettingsViewModel.RightTriggerThreshold;
+            }
+            else
+            {
+                // Fallback to local settings if VirtualControllerSettingsViewModel is not available
+                SelectedProfile.VirtualControllerSettings.EnableEmulation = EnableEmulation;
+                SelectedProfile.VirtualControllerSettings.EmulationType = EmulationTypeIndex switch
+                {
+                    0 => VirtualControllerType.X360,
+                    1 => VirtualControllerType.DS4,
+                    _ => VirtualControllerType.X360  // Default to X360 if invalid index
+                };
+                SelectedProfile.VirtualControllerSettings.ForceStopRumble = ForceStopRumble;
+                SelectedProfile.VirtualControllerSettings.IgnoreDS4Lightbar = IgnoreDS4Lightbar;
+                SelectedProfile.VirtualControllerSettings.LeftTriggerThreshold = LeftTriggerThreshold;
+                SelectedProfile.VirtualControllerSettings.RightTriggerThreshold = RightTriggerThreshold;
+            }
+
+            // Update special actions from the dedicated ViewModel if available
+            if (_specialActionsViewModel != null)
+            {
+                SelectedProfile.SpecialActions.Clear();
+                foreach (SpecialActionSettings specialAction in _specialActionsViewModel.SpecialActions)
+                {
+                    SelectedProfile.SpecialActions.Add(specialAction);
+                }
+            }
+        }
+        else
+        {
+            // Update with just local settings (legacy behavior)
+            Logger.Debug<ControllerProfileViewModel>("Using legacy update approach with only local settings");
+
+            // Update the selected profile with current control values
+            SelectedProfile.Lightbar.Red = LightbarRed;
+            SelectedProfile.Lightbar.Green = LightbarGreen;
+            SelectedProfile.Lightbar.Blue = LightbarBlue;
+            SelectedProfile.PlayerLeds.Pattern = GetCurrentPlayerLedPattern();
+            SelectedProfile.PlayerLeds.Brightness = GetCurrentPlayerLedBrightness();
+            SelectedProfile.MicLed = MicLed;
+            SelectedProfile.VirtualControllerSettings.EnableEmulation = EnableEmulation;
+            SelectedProfile.VirtualControllerSettings.EmulationType = EmulationTypeIndex switch
+            {
+                0 => VirtualControllerType.X360,
+                1 => VirtualControllerType.DS4,
+                _ => VirtualControllerType.X360  // Default to X360 if invalid index
+            };
+            SelectedProfile.VirtualControllerSettings.ForceStopRumble = ForceStopRumble;
+            SelectedProfile.VirtualControllerSettings.IgnoreDS4Lightbar = IgnoreDS4Lightbar;
+            SelectedProfile.VirtualControllerSettings.LeftTriggerThreshold = LeftTriggerThreshold;
+            SelectedProfile.VirtualControllerSettings.RightTriggerThreshold = RightTriggerThreshold;
+        }
+
+        Logger.Debug<ControllerProfileViewModel>($"Updated values: Lightbar=RGB({LightbarRed},{LightbarGreen},{LightbarBlue}), PlayerLEDs={SelectedProfile.PlayerLeds.Pattern}, MicLED={MicLed}, VirtualControllerEnabled={SelectedProfile.VirtualControllerSettings.EnableEmulation}, SpecialActionsCount={SelectedProfile.SpecialActions.Count}");
 
         _profileManager.SaveProfile(SelectedProfile);
         Logger.Info<ControllerProfileViewModel>("Profile updated successfully");
@@ -432,10 +509,89 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
 
         Logger.Info<ControllerProfileViewModel>($"Duplicating profile '{SelectedProfile.Name}' (ID: {SelectedProfile.Id})");
 
-        ControllerProfile newProfile = _profileManager.DuplicateProfile(SelectedProfile.Id, $"{SelectedProfile.Name} (Copy)");
+        // Create a new profile based on current profile and ViewModel settings
+        ControllerProfile newProfile = new ControllerProfile
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = $"{SelectedProfile.Name} (Copy)",
+            Lightbar = new LightbarSettings
+            {
+                Behavior = SelectedProfile.Lightbar.Behavior,
+                Red = SelectedProfile.Lightbar.Red,
+                Green = SelectedProfile.Lightbar.Green,
+                Blue = SelectedProfile.Lightbar.Blue
+            },
+            PlayerLeds = new PlayerLedSettings
+            {
+                Pattern = SelectedProfile.PlayerLeds.Pattern,
+                Brightness = SelectedProfile.PlayerLeds.Brightness
+            },
+            MicLed = SelectedProfile.MicLed,
+            VirtualControllerSettings = new VirtualControllerSettings
+            {
+                EnableEmulation = SelectedProfile.VirtualControllerSettings.EnableEmulation,
+                EmulationType = SelectedProfile.VirtualControllerSettings.EmulationType,
+                ForceStopRumble = SelectedProfile.VirtualControllerSettings.ForceStopRumble,
+                IgnoreDS4Lightbar = SelectedProfile.VirtualControllerSettings.IgnoreDS4Lightbar,
+                LeftTriggerThreshold = SelectedProfile.VirtualControllerSettings.LeftTriggerThreshold,
+                RightTriggerThreshold = SelectedProfile.VirtualControllerSettings.RightTriggerThreshold
+            }
+        };
 
-        Logger.Debug<ControllerProfileViewModel>($"New profile created: '{newProfile.Name}' (ID: {newProfile.Id})");
+        // Check if we have references to other ViewModels to coordinate the duplication
+        if (_specialActionsViewModel != null || _virtualControllerSettingsViewModel != null)
+        {
+            Logger.Debug<ControllerProfileViewModel>("Using coordinated duplication approach with all ViewModels");
 
+            // Override virtual controller settings from the dedicated ViewModel if available
+            if (_virtualControllerSettingsViewModel != null)
+            {
+                newProfile.VirtualControllerSettings.EnableEmulation = _virtualControllerSettingsViewModel.EnableEmulation;
+                newProfile.VirtualControllerSettings.EmulationType = _virtualControllerSettingsViewModel.EmulationTypeIndex switch
+                {
+                    0 => VirtualControllerType.X360,
+                    1 => VirtualControllerType.DS4,
+                    _ => VirtualControllerType.X360  // Default to X360 if invalid index
+                };
+                newProfile.VirtualControllerSettings.ForceStopRumble = _virtualControllerSettingsViewModel.ForceStopRumble;
+                newProfile.VirtualControllerSettings.IgnoreDS4Lightbar = _virtualControllerSettingsViewModel.IgnoreDS4Lightbar;
+                newProfile.VirtualControllerSettings.LeftTriggerThreshold = _virtualControllerSettingsViewModel.LeftTriggerThreshold;
+                newProfile.VirtualControllerSettings.RightTriggerThreshold = _virtualControllerSettingsViewModel.RightTriggerThreshold;
+            }
+
+            // Copy special actions from the dedicated ViewModel if available
+            if (_specialActionsViewModel != null)
+            {
+                newProfile.SpecialActions.Clear();
+                foreach (SpecialActionSettings specialAction in _specialActionsViewModel.SpecialActions)
+                {
+                    newProfile.SpecialActions.Add(specialAction);
+                }
+            }
+            else
+            {
+                // Copy from source profile if SpecialActionsViewModel is unavailable
+                foreach (SpecialActionSettings specialAction in SelectedProfile.SpecialActions)
+                {
+                    newProfile.SpecialActions.Add(specialAction);
+                }
+            }
+        }
+        else
+        {
+            // Copy from source profile (legacy behavior)
+            Logger.Debug<ControllerProfileViewModel>("Using legacy duplication approach with only source profile settings");
+            foreach (SpecialActionSettings specialAction in SelectedProfile.SpecialActions)
+            {
+                newProfile.SpecialActions.Add(specialAction);
+            }
+        }
+
+        // Save the new profile
+        _profileManager.SaveProfile(newProfile);
+        Logger.Debug<ControllerProfileViewModel>($"New profile created with: Lightbar=RGB({newProfile.Lightbar.Red},{newProfile.Lightbar.Green},{newProfile.Lightbar.Blue}), SpecialActionsCount={newProfile.SpecialActions.Count}");
+
+        // Update the UI to show the new profile
         LoadProfiles();
         SelectedProfile = Profiles.FirstOrDefault(p => p.Id == newProfile.Id);
 

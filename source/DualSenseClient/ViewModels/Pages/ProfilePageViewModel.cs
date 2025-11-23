@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using DualSenseClient.Core.DualSense;
+using DualSenseClient.Core.DualSense.Enums;
 using DualSenseClient.Core.Logging;
 using DualSenseClient.Core.Settings.Models;
 using DualSenseClient.Services;
@@ -95,6 +98,7 @@ public partial class ProfilePageViewModel : ViewModelBase
         }
     }
 
+
     private void InitializeControllerViewModels()
     {
         Logger.Debug<ProfilePageViewModel>("Initializing controller ViewModels");
@@ -120,6 +124,10 @@ public partial class ProfilePageViewModel : ViewModelBase
 
             Logger.Debug<ProfilePageViewModel>("Creating VirtualControllerSettingsViewModel");
             VirtualControllerSettingsViewModel = new VirtualControllerSettingsViewModel(SelectedController.Controller, SelectedControllerInfo, _profileManager);
+
+            // Set references for coordinated profile updates
+            ProfileViewModel.SpecialActionsViewModel = SpecialActionsViewModel;
+            ProfileViewModel.VirtualControllerSettingsViewModel = VirtualControllerSettingsViewModel;
 
             // Subscribe to profile changes to keep VirtualControllerSettings in sync
             SubscribeToProfileChanges();

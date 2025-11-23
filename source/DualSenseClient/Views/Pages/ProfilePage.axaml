@@ -11,25 +11,33 @@
     <Design.DataContext>
         <vm:ProfilePageViewModel />
     </Design.DataContext>
-    <ScrollViewer Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
-        <StackPanel Margin="20" Spacing="20">
-            <!-- Controller Profiles -->
-            <StackPanel IsVisible="{Binding ProfileViewModel, Converter={x:Static ObjectConverters.IsNotNull}}" Spacing="12">
-                <controls:ProfileSelector DataContext="{Binding ProfileViewModel}" />
-                <controls:ControllerLights DataContext="{Binding ProfileViewModel}" />
-            </StackPanel>
-
-            <!-- Virtual Controller Settings - Windows only -->
-            <Border CornerRadius="8"
-                    IsVisible="{Binding VirtualControllerSettingsViewModel, Converter={x:Static ObjectConverters.IsNotNull}}">
-                <controls:VirtualControllerSettings DataContext="{Binding VirtualControllerSettingsViewModel}" />
-            </Border>
-
-            <!-- Special Actions -->
-            <Border CornerRadius="8"
-                    IsVisible="{Binding SpecialActionsViewModel, Converter={x:Static ObjectConverters.IsNotNull}}">
-                <controls:SpecialActions DataContext="{Binding SpecialActionsViewModel}" />
-            </Border>
+    <DockPanel Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+        <!-- Profile Selector (Always on top) -->
+        <StackPanel DockPanel.Dock="Top"
+                    IsVisible="{Binding ProfileViewModel, Converter={x:Static ObjectConverters.IsNotNull}}"
+                    Spacing="12"
+                    Margin="20,20,20,0">
+            <controls:ProfileSelector DataContext="{Binding ProfileViewModel}" />
         </StackPanel>
-    </ScrollViewer>
+
+        <!-- Content Area -->
+        <ScrollViewer>
+            <StackPanel Margin="20,20,20,20" Spacing="20">
+                <!-- Controller Lights -->
+                <controls:ControllerLights DataContext="{Binding ProfileViewModel}" />
+
+                <!-- Virtual Controller Settings - Windows only -->
+                <Border CornerRadius="8"
+                        IsVisible="{Binding VirtualControllerSettingsViewModel, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <controls:VirtualControllerSettings DataContext="{Binding VirtualControllerSettingsViewModel}" />
+                </Border>
+
+                <!-- Special Actions -->
+                <Border CornerRadius="8"
+                        IsVisible="{Binding SpecialActionsViewModel, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <controls:SpecialActions DataContext="{Binding SpecialActionsViewModel}" />
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
 </UserControl>
