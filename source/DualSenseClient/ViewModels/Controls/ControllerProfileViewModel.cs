@@ -212,6 +212,14 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
         {
             return;
         }
+
+        // Skip if we're currently importing a profile to prevent infinite loops
+        if (_isImportingProfile)
+        {
+            Logger.Debug<ControllerProfileViewModel>($"Skipping OnProfileChanged during import operation to prevent infinite loop");
+            return;
+        }
+
         Logger.Info<ControllerProfileViewModel>($"External profile change detected for this controller: {e.Profile.Name} (ID: {e.Profile.Id})");
 
         // Update the SelectedProfile property to match the changed profile
@@ -948,11 +956,22 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
         }
     }
 
+    private bool _isImportingProfile = false;
+
     [RelayCommand]
     private async Task ImportProfileAsync()
     {
+        // Prevent recursive execution
+        if (_isImportingProfile)
+        {
+            Logger.Warning<ControllerProfileViewModel>("ImportProfileAsync called while already importing, skipping to prevent recursion");
+            return;
+        }
+
         try
         {
+            _isImportingProfile = true;
+
             // This requires access to the main window
             Window? window = App.MainWindow;
 
@@ -1014,6 +1033,10 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
         catch (Exception ex)
         {
             Logger.Error<ControllerProfileViewModel>($"Failed to import profile: {ex.Message}");
+        }
+        finally
+        {
+            _isImportingProfile = false;
         }
     }
 
