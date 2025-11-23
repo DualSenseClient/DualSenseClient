@@ -4,6 +4,7 @@ using DualSenseClient.Core.DualSense.Actions;
 using DualSenseClient.Core.DualSense.Enums;
 using DualSenseClient.Core.DualSense.Events;
 using DualSenseClient.Core.DualSense.Reports;
+using DualSenseClient.Core.DualSense.Services;
 using DualSenseClient.Core.Logging;
 using DualSenseClient.Core.Utils;
 using HidSharp;
@@ -45,6 +46,8 @@ public class DualSenseController : IDisposable
     public InputState Input { get; private set; } = new InputState();
     public TouchpadState Touchpad { get; private set; } = new TouchpadState();
     public MotionState Motion { get; private set; } = new MotionState();
+    public byte LargeMotorValue { get; private set; } = 0;
+    public byte SmallMotorValue { get; private set; } = 0;
     public SpecialActionService? SpecialActionService { get; }
 
     // Events
@@ -781,6 +784,29 @@ public class DualSenseController : IDisposable
     }
 
     /// <summary>
+    /// Sets the vibration intensity for both motors
+    /// </summary>
+    /// <param name="largeMotor">Large motor (left) vibration intensity (0-255)</param>
+    /// <param name="smallMotor">Small motor (right) vibration intensity (0-255)</param>
+    public bool SetVibration(byte largeMotor, byte smallMotor)
+    {
+        Logger.Debug<DualSenseController>($"Setting vibration: Large={largeMotor}, Small={smallMotor}");
+
+        // Store previous values
+        byte previousLargeMotor = LargeMotorValue;
+        byte previousSmallMotor = SmallMotorValue;
+
+        // Update current values
+        LargeMotorValue = largeMotor;
+        SmallMotorValue = smallMotor;
+
+        // Send the output report
+        bool success = SendOutputReport();
+
+        return success;
+    }
+
+    /// <summary>
     /// Sets the microphone LED
     /// </summary>
     public bool SetMicLed(MicLed led)
@@ -854,6 +880,10 @@ public class DualSenseController : IDisposable
         // Feature mask
         report[1 + offset] = 0xFF;
         report[2 + offset] = 0xF7;
+
+        // Rumble (vibration) data
+        report[3 + offset] = SmallMotorValue; // Light motor
+        report[4 + offset] = LargeMotorValue; // Heavy motor
 
         // Mic LED
         report[9 + offset] = (byte)CurrentMicLed;
