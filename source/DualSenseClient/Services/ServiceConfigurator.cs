@@ -36,12 +36,17 @@ public static class ServiceConfigurator
 #pragma warning disable CA1416
             services.AddSingleton<HidHideService>();
             services.AddSingleton<IHidHideService>(sp => sp.GetRequiredService<HidHideService>());
+            services.AddSingleton<ViGEmBusService>();
+            services.AddSingleton<IViGEmBusService>(sp => sp.GetRequiredService<ViGEmBusService>());
 #pragma warning restore CA1416
         }
         else
         {
+#pragma warning disable CA1416
             // Register a null implementation or a no-op implementation for non-Windows platforms
             services.AddSingleton<IHidHideService, NullHidHideService>();
+            services.AddSingleton<IViGEmBusService, NullViGEmBusService>();
+#pragma warning restore CA1416
         }
 
         services.AddSingleton<ThemeService>(provider =>

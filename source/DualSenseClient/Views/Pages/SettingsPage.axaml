@@ -41,6 +41,73 @@
                 </StackPanel>
             </StackPanel>
 
+            <!-- Driver Status -->
+            <ui:SettingsExpander Header="Driver Status"
+                                 Description="Information about required drivers for controller emulation"
+                                 IsExpanded="True"
+                                 IsVisible="{Binding IsWindows}">
+                <ui:SettingsExpander.IconSource>
+                    <ic:SymbolIconSource Symbol="PlugConnected" />
+                </ui:SettingsExpander.IconSource>
+                <ui:SettingsExpander.Items>
+                    <!-- ViGEmBus Status -->
+                    <ui:SettingsExpander Header="ViGEmBus Driver"
+                                         Description="Required for virtual controller emulation (Xbox 360/DualShock 4)">
+                        <ui:SettingsExpander.IconSource>
+                            <ic:SymbolIconSource Symbol="XboxController" />
+                        </ui:SettingsExpander.IconSource>
+                        <ui:SettingsExpander.Footer>
+                            <StackPanel Spacing="5">
+                                <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                        Padding="10"
+                                        CornerRadius="6"
+                                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1">
+                                    <TextBlock Text="{Binding IsViGEMBusInstalled,
+                                                 Converter={StaticResource BooleanToStringConverter},
+                                                 ConverterParameter='Installed|Not Installed'}"
+                                               FontWeight="SemiBold"
+                                               Foreground="{Binding IsViGEMBusInstalled,
+                                                 Converter={StaticResource BooleanToBrushConverter}}" />
+                                </Border>
+                                <HyperlinkButton NavigateUri="https://github.com/nefarius/ViGEmBus/"
+                                                 Content="Visit ViGEmBus Project"
+                                                 FontSize="11"
+                                                 HorizontalAlignment="Left" />
+                            </StackPanel>
+                        </ui:SettingsExpander.Footer>
+                    </ui:SettingsExpander>
+
+                    <!-- HidHide Status -->
+                    <ui:SettingsExpander Header="HidHide Driver"
+                                         Description="Required for hiding the physical controller from other applications">
+                        <ui:SettingsExpander.IconSource>
+                            <ic:SymbolIconSource Symbol="AppsShield" />
+                        </ui:SettingsExpander.IconSource>
+                        <ui:SettingsExpander.Footer>
+                            <StackPanel Spacing="5">
+                                <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                        Padding="10"
+                                        CornerRadius="6"
+                                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1">
+                                    <TextBlock Text="{Binding IsHidHideInstalled,
+                                                 Converter={StaticResource BooleanToStringConverter},
+                                                 ConverterParameter='Installed|Not Installed'}"
+                                               FontWeight="SemiBold"
+                                               Foreground="{Binding IsHidHideInstalled,
+                                                 Converter={StaticResource BooleanToBrushConverter}}" />
+                                </Border>
+                                <HyperlinkButton NavigateUri="https://github.com/nefarius/HidHide"
+                                                 Content="Visit HidHide Project"
+                                                 FontSize="11"
+                                                 HorizontalAlignment="Left" />
+                            </StackPanel>
+                        </ui:SettingsExpander.Footer>
+                    </ui:SettingsExpander>
+                </ui:SettingsExpander.Items>
+            </ui:SettingsExpander>
+
             <ui:SettingsExpander Header="Appearance"
                                  Description="Customize the look and feel of the application">
                 <ui:SettingsExpander.IconSource>

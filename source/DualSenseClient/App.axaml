@@ -19,6 +19,8 @@
             <converters:LightbarColorToBrushConverter x:Key="LightbarColorToBrushConverter" />
             <converters:PlayerLedBrightnessToOpacityConverter x:Key="PlayerLedBrightnessToOpacityConverter" />
             <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+            <converters:BooleanToStringConverter x:Key="BooleanToStringConverter" />
+            <converters:BooleanToColorConverter x:Key="BooleanToBrushConverter" />
         </ResourceDictionary>
     </Application.Resources>
     <Application.Styles>

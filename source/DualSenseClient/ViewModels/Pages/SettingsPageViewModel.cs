@@ -31,6 +31,8 @@ public partial class SettingsPageViewModel : ViewModelBase
     // Properties
     private readonly ISettingsManager _settingsManager;
     private readonly ThemeService _themeService;
+    private readonly IHidHideService _hidHideService;
+    private readonly IViGEmBusService _viGEmBusService;
 
     public ObservableCollection<ThemeItem> AvailableThemes { get; } = [];
     [ObservableProperty] private ThemeItem? selectedTheme;
@@ -46,16 +48,27 @@ public partial class SettingsPageViewModel : ViewModelBase
 
     [ObservableProperty] private bool trayBatteryTracking;
 
+    [ObservableProperty] private bool isViGEMBusInstalled = false;
+
+    [ObservableProperty] private bool isHidHideInstalled = false;
+
+    [ObservableProperty] private bool isWindows = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows);
+
     public string ApplicationVersion => _settingsManager.Application.GetVersion();
 
     // Constructor
-    public SettingsPageViewModel(ISettingsManager settingsManager, ThemeService themeService)
+    public SettingsPageViewModel(ISettingsManager settingsManager, ThemeService themeService, IHidHideService hidHideService, IViGEmBusService viGEmBusService)
     {
         _settingsManager = settingsManager;
         _themeService = themeService;
+        _hidHideService = hidHideService;
+#pragma warning disable CA1416 // Platform-specific services are registered based on platform
+        _viGEmBusService = viGEmBusService;
+#pragma warning restore CA1416
 
         InitializeThemes();
         InitializeLogLevels();
+        InitializeDriverStatus();
 
         ApplySettings(_settingsManager.Application);
         _settingsManager.SettingsChanged += OnSettingsChanged;
@@ -125,6 +138,24 @@ public partial class SettingsPageViewModel : ViewModelBase
             DisplayName = "Off",
             Description = "Disable logging completely"
         });
+    }
+
+    private void InitializeDriverStatus()
+    {
+        // Initialize HidHide status (Windows-specific)
+#pragma warning disable CA1416 // Platform compatibility is checked above
+        if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
+        {
+            IsHidHideInstalled = _hidHideService.IsInstalled;
+            IsViGEMBusInstalled = _viGEmBusService.IsViGEMBusInstalled;
+        }
+        else
+        {
+            // On non-Windows platforms, the services will be null implementations returning false
+            IsHidHideInstalled = _hidHideService.IsInstalled;
+            IsViGEMBusInstalled = _viGEmBusService.IsViGEMBusInstalled;
+        }
+#pragma warning restore CA1416
     }
 
     private void ApplySettings(ApplicationSettingsStore settings)
