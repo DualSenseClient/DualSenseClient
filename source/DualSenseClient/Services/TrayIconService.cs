@@ -123,42 +123,39 @@ public class TrayIconService : IDisposable
                 };
                 controllerSubMenu.Add(selectControllerItem);
 
-                // Add profile submenu for the controller (only if this is the selected controller)
-                if (controller.ControllerId == _selectedControllerService.SelectedController?.ControllerId)
+                // Add profile submenu for the controller (for all controllers)
+                NativeMenu profileSubMenu = new NativeMenu();
+
+                // Add profile items
+                foreach (ControllerProfile profile in _profileManager.GetAllProfiles().Values.OrderBy(p => p.Name))
                 {
-                    NativeMenu profileSubMenu = new NativeMenu();
-
-                    // Add profile items
-                    foreach (ControllerProfile profile in _profileManager.GetAllProfiles().Values.OrderBy(p => p.Name))
+                    NativeMenuItem profileItem = new NativeMenuItem(profile.Name)
                     {
-                        NativeMenuItem profileItem = new NativeMenuItem(profile.Name)
+                        Command = new RelayCommand(() =>
                         {
-                            Command = new RelayCommand(() =>
+                            // Apply the selected profile to the controller
+                            _profileManager.AssignProfileToController(controller.ControllerId, profile.Id);
+                            // Apply the profile settings to the controller immediately
+                            ControllerProfile? profileToApply = _profileManager.GetProfile(profile.Id);
+                            if (profileToApply != null)
                             {
-                                // Apply the selected profile to the controller
-                                _profileManager.AssignProfileToController(controller.ControllerId, profile.Id);
-                                // Apply the profile settings to the controller immediately
-                                ControllerProfile? profileToApply = _profileManager.GetProfile(profile.Id);
-                                if (profileToApply != null)
-                                {
-                                    _profileManager.ApplyProfileToController(controller.Controller, profileToApply);
+                                _profileManager.ApplyProfileToController(controller.Controller, profileToApply);
 
-                                    // Trigger the profile changed event to notify UI elements
-                                    _profileManager.TriggerProfileChanged(controller.ControllerId, profileToApply);
-                                }
-                            })
-                        };
-                        profileSubMenu.Add(profileItem);
-                    }
-
-                    // Add profile submenu item
-                    NativeMenuItem profilesItem = new NativeMenuItem("Profiles")
-                    {
-                        Menu = profileSubMenu
+                                // Trigger the profile changed event to notify UI elements
+                                _profileManager.TriggerProfileChanged(controller.ControllerId, profileToApply);
+                            }
+                        })
                     };
-                    controllerSubMenu.Add(new NativeMenuItemSeparator());
-                    controllerSubMenu.Add(profilesItem);
+                    profileSubMenu.Add(profileItem);
                 }
+
+                // Add profile submenu item
+                NativeMenuItem profilesItem = new NativeMenuItem("Profiles")
+                {
+                    Menu = profileSubMenu
+                };
+                controllerSubMenu.Add(new NativeMenuItemSeparator());
+                controllerSubMenu.Add(profilesItem);
 
                 // Add disconnect option only if controller is connected via Bluetooth
                 if (controller.ConnectionType == "Bluetooth")
@@ -234,42 +231,39 @@ public class TrayIconService : IDisposable
                     };
                     controllerSubMenu.Add(selectControllerItem);
 
-                    // Add profile submenu for the controller (only if this is the selected controller)
-                    if (controller.ControllerId == _selectedControllerService.SelectedController?.ControllerId)
+                    // Add profile submenu for the controller (for all controllers)
+                    NativeMenu profileSubMenu = new NativeMenu();
+
+                    // Add profile items
+                    foreach (ControllerProfile profile in _profileManager.GetAllProfiles().Values.OrderBy(p => p.Name))
                     {
-                        NativeMenu profileSubMenu = new NativeMenu();
-
-                        // Add profile items
-                        foreach (ControllerProfile profile in _profileManager.GetAllProfiles().Values.OrderBy(p => p.Name))
+                        NativeMenuItem profileItem = new NativeMenuItem(profile.Name)
                         {
-                            NativeMenuItem profileItem = new NativeMenuItem(profile.Name)
+                            Command = new RelayCommand(() =>
                             {
-                                Command = new RelayCommand(() =>
+                                // Apply the selected profile to the controller
+                                _profileManager.AssignProfileToController(controller.ControllerId, profile.Id);
+                                // Apply the profile settings to the controller immediately
+                                ControllerProfile? profileToApply = _profileManager.GetProfile(profile.Id);
+                                if (profileToApply != null)
                                 {
-                                    // Apply the selected profile to the controller
-                                    _profileManager.AssignProfileToController(controller.ControllerId, profile.Id);
-                                    // Apply the profile settings to the controller immediately
-                                    ControllerProfile? profileToApply = _profileManager.GetProfile(profile.Id);
-                                    if (profileToApply != null)
-                                    {
-                                        _profileManager.ApplyProfileToController(controller.Controller, profileToApply);
+                                    _profileManager.ApplyProfileToController(controller.Controller, profileToApply);
 
-                                        // Trigger the profile changed event to notify UI elements
-                                        _profileManager.TriggerProfileChanged(controller.ControllerId, profileToApply);
-                                    }
-                                })
-                            };
-                            profileSubMenu.Add(profileItem);
-                        }
-
-                        // Add profile submenu item
-                        NativeMenuItem profilesItem = new NativeMenuItem("Profiles")
-                        {
-                            Menu = profileSubMenu
+                                    // Trigger the profile changed event to notify UI elements
+                                    _profileManager.TriggerProfileChanged(controller.ControllerId, profileToApply);
+                                }
+                            })
                         };
-                        controllerSubMenu.Add(new NativeMenuItemSeparator());
-                        controllerSubMenu.Add(profilesItem);
+                        profileSubMenu.Add(profileItem);
                     }
+
+                    // Add profile submenu item
+                    NativeMenuItem profilesItem = new NativeMenuItem("Profiles")
+                    {
+                        Menu = profileSubMenu
+                    };
+                    controllerSubMenu.Add(new NativeMenuItemSeparator());
+                    controllerSubMenu.Add(profilesItem);
 
                     // Add disconnect option only if controller is connected via Bluetooth
                     if (controller.ConnectionType == "Bluetooth")
