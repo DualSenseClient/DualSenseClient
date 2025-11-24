@@ -1,10 +1,9 @@
 using System.Runtime.Versioning;
 
-namespace DualSenseClient.Services
+namespace DualSenseClient.Services;
+
+[SupportedOSPlatform("windows")]
+public interface IViGEmBusService
 {
-    [SupportedOSPlatform("windows")]
-    public interface IViGEmBusService
-    {
-        bool IsViGEMBusInstalled { get; }
-    }
+    bool IsViGEMBusInstalled { get; }
 }
