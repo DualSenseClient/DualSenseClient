@@ -29,6 +29,21 @@ public static class ServiceConfigurator
         services.AddSingleton<IProfileRenameService, ProfileRenameService>();
         services.AddSingleton<TrayIconService>();
         services.AddSingleton<IAutoStartService, AutoStartService>();
+
+        // Windows-specific services
+        if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
+        {
+#pragma warning disable CA1416
+            services.AddSingleton<HidHideService>();
+            services.AddSingleton<IHidHideService>(sp => sp.GetRequiredService<HidHideService>());
+#pragma warning restore CA1416
+        }
+        else
+        {
+            // Register a null implementation or a no-op implementation for non-Windows platforms
+            services.AddSingleton<IHidHideService, NullHidHideService>();
+        }
+
         services.AddSingleton<ThemeService>(provider =>
         {
             ThemeService themeService = new ThemeService();

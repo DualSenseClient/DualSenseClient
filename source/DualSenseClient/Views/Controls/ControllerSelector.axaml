@@ -84,6 +84,24 @@
                                             <ic:SymbolIcon Symbol="Copy" FontSize="16" />
                                         </MenuItem.Icon>
                                     </MenuItem>
+
+                                    <Separator />
+
+                                    <!-- HidHide functionality (Windows only and only when HidHide is installed and running as admin) -->
+                                    <MenuItem Header="Hide Controller (HidHide)"
+                                              Command="{Binding HideControllerCommand}"
+                                              IsVisible="{Binding IsHidHideReady}">
+                                        <MenuItem.Icon>
+                                            <ic:SymbolIcon Symbol="EyeOff" FontSize="16" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Unhide Controller (HidHide)"
+                                              Command="{Binding UnhideControllerCommand}"
+                                              IsVisible="{Binding IsHidHideReady}">
+                                        <MenuItem.Icon>
+                                            <ic:SymbolIcon Symbol="Eye" FontSize="16" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
                                 </MenuFlyout>
                             </Border.ContextFlyout>
 

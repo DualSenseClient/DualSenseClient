@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -22,15 +25,17 @@ public class TrayIconService : IDisposable
     private readonly SelectedControllerService _selectedControllerService;
     private readonly DualSenseProfileManager _profileManager;
     private readonly ISettingsManager _settingsManager;
+    private readonly IHidHideService? _hidHideService;
     private readonly List<ControllerViewModelBase> _controllers = new();
     private readonly TrayIconViewModel _viewModel;
     private bool _disposed = false;
 
-    public TrayIconService(SelectedControllerService selectedControllerService, DualSenseProfileManager profileManager, ISettingsManager settingsManager)
+    public TrayIconService(SelectedControllerService selectedControllerService, DualSenseProfileManager profileManager, ISettingsManager settingsManager, IHidHideService? hidHideService = null)
     {
         _selectedControllerService = selectedControllerService;
         _profileManager = profileManager;
         _settingsManager = settingsManager;
+        _hidHideService = hidHideService;
         _viewModel = new TrayIconViewModel(ShowMainWindow, _selectedControllerService);
 
         // Subscribe to available controllers collection changes
@@ -157,6 +162,53 @@ public class TrayIconService : IDisposable
                 controllerSubMenu.Add(new NativeMenuItemSeparator());
                 controllerSubMenu.Add(profilesItem);
 
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    // Add HidHide submenu for Windows platforms
+                    if (_hidHideService != null && _hidHideService.IsInstalled)
+                    {
+                        // Create HidHide submenu
+                        NativeMenu hidHideSubMenu = new NativeMenu();
+
+                        // Hide controller option
+                        NativeMenuItem hideItem = new NativeMenuItem("Hide Controller")
+                        {
+                            Command = new RelayCommand(() =>
+                            {
+                                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                                {
+                                    HideController(controller);
+                                }
+                            }),
+                            IsEnabled = _hidHideService.IsReady // Only enabled if HidHide is ready (installed + running as admin)
+                        };
+                        hidHideSubMenu.Add(hideItem);
+
+                        // Unhide controller option
+                        NativeMenuItem unhideItem = new NativeMenuItem("Unhide Controller")
+                        {
+                            Command = new RelayCommand(() =>
+                            {
+                                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                                {
+                                    UnhideController(controller);
+                                }
+                            }),
+                            IsEnabled = _hidHideService.IsReady // Only enabled if HidHide is ready (installed + running as admin)
+                        };
+                        hidHideSubMenu.Add(unhideItem);
+
+                        // Add HidHide submenu item
+                        NativeMenuItem hidHideItem = new NativeMenuItem("HidHide")
+                        {
+                            Menu = hidHideSubMenu,
+                            IsEnabled = _hidHideService.IsReady // Only enabled if HidHide is ready
+                        };
+                        controllerSubMenu.Add(new NativeMenuItemSeparator());
+                        controllerSubMenu.Add(hidHideItem);
+                    }
+                }
+
                 // Add disconnect option only if controller is connected via Bluetooth
                 if (controller.ConnectionType == "Bluetooth")
                 {
@@ -193,6 +245,103 @@ public class TrayIconService : IDisposable
     {
         _selectedControllerService.SelectedController = controller;
         ShowMainWindow();
+    }
+
+    [SupportedOSPlatform("windows")]
+    private void HideController(ControllerViewModelBase controller)
+    {
+        if (_hidHideService is not { IsReady: true })
+        {
+            Logger.Warning<TrayIconService>("HidHide is not ready or not available");
+            return;
+        }
+
+        // Get the MAC address from the controller
+        Type controllerType = controller.Controller.GetType();
+        PropertyInfo? macAddressProperty = controllerType.GetProperty("MacAddress");
+        if (macAddressProperty == null)
+        {
+            return;
+        }
+        string? macAddress = macAddressProperty.GetValue(controller.Controller) as string;
+        if (!string.IsNullOrEmpty(macAddress))
+        {
+            // Find the device instance ID using the HidHideService
+            string? deviceInstanceId = _hidHideService.FindDeviceInstanceIdByMacAddress(macAddress);
+            if (!string.IsNullOrEmpty(deviceInstanceId))
+            {
+                Logger.Info<TrayIconService>($"Hiding controller with device ID: {deviceInstanceId}");
+                bool success = _hidHideService.HideDevice(deviceInstanceId);
+
+                if (success)
+                {
+                    Logger.Info<TrayIconService>($"Successfully hid controller: {controller.Name}");
+                    // Optionally activate cloaking if not already active
+                    if (!_hidHideService.IsCloakingActive())
+                    {
+                        _hidHideService.SetCloakingState(true);
+                    }
+                }
+                else
+                {
+                    Logger.Warning<TrayIconService>($"Failed to hide controller: {controller.Name}");
+                }
+            }
+            else
+            {
+                Logger.Warning<TrayIconService>($"Could not find device instance ID for controller: {controller.Name}");
+            }
+        }
+        else
+        {
+            Logger.Warning<TrayIconService>($"Could not get MAC address for controller: {controller.Name}");
+        }
+    }
+
+    [SupportedOSPlatform("windows")]
+    private void UnhideController(ControllerViewModelBase controller)
+    {
+        if (_hidHideService is not { IsReady: true })
+        {
+            Logger.Warning<TrayIconService>("HidHide is not ready or not available");
+            return;
+        }
+
+        // Get the MAC address from the controller
+        Type controllerType = controller.Controller.GetType();
+        PropertyInfo? macAddressProperty = controllerType.GetProperty("MacAddress");
+        if (macAddressProperty == null)
+        {
+            return;
+        }
+        string? macAddress = macAddressProperty.GetValue(controller.Controller) as string;
+        if (!string.IsNullOrEmpty(macAddress))
+        {
+            // Find the device instance ID using the HidHideService
+            string? deviceInstanceId = _hidHideService.FindDeviceInstanceIdByMacAddress(macAddress);
+            if (!string.IsNullOrEmpty(deviceInstanceId))
+            {
+                Logger.Info<TrayIconService>($"Unhiding controller with device ID: {deviceInstanceId}");
+                bool success = _hidHideService.UnhideDevice(deviceInstanceId);
+
+                if (success)
+                {
+                    Logger.Info<TrayIconService>($"Successfully unhid controller: {controller.Name}");
+                }
+                else
+                {
+                    Logger.Warning<TrayIconService>($"Failed to unhide controller: {controller.Name}");
+                }
+            }
+            else
+            {
+                Logger.Warning<TrayIconService>($"Could not find device instance ID for controller: {controller.Name}");
+            }
+        }
+        else
+        {
+            Logger.Warning<TrayIconService>($"Could not get MAC address for controller: {controller.Name}");
+        }
     }
 
     // Method to update the context menu dynamically
@@ -264,6 +413,53 @@ public class TrayIconService : IDisposable
                     };
                     controllerSubMenu.Add(new NativeMenuItemSeparator());
                     controllerSubMenu.Add(profilesItem);
+
+                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                    {
+                        // Add HidHide submenu for Windows platforms
+                        if (_hidHideService != null && _hidHideService.IsInstalled)
+                        {
+                            // Create HidHide submenu
+                            NativeMenu hidHideSubMenu = new NativeMenu();
+
+                            // Hide controller option
+                            NativeMenuItem hideItem = new NativeMenuItem("Hide Controller")
+                            {
+                                Command = new RelayCommand(() =>
+                                {
+                                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                                    {
+                                        HideController(controller);
+                                    }
+                                }),
+                                IsEnabled = _hidHideService.IsReady // Only enabled if HidHide is ready (installed + running as admin)
+                            };
+                            hidHideSubMenu.Add(hideItem);
+
+                            // Unhide controller option
+                            NativeMenuItem unhideItem = new NativeMenuItem("Unhide Controller")
+                            {
+                                Command = new RelayCommand(() =>
+                                {
+                                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                                    {
+                                        UnhideController(controller);
+                                    }
+                                }),
+                                IsEnabled = _hidHideService.IsReady // Only enabled if HidHide is ready (installed + running as admin)
+                            };
+                            hidHideSubMenu.Add(unhideItem);
+
+                            // Add HidHide submenu item
+                            NativeMenuItem hidHideItem = new NativeMenuItem("HidHide")
+                            {
+                                Menu = hidHideSubMenu,
+                                IsEnabled = _hidHideService.IsReady // Only enabled if HidHide is ready
+                            };
+                            controllerSubMenu.Add(new NativeMenuItemSeparator());
+                            controllerSubMenu.Add(hidHideItem);
+                        }
+                    }
 
                     // Add disconnect option only if controller is connected via Bluetooth
                     if (controller.ConnectionType == "Bluetooth")
