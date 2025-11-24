@@ -58,7 +58,18 @@ public class ControllerEmulationService : IDisposable
             return;
         }
 
-        StopEmulation();
+        // Check if X360 emulation is already running
+        if (IsEmulating && IsEmulating360)
+        {
+            Logger.Debug<ControllerEmulationService>("X360 emulation is already running, skipping start");
+            return;
+        }
+
+        // Only stop if a different type of emulation is running
+        if (IsEmulating && !IsEmulating360)
+        {
+            StopEmulation();
+        }
 
         try
         {
@@ -106,7 +117,18 @@ public class ControllerEmulationService : IDisposable
             return;
         }
 
-        StopEmulation();
+        // Check if DS4 emulation is already running
+        if (IsEmulating && !IsEmulating360)
+        {
+            Logger.Debug<ControllerEmulationService>("DS4 emulation is already running, skipping start");
+            return;
+        }
+
+        // Only stop if a different type of emulation is running
+        if (IsEmulating && IsEmulating360)
+        {
+            StopEmulation();
+        }
 
         try
         {

@@ -729,11 +729,11 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
             // Start or stop emulation based on settings
             if (EnableEmulation)
             {
-                if (EmulationTypeIndex == 1) // X360
+                if (EmulationTypeIndex == 0) // X360
                 {
                     _controller.ControllerEmulationService.StartX360Emulation();
                 }
-                else if (EmulationTypeIndex == 2) // DS4
+                else if (EmulationTypeIndex == 1) // DS4
                 {
                     _controller.ControllerEmulationService.StartDS4Emulation();
                 }
@@ -878,11 +878,11 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
             // Start or stop emulation based on settings
             if (EnableEmulation)
             {
-                if (EmulationTypeIndex == 1) // X360
+                if (EmulationTypeIndex == 0) // X360
                 {
                     _controller.ControllerEmulationService.StartX360Emulation();
                 }
-                else if (EmulationTypeIndex == 2) // DS4
+                else if (EmulationTypeIndex == 1) // DS4
                 {
                     _controller.ControllerEmulationService.StartDS4Emulation();
                 }
