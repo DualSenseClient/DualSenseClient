@@ -55,4 +55,28 @@ public class ApplicationSettingsStore
             return "0.0.0";
         }
     }
+
+    public string GetVersionWithCommit()
+    {
+        Assembly assembly = Assembly.GetExecutingAssembly();
+
+        // Try to get the informational version which includes the git commit
+        AssemblyInformationalVersionAttribute? informationalVersionAttribute = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
+        string? informationalVersion = informationalVersionAttribute?.InformationalVersion;
+
+        // If we have an informational version with commit hash (includes +)
+        Version? version = assembly.GetName().Version;
+        if (version != null && !string.IsNullOrEmpty(informationalVersion) && informationalVersion.Contains('+'))
+        {
+#if DEBUG
+            string commit = "DEBUG";
+#else
+            string commit = informationalVersion.Split('+')[0];
+#endif
+            return $"v{version.Major}.{version.Minor}.{version.Build} ({commit})";
+        }
+
+        // If there's no commit info, just return the normal version
+        return GetVersion();
+    }
 }

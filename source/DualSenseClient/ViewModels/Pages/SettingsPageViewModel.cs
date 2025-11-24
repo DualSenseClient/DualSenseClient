@@ -54,7 +54,7 @@ public partial class SettingsPageViewModel : ViewModelBase
 
     [ObservableProperty] private bool isWindows = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows);
 
-    public string ApplicationVersion => _settingsManager.Application.GetVersion();
+    public string ApplicationVersion => _settingsManager.Application.GetVersionWithCommit();
 
     // Constructor
     public SettingsPageViewModel(ISettingsManager settingsManager, ThemeService themeService, IHidHideService hidHideService, IViGEmBusService viGEmBusService)
