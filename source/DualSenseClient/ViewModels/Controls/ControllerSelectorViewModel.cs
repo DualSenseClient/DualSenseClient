@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DualSenseClient.Core.Logging;
 using DualSenseClient.Services;
+using DualSenseClient.Services.Helpers;
 
 namespace DualSenseClient.ViewModels.Controls;
 
@@ -295,44 +296,8 @@ public partial class ControllerListItemViewModel : ObservableObject
             return;
         }
 
-        // Check if HidHide is ready (installed and running as admin)
-        if (!_hidHideService.IsReady)
-        {
-            if (!_hidHideService.IsInstalled)
-            {
-                Logger.Warning<ControllerListItemViewModel>("HidHide is not installed");
-            }
-            else if (!_hidHideService.IsRunningAsAdmin())
-            {
-                Logger.Warning<ControllerListItemViewModel>("Application is not running as Administrator - HidHide requires elevated privileges");
-            }
-            return;
-        }
-
-        // Try to get the device instance ID from the controller
-        string? deviceInstanceId = GetDeviceInstanceId();
-        if (string.IsNullOrEmpty(deviceInstanceId))
-        {
-            Logger.Warning<ControllerListItemViewModel>("Could not get device instance ID for controller");
-            return;
-        }
-
-        Logger.Info<ControllerListItemViewModel>($"Hiding controller with device ID: {deviceInstanceId}");
-        bool success = _hidHideService.HideDevice(deviceInstanceId);
-
-        if (success)
-        {
-            Logger.Info<ControllerListItemViewModel>($"Successfully hid controller: {Name}");
-            // Optionally activate cloaking if not already active
-            if (!_hidHideService.IsCloakingActive())
-            {
-                _hidHideService.SetCloakingState(true);
-            }
-        }
-        else
-        {
-            Logger.Warning<ControllerListItemViewModel>($"Failed to hide controller: {Name}");
-        }
+        // Use the HidHideHelper to perform the operation
+        HidHideHelper.HideController(_hidHideService, Controller);
     }
 
     [RelayCommand]
@@ -345,64 +310,8 @@ public partial class ControllerListItemViewModel : ObservableObject
             return;
         }
 
-        // Check if HidHide is ready (installed and running as admin)
-        if (!_hidHideService.IsReady)
-        {
-            if (!_hidHideService.IsInstalled)
-            {
-                Logger.Warning<ControllerListItemViewModel>("HidHide is not installed");
-            }
-            else if (!_hidHideService.IsRunningAsAdmin())
-            {
-                Logger.Warning<ControllerListItemViewModel>("Application is not running as Administrator - HidHide requires elevated privileges");
-            }
-            return;
-        }
-
-        // Try to get the device instance ID from the controller
-        string? deviceInstanceId = GetDeviceInstanceId();
-        if (string.IsNullOrEmpty(deviceInstanceId))
-        {
-            Logger.Warning<ControllerListItemViewModel>("Could not get device instance ID for controller");
-            return;
-        }
-
-        Logger.Info<ControllerListItemViewModel>($"Unhiding controller with device ID: {deviceInstanceId}");
-        bool success = _hidHideService.UnhideDevice(deviceInstanceId);
-
-        if (success)
-        {
-            Logger.Info<ControllerListItemViewModel>($"Successfully unhid controller: {Name}");
-        }
-        else
-        {
-            Logger.Warning<ControllerListItemViewModel>($"Failed to unhide controller: {Name}");
-        }
-    }
-
-    [SupportedOSPlatform("windows")]
-    private string? GetDeviceInstanceId()
-    {
-        // If HidHide service is not available, return null
-        if (_hidHideService == null)
-        {
-            return null;
-        }
-
-        // Get the MAC address from the controller
-        var controllerType = Controller.Controller.GetType();
-        var macAddressProperty = controllerType.GetProperty("MacAddress");
-        if (macAddressProperty != null)
-        {
-            string? macAddress = macAddressProperty.GetValue(Controller.Controller) as string;
-            if (!string.IsNullOrEmpty(macAddress))
-            {
-                // Use the HidHideService to find the device instance ID by MAC address
-                return _hidHideService.FindDeviceInstanceIdByMacAddress(macAddress);
-            }
-        }
-
-        return null;
+        // Use the HidHideHelper to perform the operation
+        HidHideHelper.UnhideController(_hidHideService, Controller);
     }
 
     public void Dispose()
