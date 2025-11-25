@@ -1,24 +1,18 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Runtime.Versioning;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Media;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
-using CommunityToolkit.Mvvm.Input;
 using DualSenseClient.Core.DualSense;
 using DualSenseClient.Core.Logging;
 using DualSenseClient.Core.Settings;
-using DualSenseClient.Core.Settings.Models;
+using DualSenseClient.Services.Helpers;
 using DualSenseClient.ViewModels;
 
 namespace DualSenseClient.Services;
 
+/// <summary>
+/// Service responsible for managing the application's system tray icon,
+/// including context menu, battery-level icons, and controller management.
+/// </summary>
 public class TrayIconService : IDisposable
 {
     private TrayIcon? _trayIcon;
@@ -26,10 +20,18 @@ public class TrayIconService : IDisposable
     private readonly DualSenseProfileManager _profileManager;
     private readonly ISettingsManager _settingsManager;
     private readonly IHidHideService? _hidHideService;
-    private readonly List<ControllerViewModelBase> _controllers = new();
+    private readonly List<ControllerViewModelBase> _controllers = new List<ControllerViewModelBase>();
     private readonly TrayIconViewModel _viewModel;
+    private readonly TrayMenuBuilder _menuBuilder;
     private bool _disposed = false;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TrayIconService"/> class.
+    /// </summary>
+    /// <param name="selectedControllerService">Service for managing selected controllers</param>
+    /// <param name="profileManager">Manager for handling controller profiles</param>
+    /// <param name="settingsManager">Manager for application settings</param>
+    /// <param name="hidHideService">Optional service for HidHide functionality (Windows only)</param>
     public TrayIconService(SelectedControllerService selectedControllerService, DualSenseProfileManager profileManager, ISettingsManager settingsManager, IHidHideService? hidHideService = null)
     {
         _selectedControllerService = selectedControllerService;
@@ -37,6 +39,14 @@ public class TrayIconService : IDisposable
         _settingsManager = settingsManager;
         _hidHideService = hidHideService;
         _viewModel = new TrayIconViewModel(ShowMainWindow, _selectedControllerService);
+
+        // Initialize the menu builder with dependencies
+        _menuBuilder = new TrayMenuBuilder(
+            _selectedControllerService,
+            _profileManager,
+            _settingsManager,
+            _viewModel,
+            _hidHideService);
 
         // Subscribe to available controllers collection changes
         _selectedControllerService.AvailableControllers.CollectionChanged += (_, _) =>
@@ -57,6 +67,11 @@ public class TrayIconService : IDisposable
         _settingsManager.SettingsChanged += OnSettingsChanged;
     }
 
+    /// <summary>
+    /// Callback method called when application settings are changed.
+    /// </summary>
+    /// <param name="sender">Event sender</param>
+    /// <param name="settings">Updated settings</param>
     private void OnSettingsChanged(object? sender, ApplicationSettingsStore settings)
     {
         if (_disposed)
@@ -68,6 +83,9 @@ public class TrayIconService : IDisposable
         UpdateTrayIcon();
     }
 
+    /// <summary>
+    /// Initializes the tray icon service, setting up the tray icon, context menu, and event handlers.
+    /// </summary>
     public void Initialize()
     {
         Logger.Info<TrayIconService>("Initializing tray icon service");
@@ -77,16 +95,19 @@ public class TrayIconService : IDisposable
             _trayIcon = new TrayIcon();
 
             // Set the default icon
-            string iconPath = "avares://DualSenseClient/Assets/icon.ico";
-            _trayIcon.Icon = new WindowIcon(AssetLoader.Open(new Uri(iconPath)));
+            _trayIcon.Icon = TrayIconHelper.LoadDefaultIcon();
 
             // Update controllers list and set initial icon
             UpdateControllers();
 
             // Create context menu
-            _trayIcon.Menu = CreateContextMenu();
+            _trayIcon.Menu = _menuBuilder.BuildMainMenu();
 
-            // TODO: Add direct left-click event or double-click to show the app
+            // Add left-click event to show the main window
+            _trayIcon.Clicked += (_, _) =>
+            {
+                ShowMainWindow();
+            };
 
             // Show the tray icon
             _trayIcon.IsVisible = true;
@@ -100,250 +121,6 @@ public class TrayIconService : IDisposable
         }
     }
 
-    private NativeMenu CreateContextMenu()
-    {
-        NativeMenu nativeMenu = new NativeMenu();
-
-        // Show main window item
-        NativeMenuItem showItem = new NativeMenuItem("Show")
-        {
-            Command = _viewModel.ShowMainWindowCommand
-        };
-        nativeMenu.Items.Add(showItem);
-
-        // Add controller items if there are any controllers
-        if (_controllers.Count != 0)
-        {
-            nativeMenu.Items.Add(new NativeMenuItemSeparator());
-
-            foreach (ControllerViewModelBase controller in _controllers)
-            {
-                // Create submenu for each controller
-                NativeMenu controllerSubMenu = new NativeMenu();
-
-                // Main controller selection item
-                NativeMenuItem selectControllerItem = new NativeMenuItem("Select")
-                {
-                    Command = new RelayCommand(() => SelectController(controller))
-                };
-                controllerSubMenu.Add(selectControllerItem);
-
-                // Add profile submenu for the controller (for all controllers)
-                NativeMenu profileSubMenu = new NativeMenu();
-
-                // Add profile items
-                foreach (ControllerProfile profile in _profileManager.GetAllProfiles().Values.OrderBy(p => p.Name))
-                {
-                    NativeMenuItem profileItem = new NativeMenuItem(profile.Name)
-                    {
-                        Command = new RelayCommand(() =>
-                        {
-                            // Apply the selected profile to the controller
-                            _profileManager.AssignProfileToController(controller.ControllerId, profile.Id);
-                            // Apply the profile settings to the controller immediately
-                            ControllerProfile? profileToApply = _profileManager.GetProfile(profile.Id);
-                            if (profileToApply != null)
-                            {
-                                _profileManager.ApplyProfileToController(controller.Controller, profileToApply);
-
-                                // Trigger the profile changed event to notify UI elements
-                                _profileManager.TriggerProfileChanged(controller.ControllerId, profileToApply);
-                            }
-                        })
-                    };
-                    profileSubMenu.Add(profileItem);
-                }
-
-                // Add profile submenu item
-                NativeMenuItem profilesItem = new NativeMenuItem("Profiles")
-                {
-                    Menu = profileSubMenu
-                };
-                controllerSubMenu.Add(new NativeMenuItemSeparator());
-                controllerSubMenu.Add(profilesItem);
-
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                {
-                    // Add HidHide submenu for Windows platforms
-                    if (_hidHideService != null && _hidHideService.IsInstalled)
-                    {
-                        // Create HidHide submenu
-                        NativeMenu hidHideSubMenu = new NativeMenu();
-
-                        // Hide controller option
-                        NativeMenuItem hideItem = new NativeMenuItem("Hide Controller")
-                        {
-                            Command = new RelayCommand(() =>
-                            {
-                                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                                {
-                                    HideController(controller);
-                                }
-                            }),
-                            IsEnabled = _hidHideService.IsReady // Only enabled if HidHide is ready (installed + running as admin)
-                        };
-                        hidHideSubMenu.Add(hideItem);
-
-                        // Unhide controller option
-                        NativeMenuItem unhideItem = new NativeMenuItem("Unhide Controller")
-                        {
-                            Command = new RelayCommand(() =>
-                            {
-                                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                                {
-                                    UnhideController(controller);
-                                }
-                            }),
-                            IsEnabled = _hidHideService.IsReady // Only enabled if HidHide is ready (installed + running as admin)
-                        };
-                        hidHideSubMenu.Add(unhideItem);
-
-                        // Add HidHide submenu item
-                        NativeMenuItem hidHideItem = new NativeMenuItem("HidHide")
-                        {
-                            Menu = hidHideSubMenu,
-                            IsEnabled = _hidHideService.IsReady // Only enabled if HidHide is ready
-                        };
-                        controllerSubMenu.Add(new NativeMenuItemSeparator());
-                        controllerSubMenu.Add(hidHideItem);
-                    }
-                }
-
-                // Add disconnect option only if controller is connected via Bluetooth
-                if (controller.ConnectionType == "Bluetooth")
-                {
-                    NativeMenuItem disconnectItem = new NativeMenuItem("Disconnect")
-                    {
-                        Command = new RelayCommand(() => _viewModel.DisconnectControllerCommand.Execute(controller))
-                    };
-                    controllerSubMenu.Add(disconnectItem);
-                }
-
-                // Add submenu as a parent item
-                NativeMenuItem controllerParentItem = new NativeMenuItem($"{controller.Name} - {controller.BatteryText}")
-                {
-                    Menu = controllerSubMenu
-                };
-                nativeMenu.Items.Add(controllerParentItem);
-            }
-        }
-
-        // Separator before exit
-        nativeMenu.Items.Add(new NativeMenuItemSeparator());
-
-        // Exit item
-        NativeMenuItem exitItem = new NativeMenuItem("Exit")
-        {
-            Command = _viewModel.ExitApplicationCommand
-        };
-        nativeMenu.Items.Add(exitItem);
-
-        return nativeMenu;
-    }
-
-    private void SelectController(ControllerViewModelBase controller)
-    {
-        _selectedControllerService.SelectedController = controller;
-        ShowMainWindow();
-    }
-
-    [SupportedOSPlatform("windows")]
-    private void HideController(ControllerViewModelBase controller)
-    {
-        if (_hidHideService is not { IsReady: true })
-        {
-            Logger.Warning<TrayIconService>("HidHide is not ready or not available");
-            return;
-        }
-
-        // Get the MAC address from the controller
-        Type controllerType = controller.Controller.GetType();
-        PropertyInfo? macAddressProperty = controllerType.GetProperty("MacAddress");
-        if (macAddressProperty == null)
-        {
-            return;
-        }
-        string? macAddress = macAddressProperty.GetValue(controller.Controller) as string;
-        if (!string.IsNullOrEmpty(macAddress))
-        {
-            // Find the device instance ID using the HidHideService
-            string? deviceInstanceId = _hidHideService.FindDeviceInstanceIdByMacAddress(macAddress);
-            if (!string.IsNullOrEmpty(deviceInstanceId))
-            {
-                Logger.Info<TrayIconService>($"Hiding controller with device ID: {deviceInstanceId}");
-                bool success = _hidHideService.HideDevice(deviceInstanceId);
-
-                if (success)
-                {
-                    Logger.Info<TrayIconService>($"Successfully hid controller: {controller.Name}");
-                    // Optionally activate cloaking if not already active
-                    if (!_hidHideService.IsCloakingActive())
-                    {
-                        _hidHideService.SetCloakingState(true);
-                    }
-                }
-                else
-                {
-                    Logger.Warning<TrayIconService>($"Failed to hide controller: {controller.Name}");
-                }
-            }
-            else
-            {
-                Logger.Warning<TrayIconService>($"Could not find device instance ID for controller: {controller.Name}");
-            }
-        }
-        else
-        {
-            Logger.Warning<TrayIconService>($"Could not get MAC address for controller: {controller.Name}");
-        }
-    }
-
-    [SupportedOSPlatform("windows")]
-    private void UnhideController(ControllerViewModelBase controller)
-    {
-        if (_hidHideService is not { IsReady: true })
-        {
-            Logger.Warning<TrayIconService>("HidHide is not ready or not available");
-            return;
-        }
-
-        // Get the MAC address from the controller
-        Type controllerType = controller.Controller.GetType();
-        PropertyInfo? macAddressProperty = controllerType.GetProperty("MacAddress");
-        if (macAddressProperty == null)
-        {
-            return;
-        }
-        string? macAddress = macAddressProperty.GetValue(controller.Controller) as string;
-        if (!string.IsNullOrEmpty(macAddress))
-        {
-            // Find the device instance ID using the HidHideService
-            string? deviceInstanceId = _hidHideService.FindDeviceInstanceIdByMacAddress(macAddress);
-            if (!string.IsNullOrEmpty(deviceInstanceId))
-            {
-                Logger.Info<TrayIconService>($"Unhiding controller with device ID: {deviceInstanceId}");
-                bool success = _hidHideService.UnhideDevice(deviceInstanceId);
-
-                if (success)
-                {
-                    Logger.Info<TrayIconService>($"Successfully unhid controller: {controller.Name}");
-                }
-                else
-                {
-                    Logger.Warning<TrayIconService>($"Failed to unhide controller: {controller.Name}");
-                }
-            }
-            else
-            {
-                Logger.Warning<TrayIconService>($"Could not find device instance ID for controller: {controller.Name}");
-            }
-        }
-        else
-        {
-            Logger.Warning<TrayIconService>($"Could not get MAC address for controller: {controller.Name}");
-        }
-    }
-
     // Method to update the context menu dynamically
     private void UpdateContextMenu()
     {
@@ -353,142 +130,15 @@ public class TrayIconService : IDisposable
         }
         try
         {
-            // Clear and rebuild the menu items
+            // Replace the menu with a newly built one
+            NativeMenu newMenu = _menuBuilder.BuildMainMenu();
+
+            // Clear the existing menu and rebuild
             menu.Items.Clear();
-
-            // Show main window item
-            NativeMenuItem showItem = new NativeMenuItem("Show")
+            foreach (NativeMenuItemBase item in newMenu.Items)
             {
-                Command = _viewModel.ShowMainWindowCommand
-            };
-            menu.Items.Add(showItem);
-
-            // Add controller items if there are any controllers
-            if (_controllers.Count != 0)
-            {
-                menu.Items.Add(new NativeMenuItemSeparator());
-
-                foreach (ControllerViewModelBase controller in _controllers)
-                {
-                    // Create submenu for each controller
-                    NativeMenu controllerSubMenu = new NativeMenu();
-
-                    // Main controller selection item
-                    NativeMenuItem selectControllerItem = new NativeMenuItem("Select")
-                    {
-                        Command = new RelayCommand(() => SelectController(controller))
-                    };
-                    controllerSubMenu.Add(selectControllerItem);
-
-                    // Add profile submenu for the controller (for all controllers)
-                    NativeMenu profileSubMenu = new NativeMenu();
-
-                    // Add profile items
-                    foreach (ControllerProfile profile in _profileManager.GetAllProfiles().Values.OrderBy(p => p.Name))
-                    {
-                        NativeMenuItem profileItem = new NativeMenuItem(profile.Name)
-                        {
-                            Command = new RelayCommand(() =>
-                            {
-                                // Apply the selected profile to the controller
-                                _profileManager.AssignProfileToController(controller.ControllerId, profile.Id);
-                                // Apply the profile settings to the controller immediately
-                                ControllerProfile? profileToApply = _profileManager.GetProfile(profile.Id);
-                                if (profileToApply != null)
-                                {
-                                    _profileManager.ApplyProfileToController(controller.Controller, profileToApply);
-
-                                    // Trigger the profile changed event to notify UI elements
-                                    _profileManager.TriggerProfileChanged(controller.ControllerId, profileToApply);
-                                }
-                            })
-                        };
-                        profileSubMenu.Add(profileItem);
-                    }
-
-                    // Add profile submenu item
-                    NativeMenuItem profilesItem = new NativeMenuItem("Profiles")
-                    {
-                        Menu = profileSubMenu
-                    };
-                    controllerSubMenu.Add(new NativeMenuItemSeparator());
-                    controllerSubMenu.Add(profilesItem);
-
-                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                    {
-                        // Add HidHide submenu for Windows platforms
-                        if (_hidHideService != null && _hidHideService.IsInstalled)
-                        {
-                            // Create HidHide submenu
-                            NativeMenu hidHideSubMenu = new NativeMenu();
-
-                            // Hide controller option
-                            NativeMenuItem hideItem = new NativeMenuItem("Hide Controller")
-                            {
-                                Command = new RelayCommand(() =>
-                                {
-                                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                                    {
-                                        HideController(controller);
-                                    }
-                                }),
-                                IsEnabled = _hidHideService.IsReady // Only enabled if HidHide is ready (installed + running as admin)
-                            };
-                            hidHideSubMenu.Add(hideItem);
-
-                            // Unhide controller option
-                            NativeMenuItem unhideItem = new NativeMenuItem("Unhide Controller")
-                            {
-                                Command = new RelayCommand(() =>
-                                {
-                                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                                    {
-                                        UnhideController(controller);
-                                    }
-                                }),
-                                IsEnabled = _hidHideService.IsReady // Only enabled if HidHide is ready (installed + running as admin)
-                            };
-                            hidHideSubMenu.Add(unhideItem);
-
-                            // Add HidHide submenu item
-                            NativeMenuItem hidHideItem = new NativeMenuItem("HidHide")
-                            {
-                                Menu = hidHideSubMenu,
-                                IsEnabled = _hidHideService.IsReady // Only enabled if HidHide is ready
-                            };
-                            controllerSubMenu.Add(new NativeMenuItemSeparator());
-                            controllerSubMenu.Add(hidHideItem);
-                        }
-                    }
-
-                    // Add disconnect option only if controller is connected via Bluetooth
-                    if (controller.ConnectionType == "Bluetooth")
-                    {
-                        NativeMenuItem disconnectItem = new NativeMenuItem("Disconnect")
-                        {
-                            Command = new RelayCommand(() => _viewModel.DisconnectControllerCommand.Execute(controller))
-                        };
-                        controllerSubMenu.Add(disconnectItem);
-                    }
-
-                    // Add submenu as a parent item
-                    NativeMenuItem controllerParentItem = new NativeMenuItem($"{controller.Name} - {controller.BatteryText}")
-                    {
-                        Menu = controllerSubMenu
-                    };
-                    menu.Items.Add(controllerParentItem);
-                }
+                menu.Items.Add(item);
             }
-
-            // Separator before exit
-            menu.Items.Add(new NativeMenuItemSeparator());
-
-            // Exit item
-            NativeMenuItem exitItem = new NativeMenuItem("Exit")
-            {
-                Command = _viewModel.ExitApplicationCommand
-            };
-            menu.Items.Add(exitItem);
         }
         catch (Exception ex)
         {
@@ -496,6 +146,10 @@ public class TrayIconService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Updates the internal list of controllers and refreshes the tray icon and context menu.
+    /// This method handles subscribing/unsubscribing from controller property change events.
+    /// </summary>
     private void UpdateControllers()
     {
         if (_disposed)
@@ -522,6 +176,13 @@ public class TrayIconService : IDisposable
         UpdateContextMenu();
     }
 
+    /// <summary>
+    /// Handles property change events from controller view models to update the tray icon and menu.
+    /// This method is triggered when controller properties such as battery level, charging status,
+    /// battery icon, battery text, or name change.
+    /// </summary>
+    /// <param name="sender">The controller view model that triggered the property change</param>
+    /// <param name="e">Event arguments containing the name of the changed property</param>
     private void OnControllerPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (_disposed)
@@ -540,6 +201,11 @@ public class TrayIconService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Updates the tray icon based on the currently selected controller's battery level.
+    /// If tray battery tracking is enabled, creates a dynamic icon with battery percentage.
+    /// Otherwise, uses the default application icon.
+    /// </summary>
     private void UpdateTrayIcon()
     {
         if (_trayIcon == null || _disposed)
@@ -558,13 +224,12 @@ public class TrayIconService : IDisposable
                 if (_settingsManager.Application.Ui.TrayBatteryTracking)
                 {
                     // Update tray icon based on battery level of selected controller
-                    _trayIcon.Icon = GetIconFromBatteryLevel(selectedController);
+                    _trayIcon.Icon = TrayIconHelper.CreateBatteryIcon(selectedController);
                 }
                 else
                 {
                     // Use default icon if battery tracking is disabled
-                    string defaultIconPath = "avares://DualSenseClient/Assets/icon.ico";
-                    _trayIcon.Icon = new WindowIcon(AssetLoader.Open(new Uri(defaultIconPath)));
+                    _trayIcon.Icon = TrayIconHelper.LoadDefaultIcon();
                 }
             }
             catch (Exception ex)
@@ -574,8 +239,7 @@ public class TrayIconService : IDisposable
                 // Fallback to default icon
                 try
                 {
-                    string defaultIconPath = "avares://DualSenseClient/Assets/icon.ico";
-                    _trayIcon.Icon = new WindowIcon(AssetLoader.Open(new Uri(defaultIconPath)));
+                    _trayIcon.Icon = TrayIconHelper.LoadDefaultIcon();
                     _trayIcon.ToolTipText = "DualSense Client";
                 }
                 catch
@@ -589,8 +253,7 @@ public class TrayIconService : IDisposable
             // No controller selected, show default icon
             try
             {
-                string defaultIconPath = "avares://DualSenseClient/Assets/icon.ico";
-                _trayIcon.Icon = new WindowIcon(AssetLoader.Open(new Uri(defaultIconPath)));
+                _trayIcon.Icon = TrayIconHelper.LoadDefaultIcon();
                 _trayIcon.ToolTipText = "DualSense Client";
             }
             catch (Exception ex)
@@ -600,60 +263,10 @@ public class TrayIconService : IDisposable
         }
     }
 
-    private WindowIcon GetIconFromBatteryLevel(ControllerViewModelBase controller)
-    {
-        // Create a 16x16 Tray Icon
-        PixelSize pixelSize = new PixelSize(16, 16);
-        RenderTargetBitmap renderTarget = new RenderTargetBitmap(pixelSize, new Vector(96, 96)); // 96 DPI
 
-        using (DrawingContext context = renderTarget.CreateDrawingContext())
-        {
-            // Transparent background
-            context.FillRectangle(Brushes.Transparent, new Rect(0, 0, 16, 16));
-
-            // Determine the text color based on battery level/charging status
-            Color textColor;
-            if (controller.IsCharging)
-            {
-                textColor = Color.FromRgb(0, 123, 255); // Blue for charging
-            }
-            else
-            {
-                float level = Math.Clamp((float)controller.BatteryLevel / 100f, 0f, 1f);
-
-                byte red = (byte)(255 * (1f - level));
-                byte green = (byte)(255 * level);
-                byte blue = 0;
-
-                textColor = Color.FromRgb(red, green, blue);
-            }
-
-            // Draw the battery level text
-            FormattedText text = new FormattedText(
-                controller.BatteryLevel.ToString("F0"),
-                System.Globalization.CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight,
-                Typeface.Default,
-                14, // Font size
-                new SolidColorBrush(textColor)
-            );
-
-            // Measure the text size manually
-            Size textSize = new Size(text.Width, text.Height);
-            Point textPosition = new Point(
-                (16 - textSize.Width) / 2,
-                (16 - textSize.Height) / 2 - 1 // Slightly adjust position
-            );
-
-            context.DrawText(text, textPosition);
-        }
-
-        using MemoryStream memoryStream = new MemoryStream();
-        renderTarget.Save(memoryStream);
-        memoryStream.Position = 0;
-        return new WindowIcon(memoryStream);
-    }
-
+    /// <summary>
+    /// Shows the main application window, restoring it if it was minimized.
+    /// </summary>
     public void ShowMainWindow()
     {
         try
@@ -683,6 +296,9 @@ public class TrayIconService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Hides the main application window if the close-to-tray setting is enabled.
+    /// </summary>
     public void HideMainWindow()
     {
         try
@@ -709,11 +325,18 @@ public class TrayIconService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Checks if the application should close to tray based on user settings.
+    /// </summary>
+    /// <returns>True if the close-to-tray feature is enabled, false otherwise</returns>
     public bool ShouldCloseToTray()
     {
         return _settingsManager.Application.Ui.CloseToTray;
     }
 
+    /// <summary>
+    /// Shuts down the application.
+    /// </summary>
     private void ExitApplication()
     {
         try
@@ -729,6 +352,10 @@ public class TrayIconService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Disposes of resources used by the tray icon service, including removing event subscriptions
+    /// and disposing of the tray icon.
+    /// </summary>
     public void Dispose()
     {
         if (_disposed)
