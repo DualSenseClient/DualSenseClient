@@ -7,10 +7,10 @@ using DualSenseClient.Core.DualSense;
 using DualSenseClient.Core.Logging;
 using DualSenseClient.Core.Settings;
 using DualSenseClient.Core.Settings.Models;
-using DualSenseClient.Helpers;
+using DualSenseClient.Services;
 using DualSenseClient.ViewModels;
 
-namespace DualSenseClient.Services.Helpers;
+namespace DualSenseClient.Helpers.TrayIcon;
 
 /// <summary>
 /// Builder class responsible for creating and managing the system tray context menu.

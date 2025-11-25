@@ -4,7 +4,7 @@ using Avalonia.Controls;
 using DualSenseClient.Core.DualSense;
 using DualSenseClient.Core.Logging;
 using DualSenseClient.Core.Settings;
-using DualSenseClient.Services.Helpers;
+using DualSenseClient.Helpers.TrayIcon;
 using DualSenseClient.ViewModels;
 
 namespace DualSenseClient.Services;
@@ -15,7 +15,7 @@ namespace DualSenseClient.Services;
 /// </summary>
 public class TrayIconService : IDisposable
 {
-    private TrayIcon? _trayIcon;
+    private Avalonia.Controls.TrayIcon? _trayIcon;
     private readonly SelectedControllerService _selectedControllerService;
     private readonly DualSenseProfileManager _profileManager;
     private readonly ISettingsManager _settingsManager;
@@ -92,7 +92,7 @@ public class TrayIconService : IDisposable
 
         try
         {
-            _trayIcon = new TrayIcon();
+            _trayIcon = new Avalonia.Controls.TrayIcon();
 
             // Set the default icon
             _trayIcon.Icon = TrayIconHelper.LoadDefaultIcon();

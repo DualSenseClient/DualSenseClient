@@ -5,9 +5,10 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using DualSenseClient.Core.Logging;
+using DualSenseClient.Services;
 using DualSenseClient.ViewModels;
 
-namespace DualSenseClient.Services.Helpers;
+namespace DualSenseClient.Helpers.TrayIcon;
 
 /// <summary>
 /// Helper class providing static methods for creating and managing tray icons.
