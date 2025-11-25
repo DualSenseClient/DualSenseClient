@@ -2,9 +2,10 @@ using System;
 using System.Reflection;
 using System.Runtime.Versioning;
 using DualSenseClient.Core.Logging;
+using DualSenseClient.Services;
 using DualSenseClient.ViewModels;
 
-namespace DualSenseClient.Services.Helpers;
+namespace DualSenseClient.Helpers;
 
 /// <summary>
 /// Helper class for handling HidHide operations such as hiding and unhiding controllers.

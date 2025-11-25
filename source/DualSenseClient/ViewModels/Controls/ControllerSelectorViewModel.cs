@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DualSenseClient.Core.Logging;
+using DualSenseClient.Helpers;
 using DualSenseClient.Services;
-using DualSenseClient.Services.Helpers;
 
 namespace DualSenseClient.ViewModels.Controls;
 

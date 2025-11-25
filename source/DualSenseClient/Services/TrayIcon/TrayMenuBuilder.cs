@@ -7,6 +7,7 @@ using DualSenseClient.Core.DualSense;
 using DualSenseClient.Core.Logging;
 using DualSenseClient.Core.Settings;
 using DualSenseClient.Core.Settings.Models;
+using DualSenseClient.Helpers;
 using DualSenseClient.ViewModels;
 
 namespace DualSenseClient.Services.Helpers;
