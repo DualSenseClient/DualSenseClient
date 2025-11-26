@@ -71,7 +71,7 @@ public class ApplicationSettingsStore
 #if DEBUG
             string commit = "DEBUG";
 #else
-            string commit = informationalVersion.Split('+')[0];
+            string commit = informationalVersion.Contains('+') ? informationalVersion.Split('+')[1].Substring(0, 7) : informationalVersion;
 #endif
             return $"v{version.Major}.{version.Minor}.{version.Build} ({commit})";
         }
