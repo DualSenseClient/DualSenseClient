@@ -1,4 +1,4 @@
-<h1 align="center"><img src="assets/icon.png" alt="DualSense Manager Icon" width="28" height="28"> DualSense Client</h1>
+<h1 align="center"><img src="assets/icon.png" alt="DualSense Manager Icon" width="28" height="28"> DualSense Manager</h1>
 
 <p align="center">
   <b>Unofficial DualSense Manager for Windows</b><br>
@@ -32,7 +32,15 @@
 
 ## 🧾 Overview
 
-**DualSenseClient** is a comprehensive open-source management tool for the **PlayStation 5 DualSense Controller** on Windows. It delivers deep customization, real-time monitoring, and advanced virtual controller emulation capabilities to enhance your gaming experience. Built with modern .NET technology and a sleek Avalonia UI, it provides an intuitive interface for full control of your DualSense controller's features.
+**DualSense Manager** is a comprehensive open-source management tool for the **PlayStation 5 DualSense Controller** on Windows. It delivers deep customization, real-time monitoring, and advanced virtual controller emulation capabilities to enhance your gaming experience. Built with modern .NET technology and a sleek Avalonia UI, it provides an intuitive interface for full control of your DualSense controller's features.
+
+## 🎮 Supported Controllers
+
+| Controller | Supported | Notes |
+|------------|-----------|-------|
+| DualSense | ✅ | Full support with all features |
+| DualSense (Revision 5) | ✅ | Full support with all features<br>**NOTE:** This revision has Player Lights (1+5) and (2+4) wired together, which may cause incorrect battery indicator display |
+| DualSense Edge | ⚠️ | Limited support, works as standard DualSense<br> Edge-specific features not implemented due to lack of hardware |
 
 ---
 
@@ -103,8 +111,7 @@
 
 - [HidSharp](https://github.com/SeekHisKingdom/HIDSharp) — Cross-platform HID device access
 - [NLog](https://github.com/NLog/NLog) — Flexible and high-performance logging library
-- [ViGEmBus](https://github.com/nefarius/ViGEmBus) — Virtual gamepad emulation
-- [HidHide](https://github.com/nefarius/HidHide) — HID device hiding functionality
+- [ViGEm.Client](https://github.com/nefarius/ViGEm.NET) — Interaction with ViGEmBus Driver for Virtual Controller Emulation
 
 ---
 
@@ -115,14 +122,14 @@
 - **Windows 10 version 1909 or later** (Windows 11 recommended)
 - **.NET 9.0 Desktop Runtime** or later [Download here](https://dotnet.microsoft.com/download/dotnet/9.0)
 - **PlayStation 5 DualSense controller** (wired USB or Bluetooth connection)
-- **Administrator privileges** (for ViGEmBus and HidHide driver installation)
 
 ### Installation
 
 1. Download the latest release from the [releases page](https://github.com/shazzaam7/DualSenseClient/releases)
-2. Extract the archive to your preferred location
-3. **Run as Administrator** (right-click `DualSenseClient.exe` → "Run as administrator") for full functionality
-4. Connect your DualSense controller and start customizing
+2. Extract the archive to your preferred location and open `DualSenseClient.exe`
+3. Connect your DualSense controller and start customizing
+
+> **Run as Administrator** (right-click `DualSenseClient.exe` → "Run as administrator") for full functionality (required for HidHide integration only)
 
 ### Quick Start
 
@@ -146,8 +153,8 @@
 
 For virtual controller emulation to work properly, you may need to manually install these drivers:
 
-- **ViGEmBus**: Required for virtual Xbox 360/DualShock 4 controller emulation
-- **HidHide**: Required for hiding the physical controller from certain applications (Steam)
+- [**ViGEmBus**](https://github.com/nefarius/ViGEmBus/releases): Required for virtual Xbox 360/DualShock 4 controller emulation
+- [**HidHide**](https://github.com/nefarius/HidHide/releases): Required for hiding the physical controller from certain applications (Steam)
 
 Both drivers require administrator privileges for installation and operation.
 
