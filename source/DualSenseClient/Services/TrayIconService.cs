@@ -124,21 +124,16 @@ public class TrayIconService : IDisposable
     // Method to update the context menu dynamically
     private void UpdateContextMenu()
     {
-        if (_trayIcon?.Menu is not { } menu)
+        if (_trayIcon == null)
         {
             return;
         }
         try
         {
-            // Replace the menu with a newly built one
+            // Create a completely new menu and assign it to the tray icon
+            // This ensures the context menu remains properly associated with the tray icon
             NativeMenu newMenu = _menuBuilder.BuildMainMenu();
-
-            // Clear the existing menu and rebuild
-            menu.Items.Clear();
-            foreach (NativeMenuItemBase item in newMenu.Items)
-            {
-                menu.Items.Add(item);
-            }
+            _trayIcon.Menu = newMenu;
         }
         catch (Exception ex)
         {
