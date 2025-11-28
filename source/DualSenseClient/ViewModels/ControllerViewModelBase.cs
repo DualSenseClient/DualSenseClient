@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using DualSenseClient.Core.DualSense.Devices;
+using DualSenseClient.Core.DualSense.Models;
 using DualSenseClient.Core.DualSense.Reports;
 using DualSenseClient.Core.Logging;
 using DualSenseClient.Core.Settings.Models;
@@ -31,6 +32,8 @@ public partial class ControllerViewModelBase : ObservableObject, IDisposable
     [ObservableProperty] private string _batteryIcon = "Battery";
     [ObservableProperty] private string _chargingIcon = "BatteryCharge";
     [ObservableProperty] private string _batteryText = string.Empty;
+    [ObservableProperty] private string _firmwareVersion = "Unknown";
+    [ObservableProperty] private string _hardwareVersion = "Unknown";
 
     public DualSenseController Controller => _controller;
     public ControllerInfo? ControllerInfo => _controllerInfo;
@@ -49,6 +52,24 @@ public partial class ControllerViewModelBase : ObservableObject, IDisposable
         ConnectionType = controller.ConnectionType.ToString();
         ConnectionIcon = controller.ConnectionType == Core.DualSense.Enums.ConnectionType.Bluetooth ? "BluetoothConnected" : "UsbPlug";
         MacAddress = controller.MacAddress ?? "N/A";
+
+        // Set firmware and hardware versions
+        if (controller.ParsedFirmwareVersion != null)
+        {
+            FirmwareVersion = controller.ParsedFirmwareVersion.ToString();
+            HardwareVersion = controller.ParsedFirmwareVersion.GetHardwareVersionString();
+        }
+        else if (controller.RawFirmwareVersion.HasValue)
+        {
+            // Fallback to raw format if parsing failed
+            FirmwareVersion = $"v{controller.RawFirmwareVersion.Value:X8}";
+            HardwareVersion = controller.RawHardwareVersion?.ToString() ?? "Unknown";
+        }
+        else
+        {
+            FirmwareVersion = "Unknown";
+            HardwareVersion = "Unknown";
+        }
 
         UpdateBatteryState(controller.Battery);
 

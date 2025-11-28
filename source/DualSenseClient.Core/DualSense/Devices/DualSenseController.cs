@@ -1,8 +1,9 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using DualSenseClient.Core.Bluetooth;
 using DualSenseClient.Core.DualSense.Actions;
 using DualSenseClient.Core.DualSense.Enums;
 using DualSenseClient.Core.DualSense.Events;
+using DualSenseClient.Core.DualSense.Models;
 using DualSenseClient.Core.DualSense.Reports;
 using DualSenseClient.Core.DualSense.Services;
 using DualSenseClient.Core.Logging;
@@ -48,6 +49,9 @@ public class DualSenseController : IDisposable
     public MotionState Motion { get; private set; } = new MotionState();
     public byte LargeMotorValue { get; private set; } = 0;
     public byte SmallMotorValue { get; private set; } = 0;
+    public uint? RawFirmwareVersion { get; private set; }
+    public uint? RawHardwareVersion { get; private set; }
+    public FirmwareVersion? ParsedFirmwareVersion { get; private set; }
     public ControllerEmulationService? ControllerEmulationService { get; private set; }
     public SpecialActionService? SpecialActionService { get; }
 
@@ -115,6 +119,20 @@ public class DualSenseController : IDisposable
             ControllerEmulationService = null;
         }
 
+        // Retrieve firmware and hardware version information
+        (uint? firmwareVersion, uint? hardwareVersion)? versionInfo = GetHardwareAndFirmwareVersion();
+        if (versionInfo.HasValue)
+        {
+            RawHardwareVersion = versionInfo.Value.hardwareVersion;
+            RawFirmwareVersion = versionInfo.Value.firmwareVersion;
+
+            // Parse the firmware version into human-readable format
+            if (versionInfo.Value.firmwareVersion.HasValue)
+            {
+                ParsedFirmwareVersion = FirmwareVersion.FromRawData(versionInfo.Value.firmwareVersion.Value, versionInfo.Value.hardwareVersion ?? 0);
+            }
+        }
+
         _cts = new CancellationTokenSource();
         _readTask = Task.Run(() => ReadLoop(_cts.Token));
 
@@ -146,6 +164,38 @@ public class DualSenseController : IDisposable
         catch (Exception ex)
         {
             Logger.Debug<DualSenseController>($"Could not retrieve MAC from feature report: {ex.Message}");
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Retrieves the hardware and firmware version information from the controller via feature report
+    /// </summary>
+    private (uint? firmwareVersion, uint? hardwareVersion)? GetHardwareAndFirmwareVersion()
+    {
+        try
+        {
+            // DualSense stores firmware version in feature report 0x20
+            byte[] report = new byte[64]; // Report size is 63 bytes + 1 for report ID
+            report[0] = 0x20;
+
+            _stream.GetFeature(report);
+            
+            // Hardware version is at bytes 24-27 (32-bit little-endian value)
+            // Firmware version is at bytes 28-31 (32-bit little-endian value)
+            if (report.Length >= 32) // Make sure we have enough bytes
+            {
+                uint hardwareVersion = BitConverter.ToUInt32(report, 24);
+                uint firmwareVersion = BitConverter.ToUInt32(report, 28);
+
+                Logger.Debug<DualSenseController>($"Hardware version: 0x{hardwareVersion:X8}, Firmware version: 0x{firmwareVersion:X8}");
+                return (firmwareVersion, hardwareVersion);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Debug<DualSenseController>($"Could not retrieve hardware and firmware versions from feature report: {ex.Message}");
         }
 
         return null;

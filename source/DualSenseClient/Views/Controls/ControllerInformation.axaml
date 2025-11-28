@@ -113,6 +113,62 @@
                         </StackPanel>
                     </Grid>
                 </Border>
+
+                <!-- Firmware Version -->
+                <Border Background="{DynamicResource LayerFillColorDefaultBrush}"
+                        CornerRadius="8"
+                        Padding="16,12">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Border Background="{DynamicResource ControlAltFillColorSecondaryBrush}"
+                                CornerRadius="6"
+                                Width="36"
+                                Height="36"
+                                VerticalAlignment="Center">
+                            <ic:SymbolIcon Symbol="Apps"
+                                           FontSize="18" />
+                        </Border>
+                        <StackPanel Grid.Column="1"
+                                    Margin="12,0,0,0"
+                                    VerticalAlignment="Center">
+                            <TextBlock Text="Firmware Version"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Text="{Binding FirmwareVersion}"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       FontFamily="Consolas"
+                                       Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Hardware Version -->
+                <Border Background="{DynamicResource LayerFillColorDefaultBrush}"
+                        CornerRadius="8"
+                        Padding="16,12">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Border Background="{DynamicResource ControlAltFillColorSecondaryBrush}"
+                                CornerRadius="6"
+                                Width="36"
+                                Height="36"
+                                VerticalAlignment="Center">
+                            <ic:SymbolIcon Symbol="Desktop"
+                                           FontSize="18" />
+                        </Border>
+                        <StackPanel Grid.Column="1"
+                                    Margin="12,0,0,0"
+                                    VerticalAlignment="Center">
+                            <TextBlock Text="Hardware Version"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Text="{Binding HardwareVersion}"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       FontFamily="Consolas"
+                                       Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
             </StackPanel>
         </StackPanel>
     </Border>
