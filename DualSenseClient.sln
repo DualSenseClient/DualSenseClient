@@ -5,6 +5,9 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DualSenseClient", "source\DualSenseClient\DualSenseClient.csproj", "{6ED79C00-921B-49F0-899A-A68BDAEA22BF}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Source", "Source", "{9E88491A-38C9-40E0-9F2D-BEF143C4DD3F}"
+	ProjectSection(SolutionItems) = preProject
+		Directory.Build.props = Directory.Build.props
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{3F63371B-045A-4116-8A5E-4D5189E2E9AC}"
 EndProject
