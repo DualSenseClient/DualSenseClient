@@ -10,7 +10,7 @@
       <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
       <PackageReference Include="HidSharp" Version="2.6.4" />
       <PackageReference Include="NLog" Version="6.0.5" />
-      <PackageReference Include="Nefarius.ViGEm.Client" Version="1.21.256" Condition="'$(OS)' == 'Windows_NT'" />
+      <PackageReference Include="Nefarius.ViGEm.Client" Version="1.21.256" Condition="$([MSBuild]::IsOSPlatform('Windows'))" />
     </ItemGroup>
 
 </Project>
