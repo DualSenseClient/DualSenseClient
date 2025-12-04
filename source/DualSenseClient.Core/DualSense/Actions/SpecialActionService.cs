@@ -3,18 +3,20 @@ using DualSenseClient.Core.DualSense.Actions.State;
 using DualSenseClient.Core.DualSense.Devices;
 using DualSenseClient.Core.DualSense.Enums;
 using DualSenseClient.Core.DualSense.Events;
+using DualSenseClient.Core.DualSense.Services;
 using DualSenseClient.Core.Settings;
 using DualSenseClient.Core.Settings.Models;
 
 namespace DualSenseClient.Core.DualSense.Actions;
 
-public class SpecialActionService
+public class SpecialActionService : IDisposable
 {
     private readonly ISettingsManager _settingsManager;
     private readonly DualSenseProfileManager _profileManager;
     private readonly ControllerStateTracker _stateTracker;
     private readonly ControllerStateSaver _stateSaver;
     private readonly SpecialActionFactory _actionFactory;
+    private readonly Dictionary<string, SwipeGestureService> _swipeServices = new();
 
     public SpecialActionService(ISettingsManager settingsManager, DualSenseProfileManager profileManager)
     {
@@ -37,6 +39,62 @@ public class SpecialActionService
 
         // Reset the state saver completely for this controller ID
         _stateSaver.ResetState(controllerId);
+    }
+
+    public void RegisterController(DualSenseController controller)
+    {
+        string controllerId = GetControllerId(controller);
+
+        // Create and initialize swipe gesture service for this controller
+        if (!_swipeServices.ContainsKey(controllerId))
+        {
+            SwipeGestureService swipeService = new SwipeGestureService();
+            swipeService.Initialize(controller);
+            swipeService.SwipeDetected += OnSwipeDetected;
+            _swipeServices[controllerId] = swipeService;
+        }
+    }
+
+    public void UnregisterController(DualSenseController controller)
+    {
+        string controllerId = GetControllerId(controller);
+
+        if (_swipeServices.TryGetValue(controllerId, out SwipeGestureService? swipeService))
+        {
+            swipeService.Dispose();
+            _swipeServices.Remove(controllerId);
+        }
+    }
+
+    private void OnSwipeDetected(object? sender, SwipeEventArgs e)
+    {
+        // Check for swipe-based special actions
+        CheckForSwipeSpecialActions(e.Controller, e.Direction);
+    }
+
+    private void CheckForSwipeSpecialActions(DualSenseController controller, DualSenseClient.Core.DualSense.Actions.SwipeDirection direction)
+    {
+        string controllerId = GetControllerId(controller);
+
+        // Check profile-specific actions first
+        ControllerProfile? profile = _profileManager.GetControllerProfile(controllerId);
+        if (profile.SpecialActions is not { Count: > 0 })
+        {
+            return;
+        }
+
+        // Filter actions that are swipe-based
+        List<SpecialActionSettings> swipeActions = profile.SpecialActions.Where(action => action.IsSwipeAction).ToList();
+
+        foreach (SpecialActionSettings action in swipeActions)
+        {
+            if (action.SwipeAction?.Direction == direction)
+            {
+                EnsureStateSaved(controllerId, controller);
+                ExecuteSpecialAction(controller, action);
+                break; // Only execute one swipe action per gesture
+            }
+        }
     }
 
     private string NormalizeMacAddress(string macAddress)
@@ -140,5 +198,15 @@ public class SpecialActionService
             return NormalizeMacAddress(controller.MacAddress);
         }
         return controller.Device.DevicePath;
+    }
+
+    public void Dispose()
+    {
+        // Dispose all swipe services
+        foreach (SwipeGestureService swipeService in _swipeServices.Values)
+        {
+            swipeService.Dispose();
+        }
+        _swipeServices.Clear();
     }
 }

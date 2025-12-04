@@ -150,6 +150,9 @@ public class DualSenseController : IDisposable
         _cts = new CancellationTokenSource();
         _readTask = Task.Run(() => ReadLoop(_cts.Token));
 
+        // Register with special action service
+        SpecialActionService?.RegisterController(this);
+
         Logger.Info<DualSenseController>("DualSense controller initialized successfully");
     }
 
@@ -1096,6 +1099,9 @@ public class DualSenseController : IDisposable
         {
             Logger.Warning<DualSenseController>($"Exception while waiting for read task: {ex.Message}");
         }
+
+        // Unregister from special action service
+        SpecialActionService?.UnregisterController(this);
 
         // Dispose Controller Emulation Service
         if (ControllerEmulationService != null)

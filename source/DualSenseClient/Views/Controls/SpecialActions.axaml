@@ -14,6 +14,7 @@
 
     <UserControl.Resources>
         <converters:ObjectToBooleanConverter x:Key="ObjectToBooleanConverter" />
+        <converters:InvertedBooleanConverter x:Key="InvertedBooleanConverter" />
     </UserControl.Resources>
 
     <Border Background="{DynamicResource ApplicationPageBackgroundThemeBrush}"
@@ -75,9 +76,30 @@
                                              Text="{Binding NewSpecialActionName}" />
                                 </StackPanel>
 
-                                <!-- Type Selection -->
+                                <!-- Action Type Selection -->
                                 <StackPanel Spacing="6">
                                     <TextBlock Text="Action Type"
+                                               FontWeight="Medium"
+                                               FontSize="13" />
+                                    <ComboBox ItemsSource="{Binding ActionTypes}"
+                                              SelectedItem="{Binding SelectedActionType}"
+                                              HorizontalAlignment="Stretch" />
+                                </StackPanel>
+
+                                <!-- Swipe Direction Selection (Visible when mode is swipe) -->
+                                <StackPanel Spacing="6"
+                                            IsVisible="{Binding IsSwipeAction, Mode=OneWay}">
+                                    <TextBlock Text="Swipe Direction"
+                                               FontWeight="Medium"
+                                               FontSize="13" />
+                                    <ComboBox ItemsSource="{Binding SwipeDirections}"
+                                              SelectedItem="{Binding SelectedSwipeDirection}"
+                                              HorizontalAlignment="Stretch" />
+                                </StackPanel>
+
+                                <!-- Action Type Selection -->
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="Action"
                                                FontWeight="Medium"
                                                FontSize="13" />
                                     <ComboBox ItemsSource="{Binding SpecialActionTypes}"
@@ -93,15 +115,17 @@
                                                FontSize="13" />
                                     <ComboBox ItemsSource="{Binding BatteryIndicatorTypes}"
                                               SelectedItem="{Binding SelectedBatteryIndicatorType}"
-                                              HorizontalAlignment="Stretch" />
+                                              HorizontalAlignment="Stretch"
+                                              IsEnabled="{Binding SelectedSpecialActionType, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=BatteryIndicator, Mode=OneWay}" />
                                 </StackPanel>
                             </StackPanel>
                         </Border>
 
-                        <!-- Button Selection Card -->
+                        <!-- Button Selection Card (Only visible when action type is not swipe) -->
                         <Border Background="{DynamicResource LayerFillColorDefaultBrush}"
                                 CornerRadius="8"
-                                Padding="20">
+                                Padding="20"
+                                IsVisible="{Binding IsSwipeAction, Converter={StaticResource InvertedBooleanConverter}, Mode=OneWay}">
                             <StackPanel Spacing="16">
                                 <TextBlock Text="Button Combination"
                                            FontSize="15"
@@ -188,53 +212,57 @@
                                         </ItemsControl>
                                     </ScrollViewer>
                                 </StackPanel>
-
-                                <!-- Action Buttons -->
-                                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8" Margin="0,8,0,0">
-                                    <Button Content="Add New"
-                                            Command="{Binding AddSpecialActionCommand}"
-                                            HorizontalAlignment="Stretch"
-                                            Grid.Column="0"
-                                            FontWeight="SemiBold"
-                                            Foreground="{DynamicResource TextFillColorInverseBrush}">
-                                        <Button.Styles>
-                                            <Style Selector="Button">
-                                                <Setter Property="Background" Value="{DynamicResource SystemAccentColorBrush}" />
-                                            </Style>
-                                        </Button.Styles>
-                                    </Button>
-                                    <Button Content="Update"
-                                            Command="{Binding UpdateSpecialActionCommand}"
-                                            HorizontalAlignment="Stretch"
-                                            Grid.Column="1"
-                                            IsEnabled="{Binding SelectedSpecialAction, Converter={StaticResource ObjectToBooleanConverter}}"
-                                            Foreground="{DynamicResource TextFillColorInverseBrush}">
-                                        <Button.Styles>
-                                            <Style Selector="Button">
-                                                <Setter Property="Background" Value="{DynamicResource SystemAccentColorBrush}" />
-                                            </Style>
-                                            <Style Selector="Button:disabled">
-                                                <Setter Property="Opacity" Value="0.5" />
-                                            </Style>
-                                        </Button.Styles>
-                                    </Button>
-                                    <Button Content="Delete"
-                                            Command="{Binding DeleteSpecialActionCommand}"
-                                            HorizontalAlignment="Stretch"
-                                            Grid.Column="2"
-                                            IsEnabled="{Binding SelectedSpecialAction, Converter={StaticResource ObjectToBooleanConverter}}"
-                                            Foreground="{DynamicResource TextFillColorInverseBrush}">
-                                        <Button.Styles>
-                                            <Style Selector="Button">
-                                                <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBrush}" />
-                                            </Style>
-                                            <Style Selector="Button:disabled">
-                                                <Setter Property="Opacity" Value="0.5" />
-                                            </Style>
-                                        </Button.Styles>
-                                    </Button>
-                                </Grid>
                             </StackPanel>
+                        </Border>
+
+                        <!-- Action Buttons -->
+                        <Border Background="{DynamicResource LayerFillColorDefaultBrush}"
+                                CornerRadius="8"
+                                Padding="20">
+                            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8" Margin="0,8,0,0">
+                                <Button Content="Add New"
+                                        Command="{Binding AddSpecialActionCommand}"
+                                        HorizontalAlignment="Stretch"
+                                        Grid.Column="0"
+                                        FontWeight="SemiBold"
+                                        Foreground="{DynamicResource TextFillColorInverseBrush}">
+                                    <Button.Styles>
+                                        <Style Selector="Button">
+                                            <Setter Property="Background" Value="{DynamicResource SystemAccentColorBrush}" />
+                                        </Style>
+                                    </Button.Styles>
+                                </Button>
+                                <Button Content="Update"
+                                        Command="{Binding UpdateSpecialActionCommand}"
+                                        HorizontalAlignment="Stretch"
+                                        Grid.Column="1"
+                                        IsEnabled="{Binding SelectedSpecialAction, Converter={StaticResource ObjectToBooleanConverter}}"
+                                        Foreground="{DynamicResource TextFillColorInverseBrush}">
+                                    <Button.Styles>
+                                        <Style Selector="Button">
+                                            <Setter Property="Background" Value="{DynamicResource SystemAccentColorBrush}" />
+                                        </Style>
+                                        <Style Selector="Button:disabled">
+                                            <Setter Property="Opacity" Value="0.5" />
+                                        </Style>
+                                    </Button.Styles>
+                                </Button>
+                                <Button Content="Delete"
+                                        Command="{Binding DeleteSpecialActionCommand}"
+                                        HorizontalAlignment="Stretch"
+                                        Grid.Column="2"
+                                        IsEnabled="{Binding SelectedSpecialAction, Converter={StaticResource ObjectToBooleanConverter}}"
+                                        Foreground="{DynamicResource TextFillColorInverseBrush}">
+                                    <Button.Styles>
+                                        <Style Selector="Button">
+                                            <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                                        </Style>
+                                        <Style Selector="Button:disabled">
+                                            <Setter Property="Opacity" Value="0.5" />
+                                        </Style>
+                                    </Button.Styles>
+                                </Button>
+                            </Grid>
                         </Border>
                     </StackPanel>
 
@@ -307,15 +335,27 @@
                                                         <Border Background="{DynamicResource ControlAltFillColorTertiaryBrush}"
                                                                 CornerRadius="4"
                                                                 Padding="8,4"
-                                                                IsVisible="{Binding Settings.BatteryIndicatorType, Converter={StaticResource ObjectToBooleanConverter}}">
+                                                                IsVisible="{Binding Type, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=BatteryIndicator}">
                                                             <TextBlock Text="{Binding Settings.BatteryIndicatorType}"
                                                                        FontSize="11"
                                                                        FontWeight="Medium" />
                                                         </Border>
                                                     </StackPanel>
 
-                                                    <!-- Button Count -->
-                                                    <StackPanel Orientation="Horizontal" Spacing="6" Grid.Row="2">
+                                                    <!-- Swipe Direction (for swipe actions) -->
+                                                    <StackPanel Orientation="Horizontal" Spacing="6" Grid.Row="2"
+                                                                IsVisible="{Binding IsSwipeAction, Mode=OneWay}">
+                                                        <ic:SymbolIcon Symbol="SwipeRight"
+                                                                       FontSize="14"
+                                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                        <TextBlock Text="{Binding SwipeAction.Direction, StringFormat='Swipe: {0}'}"
+                                                                   FontSize="12"
+                                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                    </StackPanel>
+
+                                                    <!-- Button Count (for button combination actions) -->
+                                                    <StackPanel Orientation="Horizontal" Spacing="6" Grid.Row="2"
+                                                                IsVisible="{Binding IsSwipeAction, Converter={StaticResource InvertedBooleanConverter}, Mode=OneWay}">
                                                         <ic:SymbolIcon Symbol="Keyboard"
                                                                        FontSize="14"
                                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
@@ -382,7 +422,21 @@
                                                        FontSize="13"
                                                        Grid.Column="1" />
                                         </Grid>
-                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                        <!-- Swipe Direction (for swipe actions) -->
+                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8"
+                                              IsVisible="{Binding IsSwipeAction, Mode=OneWay}">
+                                            <TextBlock Text="Swipe:"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="13"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock Text="{Binding SelectedSwipeDirection}"
+                                                       FontSize="13"
+                                                       Grid.Column="1" />
+                                        </Grid>
+
+                                        <!-- Buttons (for button combination actions) -->
+                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8"
+                                              IsVisible="{Binding IsSwipeAction, Converter={StaticResource InvertedBooleanConverter}, Mode=OneWay}">
                                             <TextBlock Text="Buttons:"
                                                        FontWeight="SemiBold"
                                                        FontSize="13"

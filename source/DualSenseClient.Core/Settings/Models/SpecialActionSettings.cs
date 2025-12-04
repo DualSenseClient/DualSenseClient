@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Serialization;
+using DualSenseClient.Core.DualSense.Actions;
 using DualSenseClient.Core.DualSense.Enums;
 
 namespace DualSenseClient.Core.Settings.Models;
@@ -14,11 +15,17 @@ public class SpecialActionSettings
     [JsonPropertyName("button")]
     public ButtonCombination Combination { get; set; } = new ButtonCombination();
 
+    [JsonPropertyName("swipe")]
+    public SwipeActionCombination? SwipeAction { get; set; }
+
     [JsonPropertyName("action")]
     public SpecialActionType Type { get; set; }
 
     [JsonPropertyName("settings")]
     public ActionSettings Settings { get; set; } = new ActionSettings();
+
+    [JsonIgnore]
+    public bool IsSwipeAction => SwipeAction != null;
 }
 
 public class ButtonCombination

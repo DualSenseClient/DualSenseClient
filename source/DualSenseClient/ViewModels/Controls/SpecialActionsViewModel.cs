@@ -9,9 +9,17 @@ using DualSenseClient.Core.DualSense.Devices;
 using DualSenseClient.Core.DualSense.Enums;
 using DualSenseClient.Core.DualSense.Events;
 using DualSenseClient.Core.Settings.Models;
+using DualSenseClient.Core.DualSense.Actions;
 using DualSenseClient.Core.Logging;
 
 namespace DualSenseClient.ViewModels.Controls;
+
+public enum ActionType
+{
+    ButtonCombination,
+    SwipeGesture
+    // Add actiontypes here
+}
 
 public partial class SpecialActionsViewModel : ControllerViewModelBase
 {
@@ -23,9 +31,21 @@ public partial class SpecialActionsViewModel : ControllerViewModelBase
     [ObservableProperty] private BatteryIndicatorType? _selectedBatteryIndicatorType;
     [ObservableProperty] private ObservableCollection<ButtonType> _availableButtons = new ObservableCollection<ButtonType>();
     [ObservableProperty] private ObservableCollection<ButtonType> _selectedButtons = new ObservableCollection<ButtonType>();
+    [ObservableProperty] private SwipeDirection _selectedSwipeDirection = SwipeDirection.Left;
+
+    [ObservableProperty] private ActionType _selectedActionType = ActionType.ButtonCombination;
+
+    public bool IsSwipeAction => SelectedActionType == ActionType.SwipeGesture;
+
+    partial void OnSelectedActionTypeChanged(ActionType value)
+    {
+        OnPropertyChanged(nameof(IsSwipeAction));
+    }
 
     public ObservableCollection<SpecialActionType> SpecialActionTypes { get; } = new ObservableCollection<SpecialActionType>();
     public ObservableCollection<BatteryIndicatorType> BatteryIndicatorTypes { get; } = new ObservableCollection<BatteryIndicatorType>();
+    public ObservableCollection<SwipeDirection> SwipeDirections { get; } = new ObservableCollection<SwipeDirection>();
+    public ObservableCollection<ActionType> ActionTypes { get; } = new ObservableCollection<ActionType>();
 
     public SpecialActionsViewModel(DualSenseController controller, ControllerInfo? controllerInfo, DualSenseProfileManager profileManager) : base(controller, controllerInfo)
     {
@@ -38,7 +58,22 @@ public partial class SpecialActionsViewModel : ControllerViewModelBase
         InitializeSpecialActions();
         LoadAvailableButtons();
         LoadEnumCollections();
+        LoadActionTypes();
         Logger.Debug<SpecialActionsViewModel>("SpecialActionsViewModel initialized successfully");
+    }
+
+    private void LoadActionTypes()
+    {
+        Logger.Debug<SpecialActionsViewModel>("Loading action types");
+
+        ActionTypes.Clear();
+        Array actionTypes = Enum.GetValues(typeof(ActionType));
+        foreach (ActionType type in actionTypes)
+        {
+            ActionTypes.Add(type);
+        }
+
+        Logger.Debug<SpecialActionsViewModel>($"Loaded {ActionTypes.Count} action types");
     }
 
     private void OnProfileChanged(object? sender, ProfileChangedEventArgs e)
@@ -91,7 +126,7 @@ public partial class SpecialActionsViewModel : ControllerViewModelBase
 
         // Populate SpecialActionType collection
         SpecialActionTypes.Clear();
-        Array specialActionTypes = Enum.GetValues(typeof(SpecialActionType));
+        Array specialActionTypes = Enum.GetValues<SpecialActionType>();
         foreach (SpecialActionType type in specialActionTypes)
         {
             SpecialActionTypes.Add(type);
@@ -99,13 +134,21 @@ public partial class SpecialActionsViewModel : ControllerViewModelBase
 
         // Populate BatteryIndicatorType collection
         BatteryIndicatorTypes.Clear();
-        Array batteryIndicatorTypes = Enum.GetValues(typeof(BatteryIndicatorType));
+        Array batteryIndicatorTypes = Enum.GetValues<BatteryIndicatorType>();
         foreach (BatteryIndicatorType type in batteryIndicatorTypes)
         {
             BatteryIndicatorTypes.Add(type);
         }
 
-        Logger.Debug<SpecialActionsViewModel>($"Loaded {SpecialActionTypes.Count} SpecialActionTypes and {BatteryIndicatorTypes.Count} BatteryIndicatorTypes");
+        // Populate SwipeDirection collection
+        SwipeDirections.Clear();
+        Array swipeDirections = Enum.GetValues(typeof(SwipeDirection));
+        foreach (SwipeDirection direction in swipeDirections)
+        {
+            SwipeDirections.Add(Enum.Parse<SwipeDirection>(direction.ToString()));
+        }
+
+        Logger.Debug<SpecialActionsViewModel>($"Loaded {SpecialActionTypes.Count} SpecialActionTypes, {BatteryIndicatorTypes.Count} BatteryIndicatorTypes, and {SwipeDirections.Count} SwipeDirections");
     }
 
     [RelayCommand]
@@ -117,16 +160,33 @@ public partial class SpecialActionsViewModel : ControllerViewModelBase
             return;
         }
 
-        Logger.Info<SpecialActionsViewModel>($"Creating new SpecialAction: {NewSpecialActionName}, Type: {SelectedSpecialActionType}");
+        Logger.Info<SpecialActionsViewModel>($"Creating new SpecialAction: {NewSpecialActionName}, Type: {SelectedSpecialActionType}, IsSwipeAction: {IsSwipeAction}");
 
         SpecialActionSettings newAction = new SpecialActionSettings
         {
             Id = Guid.NewGuid().ToString(),
             Name = NewSpecialActionName,
             Type = SelectedSpecialActionType,
-            Combination = new ButtonCombination(SelectedButtons.ToList()),
             Settings = new ActionSettings()
         };
+
+        if (SelectedActionType == ActionType.SwipeGesture)
+        {
+            // Create swipe action
+            newAction.SwipeAction = new SwipeActionCombination
+            {
+                Direction = Enum.Parse<SwipeDirection>(SelectedSwipeDirection.ToString())
+            };
+            // Clear button combination for swipe actions
+            newAction.Combination = new ButtonCombination();
+        }
+        else
+        {
+            // Create button combination action
+            newAction.Combination = new ButtonCombination(SelectedButtons.ToList());
+            // Clear swipe action for button combination actions
+            newAction.SwipeAction = null;
+        }
 
         if (SelectedSpecialActionType == SpecialActionType.BatteryIndicator)
         {
@@ -158,11 +218,29 @@ public partial class SpecialActionsViewModel : ControllerViewModelBase
             return;
         }
 
-        Logger.Info<SpecialActionsViewModel>($"Updating SpecialAction: {SelectedSpecialAction.Name}, Type: {SelectedSpecialActionType}");
+        Logger.Info<SpecialActionsViewModel>($"Updating SpecialAction: {SelectedSpecialAction.Name}, Type: {SelectedSpecialActionType}, IsSwipeAction: {IsSwipeAction}");
 
         SelectedSpecialAction.Name = NewSpecialActionName;
         SelectedSpecialAction.Type = SelectedSpecialActionType;
-        SelectedSpecialAction.Combination = new ButtonCombination(SelectedButtons.ToList());
+
+        if (SelectedActionType == ActionType.SwipeGesture)
+        {
+            // Update as swipe action
+            if (SelectedSpecialAction.SwipeAction == null)
+            {
+                SelectedSpecialAction.SwipeAction = new SwipeActionCombination();
+            }
+            SelectedSpecialAction.SwipeAction.Direction = (Core.DualSense.Actions.SwipeDirection)Enum.Parse(typeof(Core.DualSense.Actions.SwipeDirection), SelectedSwipeDirection.ToString());
+            // Clear button combination for swipe actions
+            SelectedSpecialAction.Combination = new ButtonCombination();
+        }
+        else
+        {
+            // Update as button combination action
+            SelectedSpecialAction.Combination = new ButtonCombination(SelectedButtons.ToList());
+            // Clear swipe action for button combination actions
+            SelectedSpecialAction.SwipeAction = null;
+        }
 
         if (SelectedSpecialActionType == SpecialActionType.BatteryIndicator)
         {
@@ -263,16 +341,31 @@ public partial class SpecialActionsViewModel : ControllerViewModelBase
 
         NewSpecialActionName = action.Name;
         SelectedSpecialActionType = action.Type;
+        SelectedActionType = action.IsSwipeAction ? ActionType.SwipeGesture : ActionType.ButtonCombination;
 
-        SelectedButtons.Clear();
-        foreach (ButtonType button in action.Combination.Buttons)
+        // Load button combination or swipe action
+        if (action.IsSwipeAction)
         {
-            SelectedButtons.Add(button);
+            SelectedSwipeDirection = action.SwipeAction != null
+                ? Enum.Parse<SwipeDirection>(action.SwipeAction.Direction.ToString())
+                : SwipeDirection.Left;
+
+            SelectedButtons.Clear(); // Clear buttons for swipe actions
+        }
+        else
+        {
+            SelectedButtons.Clear();
+            foreach (ButtonType button in action.Combination.Buttons)
+            {
+                SelectedButtons.Add(button);
+            }
+
+            SelectedSwipeDirection = SwipeDirection.Left; // Reset for button actions
         }
 
         SelectedBatteryIndicatorType = action.Type == SpecialActionType.BatteryIndicator ? action.Settings.BatteryIndicatorType : null;
 
-        Logger.Debug<SpecialActionsViewModel>($"SpecialAction loaded into controls successfully");
+        Logger.Debug<SpecialActionsViewModel>("SpecialAction loaded into controls successfully");
     }
 
     public override void Dispose()

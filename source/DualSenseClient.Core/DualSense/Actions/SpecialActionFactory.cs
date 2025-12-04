@@ -24,6 +24,13 @@ public class SpecialActionFactory
 
     public ISpecialActionHandler? GetHandler(SpecialActionSettings action)
     {
+        // If this is a swipe action, return the swipe handler
+        if (action.IsSwipeAction)
+        {
+            return new SwipeActionHandler();
+        }
+
+        // For non-swipe actions (button combinations), use the original logic
         (SpecialActionType Type, BatteryIndicatorType?) key = action.Type == SpecialActionType.BatteryIndicator
             ? (action.Type, action.Settings.BatteryIndicatorType)
             : (action.Type, (BatteryIndicatorType?)null);
