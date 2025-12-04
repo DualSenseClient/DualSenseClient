@@ -106,5 +106,8 @@ public class VirtualControllerSettings
 
     [JsonPropertyName("rightTriggerThreshold")]
     public int RightTriggerThreshold { get; set; } = 0;
+
+    [JsonPropertyName("trackpadMouse")]
+    public TrackpadMouseSettings TrackpadMouse { get; set; } = new TrackpadMouseSettings();
 }
 

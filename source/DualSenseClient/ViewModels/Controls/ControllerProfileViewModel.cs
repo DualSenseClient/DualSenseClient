@@ -61,6 +61,7 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
     // References to other ViewModels to coordinate profile updates
     private SpecialActionsViewModel? _specialActionsViewModel;
     private VirtualControllerSettingsViewModel? _virtualControllerSettingsViewModel;
+    private TrackpadMouseSettingsViewModel? _trackpadMouseSettingsViewModel;
 
     public SpecialActionsViewModel? SpecialActionsViewModel
     {
@@ -72,6 +73,12 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
     {
         get => _virtualControllerSettingsViewModel;
         set => _virtualControllerSettingsViewModel = value;
+    }
+
+    public TrackpadMouseSettingsViewModel? TrackpadMouseSettingsViewModel
+    {
+        get => _trackpadMouseSettingsViewModel;
+        set => _trackpadMouseSettingsViewModel = value;
     }
 
     // Constructor
@@ -297,6 +304,12 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
         RightTriggerThreshold = profile.VirtualControllerSettings.RightTriggerThreshold;
         Logger.Trace<ControllerProfileViewModel>($"  Virtual Controller: Enabled={EnableEmulation}, Type={profile.VirtualControllerSettings.EmulationType}, ForceStopRumble={ForceStopRumble}, IgnoreDS4Lightbar={IgnoreDS4Lightbar}");
 
+        // Load Trackpad Mouse Settings from the dedicated ViewModel if available, otherwise from the profile
+        if (_trackpadMouseSettingsViewModel != null)
+        {
+            _trackpadMouseSettingsViewModel.LoadFromProfile(profile);
+        }
+
         Logger.Debug<ControllerProfileViewModel>("Profile loaded into controls successfully");
     }
 
@@ -336,6 +349,12 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
 
         Logger.Info<ControllerProfileViewModel>($"Applying profile '{SelectedProfile.Name}' to controller");
         _profileManager.ApplyProfileToController(_controller, SelectedProfile);
+
+        // Apply trackpad mouse settings to the controller if TrackpadMouseSettingsViewModel is available
+        if (_trackpadMouseSettingsViewModel != null)
+        {
+            _trackpadMouseSettingsViewModel.LoadFromProfile(SelectedProfile);
+        }
 
         if (_controllerInfo != null)
         {
@@ -391,7 +410,14 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
                 ForceStopRumble = ForceStopRumble,
                 IgnoreDS4Lightbar = IgnoreDS4Lightbar,
                 LeftTriggerThreshold = LeftTriggerThreshold,
-                RightTriggerThreshold = RightTriggerThreshold
+                RightTriggerThreshold = RightTriggerThreshold,
+                TrackpadMouse = new TrackpadMouseSettings
+                {
+                    Enabled = _trackpadMouseSettingsViewModel?.UseTrackpadAsMouse ?? false,
+                    Sensitivity = _trackpadMouseSettingsViewModel?.TrackpadSensitivity ?? 1.0,
+                    InvertX = _trackpadMouseSettingsViewModel?.TrackpadInvertX ?? false,
+                    InvertY = _trackpadMouseSettingsViewModel?.TrackpadInvertY ?? false
+                }
             }
         };
 
@@ -471,6 +497,15 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
                     SelectedProfile.SpecialActions.Add(specialAction);
                 }
             }
+
+            // Update trackpad mouse settings from the dedicated ViewModel if available
+            if (_trackpadMouseSettingsViewModel != null)
+            {
+                SelectedProfile.VirtualControllerSettings.TrackpadMouse.Enabled = _trackpadMouseSettingsViewModel.UseTrackpadAsMouse;
+                SelectedProfile.VirtualControllerSettings.TrackpadMouse.Sensitivity = _trackpadMouseSettingsViewModel.TrackpadSensitivity;
+                SelectedProfile.VirtualControllerSettings.TrackpadMouse.InvertX = _trackpadMouseSettingsViewModel.TrackpadInvertX;
+                SelectedProfile.VirtualControllerSettings.TrackpadMouse.InvertY = _trackpadMouseSettingsViewModel.TrackpadInvertY;
+            }
         }
         else
         {
@@ -495,6 +530,16 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
             SelectedProfile.VirtualControllerSettings.IgnoreDS4Lightbar = IgnoreDS4Lightbar;
             SelectedProfile.VirtualControllerSettings.LeftTriggerThreshold = LeftTriggerThreshold;
             SelectedProfile.VirtualControllerSettings.RightTriggerThreshold = RightTriggerThreshold;
+
+            // Update trackpad mouse settings in legacy mode if we have the ViewModel reference
+            if (_trackpadMouseSettingsViewModel != null)
+            {
+                SelectedProfile.VirtualControllerSettings.TrackpadMouse.Enabled = _trackpadMouseSettingsViewModel.UseTrackpadAsMouse;
+                SelectedProfile.VirtualControllerSettings.TrackpadMouse.Sensitivity = _trackpadMouseSettingsViewModel.TrackpadSensitivity;
+                SelectedProfile.VirtualControllerSettings.TrackpadMouse.InvertX = _trackpadMouseSettingsViewModel.TrackpadInvertX;
+                SelectedProfile.VirtualControllerSettings.TrackpadMouse.InvertY = _trackpadMouseSettingsViewModel.TrackpadInvertY;
+            }
+            // Otherwise, we keep the existing trackpad settings from the loaded profile
         }
 
         Logger.Debug<ControllerProfileViewModel>(
@@ -632,6 +677,23 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
                     newProfile.SpecialActions.Add(specialAction);
                 }
             }
+
+            // Copy trackpad mouse settings from the dedicated ViewModel if available
+            if (_trackpadMouseSettingsViewModel != null)
+            {
+                newProfile.VirtualControllerSettings.TrackpadMouse.Enabled = _trackpadMouseSettingsViewModel.UseTrackpadAsMouse;
+                newProfile.VirtualControllerSettings.TrackpadMouse.Sensitivity = _trackpadMouseSettingsViewModel.TrackpadSensitivity;
+                newProfile.VirtualControllerSettings.TrackpadMouse.InvertX = _trackpadMouseSettingsViewModel.TrackpadInvertX;
+                newProfile.VirtualControllerSettings.TrackpadMouse.InvertY = _trackpadMouseSettingsViewModel.TrackpadInvertY;
+            }
+            else
+            {
+                // Copy from source profile if TrackpadMouseSettingsViewModel is unavailable
+                newProfile.VirtualControllerSettings.TrackpadMouse.Enabled = SelectedProfile.VirtualControllerSettings.TrackpadMouse.Enabled;
+                newProfile.VirtualControllerSettings.TrackpadMouse.Sensitivity = SelectedProfile.VirtualControllerSettings.TrackpadMouse.Sensitivity;
+                newProfile.VirtualControllerSettings.TrackpadMouse.InvertX = SelectedProfile.VirtualControllerSettings.TrackpadMouse.InvertX;
+                newProfile.VirtualControllerSettings.TrackpadMouse.InvertY = SelectedProfile.VirtualControllerSettings.TrackpadMouse.InvertY;
+            }
         }
         else
         {
@@ -689,6 +751,23 @@ public partial class ControllerProfileViewModel : ControllerViewModelBase
         Logger.Info<ControllerProfileViewModel>($"Creating profile '{profileName}' from current controller state");
 
         ControllerProfile profile = _profileManager.CreateProfileFromController(_controller, profileName);
+
+        // Apply trackpad mouse settings from TrackpadMouseSettingsViewModel if available
+        if (_trackpadMouseSettingsViewModel != null)
+        {
+            profile.VirtualControllerSettings.TrackpadMouse.Enabled = _trackpadMouseSettingsViewModel.UseTrackpadAsMouse;
+            profile.VirtualControllerSettings.TrackpadMouse.Sensitivity = _trackpadMouseSettingsViewModel.TrackpadSensitivity;
+            profile.VirtualControllerSettings.TrackpadMouse.InvertX = _trackpadMouseSettingsViewModel.TrackpadInvertX;
+            profile.VirtualControllerSettings.TrackpadMouse.InvertY = _trackpadMouseSettingsViewModel.TrackpadInvertY;
+        }
+        else
+        {
+            // Fallback: Use default trackpad settings when creating profile from controller state
+            profile.VirtualControllerSettings.TrackpadMouse.Enabled = false;
+            profile.VirtualControllerSettings.TrackpadMouse.Sensitivity = 1.0;
+            profile.VirtualControllerSettings.TrackpadMouse.InvertX = false;
+            profile.VirtualControllerSettings.TrackpadMouse.InvertY = false;
+        }
 
         Logger.Debug<ControllerProfileViewModel>($"Profile created with ID: {profile.Id}");
 

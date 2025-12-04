@@ -1,0 +1,67 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ic="using:FluentIcons.Avalonia.Fluent"
+             xmlns:vm="clr-namespace:DualSenseClient.ViewModels.Controls"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
+             x:Class="DualSenseClient.Views.Controls.TrackpadMouseSettingsControl"
+             x:DataType="vm:TrackpadMouseSettingsViewModel">
+
+    <Border Background="{DynamicResource LayerFillColorDefaultBrush}"
+            CornerRadius="8"
+            Padding="20">
+        <StackPanel Spacing="16">
+            <Grid ColumnDefinitions="Auto,*">
+                <ic:SymbolIcon Symbol="HandDraw"
+                               FontSize="18"
+                               Margin="0,0,10,0"
+                               VerticalAlignment="Center" />
+                <TextBlock Text="Trackpad Mouse Settings"
+                           FontSize="15"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center"
+                           Grid.Column="1" />
+            </Grid>
+
+            <!-- Enable Trackpad Mouse -->
+            <StackPanel Spacing="6">
+                <ToggleSwitch IsChecked="{Binding UseTrackpadAsMouse, Mode=TwoWay}"
+                              Content="Use DualSense Trackpad as Mouse"
+                              FontWeight="Medium"
+                              FontSize="13"
+                              VerticalAlignment="Center" />
+            </StackPanel>
+
+            <!-- Sensitivity -->
+            <StackPanel Spacing="6" IsVisible="{Binding UseTrackpadAsMouse}">
+                <TextBlock Text="Sensitivity"
+                           FontWeight="Medium"
+                           FontSize="13" />
+                <Slider Minimum="0.1" 
+                        Maximum="3.0" 
+                        Value="{Binding TrackpadSensitivity, Mode=TwoWay}"
+                        TickFrequency="0.1"
+                        IsSnapToTickEnabled="True" />
+                <TextBlock Text="{Binding TrackpadSensitivity, StringFormat='{}{0:F1}x'}"
+                           HorizontalAlignment="Center"
+                           FontFamily="Cascadia Code,Consolas,monospace"
+                           FontSize="12"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+
+            <!-- Inversion Options -->
+            <StackPanel Spacing="6" IsVisible="{Binding UseTrackpadAsMouse}">
+                <TextBlock Text="Inversion"
+                           FontWeight="Medium"
+                           FontSize="13" />
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <ToggleSwitch Content="Invert X Axis" 
+                                  IsChecked="{Binding TrackpadInvertX, Mode=TwoWay}" />
+                    <ToggleSwitch Content="Invert Y Axis" 
+                                  IsChecked="{Binding TrackpadInvertY, Mode=TwoWay}" />
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

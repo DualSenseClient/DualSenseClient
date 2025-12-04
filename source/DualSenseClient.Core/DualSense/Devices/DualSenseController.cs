@@ -7,6 +7,8 @@ using DualSenseClient.Core.DualSense.Models;
 using DualSenseClient.Core.DualSense.Reports;
 using DualSenseClient.Core.DualSense.Services;
 using DualSenseClient.Core.Logging;
+using DualSenseClient.Core.Services;
+using DualSenseClient.Core.Settings.Models;
 using DualSenseClient.Core.Utils;
 using HidSharp;
 
@@ -54,6 +56,7 @@ public class DualSenseController : IDisposable
     public FirmwareVersion? ParsedFirmwareVersion { get; private set; }
     public ControllerEmulationService? ControllerEmulationService { get; private set; }
     public SpecialActionService? SpecialActionService { get; }
+    public ITrackpadMouseService? TrackpadMouseService { get; private set; }
 
     // Events
     // Input
@@ -117,6 +120,17 @@ public class DualSenseController : IDisposable
         {
             Logger.Warning<DualSenseController>($"Could not initialize ControllerEmulationService: {ex.Message}");
             ControllerEmulationService = null;
+        }
+
+        // Initialize Trackpad Mouse Service (starts disabled by default)
+        try
+        {
+            TrackpadMouseService = TrackpadMouseServiceFactory.CreateService();
+        }
+        catch (Exception ex)
+        {
+            Logger.Warning<DualSenseController>($"Could not initialize TrackpadMouseService: {ex.Message}");
+            TrackpadMouseService = null;
         }
 
         // Retrieve firmware and hardware version information
@@ -987,6 +1001,43 @@ public class DualSenseController : IDisposable
         return report; // BT Output Report
     }
 
+    private ITrackpadMouseService? _trackpadMouseServiceInstance;
+
+    /// <summary>
+    /// Enables or disables the trackpad mouse functionality
+    /// </summary>
+    public void SetTrackpadMouseEnabled(bool enabled, VirtualControllerSettings? settings = null)
+    {
+        // If enabled is true and we have settings that enable trackpad mouse, start the service
+        if (enabled && settings != null && settings.TrackpadMouse.Enabled)
+        {
+            // Stop any existing service to prevent duplicate event handlers
+            if (_trackpadMouseServiceInstance != null)
+            {
+                (_trackpadMouseServiceInstance as IDisposable)?.Dispose();
+            }
+
+            // Create and initialize a new service instance
+            _trackpadMouseServiceInstance = TrackpadMouseServiceFactory.CreateService();
+            _trackpadMouseServiceInstance.Initialize(this, settings);
+            TrackpadMouseService = _trackpadMouseServiceInstance;
+
+            Logger.Info<DualSenseController>($"Trackpad mouse service enabled");
+        }
+        // If enabled is false OR if we have settings that disable trackpad mouse, stop the service
+        else if (!enabled || (settings != null && !settings.TrackpadMouse.Enabled))
+        {
+            // Stop the service if it's running
+            if (_trackpadMouseServiceInstance != null)
+            {
+                (_trackpadMouseServiceInstance as IDisposable)?.Dispose();
+                _trackpadMouseServiceInstance = null;
+                TrackpadMouseService = null;
+                Logger.Info<DualSenseController>("Trackpad mouse service disabled");
+            }
+        }
+    }
+
     /// <summary>
     /// Disconnects the Bluetooth connection (if connected via Bluetooth)
     /// </summary>
@@ -1056,6 +1107,19 @@ public class DualSenseController : IDisposable
             catch (Exception ex)
             {
                 Logger.Warning<DualSenseController>($"Exception while disposing ControllerEmulationService: {ex.Message}");
+            }
+        }
+
+        // Dispose Trackpad Mouse Service
+        if (_trackpadMouseServiceInstance != null)
+        {
+            try
+            {
+                _trackpadMouseServiceInstance.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning<DualSenseController>($"Exception while disposing TrackpadMouseService: {ex.Message}");
             }
         }
 

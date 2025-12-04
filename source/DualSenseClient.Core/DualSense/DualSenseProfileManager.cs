@@ -814,7 +814,18 @@ public class DualSenseProfileManager
                 Brightness = controller.CurrentPlayerLedBrightness
             },
             MicLed = controller.CurrentMicLed,
-            VirtualControllerSettings = new VirtualControllerSettings { EnableEmulation = false, EmulationType = VirtualControllerType.X360 }
+            VirtualControllerSettings = new VirtualControllerSettings
+            {
+                EnableEmulation = false,
+                EmulationType = VirtualControllerType.X360,
+                TrackpadMouse = new TrackpadMouseSettings
+                {
+                    Enabled = false,
+                    Sensitivity = 1.0,
+                    InvertX = false,
+                    InvertY = false
+                }
+            }
         };
 
         Logger.Debug<DualSenseProfileManager>($"Profile ID: {profile.Id}");
@@ -849,6 +860,36 @@ public class DualSenseProfileManager
             controller.SetMicLed(profile.MicLed);
             Logger.Trace<DualSenseProfileManager>("Mic LED applied");
 
+            // Apply virtual controller settings including trackpad settings
+            if (controller.ControllerEmulationService != null)
+            {
+                controller.ControllerEmulationService.ForceStopRumble = profile.VirtualControllerSettings.ForceStopRumble;
+                controller.ControllerEmulationService.IgnoreDS4Lightbar = profile.VirtualControllerSettings.IgnoreDS4Lightbar;
+                controller.ControllerEmulationService.LeftTriggerThreshold = profile.VirtualControllerSettings.LeftTriggerThreshold;
+                controller.ControllerEmulationService.RightTriggerThreshold = profile.VirtualControllerSettings.RightTriggerThreshold;
+
+                // Start or stop emulation based on settings
+                if (profile.VirtualControllerSettings.EnableEmulation)
+                {
+                    if (profile.VirtualControllerSettings.EmulationType == VirtualControllerType.X360)
+                    {
+                        controller.ControllerEmulationService.StartX360Emulation();
+                    }
+                    else
+                    {
+                        controller.ControllerEmulationService.StartDS4Emulation();
+                    }
+                }
+                else
+                {
+                    controller.ControllerEmulationService.StopEmulation();
+                }
+            }
+
+            // Apply trackpad mouse settings
+            controller.SetTrackpadMouseEnabled(profile.VirtualControllerSettings.TrackpadMouse.Enabled, profile.VirtualControllerSettings);
+
+            Logger.Trace<DualSenseProfileManager>("Virtual controller and trackpad settings applied");
             Logger.Info<DualSenseProfileManager>("Profile applied to controller successfully");
         }
         catch (Exception ex)

@@ -25,10 +25,14 @@ public partial class VirtualControllerSettingsViewModel : ControllerViewModelBas
     // Profile Management
     private DualSenseProfileManager? _profileManager;
 
+    // Trackpad Mouse Settings ViewModel
+    [ObservableProperty] private TrackpadMouseSettingsViewModel? _trackpadMouseSettingsViewModel;
+
     public VirtualControllerSettingsViewModel(DualSenseController controller, ControllerInfo? controllerInfo) : base(controller, controllerInfo)
     {
         Logger.Debug<VirtualControllerSettingsViewModel>($"Creating VirtualControllerSettingsViewModel for controller: {controllerInfo?.Name ?? "Unknown"}");
         InitializeVirtualControllerSettings();
+        InitializeTrackpadMouseSettingsViewModel();
         Logger.Debug<VirtualControllerSettingsViewModel>("VirtualControllerSettingsViewModel initialized successfully");
     }
 
@@ -37,6 +41,7 @@ public partial class VirtualControllerSettingsViewModel : ControllerViewModelBas
         Logger.Debug<VirtualControllerSettingsViewModel>($"Creating VirtualControllerSettingsViewModel for controller: {controllerInfo?.Name ?? "Unknown"} with profile manager");
         _profileManager = profileManager;
         InitializeVirtualControllerSettings();
+        InitializeTrackpadMouseSettingsViewModel();
         Logger.Debug<VirtualControllerSettingsViewModel>("VirtualControllerSettingsViewModel with profile manager initialized successfully");
     }
 
@@ -63,7 +68,20 @@ public partial class VirtualControllerSettingsViewModel : ControllerViewModelBas
             LeftTriggerThreshold = 0;
             RightTriggerThreshold = 0;
         }
+
         Logger.Trace<VirtualControllerSettingsViewModel>($"Virtual Controller: Enabled={EnableEmulation}, TypeIndex={EmulationTypeIndex}, ForceStopRumble={ForceStopRumble}, IgnoreDS4Lightbar={IgnoreDS4Lightbar}");
+    }
+
+    private void InitializeTrackpadMouseSettingsViewModel()
+    {
+        if (_profileManager != null)
+        {
+            TrackpadMouseSettingsViewModel = new TrackpadMouseSettingsViewModel(_controller, _controllerInfo, _profileManager);
+        }
+        else
+        {
+            TrackpadMouseSettingsViewModel = new TrackpadMouseSettingsViewModel(_controller, _controllerInfo);
+        }
     }
 
     [RelayCommand]
@@ -95,7 +113,7 @@ public partial class VirtualControllerSettingsViewModel : ControllerViewModelBas
                 _controller.ControllerEmulationService.StopEmulation();
             }
 
-            Logger.Debug<VirtualControllerSettingsViewModel>($"Virtual controller settings applied: Enabled={EnableEmulation}, Type={EmulationTypeIndex}, ForceStopRumble={ForceStopRumble}, IgnoreDS4Lightbar={IgnoreDS4Lightbar}");
+        Logger.Debug<VirtualControllerSettingsViewModel>($"Virtual controller settings applied: Enabled={EnableEmulation}, Type={EmulationTypeIndex}, ForceStopRumble={ForceStopRumble}, IgnoreDS4Lightbar={IgnoreDS4Lightbar}");
         }
         else
         {
@@ -120,7 +138,6 @@ public partial class VirtualControllerSettingsViewModel : ControllerViewModelBas
                 currentProfile.VirtualControllerSettings.IgnoreDS4Lightbar = IgnoreDS4Lightbar;
                 currentProfile.VirtualControllerSettings.LeftTriggerThreshold = LeftTriggerThreshold;
                 currentProfile.VirtualControllerSettings.RightTriggerThreshold = RightTriggerThreshold;
-
                 Logger.Debug<VirtualControllerSettingsViewModel>($"Updated profile virtual controller settings: {currentProfile.Name}");
                 _profileManager.SaveProfile(currentProfile);
             }

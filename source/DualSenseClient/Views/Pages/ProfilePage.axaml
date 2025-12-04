@@ -32,6 +32,11 @@
                     <controls:VirtualControllerSettings DataContext="{Binding VirtualControllerSettingsViewModel}" />
                 </Border>
 
+                <!-- Trackpad Mouse Settings - Always visible -->
+                <Border CornerRadius="8">
+                    <controls:TrackpadMouseSettingsControl DataContext="{Binding TrackpadMouseSettingsViewModel}" />
+                </Border>
+
                 <!-- Special Actions -->
                 <Border CornerRadius="8"
                         IsVisible="{Binding SpecialActionsViewModel, Converter={x:Static ObjectConverters.IsNotNull}}">

@@ -22,6 +22,7 @@ public partial class ProfilePageViewModel : ViewModelBase
     [ObservableProperty] private ControllerProfileViewModel? _profileViewModel;
     [ObservableProperty] private SpecialActionsViewModel? _specialActionsViewModel;
     [ObservableProperty] private VirtualControllerSettingsViewModel? _virtualControllerSettingsViewModel;
+    [ObservableProperty] private TrackpadMouseSettingsViewModel? _trackpadMouseSettingsViewModel;
 
     public ProfilePageViewModel(SelectedControllerService selectedControllerService, DualSenseProfileManager profileManager, NavigationService navigationService)
     {
@@ -125,9 +126,13 @@ public partial class ProfilePageViewModel : ViewModelBase
             Logger.Debug<ProfilePageViewModel>("Creating VirtualControllerSettingsViewModel");
             VirtualControllerSettingsViewModel = new VirtualControllerSettingsViewModel(SelectedController.Controller, SelectedControllerInfo, _profileManager);
 
+            Logger.Debug<ProfilePageViewModel>("Creating TrackpadMouseSettingsViewModel");
+            TrackpadMouseSettingsViewModel = new TrackpadMouseSettingsViewModel(SelectedController.Controller, SelectedControllerInfo, _profileManager);
+
             // Set references for coordinated profile updates
             ProfileViewModel.SpecialActionsViewModel = SpecialActionsViewModel;
             ProfileViewModel.VirtualControllerSettingsViewModel = VirtualControllerSettingsViewModel;
+            ProfileViewModel.TrackpadMouseSettingsViewModel = TrackpadMouseSettingsViewModel;
 
             // Subscribe to profile changes to keep VirtualControllerSettings in sync
             SubscribeToProfileChanges();
@@ -165,6 +170,13 @@ public partial class ProfilePageViewModel : ViewModelBase
             Logger.Trace<ProfilePageViewModel>("Disposing VirtualControllerSettingsViewModel");
             VirtualControllerSettingsViewModel.Dispose();
             VirtualControllerSettingsViewModel = null;
+        }
+
+        if (TrackpadMouseSettingsViewModel != null)
+        {
+            Logger.Trace<ProfilePageViewModel>("Disposing TrackpadMouseSettingsViewModel");
+            TrackpadMouseSettingsViewModel.Dispose();
+            TrackpadMouseSettingsViewModel = null;
         }
 
         SelectedControllerInfo = null;
