@@ -246,6 +246,11 @@ public partial class SpecialActionsViewModel : ControllerViewModelBase
         {
             SelectedSpecialAction.Settings.BatteryIndicatorType = SelectedBatteryIndicatorType;
         }
+        else
+        {
+            // Reset battery indicator type for non-battery indicator actions
+            SelectedSpecialAction.Settings.BatteryIndicatorType = null;
+        }
 
         // Update the profile in the manager
         if (_controllerInfo != null)
