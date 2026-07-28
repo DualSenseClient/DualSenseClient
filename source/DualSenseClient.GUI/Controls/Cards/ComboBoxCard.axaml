@@ -1,0 +1,28 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:DualSenseClient.GUI.Controls.Cards">
+    <!-- ComboBoxCard: Labeled card with a ComboBox on the right.
+         Binds ItemsSource, SelectedItem, SelectedIndex, and ItemTemplate. -->
+    <Style Selector="local|ComboBoxCard">
+        <Setter Property="Template">
+            <ControlTemplate TargetType="local:ComboBoxCard">
+                <local:CustomCard Tooltip="{TemplateBinding Tooltip}">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <local:CardHeader Grid.Column="0"
+                                          Title="{TemplateBinding Title}"
+                                          Description="{TemplateBinding Description}"
+                                          Icon="{TemplateBinding Icon}"
+                                          ShowIconBackground="{TemplateBinding ShowIconBackground}" />
+                        <ComboBox Grid.Column="1"
+                                  MinWidth="{TemplateBinding ComboBoxMinWidth}"
+                                  VerticalAlignment="Center"
+                                  ItemsSource="{TemplateBinding ItemsSource}"
+                                  ItemTemplate="{TemplateBinding ItemTemplate}"
+                                  SelectedItem="{Binding SelectedItem, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                  SelectedIndex="{Binding SelectedIndex, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" />
+                    </Grid>
+                </local:CustomCard>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+</Styles>

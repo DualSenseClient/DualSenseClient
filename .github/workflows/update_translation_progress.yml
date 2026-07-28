@@ -1,0 +1,107 @@
+name: Update Translation Progress
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  update_translation_progress:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+
+      - name: Install Python dependencies
+        run: pip install Pillow
+
+      - name: Generate translation progress data
+        id: translation-data
+        shell: pwsh
+        run: |
+          $data = python ./scripts/generate_translation_progress.py --json
+          echo "data<<EOF" >> $env:GITHUB_OUTPUT
+          echo "$data" >> $env:GITHUB_OUTPUT
+          echo "EOF" >> $env:GITHUB_OUTPUT
+
+      - name: Generate translation chart
+        run: python ./scripts/generate_translation_progress.py --chart
+
+      - name: Check for chart changes
+        id: git-check
+        shell: pwsh
+        run: |
+          $currentHash = git hash-object assets/translation-progress.png
+          $headHash = git show HEAD:assets/translation-progress.png 2>$null | git hash-object --stdin
+
+          if ($currentHash -eq $headHash) {
+            echo "changed=false" >> $env:GITHUB_OUTPUT
+            Write-Host "No changes detected in translation progress chart"
+          } else {
+            echo "changed=true" >> $env:GITHUB_OUTPUT
+            Write-Host "Translation progress chart has changed"
+          }
+
+      - name: Create branch and commit
+        if: steps.git-check.outputs.changed == 'true'
+        run: |
+          git config --local user.email "${{ secrets.GITHUB_ACTOR }}+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          git checkout -b translation-progress
+
+          git add assets/translation-progress.png
+          git commit -m "chore(localization): Update translation progress chart"
+
+      - name: Push branch
+        if: steps.git-check.outputs.changed == 'true'
+        run: git push origin translation-progress
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create PR
+        if: steps.git-check.outputs.changed == 'true'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            try {
+              await github.rest.pulls.create({
+                owner,
+                repo,
+                title: 'chore(localization): Update translation progress chart',
+                head: 'translation-progress',
+                base: 'main',
+                body: 'Automated PR to update translation progress chart from CI workflow.'
+              });
+              console.log('PR created successfully');
+            } catch (e) {
+              if (e.status === 422) {
+                console.log('PR already exists, checking if we need to update...');
+                const prs = await github.rest.pulls.list({
+                  owner,
+                  repo,
+                  head: 'translation-progress',
+                  base: 'main'
+                }));
+                if (prs.data.length > 0) {
+                  const pr = prs.data[0];
+                  await github.rest.pulls.update({
+                    owner,
+                    repo,
+                    pull_number: pr.number,
+                    body: 'Automated PR to update translation progress chart from CI workflow.'
+                  });
+                  console.log('PR updated successfully');
+                }
+              } else {
+                throw e;
+              }
+            }

@@ -1,0 +1,6 @@
+<Project>
+    <PropertyGroup>
+        <NightlyBuild>false</NightlyBuild>
+        <DefineConstants Condition="'$(NightlyBuild)' == 'true'">$(DefineConstants);NIGHTLY_BUILD</DefineConstants>
+    </PropertyGroup>
+</Project>

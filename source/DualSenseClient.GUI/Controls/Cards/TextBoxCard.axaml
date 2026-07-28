@@ -1,0 +1,26 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:DualSenseClient.GUI.Controls.Cards">
+    <!-- TextBoxCard: Labeled card with a TextBox on the right.
+         Binds Text two-way with configurable MinWidth/MaxWidth. -->
+    <Style Selector="local|TextBoxCard">
+        <Setter Property="Template">
+            <ControlTemplate TargetType="local:TextBoxCard">
+                <local:CustomCard Tooltip="{TemplateBinding Tooltip}">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <local:CardHeader Grid.Column="0"
+                                          Title="{TemplateBinding Title}"
+                                          Description="{TemplateBinding Description}"
+                                          Icon="{TemplateBinding Icon}"
+                                          ShowIconBackground="{TemplateBinding ShowIconBackground}" />
+                        <TextBox Grid.Column="1"
+                                 VerticalAlignment="Center"
+                                 MinWidth="{TemplateBinding TextBoxMinWidth}"
+                                 MaxWidth="{TemplateBinding TextBoxMaxWidth}"
+                                 Text="{Binding Text, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" />
+                    </Grid>
+                </local:CustomCard>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+</Styles>

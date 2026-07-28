@@ -1,0 +1,90 @@
+name: Build release
+permissions:
+  contents: write
+  actions: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      create_stable_release:
+        description: "Create stable release (in addition to nightly)"
+        required: false
+        type: boolean
+        default: false
+      experimental:
+        description: "Build with experimental features enabled"
+        required: false
+        type: boolean
+        default: false
+  pull_request:
+    types: [closed]
+  push:
+    paths:
+      - "source/**"
+      - "tests/**"
+
+jobs:
+  check_localization:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Check localization keys
+        run: python scripts/check_localization.py
+
+  update_translation_progress:
+    needs: check_localization
+    if: |
+      needs.check_localization.result == 'success' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/update_translation_progress.yml
+
+  build:
+    needs: [check_localization, update_translation_progress]
+    if: |
+      always() &&
+      needs.check_localization.result == 'success' &&
+      (needs.update_translation_progress.result == 'success' || needs.update_translation_progress.result == 'skipped')
+    uses: ./.github/workflows/build_job.yml
+    with:
+      is_stable: false
+      is_experimental: ${{ inputs.experimental || false }}
+
+  build_stable:
+    needs: [check_localization, update_translation_progress]
+    if: |
+      always() &&
+      github.event_name == 'workflow_dispatch' &&
+      inputs.create_stable_release &&
+      needs.check_localization.result == 'success' &&
+      (needs.update_translation_progress.result == 'success' || needs.update_translation_progress.result == 'skipped')
+    uses: ./.github/workflows/build_job.yml
+    with:
+      is_stable: true
+
+  create_release:
+    needs: build
+    if: |
+      always() &&
+      (github.event_name == 'workflow_dispatch' || github.event_name == 'push') &&
+      needs.build.result == 'success' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+    uses: ./.github/workflows/create_release.yml
+    with:
+      is_stable: false
+    secrets: inherit
+
+  create_stable_release:
+    needs: build_stable
+    if: |
+      always() &&
+      github.event_name == 'workflow_dispatch' &&
+      inputs.create_stable_release &&
+      needs.build_stable.result == 'success' &&
+      github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/create_release.yml
+    with:
+      is_stable: true
+    secrets: inherit

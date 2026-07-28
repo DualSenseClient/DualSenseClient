@@ -1,0 +1,21 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="DualSenseClient.GUI.App"
+             xmlns:faStyle="using:FluentAvalonia.Styling"
+             xmlns:converters="clr-namespace:DualSenseClient.GUI.Converters"
+             RequestedThemeVariant="Default">
+    <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <converters:NotNullConverter x:Key="NotNullConverter" />
+            <converters:DoubleFormatConverter x:Key="DoubleFormatConverter" />
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <faStyle:FluentAvaloniaTheme PreferSystemTheme="True" PreferUserAccentColor="False" />
+        <!-- Custom Controls -->
+        <StyleInclude Source="/Controls/Controls.axaml" />
+    </Application.Styles>
+</Application>

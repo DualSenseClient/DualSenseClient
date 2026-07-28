@@ -1,0 +1,23 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:DualSenseClient.GUI.Controls.Cards">
+    <!-- CustomCard: Base card container with rounded border.
+         Uses SolidBackgroundFillColorBaseBrush for background and
+         ControlStrokeColorDefaultBrush for the border (both from theme). -->
+    <Style Selector="local|CustomCard">
+        <Setter Property="Template">
+            <ControlTemplate TargetType="local:CustomCard">
+                <Border BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                        Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                        BorderThickness="2"
+                        CornerRadius="4"
+                        MinHeight="44"
+                        Padding="12"
+                        ToolTip.Tip="{TemplateBinding Tooltip}">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+</Styles>
