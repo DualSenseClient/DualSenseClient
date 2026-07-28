@@ -1,0 +1,67 @@
+name: Build
+on:
+  workflow_call:
+    inputs:
+      is_stable:
+        type: boolean
+        required: true
+        default: false
+      is_experimental:
+        type: boolean
+        required: false
+        default: false
+    outputs:
+      sha_short:
+        value: ${{ jobs.build.outputs.sha_short }}
+      branch:
+        value: ${{ jobs.build.outputs.branch }}
+
+jobs:
+  build:
+    runs-on: windows-latest
+    outputs:
+      sha_short: ${{ steps.info.outputs.sha_short }}
+      branch: ${{ steps.info.outputs.branch }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore DualSenseClient.sln
+
+      - name: Test
+        run: dotnet test tests/DualSenseClient.Tests/DualSenseClient.Tests.csproj
+
+      - name: Get build info
+        id: info
+        shell: pwsh
+        run: |
+          $sha = "${{ github.sha }}"
+          $shortSha = $sha.Substring(0, 9)
+          $branch = "${{ github.ref_name }}"
+
+          "sha_short=$shortSha" >> $env:GITHUB_OUTPUT
+          "branch=$branch" >> $env:GITHUB_OUTPUT
+
+      - name: Publish the app
+        shell: pwsh
+        run: >
+          dotnet publish -c Release -r win-x64 --self-contained false
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:NightlyBuild=${{ inputs.is_experimental }}
+          -o publish/desktop
+          source/DualSenseClient.GUI/DualSenseClient.GUI.csproj
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: DualSenseClient
+          path: publish/desktop/DualSenseClient.exe

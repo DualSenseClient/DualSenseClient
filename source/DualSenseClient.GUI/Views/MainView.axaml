@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:FluentAvalonia.UI.Controls"
+             xmlns:ic="using:FluentIcons.Avalonia.Fluent"
+             x:Class="DualSenseClient.GUI.Views.MainView">
+    <!-- Root navigation shell: left-pane menu with a content frame -->
+    <controls:FANavigationView x:Name="NavigationView"
+                               AlwaysShowHeader="False"
+                               IsBackButtonVisible="False"
+                               IsSettingsVisible="False"
+                               PaneDisplayMode="Left"
+                               IsPaneOpen="False"
+                               IsPaneToggleButtonVisible="True"
+                               ItemInvoked="NavigationView_OnItemInvoked">
+        <!-- Navigation items – add new pages here with a unique Tag -->
+        <controls:FANavigationView.MenuItems />
+
+        <controls:FANavigationView.FooterMenuItems>
+            <!-- Settings page -->
+            <controls:FANavigationViewItem Content="{DynamicResource MainWindow.Settings}"
+                                           Tag="Settings">
+                <controls:FANavigationViewItem.IconSource>
+                    <ic:SymbolIconSource Symbol="Settings" />
+                </controls:FANavigationViewItem.IconSource>
+            </controls:FANavigationViewItem>
+        </controls:FANavigationView.FooterMenuItems>
+
+        <!-- Hosts the active page; CacheSize=0 forces a fresh instance each navigation -->
+        <controls:FAFrame x:Name="ContentFrame" CacheSize="0" />
+    </controls:FANavigationView>
+</UserControl>

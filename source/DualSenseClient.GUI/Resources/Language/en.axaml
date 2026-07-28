@@ -1,0 +1,28 @@
+﻿<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    <!-- Add UI Strings Here -->
+    <sys:String x:Key="MainWindow.Title">DualSenseClient</sys:String>
+    <sys:String x:Key="MainWindow.Settings">Settings</sys:String>
+
+    <!-- MessageBox Strings -->
+    <sys:String x:Key="MessageBox.Ok">OK</sys:String>
+    <sys:String x:Key="MessageBox.Yes">Yes</sys:String>
+    <sys:String x:Key="MessageBox.No">No</sys:String>
+    <sys:String x:Key="MessageBox.Cancel">Cancel</sys:String>
+
+    <!-- Settings Page -->
+    <sys:String x:Key="SettingsPage.Ui.Title">UI</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Description">Language and theme settings</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Language.Title">Language</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Language.Description">Select the application language</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Theme.Title">Theme</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Theme.Description">Select the application theme</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Theme.Option.System">System</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Theme.Option.Light">Light</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Theme.Option.Dark">Dark</sys:String>
+    <sys:String x:Key="SettingsPage.Debug.Title">Debug</sys:String>
+    <sys:String x:Key="SettingsPage.Debug.Description">Logging and diagnostics</sys:String>
+    <sys:String x:Key="SettingsPage.Debug.LogLevel.Title">Log Level</sys:String>
+    <sys:String x:Key="SettingsPage.Debug.LogLevel.Description">Set the minimum logging verbosity</sys:String>
+</ResourceDictionary>
