@@ -28,6 +28,12 @@ public interface IControllerDevice : IDisposable
     bool IsConnected { get; }
 
     /// <summary>
+    /// The maximum length of an output report for this controller.
+    /// Varies by connection type (USB vs Bluetooth) for some controllers.
+    /// </summary>
+    int MaxOutputReportLength { get; }
+
+    /// <summary>
     /// Reads an input report from the controller.
     /// </summary>
     /// <returns>The number of bytes read.</returns>
@@ -84,6 +90,9 @@ public abstract class ControllerDevice(IHidDevice device, IHidDeviceInfo info) :
 
     /// <inheritdoc/>
     public bool IsConnected => device.IsConnected;
+
+    /// <inheritdoc/>
+    public abstract int MaxOutputReportLength { get; }
 
     /// <inheritdoc/>
     public virtual int ReadInput(byte[] buffer, int offset, int count, int timeoutMs)
