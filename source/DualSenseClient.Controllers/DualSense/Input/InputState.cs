@@ -3,7 +3,7 @@
 /// <summary>
 /// Complete snapshot of all input state from a DualSense controller report (bytes 0-9).
 /// </summary>
-public readonly struct InputState
+public readonly struct InputState : IEquatable<InputState>
 {
     /// <summary>
     /// Raw payload bytes 0-9 (sticks, triggers, sequence number, buttons).
@@ -198,4 +198,30 @@ public readonly struct InputState
     /// DualSense Edge right paddle (R4).
     /// </summary>
     public bool EdgePaddleRight => (Byte9 & 0x80) != 0;
+
+    /// <summary>
+    /// Returns true if all 10 raw bytes are equal.
+    /// </summary>
+    public bool Equals(InputState other) => _raw.AsSpan().SequenceEqual(other._raw);
+
+    /// <inheritdoc/>
+    public override bool Equals(object? obj) => obj is InputState other && Equals(other);
+
+    /// <inheritdoc/>
+    public override int GetHashCode()
+    {
+        HashCode hash = new HashCode();
+        hash.AddBytes(_raw);
+        return hash.ToHashCode();
+    }
+
+    /// <summary>
+    /// Returns true if the two states are equal.
+    /// </summary>
+    public static bool operator ==(InputState left, InputState right) => left.Equals(right);
+
+    /// <summary>
+    /// Returns true if the two states are not equal.
+    /// </summary>
+    public static bool operator !=(InputState left, InputState right) => !left.Equals(right);
 }

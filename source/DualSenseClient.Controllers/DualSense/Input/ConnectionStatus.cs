@@ -3,7 +3,7 @@ namespace DualSenseClient.Controllers.DualSense.Input;
 /// <summary>
 /// Connection and audio status from the DualSense controller (byte 53).
 /// </summary>
-public readonly struct ConnectionStatus
+public readonly struct ConnectionStatus : IEquatable<ConnectionStatus>
 {
     /// <summary>
     /// Raw connection status byte from the controller.
@@ -42,4 +42,25 @@ public readonly struct ConnectionStatus
     /// USB power is connected.
     /// </summary>
     public bool UsbPower => (Raw & 0x10) != 0;
+
+    /// <summary>
+    /// Returns true if the raw connection byte is equal.
+    /// </summary>
+    public bool Equals(ConnectionStatus other) => Raw == other.Raw;
+
+    /// <inheritdoc/>
+    public override bool Equals(object? obj) => obj is ConnectionStatus other && Equals(other);
+
+    /// <inheritdoc/>
+    public override int GetHashCode() => Raw.GetHashCode();
+
+    /// <summary>
+    /// Returns true if the two connection statuses are equal.
+    /// </summary>
+    public static bool operator ==(ConnectionStatus left, ConnectionStatus right) => left.Equals(right);
+
+    /// <summary>
+    /// Returns true if the two connection statuses are not equal.
+    /// </summary>
+    public static bool operator !=(ConnectionStatus left, ConnectionStatus right) => !left.Equals(right);
 }

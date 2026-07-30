@@ -5,7 +5,7 @@ namespace DualSenseClient.Controllers.DualSense.Input;
 /// <summary>
 /// DualSense battery status.
 /// </summary>
-public readonly struct BatteryState
+public readonly struct BatteryState : IEquatable<BatteryState>
 {
     /// <summary>
     /// Raw battery report byte from the controller.
@@ -79,4 +79,25 @@ public readonly struct BatteryState
             return Percentage ?? -1;
         }
     }
+
+    /// <summary>
+    /// Returns true if the raw battery byte is equal.
+    /// </summary>
+    public bool Equals(BatteryState other) => Raw == other.Raw;
+
+    /// <inheritdoc/>
+    public override bool Equals(object? obj) => obj is BatteryState other && Equals(other);
+
+    /// <inheritdoc/>
+    public override int GetHashCode() => Raw.GetHashCode();
+
+    /// <summary>
+    /// Returns true if the two battery states are equal.
+    /// </summary>
+    public static bool operator ==(BatteryState left, BatteryState right) => left.Equals(right);
+
+    /// <summary>
+    /// Returns true if the two battery states are not equal.
+    /// </summary>
+    public static bool operator !=(BatteryState left, BatteryState right) => !left.Equals(right);
 }
