@@ -19,8 +19,8 @@
         <views:MainView />
         <controls:FAInfoBar x:Name="InfoBar"
                             HorizontalAlignment="Stretch"
-                            VerticalAlignment="Top"
-                            Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                            VerticalAlignment="Bottom"
+                            Background="{Binding Severity, RelativeSource={RelativeSource Self}, Converter={StaticResource InfoBarSeverityToBackgroundConverter}}"
                             IsClosable="True" />
     </Grid>
 </windowing:FAAppWindow>
