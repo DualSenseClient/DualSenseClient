@@ -3,7 +3,7 @@
 /// <summary>
 /// Motion sensor state from the DualSense IMU (gyroscope + accelerometer, bytes 15-31).
 /// </summary>
-public readonly struct MotionState
+public readonly struct MotionState : IEquatable<MotionState>
 {
     /// <summary>
     /// Raw payload bytes 15-31 (gyro, accel, timestamp, temperature).
@@ -61,4 +61,30 @@ public readonly struct MotionState
     /// IMU temperature in degrees Celsius.
     /// </summary>
     public sbyte Temperature => (sbyte)_raw[16];
+
+    /// <summary>
+    /// Returns true if all 17 raw bytes are equal.
+    /// </summary>
+    public bool Equals(MotionState other) => _raw.AsSpan().SequenceEqual(other._raw);
+
+    /// <inheritdoc/>
+    public override bool Equals(object? obj) => obj is MotionState other && Equals(other);
+
+    /// <inheritdoc/>
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.AddBytes(_raw);
+        return hash.ToHashCode();
+    }
+
+    /// <summary>
+    /// Returns true if the two states are equal.
+    /// </summary>
+    public static bool operator ==(MotionState left, MotionState right) => left.Equals(right);
+
+    /// <summary>
+    /// Returns true if the two states are not equal.
+    /// </summary>
+    public static bool operator !=(MotionState left, MotionState right) => !left.Equals(right);
 }
