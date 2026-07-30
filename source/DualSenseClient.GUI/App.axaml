@@ -10,6 +10,7 @@
         <ResourceDictionary>
             <converters:NotNullConverter x:Key="NotNullConverter" />
             <converters:DoubleFormatConverter x:Key="DoubleFormatConverter" />
+            <converters:FAInfoBarSeverityToBackgroundConverter x:Key="InfoBarSeverityToBackgroundConverter" />
         </ResourceDictionary>
     </Application.Resources>
 
