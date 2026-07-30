@@ -25,6 +25,7 @@
         <ProjectReference Include="..\..\source\DualSenseClient.Hid\DualSenseClient.Hid.csproj" />
         <ProjectReference Include="..\..\source\DualSenseClient.Logging\DualSenseClient.Logging.csproj"/>
         <ProjectReference Include="..\..\source\DualSenseClient.Settings\DualSenseClient.Settings.csproj"/>
+        <ProjectReference Include="..\..\source\DualSenseClient.Controllers\DualSenseClient.Controllers.csproj" />
     </ItemGroup>
 
 </Project>
