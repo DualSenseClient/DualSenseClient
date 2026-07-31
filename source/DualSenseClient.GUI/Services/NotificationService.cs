@@ -278,6 +278,19 @@ public class NotificationService : INotificationService
         await SlideInInfoBar();
 
         TaskCompletionSource<bool> closeTcs = new TaskCompletionSource<bool>();
+        bool closeRequested = false;
+
+        TypedEventHandler<FAInfoBar, FAInfoBarClosingEventArgs>? closingHandler = null;
+        closingHandler = (sender, args) =>
+        {
+            if (!closeRequested && args.Reason == FAInfoBarCloseReason.CloseButton)
+            {
+                args.Cancel = true;
+                closeRequested = true;
+                _ = CloseFromCloseButtonAsync();
+            }
+        };
+
         TypedEventHandler<FAInfoBar, FAInfoBarClosedEventArgs>? closedHandler = null;
         closedHandler = (sender, args) =>
         {
@@ -286,23 +299,43 @@ public class NotificationService : INotificationService
 
         try
         {
+            InfoBar.Closing += closingHandler;
             InfoBar.Closed += closedHandler;
 
             Task delayTask = Task.Delay(TimeSpan.FromSeconds(notification.DurationSeconds));
-            Task completedTask = await Task.WhenAny(delayTask, closeTcs.Task);
+            await Task.WhenAny(delayTask, closeTcs.Task);
         }
         finally
         {
+            InfoBar.Closing -= closingHandler;
             InfoBar.Closed -= closedHandler;
         }
 
-        await SlideOutInfoBar();
-
-        InfoBar.IsOpen = false;
+        if (!closeRequested)
+        {
+            await SlideOutInfoBar();
+            InfoBar.IsOpen = false;
+        }
     }
 
     /// <summary>
-    /// Animates the InfoBar sliding in from the top.
+    /// Runs the slide-out animation when the user clicks the close button,
+    /// then actually closes the InfoBar.
+    /// </summary>
+    private async Task CloseFromCloseButtonAsync()
+    {
+        try
+        {
+            await SlideOutInfoBar();
+        }
+        finally
+        {
+            InfoBar?.IsOpen = false;
+        }
+    }
+
+    /// <summary>
+    /// Animates the InfoBar sliding in from the bottom.
     /// </summary>
     private async Task SlideInInfoBar()
     {
@@ -312,17 +345,17 @@ public class NotificationService : INotificationService
         }
 
         InfoBar.Opacity = 0;
-        TranslateTransform transform = new TranslateTransform(0, -20);
+        TranslateTransform transform = new TranslateTransform(0, 30);
         InfoBar.RenderTransform = transform;
 
         await Task.WhenAll(
             AnimateOpacity(InfoBar, 0.0, 1.0, TimeSpan.FromMilliseconds(300), new QuadraticEaseOut()),
-            AnimateTranslateY(transform, -20, 0, TimeSpan.FromMilliseconds(300), new QuadraticEaseOut())
+            AnimateTranslateY(transform, 30, 0, TimeSpan.FromMilliseconds(300), new QuadraticEaseOut())
         );
     }
 
     /// <summary>
-    /// Animates the InfoBar sliding out to the top.
+    /// Animates the InfoBar sliding out to the bottom.
     /// </summary>
     private async Task SlideOutInfoBar()
     {
@@ -335,7 +368,7 @@ public class NotificationService : INotificationService
 
         await Task.WhenAll(
             AnimateOpacity(InfoBar, 1.0, 0.0, TimeSpan.FromMilliseconds(300), new QuadraticEaseIn()),
-            AnimateTranslateY(transform, transform.Y, -20, TimeSpan.FromMilliseconds(300), new QuadraticEaseIn())
+            AnimateTranslateY(transform, transform.Y, 30, TimeSpan.FromMilliseconds(300), new QuadraticEaseIn())
         );
     }
 
