@@ -5,6 +5,10 @@
     <sys:String x:Key="MainWindow.Title">DualSenseClient</sys:String>
     <sys:String x:Key="MainWindow.Settings">Settings</sys:String>
 
+    <!-- Title Bar -->
+    <sys:String x:Key="MainWindow.ScanDevices.Start">Scan for controllers</sys:String>
+    <sys:String x:Key="MainWindow.ScanDevices.Stop">Stop scanning</sys:String>
+
     <!-- MessageBox Strings -->
     <sys:String x:Key="MessageBox.Ok">OK</sys:String>
     <sys:String x:Key="MessageBox.Yes">Yes</sys:String>

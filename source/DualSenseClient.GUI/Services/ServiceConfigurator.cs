@@ -1,8 +1,10 @@
-using System;
+﻿using System;
 using Microsoft.Extensions.DependencyInjection;
+using DualSenseClient.Controllers;
 using DualSenseClient.GUI.ViewModels;
 using DualSenseClient.GUI.ViewModels.Pages;
 using DualSenseClient.GUI.Views;
+using DualSenseClient.Hid;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
 
@@ -32,6 +34,11 @@ public abstract class ServiceConfigurator
         services.AddSingleton<INotificationService, NotificationService>();
         services.AddSingleton<ThemeService>();
         services.AddSingleton<NavigationService>();
+
+        // Controllers
+        services.AddSingleton<IHidDeviceEnumerator, HidDeviceEnumerator>();
+        services.AddSingleton<IControllerScanner, ControllerScanner>();
+        services.AddSingleton<IControllerTracker, ControllerTracker>();
 
         // ViewModels
         services.AddSingleton<MainWindowViewModel>();
