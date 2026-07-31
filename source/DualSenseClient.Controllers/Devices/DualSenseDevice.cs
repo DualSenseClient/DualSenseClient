@@ -1,4 +1,5 @@
 ﻿using DualSenseClient.Controllers.DualSense.Events;
+using DualSenseClient.Controllers.DualSense.Feature;
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Hid;
 using DualSenseClient.Logging;
@@ -45,6 +46,18 @@ public sealed class DualSenseDevice : ControllerDevice
         ConnectionType.Unknown => throw new ArgumentOutOfRangeException($"Unknown connection type: {ConnectionType}"),
         _ => throw new ArgumentOutOfRangeException($"Unknown connection type: {ConnectionType}")
     };
+
+    /// <summary>
+    /// Firmware and hardware information read from feature report 0x20 on connect.
+    /// Null when the report could not be read.
+    /// </summary>
+    public FirmwareInfo? FirmwareInfo { get; private set; }
+
+    /// <summary>
+    /// Pairing information read from feature report 0x09 on connect.
+    /// Null when the report could not be read.
+    /// </summary>
+    public PairingInfo? PairingInfo { get; private set; }
 
     /// <summary>
     /// Current state of input
@@ -104,6 +117,8 @@ public sealed class DualSenseDevice : ControllerDevice
     /// <param name="info">The device info that was used to discover and open the device.</param>
     public DualSenseDevice(IHidDevice device, IHidDeviceInfo info) : base(device, info)
     {
+        FirmwareInfo = FeatureReader.ReadFirmwareInfo(this);
+        PairingInfo = FeatureReader.ReadPairingInfo(this);
         _readTask = Task.Run(() => ReadLoop(_cts.Token));
     }
 
