@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace DualSenseClient.Core.Models.Items;
+namespace DualSenseClient.GUI.Models.Items;
 
 /// <summary>
 /// Represents a language option for the UI, wrapping a <see cref="CultureInfo"/>

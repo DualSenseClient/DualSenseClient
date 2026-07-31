@@ -1,4 +1,6 @@
-﻿namespace DualSenseClient.Core.Models.Items;
+using DualSenseClient.Core.Models;
+
+namespace DualSenseClient.GUI.Models.Items;
 
 /// <summary>
 /// Represents a theme option for display in the UI, pairing a localized display name
@@ -12,7 +14,7 @@ public class ThemeDisplayItem
     public required string DisplayName { get; set; }
 
     /// <summary>
-    /// Gets or sets the <see cref="Core.Models.Theme"/> value associated with this display item.
+    /// Gets or sets the <see cref="Theme"/> value associated with this display item.
     /// </summary>
     public Theme ThemeValue { get; set; }
 

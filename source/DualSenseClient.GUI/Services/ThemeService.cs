@@ -8,7 +8,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
 using FluentAvalonia.Styling;
 using DualSenseClient.Core.Models;
-using DualSenseClient.Core.Models.Items;
+using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.Logging;
 
 namespace DualSenseClient.GUI.Services;

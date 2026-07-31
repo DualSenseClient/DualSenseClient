@@ -6,7 +6,7 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.Core.Models;
-using DualSenseClient.Core.Models.Items;
+using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
