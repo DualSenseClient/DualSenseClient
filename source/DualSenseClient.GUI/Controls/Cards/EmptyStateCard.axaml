@@ -1,0 +1,26 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:DualSenseClient.GUI.Controls.Cards">
+    <!-- EmptyStateCard: Card displaying a title and description for empty states.
+         Uses the same border/background colors as CustomCard. -->
+    <Style Selector="local|EmptyStateCard">
+        <Setter Property="Template">
+            <ControlTemplate TargetType="local:EmptyStateCard">
+                <Border BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                        Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                        BorderThickness="2"
+                        CornerRadius="4"
+                        MinHeight="44"
+                        Padding="12">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{TemplateBinding Title}"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="{TemplateBinding Description}"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+</Styles>
