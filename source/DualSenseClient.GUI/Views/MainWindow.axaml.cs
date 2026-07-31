@@ -1,3 +1,4 @@
+using Avalonia;
 using FluentAvalonia.UI.Windowing;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.GUI.Controls;
@@ -18,7 +19,8 @@ public partial class MainWindow : FAAppWindow
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindow"/> class.
-    /// Resolves <see cref="MainWindowViewModel"/> from the DI container and assigns the splash screen.
+    /// Resolves <see cref="MainWindowViewModel"/> from the DI container, assigns the splash screen,
+    /// and extends the window content into the title bar so <see cref="MainView"/> can host the custom chrome.
     /// </summary>
     public MainWindow()
     {
@@ -26,5 +28,6 @@ public partial class MainWindow : FAAppWindow
         _viewModel = App.Services.GetRequiredService<MainWindowViewModel>();
         DataContext = _viewModel;
         SplashScreen = new AppSplashScreen();
+        TitleBar.ExtendsContentIntoTitleBar = true;
     }
 }

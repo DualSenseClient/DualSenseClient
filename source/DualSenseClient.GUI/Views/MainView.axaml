@@ -2,30 +2,98 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:FluentAvalonia.UI.Controls"
              xmlns:ic="using:FluentIcons.Avalonia.Fluent"
-             x:Class="DualSenseClient.GUI.Views.MainView">
-    <!-- Root navigation shell: left-pane menu with a content frame -->
-    <controls:FANavigationView x:Name="NavigationView"
-                               AlwaysShowHeader="False"
-                               IsBackButtonVisible="False"
-                               IsSettingsVisible="False"
-                               PaneDisplayMode="Left"
-                               IsPaneOpen="False"
-                               IsPaneToggleButtonVisible="True"
-                               ItemInvoked="NavigationView_OnItemInvoked">
-        <!-- Navigation items – add new pages here with a unique Tag -->
-        <controls:FANavigationView.MenuItems />
+             xmlns:vm="using:DualSenseClient.GUI.ViewModels"
+             xmlns:models="using:DualSenseClient.GUI.Models.Items"
+             x:Class="DualSenseClient.GUI.Views.MainView"
+             x:DataType="vm:MainViewModel">
+    <!-- Root shell: custom title bar hosting the device picker, with the navigation below -->
+    <Grid RowDefinitions="Auto,*">
+        <!-- Draggable title bar area; interactive controls inside are marked ElementRole="User" -->
+        <Grid Name="TitleBarHost"
+              ColumnDefinitions="Auto,Auto,*,Auto"
+              Background="Transparent"
+              WindowDecorationProperties.ElementRole="TitleBar">
+            <Image Margin="12,4"
+                   Source="/Assets/icon.ico"
+                   Width="18"
+                   Height="18"
+                   RenderOptions.BitmapInterpolationMode="HighQuality">
+                <Image.IsVisible>
+                    <OnPlatform Default="False">
+                        <On Options="Windows" Content="True" />
+                    </OnPlatform>
+                </Image.IsVisible>
+            </Image>
 
-        <controls:FANavigationView.FooterMenuItems>
-            <!-- Settings page -->
-            <controls:FANavigationViewItem Content="{DynamicResource MainWindow.Settings}"
-                                           Tag="Settings">
-                <controls:FANavigationViewItem.IconSource>
-                    <ic:SymbolIconSource Symbol="Settings" />
-                </controls:FANavigationViewItem.IconSource>
-            </controls:FANavigationViewItem>
-        </controls:FANavigationView.FooterMenuItems>
+            <TextBlock Grid.Column="1"
+                       Text="{Binding Title, RelativeSource={RelativeSource FindAncestor, AncestorType=Window}}"
+                       FontSize="12"
+                       VerticalAlignment="Center"
+                       Margin="4,0">
+                <TextBlock.IsVisible>
+                    <OnPlatform Default="False">
+                        <On Options="Windows" Content="True" />
+                    </OnPlatform>
+                </TextBlock.IsVisible>
+            </TextBlock>
 
-        <!-- Hosts the active page; CacheSize=0 forces a fresh instance each navigation -->
-        <controls:FAFrame x:Name="ContentFrame" CacheSize="0" />
-    </controls:FANavigationView>
+            <Border Grid.Column="2" Padding="6">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ComboBox ItemsSource="{Binding Controllers}"
+                              SelectedItem="{Binding SelectedItem}"
+                              MinWidth="220"
+                              WindowDecorationProperties.ElementRole="User">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:ControllerItem">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding DisplayName}" />
+                                    <TextBlock Text="{Binding ConnectionType}"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Command="{Binding ToggleScanningCommand}"
+                            ToolTip.Tip="{Binding ScanButtonToolTip}"
+                            WindowDecorationProperties.ElementRole="User">
+                        <Panel>
+                            <ic:FluentIcon Icon="ScanObject"
+                                           IconVariant="Regular"
+                                           IsVisible="{Binding !IsScanning}" />
+                            <ic:FluentIcon Icon="ScanDash"
+                                           IconVariant="Regular"
+                                           IsVisible="{Binding IsScanning}" />
+                        </Panel>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Navigation shell: left-pane menu with a content frame -->
+        <controls:FANavigationView x:Name="NavigationView"
+                                   Grid.Row="1"
+                                   AlwaysShowHeader="False"
+                                   IsBackButtonVisible="False"
+                                   IsSettingsVisible="False"
+                                   PaneDisplayMode="Left"
+                                   IsPaneOpen="False"
+                                   IsPaneToggleButtonVisible="True"
+                                   ItemInvoked="NavigationView_OnItemInvoked">
+            <!-- Navigation items – add new pages here with a unique Tag -->
+            <controls:FANavigationView.MenuItems />
+
+            <controls:FANavigationView.FooterMenuItems>
+                <!-- Settings page -->
+                <controls:FANavigationViewItem Content="{DynamicResource MainWindow.Settings}"
+                                               Tag="Settings">
+                    <controls:FANavigationViewItem.IconSource>
+                        <ic:SymbolIconSource Symbol="Settings" />
+                    </controls:FANavigationViewItem.IconSource>
+                </controls:FANavigationViewItem>
+            </controls:FANavigationView.FooterMenuItems>
+
+            <!-- Hosts the active page; CacheSize=0 forces a fresh instance each navigation -->
+            <controls:FAFrame x:Name="ContentFrame" CacheSize="0" />
+        </controls:FANavigationView>
+    </Grid>
 </UserControl>
