@@ -40,7 +40,14 @@ namespace DualSenseClient.GUI.Services;
 /// </remarks>
 public class ThemeService
 {
+    /// <summary>
+    /// The currently applied theme.
+    /// </summary>
     private Theme _currentTheme = Theme.Light;
+
+    /// <summary>
+    /// Logger instance.
+    /// </summary>
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("ThemeService");
 
     /// <summary>
@@ -55,8 +62,14 @@ public class ThemeService
     /// </summary>
     private ResourceDictionary? _activeDictionary;
 
+    /// <summary>
+    /// Cached display items backing <see cref="ThemeDisplayItems"/>, or <c>null</c> until built.
+    /// </summary>
     private ReadOnlyObservableCollection<ThemeDisplayItem>? _themeDisplayItems;
 
+    /// <summary>
+    /// The app's <see cref="FluentAvaloniaTheme"/> instance, or <c>null</c> if not yet located.
+    /// </summary>
     private FluentAvaloniaTheme? _faTheme;
 
     /// <summary>

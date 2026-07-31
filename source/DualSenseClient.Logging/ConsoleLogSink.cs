@@ -11,6 +11,9 @@
 /// </remarks>
 public sealed class ConsoleLogSink : ILogSink
 {
+    /// <summary>
+    /// Synchronizes access to console output to prevent interleaved writes.
+    /// </summary>
     private readonly Lock _sync = new Lock();
 
     /// <summary>

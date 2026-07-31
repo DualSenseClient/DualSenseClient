@@ -12,7 +12,14 @@
 /// </remarks>
 public sealed class CompositeLogSink : ILogSink, IDisposable
 {
+    /// <summary>
+    /// The child sinks each log entry is dispatched to.
+    /// </summary>
     private readonly ILogSink[] _sinks;
+
+    /// <summary>
+    /// Non-zero once the sink has been disposed.
+    /// </summary>
     private int _disposed;
 
     /// <summary>

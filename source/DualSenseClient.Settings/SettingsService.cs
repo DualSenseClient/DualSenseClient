@@ -11,9 +11,24 @@ namespace DualSenseClient.Settings;
 /// </summary>
 public sealed class SettingsService
 {
+    /// <summary>
+    /// Logger instance.
+    /// </summary>
     private readonly DualSenseClientLogger _log = DualSenseClientLogger.For("Settings");
+
+    /// <summary>
+    /// The JSON file store backing this service.
+    /// </summary>
     private readonly JsonFileStore<Settings> _store;
+
+    /// <summary>
+    /// Synchronizes access to settings load/save operations.
+    /// </summary>
     private readonly Lock _lock = new();
+
+    /// <summary>
+    /// Whether settings have been loaded from disk at least once.
+    /// </summary>
     private bool _settingsLoaded;
 
     /// <summary>
@@ -67,6 +82,7 @@ public sealed class SettingsService
             WriteDefaultsWhenMissing = true,
             BackupBeforeSave = true
         };
+        _log.Debug($"Settings store initialized at '{path}'");
     }
 
     /// <summary>
@@ -78,6 +94,7 @@ public sealed class SettingsService
     {
         lock (_lock)
         {
+            _log.Info($"Loading settings from '{_store.FilePath}'");
             _store.Load();
             _settingsLoaded = true;
             return _store.Item;
@@ -100,6 +117,7 @@ public sealed class SettingsService
     {
         lock (_lock)
         {
+            _log.Debug($"Saving settings to '{_store.FilePath}'");
             _store.Save();
             SettingsChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -122,6 +140,7 @@ public sealed class SettingsService
     {
         lock (_lock)
         {
+            _log.Debug($"Saving settings to '{_store.FilePath}'");
             _store.Item = settings;
             _store.Save();
             SettingsChanged?.Invoke(this, EventArgs.Empty);

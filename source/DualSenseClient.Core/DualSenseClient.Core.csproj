@@ -6,4 +6,8 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\DualSenseClient.Logging\DualSenseClient.Logging.csproj" />
+    </ItemGroup>
+
 </Project>

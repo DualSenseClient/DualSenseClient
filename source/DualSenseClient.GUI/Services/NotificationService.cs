@@ -77,12 +77,39 @@ public interface INotificationService
 /// </summary>
 public class NotificationService : INotificationService
 {
+    /// <summary>
+    /// Logger instance.
+    /// </summary>
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("NotificationService");
+
+    /// <summary>
+    /// The InfoBar control used to show notifications, or <c>null</c> until located.
+    /// </summary>
     private FAInfoBar? _infoBar;
+
+    /// <summary>
+    /// FPS used for notification animations. Defaults to 120.
+    /// </summary>
     private int _animationFps = 120;
+
+    /// <summary>
+    /// Queue of pending notifications awaiting display.
+    /// </summary>
     private readonly ConcurrentQueue<NotificationItem> _notificationQueue = new ConcurrentQueue<NotificationItem>();
+
+    /// <summary>
+    /// Semaphore that ensures notifications are processed one at a time.
+    /// </summary>
     private readonly SemaphoreSlim _queueSemaphore = new SemaphoreSlim(1, 1);
+
+    /// <summary>
+    /// Cancellation token source for the in-progress processing loop, or <c>null</c> when idle.
+    /// </summary>
     private CancellationTokenSource? _processingCts;
+
+    /// <summary>
+    /// Whether a notification is currently being displayed.
+    /// </summary>
     private bool _isProcessing;
 
     /// <summary>

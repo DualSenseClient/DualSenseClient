@@ -27,7 +27,14 @@ namespace DualSenseClient.Logging;
 /// </example>
 public sealed class MinimumLevelFilterSink : ILogSink
 {
+    /// <summary>
+    /// The inner sink entries are forwarded to when they pass the level check.
+    /// </summary>
     private readonly ILogSink _inner;
+
+    /// <summary>
+    /// Provides the current minimum level to enforce on each write.
+    /// </summary>
     private readonly Func<LogLevel> _minLevelProvider;
 
     /// <summary>

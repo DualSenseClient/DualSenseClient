@@ -13,8 +13,19 @@ namespace DualSenseClient.Controllers.Devices;
 public sealed class DualSenseDevice : ControllerDevice
 {
     // Fields
+    /// <summary>
+    /// Logger instance.
+    /// </summary>
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("DualSenseDevice");
+
+    /// <summary>
+    /// Cancellation token source used to stop the background read loop.
+    /// </summary>
     private readonly CancellationTokenSource _cts = new CancellationTokenSource();
+
+    /// <summary>
+    /// The background task running the read loop.
+    /// </summary>
     private readonly Task _readTask;
 
     /// <summary>
@@ -173,6 +184,7 @@ public sealed class DualSenseDevice : ControllerDevice
         }
 
         InputReport report = new InputReport(data, offset);
+        _log.Trace($"Input report 0x{reportId:X2} ({data.Length} byte(s)): {BitConverter.ToString(data, 0, data.Length)}");
         if (_previousInputReport is { } prev)
         {
             DetectChanges(prev, report);
@@ -218,26 +230,31 @@ public sealed class DualSenseDevice : ControllerDevice
         // Stick movement
         if (prev.Input.LeftStickX != cur.Input.LeftStickX || prev.Input.LeftStickY != cur.Input.LeftStickY)
         {
+            _log.Trace($"Left stick moved to ({cur.Input.LeftStickX}, {cur.Input.LeftStickY})");
             StickMoved?.Invoke(this, new StickEventArgs(StickType.Left, cur.Input.LeftStickX, cur.Input.LeftStickY, prev.Input.LeftStickX, prev.Input.LeftStickY));
         }
         if (prev.Input.RightStickX != cur.Input.RightStickX || prev.Input.RightStickY != cur.Input.RightStickY)
         {
+            _log.Trace($"Right stick moved to ({cur.Input.RightStickX}, {cur.Input.RightStickY})");
             StickMoved?.Invoke(this, new StickEventArgs(StickType.Right, cur.Input.RightStickX, cur.Input.RightStickY, prev.Input.RightStickX, prev.Input.RightStickY));
         }
 
         // Trigger movement
         if (prev.Input.L2 != cur.Input.L2)
         {
+            _log.Trace($"L2 trigger moved to {cur.Input.L2}");
             TriggerMoved?.Invoke(this, new TriggerEventArgs(TriggerType.L2, cur.Input.L2, prev.Input.L2));
         }
         if (prev.Input.R2 != cur.Input.R2)
         {
+            _log.Trace($"R2 trigger moved to {cur.Input.R2}");
             TriggerMoved?.Invoke(this, new TriggerEventArgs(TriggerType.R2, cur.Input.R2, prev.Input.R2));
         }
 
         // Full-state events (invoke on any change)
         if (prev.Battery != cur.Battery)
         {
+            _log.Trace($"Battery changed from {prev.Battery.DisplayPercentage}% to {cur.Battery.DisplayPercentage}% (power state: {cur.Battery.PowerState})");
             BatteryStateChanged?.Invoke(this, new BatteryStateEventArgs(cur.Battery, prev.Battery));
         }
         if (prev.Connection != cur.Connection)
@@ -272,10 +289,12 @@ public sealed class DualSenseDevice : ControllerDevice
         }
         if (isPressed)
         {
+            _log.Trace($"{button} pressed");
             ButtonPressed?.Invoke(this, new ButtonEventArgs(button));
         }
         else
         {
+            _log.Trace($"{button} released");
             ButtonReleased?.Invoke(this, new ButtonEventArgs(button));
         }
     }

@@ -1,4 +1,6 @@
-﻿namespace DualSenseClient.Core.Utilities;
+﻿using DualSenseClient.Logging;
+
+namespace DualSenseClient.Core.Utilities;
 
 /// <summary>
 /// Provides helper methods for converting relative paths to absolute paths
@@ -6,6 +8,11 @@
 /// </summary>
 public static class PathResolver
 {
+    /// <summary>
+    /// Logger instance.
+    /// </summary>
+    private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("PathResolver");
+
     /// <summary>
     /// The resolved base directory path for the application
     /// </summary>
@@ -32,22 +39,27 @@ public static class PathResolver
         string baseDirectory = AppContext.BaseDirectory;
         if (!string.IsNullOrEmpty(baseDirectory) && !IsTempDirectory(baseDirectory))
         {
+            _log.Debug($"Base directory resolved from AppContext.BaseDirectory: '{baseDirectory}'");
             return baseDirectory;
         }
 
         string? exePath = Path.GetDirectoryName(Environment.ProcessPath);
         if (!string.IsNullOrEmpty(exePath))
         {
+            _log.Debug($"Base directory resolved from executable path: '{exePath}'");
             return exePath;
         }
 
         string appDomainDir = AppDomain.CurrentDomain.BaseDirectory;
         if (!string.IsNullOrEmpty(appDomainDir) && !IsTempDirectory(appDomainDir))
         {
+            _log.Debug($"Base directory resolved from AppDomain.BaseDirectory: '{appDomainDir}'");
             return appDomainDir;
         }
 
-        return Directory.GetCurrentDirectory();
+        string fallbackDir = Directory.GetCurrentDirectory();
+        _log.Debug($"Base directory resolved from current working directory: '{fallbackDir}'");
+        return fallbackDir;
 
         static bool IsTempDirectory(string path)
         {

@@ -11,8 +11,19 @@ namespace DualSenseClient.Settings;
 /// <typeparam name="T">The type of object to persist. Must have a parameterless constructor.</typeparam>
 public class JsonFileStore<T> where T : class, new()
 {
+    /// <summary>
+    /// Logger instance.
+    /// </summary>
     private readonly DualSenseClientLogger _log = DualSenseClientLogger.For("JsonFileStore");
+
+    /// <summary>
+    /// The JSON serializer options used to read and write the file.
+    /// </summary>
     private readonly JsonSerializerOptions _jsonOptions;
+
+    /// <summary>
+    /// Synchronizes access to settings load/save operations.
+    /// </summary>
     private readonly Lock _lock = new Lock();
 
     /// <summary>

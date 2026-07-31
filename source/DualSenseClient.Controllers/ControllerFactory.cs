@@ -1,5 +1,6 @@
 ﻿using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Hid;
+using DualSenseClient.Logging;
 
 namespace DualSenseClient.Controllers;
 
@@ -9,6 +10,11 @@ namespace DualSenseClient.Controllers;
 /// </summary>
 public static class ControllerFactory
 {
+    /// <summary>
+    /// Logger instance.
+    /// </summary>
+    private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("ControllerFactory");
+
     /// <summary>
     /// Maps USB vendor/product ID pairs to known <see cref="ControllerType"/> values.
     /// </summary>
@@ -42,9 +48,11 @@ public static class ControllerFactory
         ControllerType type = GetType(info);
         if (type == ControllerType.Unknown)
         {
+            _log.Warning($"Create called for unknown device: {info.ProductName} (VID=0x{info.VendorId:X4}, PID=0x{info.ProductId:X4})");
             return null;
         }
 
+        _log.Debug($"Creating {type} controller for '{info.ProductName}' (VID=0x{info.VendorId:X4}, PID=0x{info.ProductId:X4}, bus={info.BusType}, path={info.Path})");
         IHidDevice device = enumerator.OpenDevice(info.Path);
         return type switch
         {

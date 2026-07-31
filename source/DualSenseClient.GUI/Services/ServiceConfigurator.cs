@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.GUI.ViewModels;
 using DualSenseClient.GUI.ViewModels.Pages;
 using DualSenseClient.GUI.Views;
+using DualSenseClient.Logging;
 using DualSenseClient.Settings;
 
 namespace DualSenseClient.GUI.Services;
@@ -19,6 +20,8 @@ public abstract class ServiceConfigurator
     /// <returns>An IServiceProvider instance with all configured services.</returns>
     public static IServiceProvider ConfigureServices()
     {
+        DualSenseClientLogger log = DualSenseClientLogger.For("ServiceConfigurator");
+        log.Debug("Registering application services");
         ServiceCollection services = new ServiceCollection();
 
         // Settings
@@ -33,10 +36,13 @@ public abstract class ServiceConfigurator
         // ViewModels
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<SettingsPageViewModel>();
+        services.AddSingleton<MainViewModel>();
 
         // Views
         services.AddSingleton<MainWindow>();
 
-        return services.BuildServiceProvider();
+        IServiceProvider provider = services.BuildServiceProvider();
+        log.Info("Service provider built");
+        return provider;
     }
 }

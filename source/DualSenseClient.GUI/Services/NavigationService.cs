@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using FluentAvalonia.UI.Controls;
 using DualSenseClient.GUI.Views.Pages;
+using DualSenseClient.Logging;
 
 namespace DualSenseClient.GUI.Services;
 
@@ -11,8 +12,24 @@ namespace DualSenseClient.GUI.Services;
 /// </summary>
 public class NavigationService
 {
+    /// <summary>
+    /// Logger instance.
+    /// </summary>
+    private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("Navigation");
+
+    /// <summary>
+    /// The content frame where pages are hosted, or <c>null</c> until registered.
+    /// </summary>
     private FAFrame? _contentFrame;
+
+    /// <summary>
+    /// The navigation view used to update selection state, or <c>null</c> until registered.
+    /// </summary>
     private FANavigationView? _navigationView;
+
+    /// <summary>
+    /// Tag of the page currently displayed in the content frame.
+    /// </summary>
     private string? _currentPageTag;
 
     /// <summary>
@@ -52,10 +69,14 @@ public class NavigationService
         FAFrame? frame = contentFrame ?? _contentFrame;
         _currentPageTag = tag;
 
+        _log.Debug($"Navigating to '{tag}'");
         switch (tag)
         {
             case "Settings":
                 frame?.Navigate(typeof(SettingsPage));
+                break;
+            default:
+                _log.Warning($"No page registered for tag '{tag}'");
                 break;
         }
 

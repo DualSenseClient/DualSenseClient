@@ -17,6 +17,9 @@ namespace DualSenseClient.GUI.Services;
 /// </summary>
 public static class LocalizationService
 {
+    /// <summary>
+    /// Logger instance.
+    /// </summary>
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("LocalizationService");
 
     // Fields
