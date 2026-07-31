@@ -17,7 +17,6 @@
     <sys:String x:Key="DeviceInfoPage.Device.Description">Controller identification</sys:String>
     <sys:String x:Key="DeviceInfoPage.Device.Name">Name</sys:String>
     <sys:String x:Key="DeviceInfoPage.Device.ConnectionType">Connection</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Device.SerialNumber">Serial Number</sys:String>
     <sys:String x:Key="DeviceInfoPage.Pairing.Title">Pairing</sys:String>
     <sys:String x:Key="DeviceInfoPage.Pairing.Description">Bluetooth MAC addresses</sys:String>
     <sys:String x:Key="DeviceInfoPage.Pairing.ClientMac">Controller MAC</sys:String>

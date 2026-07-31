@@ -23,7 +23,6 @@ public class DualSenseDeviceEventTests
         {
         }
         public string GetProductName() => "Test";
-        public string GetSerialNumber() => string.Empty;
         public void Dispose()
         {
         }
@@ -35,7 +34,6 @@ public class DualSenseDeviceEventTests
         public ushort VendorId => 0x054C;
         public ushort ProductId => 0x0CE6;
         public string ProductName => "DualSense Test";
-        public string SerialNumber => string.Empty;
         public string Manufacturer => "Sony";
         public int InterfaceNumber => 0;
         public ushort UsagePage => 1;

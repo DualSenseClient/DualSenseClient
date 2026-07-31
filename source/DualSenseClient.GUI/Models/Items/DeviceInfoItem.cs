@@ -84,18 +84,6 @@ public sealed partial class DeviceInfoItem : ObservableObject, IDisposable
     /// </summary>
     public ConnectionType ConnectionType => Controller.ConnectionType;
 
-    /// <summary>
-    /// Device serial number.
-    /// </summary>
-    public string SerialNumber
-    {
-        get
-        {
-            string serial = Controller.Device.GetSerialNumber();
-            return string.IsNullOrEmpty(serial) ? Unavailable : serial;
-        }
-    }
-
     // ── Firmware / Hardware ────────────────────────────────────
 
     /// <summary>

@@ -63,11 +63,6 @@ public interface IControllerDevice : IDisposable
     /// Gets the human-readable product name.
     /// </summary>
     string GetProductName();
-
-    /// <summary>
-    /// Gets the device serial number.
-    /// </summary>
-    string GetSerialNumber();
 }
 
 /// <summary>
@@ -117,10 +112,6 @@ public abstract class ControllerDevice(IHidDevice device, IHidDeviceInfo info) :
     /// <inheritdoc/>
     public virtual string GetProductName()
         => device.GetProductName();
-
-    /// <inheritdoc/>
-    public virtual string GetSerialNumber()
-        => device.GetSerialNumber();
 
     /// <inheritdoc/>
     public void Dispose()

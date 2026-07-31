@@ -26,11 +26,6 @@ public interface IHidDeviceInfo
     string ProductName { get; }
 
     /// <summary>
-    /// Device serial number.
-    /// </summary>
-    string SerialNumber { get; }
-
-    /// <summary>
     /// Manufacturer string.
     /// </summary>
     string Manufacturer { get; }
@@ -70,9 +65,6 @@ internal sealed class HidDeviceInfo : IHidDeviceInfo
 
     /// <inheritdoc/>
     public string ProductName { get; init; } = string.Empty;
-
-    /// <inheritdoc/>
-    public string SerialNumber { get; init; } = string.Empty;
 
     /// <inheritdoc/>
     public string Manufacturer { get; init; } = string.Empty;

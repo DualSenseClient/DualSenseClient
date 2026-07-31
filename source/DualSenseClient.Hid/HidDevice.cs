@@ -56,11 +56,6 @@ public interface IHidDevice : IDisposable
     string GetProductName();
 
     /// <summary>
-    /// Gets the device serial number.
-    /// </summary>
-    string GetSerialNumber();
-
-    /// <summary>
     /// Gets whether the device appears to be actively connected.
     /// Performs a probe read — may be slow.
     /// </summary>
@@ -280,18 +275,6 @@ public sealed class HidDevice : IHidDevice
         string name = len > 0 ? new string(buf, 0, len) : "Unknown";
         _log.Trace($"GetProductName on '{DevicePath}': \"{name}\"");
         return name;
-    }
-
-    /// <inheritdoc/>
-    public unsafe string GetSerialNumber()
-    {
-        ObjectDisposedException.ThrowIf(_disposed == 1, this);
-
-        char* buf = stackalloc char[256];
-        int len = SDL3.SDL_hid_get_serial_number_string(_device, (IntPtr)buf, 256);
-        string serial = len > 0 ? new string(buf, 0, len) : string.Empty;
-        _log.Trace($"GetSerialNumber on '{DevicePath}': \"{serial}\"");
-        return serial;
     }
 
     /// <inheritdoc/>
