@@ -24,6 +24,9 @@ namespace DualSenseClient.Logging;
 /// </remarks>
 public static class BuildInfo
 {
+    /// <summary>
+    /// The cached startup banner, or <c>null</c> before it is first generated.
+    /// </summary>
     private static string? _banner;
 
     /// <summary>

@@ -1,4 +1,5 @@
 ﻿using DualSenseClient.Hid;
+using DualSenseClient.Logging;
 
 namespace DualSenseClient.Controllers;
 
@@ -46,7 +47,19 @@ public interface IControllerScanner : IDisposable
 /// </summary>
 public sealed class ControllerScanner : IControllerScanner
 {
+    /// <summary>
+    /// Logger instance.
+    /// </summary>
+    private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("ControllerScanner");
+
+    /// <summary>
+    /// The HID enumerator used to discover and open controller devices.
+    /// </summary>
     private readonly IHidDeviceEnumerator _enumerator;
+
+    /// <summary>
+    /// Whether the scanner is currently watching for connection changes.
+    /// </summary>
     private bool _watching;
 
     /// <summary>
@@ -66,6 +79,7 @@ public sealed class ControllerScanner : IControllerScanner
                 controllers.Add(controller);
             }
         }
+        _log.Info($"Scan found {controllers.Count} connected controller(s)");
         return controllers;
     }
 
@@ -82,6 +96,7 @@ public sealed class ControllerScanner : IControllerScanner
         {
             return;
         }
+        _log.Debug($"Starting controller watcher (interval={intervalMs}ms)");
         _enumerator.DeviceConnected += OnDeviceConnected;
         _enumerator.DeviceDisconnected += OnDeviceDisconnected;
         _enumerator.StartWatching(intervalMs);
@@ -95,6 +110,7 @@ public sealed class ControllerScanner : IControllerScanner
         {
             return;
         }
+        _log.Debug("Stopping controller watcher");
         _enumerator.DeviceConnected -= OnDeviceConnected;
         _enumerator.DeviceDisconnected -= OnDeviceDisconnected;
         _enumerator.StopWatching();
@@ -116,6 +132,7 @@ public sealed class ControllerScanner : IControllerScanner
         {
             return;
         }
+        _log.Info($"Controller connected: {e.Device.ProductName} ({controller.ControllerType}, bus={controller.ConnectionType})");
         ControllerConnected?.Invoke(this,
             new ControllerConnectionEventArgs(DeviceChangeType.Connected, e.Device, controller.ControllerType, controller));
     }
@@ -133,6 +150,7 @@ public sealed class ControllerScanner : IControllerScanner
         {
             return;
         }
+        _log.Info($"Controller disconnected: {e.Device.ProductName} ({type})");
         ControllerDisconnected?.Invoke(this,
             new ControllerConnectionEventArgs(DeviceChangeType.Disconnected, e.Device, type, null));
     }

@@ -32,8 +32,19 @@ namespace DualSenseClient.GUI.ViewModels.Pages;
 /// </remarks>
 public partial class SettingsPageViewModel : ObservableObject
 {
+    /// <summary>
+    /// Service used to read and persist application settings.
+    /// </summary>
     private readonly SettingsService _settingsService;
+
+    /// <summary>
+    /// Service used to apply theme changes at runtime.
+    /// </summary>
     private readonly ThemeService _themeService;
+
+    /// <summary>
+    /// Logger instance.
+    /// </summary>
     private readonly DualSenseClientLogger _log = DualSenseClientLogger.For("SettingsPage");
 
     /// <summary>

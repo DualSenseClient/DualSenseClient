@@ -76,7 +76,15 @@ public sealed class HidDevice : IHidDevice
     /// Logger instance.
     /// </summary>
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("HidDevice");
+
+    /// <summary>
+    /// The unmanaged SDL HID device handle, or <c>null</c> when the device is closed.
+    /// </summary>
     private unsafe SDL_hid_device* _device;
+
+    /// <summary>
+    /// Non-zero once the device has been disposed.
+    /// </summary>
     private int _disposed;
 
     /// <summary>

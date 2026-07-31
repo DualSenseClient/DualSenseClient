@@ -10,6 +10,10 @@ namespace DualSenseClient.GUI.Views;
 /// </summary>
 public partial class MainWindow : FAAppWindow
 {
+    /// <summary>
+    /// The ViewModel providing the main window's title and binding context.
+    /// Resolved from the DI container and assigned as the window's <see cref="StyledElement.DataContext"/>.
+    /// </summary>
     private MainWindowViewModel _viewModel { get; set; }
 
     /// <summary>

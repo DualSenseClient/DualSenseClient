@@ -1,7 +1,9 @@
+using Avalonia;
 using Avalonia.Controls;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.GUI.Services;
+using DualSenseClient.GUI.ViewModels;
 
 namespace DualSenseClient.GUI.Views;
 
@@ -10,16 +12,29 @@ namespace DualSenseClient.GUI.Views;
 /// </summary>
 public partial class MainView : UserControl
 {
+    /// <summary>
+    /// The navigation service that drives page navigation from the shell menu.
+    /// Resolved from the DI container and wired to the navigation view and content frame.
+    /// </summary>
     private NavigationService _navigationService { get; set; }
 
     /// <summary>
+    /// The ViewModel providing the shell's binding context.
+    /// Resolved from the DI container and assigned as the view's <see cref="StyledElement.DataContext"/>.
+    /// </summary>
+    private MainViewModel _viewModel { get; set; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="MainView"/> class.
-    /// Resolves <see cref="NavigationService"/> from the DI container, wires it to the UI controls,
-    /// and navigates to the default page.
+    /// Resolves <see cref="NavigationService"/> and <see cref="MainViewModel"/> from the DI container,
+    /// wires the navigation service to the UI controls, and navigates to the default page.
     /// </summary>
     public MainView()
     {
         InitializeComponent();
+
+        _viewModel = App.Services.GetRequiredService<MainViewModel>();
+        DataContext = _viewModel;
 
         _navigationService = App.Services.GetRequiredService<NavigationService>();
         _navigationService.SetContentFrame(ContentFrame);

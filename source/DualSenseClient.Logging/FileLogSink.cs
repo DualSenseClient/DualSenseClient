@@ -14,19 +14,64 @@ namespace DualSenseClient.Logging;
 /// </remarks>
 public sealed class FileLogSink : ILogSink, IDisposable
 {
+    /// <summary>
+    /// How often buffered log entries are flushed to disk.
+    /// </summary>
     private static readonly TimeSpan FlushInterval = TimeSpan.FromMilliseconds(500);
 
+    /// <summary>
+    /// Synchronizes access to the log sink state.
+    /// </summary>
     private readonly Lock _sync = new Lock();
+
+    /// <summary>
+    /// The base file name without extension.
+    /// </summary>
     private readonly string _baseName;
+
+    /// <summary>
+    /// The directory log files are written to.
+    /// </summary>
     private readonly string _directory;
+
+    /// <summary>
+    /// The file extension, defaulting to <c>.log</c> when none is given.
+    /// </summary>
     private readonly string _extension;
+
+    /// <summary>
+    /// Whether log entries are appended to existing files.
+    /// </summary>
     private readonly bool _append;
+
+    /// <summary>
+    /// Whether each log entry is prefixed with a timestamp.
+    /// </summary>
     private bool _includeTimestamp;
+
+    /// <summary>
+    /// Whether a new log file is created each day.
+    /// </summary>
     private readonly bool _rotateDaily;
+
+    /// <summary>
+    /// Background timer that periodically flushes buffered entries to disk.
+    /// </summary>
     private readonly Timer _flushTimer;
 
+    /// <summary>
+    /// The active file writer, or <c>null</c> when no file is open.
+    /// </summary>
     private StreamWriter? _writer;
+
+    /// <summary>
+    /// The date of the currently open log file.
+    /// </summary>
     private DateOnly _currentDate;
+
+    /// <summary>
+    /// True once the sink has been disposed.
+    /// </summary>
     private bool _disposed;
 
     /// <summary>

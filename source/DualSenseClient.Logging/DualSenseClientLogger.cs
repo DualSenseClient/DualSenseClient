@@ -38,10 +38,25 @@ namespace DualSenseClient.Logging;
 public sealed class DualSenseClientLogger
 {
     // --- Static orchestrator ---
+
+    /// <summary>
+    /// Cached per-category logger instances, keyed by category name.
+    /// </summary>
     private static readonly ConcurrentDictionary<string, DualSenseClientLogger> Loggers = new ConcurrentDictionary<string, DualSenseClientLogger>(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Synchronizes access to the static sink configuration.
+    /// </summary>
     private static readonly Lock Sync = new Lock();
+
+    /// <summary>
+    /// The minimum <see cref="LogLevel"/> below which entries are silently dropped.
+    /// </summary>
     private static volatile LogLevel _minimumLevel = LogLevel.Info;
+
+    /// <summary>
+    /// The active log sink that receives all log entries.
+    /// </summary>
     private static ILogSink _sink = new ConsoleLogSink(useColors: true);
 
     /// <summary>

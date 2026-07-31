@@ -70,8 +70,19 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     /// <inheritdoc/>
     public event EventHandler<DeviceConnectionEventArgs>? DeviceDisconnected;
 
+    /// <summary>
+    /// The background polling timer, or <c>null</c> while not watching.
+    /// </summary>
     private Timer? _watcher;
+
+    /// <summary>
+    /// The last observed set of devices, used to detect connections and disconnections.
+    /// </summary>
     private List<IHidDeviceInfo>? _previousSnapshot;
+
+    /// <summary>
+    /// Synchronizes access to the device watcher state.
+    /// </summary>
     private readonly Lock _watchLock = new Lock();
 
     /// <inheritdoc/>
