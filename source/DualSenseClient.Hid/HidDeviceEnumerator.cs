@@ -263,9 +263,6 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                     VendorId = cur->vendor_id,
                     ProductId = cur->product_id,
                     ProductName = name,
-                    SerialNumber = cur->serial_number != IntPtr.Zero
-                        ? Marshal.PtrToStringUni(cur->serial_number) ?? string.Empty
-                        : string.Empty,
                     Manufacturer = cur->manufacturer_string != IntPtr.Zero
                         ? Marshal.PtrToStringUni(cur->manufacturer_string) ?? string.Empty
                         : string.Empty,
