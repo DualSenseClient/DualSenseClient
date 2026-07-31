@@ -72,6 +72,9 @@ public class NavigationService
         _log.Debug($"Navigating to '{tag}'");
         switch (tag)
         {
+            case "InfoPage":
+                frame?.Navigate(typeof(DeviceInfoPage));
+                break;
             case "Settings":
                 frame?.Navigate(typeof(SettingsPage));
                 break;

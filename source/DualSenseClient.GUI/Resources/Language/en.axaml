@@ -9,6 +9,51 @@
     <sys:String x:Key="MainWindow.ScanDevices.Start">Scan for controllers</sys:String>
     <sys:String x:Key="MainWindow.ScanDevices.Stop">Stop scanning</sys:String>
 
+    <!-- Device Info Page -->
+    <sys:String x:Key="MainWindow.Devices">Device Info</sys:String>
+    <sys:String x:Key="DeviceInfoPage.NoDevice.Title">No controller selected</sys:String>
+    <sys:String x:Key="DeviceInfoPage.NoDevice.Description">Select a controller from the title bar to view its firmware and hardware information.</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Device.Title">Device</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Device.Description">Controller identification</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Device.Name">Name</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Device.ConnectionType">Connection</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Device.SerialNumber">Serial Number</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Pairing.Title">Pairing</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Pairing.Description">Bluetooth MAC addresses</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Pairing.ClientMac">Controller MAC</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Pairing.HostMac">Host MAC</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.Title">Firmware</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.Description">Version and build information</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.Refresh">Re-read firmware info</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.MainVersion">Main Firmware</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.SblVersion">SBL Firmware</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.DspVersion">DSP Firmware</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.McuDspVersion">MCU/Spider DSP</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.ModelRevision">Model Revision</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.BuildDate">Build Date</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.BuildTime">Build Time</sys:String>
+
+    <!-- Device Info Page: Battery -->
+    <sys:String x:Key="DeviceInfoPage.Battery.Title">Battery</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Battery.Description">Power level and charging state</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Battery.Level">Level</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Battery.PowerState">Power State</sys:String>
+
+    <!-- Device Info Page: Connection Status -->
+    <sys:String x:Key="DeviceInfoPage.Connection.Title">Connection Status</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Connection.Description">Audio and USB connection state</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Connection.Headphones">Headphones</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Connection.Microphone">Microphone</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Connection.MicrophoneMuted">Microphone Muted</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Connection.UsbData">USB Data</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Connection.UsbPower">USB Power</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Common.Yes">Yes</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Common.No">No</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Common.Connected">Connected</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Common.NotConnected">Not connected</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Common.Active">Active</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Common.Inactive">Inactive</sys:String>
+
     <!-- MessageBox Strings -->
     <sys:String x:Key="MessageBox.Ok">OK</sys:String>
     <sys:String x:Key="MessageBox.Yes">Yes</sys:String>

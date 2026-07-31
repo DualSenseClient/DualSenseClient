@@ -1,0 +1,270 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DualSenseClient.GUI.ViewModels.Pages"
+             xmlns:cards="clr-namespace:DualSenseClient.GUI.Controls.Cards"
+             xmlns:fic="using:FluentIcons.Common"
+             xmlns:ic="using:FluentIcons.Avalonia.Fluent"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="DualSenseClient.GUI.Views.Pages.DeviceInfoPage"
+             x:DataType="vm:DeviceInfoPageViewModel">
+    <Design.DataContext>
+        <vm:DeviceInfoPageViewModel />
+    </Design.DataContext>
+    <ScrollViewer>
+        <StackPanel Spacing="16" Margin="24">
+            <!-- Empty state shown when no controller is selected -->
+            <cards:EmptyStateCard Title="{DynamicResource DeviceInfoPage.NoDevice.Title}"
+                                  Description="{DynamicResource DeviceInfoPage.NoDevice.Description}"
+                                  IsVisible="{Binding !HasDevice}" />
+
+            <!-- Device -->
+            <Expander IsVisible="{Binding HasDevice}"
+                      IsExpanded="True">
+                <Expander.Header>
+                    <cards:CardHeader Title="{DynamicResource DeviceInfoPage.Device.Title}"
+                                      Description="{DynamicResource DeviceInfoPage.Device.Description}"
+                                      Icon="{x:Static fic:Symbol.PeopleGameController}"
+                                      MinHeight="64" />
+                </Expander.Header>
+                <StackPanel Spacing="8">
+                    <cards:CustomCard>
+                        <Image Source="/Assets/Controller Illustration/With Buttons.png"
+                               Width="280"
+                               HorizontalAlignment="Center"
+                               RenderOptions.BitmapInterpolationMode="HighQuality" />
+                    </cards:CustomCard>
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Device.Name}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.DisplayName}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Device.ConnectionType}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.ConnectionType}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Device.SerialNumber}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.SerialNumber}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Pairing.ClientMac}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.ClientMac}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                </StackPanel>
+            </Expander>
+
+            <!-- Battery -->
+            <Expander IsVisible="{Binding HasDevice}"
+                      IsExpanded="True">
+                <Expander.Header>
+                    <cards:CardHeader Title="{DynamicResource DeviceInfoPage.Battery.Title}"
+                                      Description="{DynamicResource DeviceInfoPage.Battery.Description}"
+                                      Icon="{x:Static fic:Symbol.BatteryCharge}"
+                                      MinHeight="64" />
+                </Expander.Header>
+                <StackPanel Spacing="8">
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Battery.Level}"
+                                       VerticalAlignment="Center" />
+                            <ic:FluentIcon Grid.Column="1"
+                                           Icon="{Binding CurrentDevice.BatteryIcon}"
+                                           IconVariant="Filled"
+                                           ToolTip.Tip="{Binding CurrentDevice.BatteryPercentage}"
+                                           VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Battery.PowerState}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.PowerState}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                </StackPanel>
+            </Expander>
+
+            <!-- Connection Status -->
+            <Expander IsVisible="{Binding HasDevice}"
+                      IsExpanded="True">
+                <Expander.Header>
+                    <cards:CardHeader Title="{DynamicResource DeviceInfoPage.Connection.Title}"
+                                      Description="{DynamicResource DeviceInfoPage.Connection.Description}"
+                                      Icon="{x:Static fic:Symbol.PlugConnected}"
+                                      MinHeight="64" />
+                </Expander.Header>
+                <StackPanel Spacing="8">
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Connection.Headphones}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.Headphones}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Connection.Microphone}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.Microphone}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Connection.MicrophoneMuted}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.MicrophoneMuted}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Connection.UsbData}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.UsbData}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Connection.UsbPower}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.UsbPower}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                </StackPanel>
+            </Expander>
+
+            <!-- Firmware -->
+            <Expander IsVisible="{Binding HasDevice}"
+                      IsExpanded="True">
+                <Expander.Header>
+                    <cards:CardHeader Title="{DynamicResource DeviceInfoPage.Firmware.Title}"
+                                      Description="{DynamicResource DeviceInfoPage.Firmware.Description}"
+                                      Icon="{x:Static fic:Symbol.Gauge}"
+                                      MinHeight="64">
+                        <cards:CardHeader.ActionContent>
+                            <Button Command="{Binding RefreshCommand}"
+                                    ToolTip.Tip="{DynamicResource DeviceInfoPage.Firmware.Refresh}">
+                                <ic:FluentIcon Icon="ArrowSync"
+                                               IconVariant="Regular" />
+                            </Button>
+                        </cards:CardHeader.ActionContent>
+                    </cards:CardHeader>
+                </Expander.Header>
+                <StackPanel Spacing="8">
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.MainVersion}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.MainFirmwareVersion}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.SblVersion}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.SblFirmwareVersion}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.DspVersion}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.DspFirmwareVersion}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.McuDspVersion}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.McuSpiderDspFirmwareVersion}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.ModelRevision}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.ModelRevision}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.BuildDate}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.BuildDate}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.BuildTime}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.BuildTime}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                </StackPanel>
+            </Expander>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

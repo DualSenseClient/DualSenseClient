@@ -80,7 +80,15 @@
                                    IsPaneToggleButtonVisible="True"
                                    ItemInvoked="NavigationView_OnItemInvoked">
             <!-- Navigation items – add new pages here with a unique Tag -->
-            <controls:FANavigationView.MenuItems />
+            <controls:FANavigationView.MenuItems>
+                <!-- Device info page -->
+                <controls:FANavigationViewItem Content="{DynamicResource MainWindow.Devices}"
+                                               Tag="InfoPage">
+                    <controls:FANavigationViewItem.IconSource>
+                        <ic:SymbolIconSource Symbol="Info" />
+                    </controls:FANavigationViewItem.IconSource>
+                </controls:FANavigationViewItem>
+            </controls:FANavigationView.MenuItems>
 
             <controls:FANavigationView.FooterMenuItems>
                 <!-- Settings page -->

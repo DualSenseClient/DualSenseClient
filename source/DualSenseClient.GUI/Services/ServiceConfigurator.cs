@@ -43,6 +43,7 @@ public abstract class ServiceConfigurator
         // ViewModels
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<SettingsPageViewModel>();
+        services.AddSingleton<DeviceInfoPageViewModel>();
         services.AddSingleton<MainViewModel>();
 
         // Views
