@@ -44,6 +44,7 @@ public abstract class ServiceConfigurator
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<SettingsPageViewModel>();
         services.AddSingleton<DeviceInfoPageViewModel>();
+        services.AddSingleton<InputMonitorPageViewModel>();
         services.AddSingleton<MainViewModel>();
 
         // Views

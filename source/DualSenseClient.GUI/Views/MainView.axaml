@@ -88,6 +88,13 @@
                         <ic:SymbolIconSource Symbol="Info" />
                     </controls:FANavigationViewItem.IconSource>
                 </controls:FANavigationViewItem>
+                <!-- Live input page -->
+                <controls:FANavigationViewItem Content="{DynamicResource MainWindow.InputMonitor}"
+                                               Tag="InputMonitorPage">
+                    <controls:FANavigationViewItem.IconSource>
+                        <ic:SymbolIconSource Symbol="XboxController" />
+                    </controls:FANavigationViewItem.IconSource>
+                </controls:FANavigationViewItem>
             </controls:FANavigationView.MenuItems>
 
             <controls:FANavigationView.FooterMenuItems>

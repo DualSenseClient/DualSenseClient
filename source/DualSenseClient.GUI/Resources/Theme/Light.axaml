@@ -1,4 +1,20 @@
 ﻿<ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <!-- Add Resources Here -->
+
+    <!-- =====================================================================
+         CUSTOM COLORS
+         Application-specific colors (live input graphs, etc.). Base values live
+         in System.axaml (used by Theme.System); this dictionary overrides
+         them because it is merged later. Do NOT change the x:Key names.
+         ===================================================================== -->
+    <Color x:Key="MotionGraphXColor">#FF4C9AFF</Color>
+    <Color x:Key="MotionGraphYColor">#FF2FBF71</Color>
+    <Color x:Key="MotionGraphZColor">#FFE6A23C</Color>
+    <Color x:Key="MotionGraphZeroLineColor">#FF888888</Color>
+
+    <SolidColorBrush x:Key="MotionGraphXBrush" Color="{StaticResource MotionGraphXColor}" />
+    <SolidColorBrush x:Key="MotionGraphYBrush" Color="{StaticResource MotionGraphYColor}" />
+    <SolidColorBrush x:Key="MotionGraphZBrush" Color="{StaticResource MotionGraphZColor}" />
+    <SolidColorBrush x:Key="MotionGraphZeroLineBrush" Color="{StaticResource MotionGraphZeroLineColor}" />
+
 </ResourceDictionary>

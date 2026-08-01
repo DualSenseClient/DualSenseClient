@@ -18,11 +18,12 @@ namespace DualSenseClient.GUI.Services;
 /// </summary>
 /// <remarks>
 /// <para>
-/// FluentAvalonia only ships Light/Dark palettes out of the box, so Dark, AMOLED and Steam
-/// are implemented here as custom <see cref="ResourceDictionary"/> overrides merged into
-/// <c>Application.Current.Resources</c>. <see cref="Theme.System"/> removes the override
-/// entirely and falls back to FluentAvalonia's own palette via
-/// <see cref="FluentAvaloniaTheme.PreferSystemTheme"/>.
+/// FluentAvalonia only ships Light/Dark palettes out of the box, so every theme is
+/// implemented here as a <see cref="ResourceDictionary"/> override merged into
+/// <c>Application.Current.Resources</c>. Each theme has its own dictionary file
+/// (System.axaml, Dark.axaml, Light.axaml). <see cref="Theme.System"/> additionally sets
+/// <see cref="FluentAvaloniaTheme.PreferSystemTheme"/> so FluentAvalonia's palette follows
+/// the OS, while System.axaml supplies the app-specific base colors.
 /// </para>
 /// <para>
 /// Order of operations matters: the resource dictionary is swapped in <em>before</em>
@@ -58,7 +59,8 @@ public class ThemeService
 
     /// <summary>
     /// The theme dictionary currently merged into <c>Application.Current.Resources</c>, or
-    /// <see langword="null"/> when the current theme is <see cref="Theme.System"/>.
+    /// <see langword="null"/> before the first theme has been applied. Every theme (including
+    /// <see cref="Theme.System"/>) loads a resource dictionary.
     /// </summary>
     private ResourceDictionary? _activeDictionary;
 
@@ -194,15 +196,11 @@ public class ThemeService
             _activeDictionary = null;
         }
 
-        if (theme == Theme.System)
-        {
-            return;
-        }
-
         if (!_loadedDictionaries.TryGetValue(theme, out ResourceDictionary? dictionary))
         {
             string resourcePath = theme switch
             {
+                Theme.System => "avares://DualSenseClient/Resources/Theme/System.axaml",
                 Theme.Dark => "avares://DualSenseClient/Resources/Theme/Dark.axaml",
                 _ => "avares://DualSenseClient/Resources/Theme/Light.axaml"
             };
