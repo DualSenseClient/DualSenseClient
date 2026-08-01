@@ -3,7 +3,7 @@
         xmlns:local="clr-namespace:DualSenseClient.GUI.Controls.Cards"
         xmlns:fluent="using:FluentIcons.Avalonia.Fluent">
     <!-- CardHeader: Icon, title, description, and optional action area.
-         Icon uses SystemAccentColorBrush; description uses TextFillColorSecondaryBrush.
+         Icon uses AccentFillColorDefaultBrush; description uses TextFillColorSecondaryBrush.
          When ShowIconBackground=false, the icon border background becomes transparent.
          Requires NotNullConverter to hide empty icons/descriptions. -->
     <Style Selector="local|CardHeader">
@@ -16,7 +16,7 @@
                             Margin="0,0,12,0"
                             Padding="6"
                             CornerRadius="6"
-                            Background="{DynamicResource SystemAccentColorBrush}"
+                            Background="{DynamicResource AccentFillColorDefaultBrush}"
                             VerticalAlignment="Center"
                             IsVisible="{TemplateBinding Icon, Converter={StaticResource NotNullConverter}}">
                         <fluent:SymbolIcon Symbol="{TemplateBinding Icon}" />
