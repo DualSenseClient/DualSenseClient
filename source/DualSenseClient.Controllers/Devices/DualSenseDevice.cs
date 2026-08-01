@@ -1,6 +1,7 @@
 ﻿using DualSenseClient.Controllers.DualSense.Events;
 using DualSenseClient.Controllers.DualSense.Feature;
 using DualSenseClient.Controllers.DualSense.Input;
+using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Hid;
 using DualSenseClient.Logging;
 using DualSenseClient.Controllers.DualSense.Enum;
@@ -34,6 +35,11 @@ public class DualSenseDevice : ControllerDevice
     /// report is received, so no events fire on the initial read.
     /// </summary>
     private InputReport? _previousInputReport;
+
+    /// <summary>
+    /// Bluetooth output report sequence tag; only the low nibble is transmitted.
+    /// </summary>
+    private byte _outputSequence;
 
     /// <inheritdoc/>
     public override ControllerType ControllerType => ControllerType.DualSense;
@@ -213,6 +219,23 @@ public class DualSenseDevice : ControllerDevice
         }
         _previousInputReport = report;
         InputReport = report;
+    }
+
+    /// <summary>
+    /// Sends output state (rumble, lightbar, player LEDs, trigger effects) to the
+    /// controller, framed for the active transport (USB report ID 0x02 or Bluetooth
+    /// report ID 0x31 with a rolling sequence tag and CRC32).
+    /// </summary>
+    /// <param name="payload">The output state to send.</param>
+    public void SendOutputState(SetStateData payload)
+    {
+        OutputReport report = ConnectionType == ConnectionType.Bluetooth
+            ? OutputReport.ForBluetooth(payload, (byte)(_outputSequence & 0x0F))
+            : OutputReport.ForUsb(payload);
+        _outputSequence = (byte)((_outputSequence + 1) & 0x0F);
+
+        _log.Debug($"Sending output report 0x{report.Raw[0]:X2} ({report.Length} byte(s))");
+        SendOutput(report.Raw, 0, report.Length);
     }
 
     /// <summary>
