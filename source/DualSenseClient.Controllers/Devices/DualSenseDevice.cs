@@ -11,7 +11,7 @@ namespace DualSenseClient.Controllers.Devices;
 /// Concrete controller implementation for the Sony DualSense (PS5) controller.
 /// Opens and communicates with the DualSense over USB or Bluetooth via SDL3 HID.
 /// </summary>
-public sealed class DualSenseDevice : ControllerDevice
+public class DualSenseDevice : ControllerDevice
 {
     // Fields
     /// <summary>
@@ -37,6 +37,13 @@ public sealed class DualSenseDevice : ControllerDevice
 
     /// <inheritdoc/>
     public override ControllerType ControllerType => ControllerType.DualSense;
+
+    /// <summary>
+    /// Whether this controller is a DualSense Edge, which has the extra Fn
+    /// buttons and back paddles. Base DualSense hardware returns <c>false</c>;
+    /// <see cref="DualSenseEdgeDevice"/> overrides this.
+    /// </summary>
+    public virtual bool IsEdge => false;
 
     /// <inheritdoc/>
     public override int MaxOutputReportLength => ConnectionType switch
