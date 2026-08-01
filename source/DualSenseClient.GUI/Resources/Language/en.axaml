@@ -61,6 +61,7 @@
 
     <!-- Input Monitor Page -->
     <sys:String x:Key="MainWindow.InputMonitor">Input Monitor</sys:String>
+    <sys:String x:Key="MainWindow.Profile">Profile</sys:String>
     <sys:String x:Key="InputMonitorPage.NoDevice.Title">No controller selected</sys:String>
     <sys:String x:Key="InputMonitorPage.NoDevice.Description">Select a controller from the title bar to monitor its live input state.</sys:String>
     <sys:String x:Key="InputMonitorPage.Status.Live">Live</sys:String>
@@ -117,6 +118,27 @@
     <sys:String x:Key="InputMonitorPage.Button.FnR">FnR</sys:String>
     <sys:String x:Key="InputMonitorPage.Button.L4">L4</sys:String>
     <sys:String x:Key="InputMonitorPage.Button.R4">R4</sys:String>
+
+    <!-- Profile Page -->
+    <sys:String x:Key="ProfilePage.NoDevice.Title">No controller selected</sys:String>
+    <sys:String x:Key="ProfilePage.NoDevice.Description">Select a DualSense controller from the title bar to customize its profile.</sys:String>
+    <sys:String x:Key="ProfilePage.Lights.Title">Lights</sys:String>
+    <sys:String x:Key="ProfilePage.Lights.Description">Lightbar color, microphone LED, and player indicators</sys:String>
+    <sys:String x:Key="ProfilePage.Lightbar.Title">Lightbar</sys:String>
+    <sys:String x:Key="ProfilePage.Lightbar.Red">Red</sys:String>
+    <sys:String x:Key="ProfilePage.Lightbar.Green">Green</sys:String>
+    <sys:String x:Key="ProfilePage.Lightbar.Blue">Blue</sys:String>
+    <sys:String x:Key="ProfilePage.MicLed.Title">Microphone LED</sys:String>
+    <sys:String x:Key="ProfilePage.MicLed.Mode">Mode</sys:String>
+    <sys:String x:Key="ProfilePage.MicLed.Mode.Off">Off</sys:String>
+    <sys:String x:Key="ProfilePage.MicLed.Mode.On">On</sys:String>
+    <sys:String x:Key="ProfilePage.MicLed.Mode.Pulse">Pulse</sys:String>
+    <sys:String x:Key="ProfilePage.PlayerLeds.Title">Player LEDs</sys:String>
+    <sys:String x:Key="ProfilePage.PlayerLeds.Led1">LED 1</sys:String>
+    <sys:String x:Key="ProfilePage.PlayerLeds.Led2">LED 2</sys:String>
+    <sys:String x:Key="ProfilePage.PlayerLeds.Led3">LED 3</sys:String>
+    <sys:String x:Key="ProfilePage.PlayerLeds.Led4">LED 4</sys:String>
+    <sys:String x:Key="ProfilePage.PlayerLeds.Led5">LED 5</sys:String>
 
     <!-- Settings Page -->
     <sys:String x:Key="SettingsPage.Ui.Title">UI</sys:String>

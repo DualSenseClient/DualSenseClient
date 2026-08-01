@@ -95,6 +95,13 @@
                         <ic:SymbolIconSource Symbol="XboxController" />
                     </controls:FANavigationViewItem.IconSource>
                 </controls:FANavigationViewItem>
+                <!-- Controller profile page -->
+                <controls:FANavigationViewItem Content="{DynamicResource MainWindow.Profile}"
+                                               Tag="ProfilePage">
+                    <controls:FANavigationViewItem.IconSource>
+                        <ic:SymbolIconSource Symbol="Lightbulb" />
+                    </controls:FANavigationViewItem.IconSource>
+                </controls:FANavigationViewItem>
             </controls:FANavigationView.MenuItems>
 
             <controls:FANavigationView.FooterMenuItems>

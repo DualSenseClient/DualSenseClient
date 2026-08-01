@@ -78,6 +78,9 @@ public class NavigationService
             case "InputMonitorPage":
                 frame?.Navigate(typeof(InputMonitorPage));
                 break;
+            case "ProfilePage":
+                frame?.Navigate(typeof(ProfilePage));
+                break;
             case "Settings":
                 frame?.Navigate(typeof(SettingsPage));
                 break;

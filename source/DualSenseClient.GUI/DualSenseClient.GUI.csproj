@@ -38,5 +38,8 @@
         <Compile Update="Controls\AppSplashScreen.cs">
             <DependentUpon>SplashScreenView.axaml</DependentUpon>
         </Compile>
+        <Compile Update="Views\Pages\ProfilePage.axaml.cs">
+          <DependentUpon>ProfilePage.axaml</DependentUpon>
+        </Compile>
     </ItemGroup>
 </Project>
