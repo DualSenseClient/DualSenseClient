@@ -1,11 +1,13 @@
-﻿<ResourceDictionary xmlns="https://github.com/avaloniaui"
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- =====================================================================
          CUSTOM COLORS
-         Application-specific colors (live input graphs, etc.). Base values live
-         in System.axaml (used by Theme.System); this dictionary overrides
-         them because it is merged later. Do NOT change the x:Key names.
+         Application-specific colors (live input graphs, etc.). The Theme.System
+         dictionary only supplies these base app colors - everything else comes
+         from FluentAvalonia's built-in palette (it follows the OS via
+         PreferSystemTheme). Other theme dictionaries override these keys
+         because they are merged later. Do NOT change the x:Key names.
          ===================================================================== -->
     <Color x:Key="MotionGraphXColor">#FF4C9AFF</Color>
     <Color x:Key="MotionGraphYColor">#FF2FBF71</Color>
