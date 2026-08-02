@@ -1,8 +1,10 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:DualSenseClient.GUI.ViewModels.Pages"
+             xmlns:items="using:DualSenseClient.GUI.Models.Items"
              xmlns:cards="clr-namespace:DualSenseClient.GUI.Controls.Cards"
              xmlns:controls="using:Avalonia.Controls"
+             xmlns:ic="using:FluentIcons.Avalonia.Fluent"
              xmlns:fic="using:FluentIcons.Common"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -19,26 +21,22 @@
                                   Description="{DynamicResource ProfilePage.NoDevice.Description}"
                                   IsVisible="{Binding !HasDevice}" />
 
-            <!-- Lights -->
+            <!-- Controller assignment -->
             <Expander IsVisible="{Binding HasDevice}"
                       IsExpanded="True">
                 <Expander.Header>
-                    <cards:CardHeader Title="{DynamicResource ProfilePage.Lights.Title}"
-                                      Description="{DynamicResource ProfilePage.Lights.Description}"
-                                      Icon="{x:Static fic:Symbol.Lightbulb}"
+                    <cards:CardHeader Title="{DynamicResource ProfilePage.Controller.Title}"
+                                      Description="{DynamicResource ProfilePage.Controller.Description}"
+                                      Icon="{x:Static fic:Symbol.Person}"
                                       MinHeight="64" />
                 </Expander.Header>
                 <StackPanel Spacing="8">
-                    <!-- Lightbar color -->
-                    <TextBlock Text="{DynamicResource ProfilePage.Lightbar.Title}"
-                               FontWeight="SemiBold"
-                               Margin="0,4,0,0" />
                     <cards:CustomCard>
-                        <Grid ColumnDefinitions="Auto,*">
+                        <Grid ColumnDefinitions="Auto,*,Auto"
+                              ColumnSpacing="16">
                             <Border Width="48"
                                     Height="48"
                                     CornerRadius="10"
-                                    Margin="0,0,16,0"
                                     Background="{Binding CurrentDevice.LightbarBrush}"
                                     BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                                     BorderThickness="1"
@@ -48,80 +46,163 @@
                                         VerticalAlignment="Center">
                                 <TextBlock Text="{Binding CurrentDevice.DisplayName}"
                                            FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding CurrentDevice.ColorHex}"
+                                <TextBlock Text="{Binding CurrentMac}"
                                            FontSize="12"
                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding CurrentDevice.ColorHex}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center" />
                         </Grid>
                     </cards:CustomCard>
-                    <!-- Color picker + RGB sliders -->
-                    <Grid ColumnDefinitions="Auto,*"
-                          ColumnSpacing="16">
-                        <!-- Color picker -->
-                        <controls:ColorView Grid.Column="0"
-                                            Width="320"
-                                            Color="{Binding CurrentDevice.LightbarColor, Mode=TwoWay}"
-                                            IsColorSpectrumVisible="True"
-                                            IsColorPaletteVisible="True"
-                                            IsColorComponentsVisible="False"
-                                            IsColorPreviewVisible="True"
-                                            IsAlphaEnabled="False"
-                                            IsAlphaVisible="False" />
-                        <!-- Sliders -->
-                        <Grid Grid.Column="1"
-                              RowDefinitions="Auto,*,Auto,*,Auto">
-                            <cards:SliderCard Grid.Row="0"
-                                              Minimum="0"
-                                              Maximum="255"
-                                              TickFrequency="1"
-                                              Title="{DynamicResource ProfilePage.Lightbar.Red}"
-                                              Value="{Binding CurrentDevice.LedRed}" />
-                            <cards:SliderCard Grid.Row="2"
-                                              Minimum="0"
-                                              Maximum="255"
-                                              TickFrequency="1"
-                                              Title="{DynamicResource ProfilePage.Lightbar.Green}"
-                                              Value="{Binding CurrentDevice.LedGreen}" />
-                            <cards:SliderCard Grid.Row="4"
-                                              Minimum="0"
-                                              Maximum="255"
-                                              TickFrequency="1"
-                                              Title="{DynamicResource ProfilePage.Lightbar.Blue}"
-                                              Value="{Binding CurrentDevice.LedBlue}" />
+
+                    <cards:ComboBoxCard Title="{DynamicResource ProfilePage.AssignedProfile.Title}"
+                                        Description="{DynamicResource ProfilePage.AssignedProfile.Description}"
+                                        ItemsSource="{Binding AssignedProfileOptions}"
+                                        SelectedIndex="{Binding SelectedAssignedProfileIndex}" />
+                    <Button Command="{Binding ReapplyProfileCommand}"
+                            HorizontalAlignment="Right"
+                            Margin="0,0,14,0">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ic:FluentIcon Icon="Replay"
+                                           IconVariant="Regular" />
+                            <TextBlock Text="{DynamicResource ProfilePage.AssignedProfile.Reapply}" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Expander>
+
+            <!-- Profiles manager -->
+            <Expander IsExpanded="True">
+                <Expander.Header>
+                    <cards:CardHeader Title="{DynamicResource ProfilePage.Profiles.Title}"
+                                      Description="{DynamicResource ProfilePage.Profiles.Description}"
+                                      Icon="{x:Static fic:Symbol.Lightbulb}"
+                                      MinHeight="64">
+                        <cards:CardHeader.ActionContent>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Command="{Binding CreateProfileCommand}"
+                                        ToolTip.Tip="{DynamicResource ProfilePage.Profiles.New}">
+                                    <ic:FluentIcon Icon="Add"
+                                                   IconVariant="Regular" />
+                                </Button>
+                                <Button Command="{Binding DuplicateProfileCommand}"
+                                        ToolTip.Tip="{DynamicResource ProfilePage.Profiles.Duplicate}">
+                                    <ic:FluentIcon Icon="Copy"
+                                                   IconVariant="Regular" />
+                                </Button>
+                                <Button Command="{Binding DeleteProfileCommand}"
+                                        ToolTip.Tip="{DynamicResource ProfilePage.Profiles.Delete}">
+                                    <ic:FluentIcon Icon="Delete"
+                                                   IconVariant="Regular" />
+                                </Button>
+                            </StackPanel>
+                        </cards:CardHeader.ActionContent>
+                    </cards:CardHeader>
+                </Expander.Header>
+                <StackPanel Spacing="8">
+                    <ListBox ItemsSource="{Binding Profiles}"
+                             SelectedItem="{Binding SelectedProfile}"
+                             MaxHeight="160">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="items:ProfileEditorItem">
+                                <StackPanel Orientation="Horizontal"
+                                            Spacing="8">
+                                    <Border Width="16"
+                                            Height="16"
+                                            CornerRadius="4"
+                                            VerticalAlignment="Center"
+                                            Background="{Binding LightbarBrush}" />
+                                    <TextBlock Text="{Binding Name}"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <TextBlock Text="{DynamicResource ProfilePage.Profiles.Empty}"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               IsVisible="{Binding !HasSelectedProfile}" />
+
+                    <!-- Editor for the selected profile -->
+                    <StackPanel IsVisible="{Binding HasSelectedProfile}"
+                                Spacing="8">
+                        <cards:TextBoxCard Title="{DynamicResource ProfilePage.Name.Title}"
+                                           Text="{Binding SelectedProfile.Name}" />
+
+                        <!-- Lightbar color -->
+                        <TextBlock Text="{DynamicResource ProfilePage.Lightbar.Title}"
+                                   FontWeight="SemiBold"
+                                   Margin="0,4,0,0" />
+                        <Grid ColumnDefinitions="Auto,*"
+                              ColumnSpacing="16">
+                            <controls:ColorView Grid.Column="0"
+                                                Width="320"
+                                                Color="{Binding SelectedProfile.LightbarColor}"
+                                                IsColorSpectrumVisible="True"
+                                                IsColorPaletteVisible="True"
+                                                IsColorComponentsVisible="False"
+                                                IsColorPreviewVisible="True"
+                                                IsAlphaEnabled="False"
+                                                IsAlphaVisible="False" />
+                            <Grid Grid.Column="1"
+                                  RowDefinitions="Auto,*,Auto,*,Auto">
+                                <cards:SliderCard Grid.Row="0"
+                                                  Minimum="0"
+                                                  Maximum="255"
+                                                  TickFrequency="1"
+                                                  Title="{DynamicResource ProfilePage.Lightbar.Red}"
+                                                  Value="{Binding SelectedProfile.LedRed}" />
+                                <cards:SliderCard Grid.Row="2"
+                                                  Minimum="0"
+                                                  Maximum="255"
+                                                  TickFrequency="1"
+                                                  Title="{DynamicResource ProfilePage.Lightbar.Green}"
+                                                  Value="{Binding SelectedProfile.LedGreen}" />
+                                <cards:SliderCard Grid.Row="4"
+                                                  Minimum="0"
+                                                  Maximum="255"
+                                                  TickFrequency="1"
+                                                  Title="{DynamicResource ProfilePage.Lightbar.Blue}"
+                                                  Value="{Binding SelectedProfile.LedBlue}" />
+                            </Grid>
                         </Grid>
-                    </Grid>
 
-                    <!-- Microphone LED -->
-                    <TextBlock Text="{DynamicResource ProfilePage.MicLed.Title}"
-                               FontWeight="SemiBold"
-                               Margin="0,12,0,0" />
-                    <cards:ComboBoxCard Title="{DynamicResource ProfilePage.MicLed.Mode}"
-                                        ItemsSource="{Binding MicLedModes}"
-                                        SelectedIndex="{Binding CurrentDevice.MuteLedMode}" />
+                        <!-- Microphone LED -->
+                        <TextBlock Text="{DynamicResource ProfilePage.MicLed.Title}"
+                                   FontWeight="SemiBold"
+                                   Margin="0,12,0,0" />
+                        <cards:ComboBoxCard Title="{DynamicResource ProfilePage.MicLed.Mode}"
+                                            ItemsSource="{Binding MicLedModes}"
+                                            SelectedIndex="{Binding SelectedProfile.MuteLedMode}" />
 
-                    <!-- Player LEDs -->
-                    <TextBlock Text="{DynamicResource ProfilePage.PlayerLeds.Title}"
-                               FontWeight="SemiBold"
-                               Margin="0,12,0,0" />
-                    <cards:CustomCard>
-                        <UniformGrid Rows="1">
-                            <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led1}"
-                                          IsChecked="{Binding CurrentDevice.PlayerLed1}"
-                                          HorizontalAlignment="Center" />
-                            <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led2}"
-                                          IsChecked="{Binding CurrentDevice.PlayerLed2}"
-                                          HorizontalAlignment="Center" />
-                            <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led3}"
-                                          IsChecked="{Binding CurrentDevice.PlayerLed3}"
-                                          HorizontalAlignment="Center" />
-                            <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led4}"
-                                          IsChecked="{Binding CurrentDevice.PlayerLed4}"
-                                          HorizontalAlignment="Center" />
-                            <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led5}"
-                                          IsChecked="{Binding CurrentDevice.PlayerLed5}"
-                                          HorizontalAlignment="Center" />
-                        </UniformGrid>
-                    </cards:CustomCard>
+                        <!-- Player LEDs -->
+                        <TextBlock Text="{DynamicResource ProfilePage.PlayerLeds.Title}"
+                                   FontWeight="SemiBold"
+                                   Margin="0,12,0,0" />
+                        <cards:CustomCard>
+                            <UniformGrid Rows="1">
+                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led1}"
+                                              IsChecked="{Binding SelectedProfile.PlayerLed1}"
+                                              HorizontalAlignment="Center" />
+                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led2}"
+                                              IsChecked="{Binding SelectedProfile.PlayerLed2}"
+                                              HorizontalAlignment="Center" />
+                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led3}"
+                                              IsChecked="{Binding SelectedProfile.PlayerLed3}"
+                                              HorizontalAlignment="Center" />
+                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led4}"
+                                              IsChecked="{Binding SelectedProfile.PlayerLed4}"
+                                              HorizontalAlignment="Center" />
+                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led5}"
+                                              IsChecked="{Binding SelectedProfile.PlayerLed5}"
+                                              HorizontalAlignment="Center" />
+                            </UniformGrid>
+                        </cards:CustomCard>
+                    </StackPanel>
                 </StackPanel>
             </Expander>
         </StackPanel>

@@ -118,6 +118,12 @@ public sealed partial class LightsItem : ObservableObject, IDisposable
     private bool _syncingColor;
 
     /// <summary>
+    /// Tracks whether output writes are temporarily suppressed (used by <see cref="SetPreview"/>
+    /// so preview-only updates do not re-send state to the controller).
+    /// </summary>
+    private bool _suppressWrite;
+
+    /// <summary>
     /// Lightbar color as an <see cref="Avalonia.Media.Color"/>, bridged two-way
     /// with the channel doubles for binding to <c>ColorView</c>.
     /// </summary>
@@ -155,6 +161,38 @@ public sealed partial class LightsItem : ObservableObject, IDisposable
     {
         Controller = controller;
         _device = controller.Device as DualSenseDevice;
+    }
+
+    /// <summary>
+    /// Updates the preview-only color state (swatch, hex, and color) from a profile without
+    /// writing anything to the controller. Used by the profile manager so the controller card
+    /// reflects the profile the controller is currently using.
+    /// </summary>
+    /// <param name="red">Lightbar red channel (0-255).</param>
+    /// <param name="green">Lightbar green channel (0-255).</param>
+    /// <param name="blue">Lightbar blue channel (0-255).</param>
+    public void SetPreview(byte red, byte green, byte blue)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _suppressWrite = true;
+        try
+        {
+            LedRed = red;
+            LedGreen = green;
+            LedBlue = blue;
+        }
+        finally
+        {
+            _suppressWrite = false;
+        }
+
+        OnPropertyChanged(nameof(LightbarBrush));
+        OnPropertyChanged(nameof(ColorHex));
+        OnPropertyChanged(nameof(LightbarColor));
     }
 
     /// <summary>
@@ -221,11 +259,11 @@ public sealed partial class LightsItem : ObservableObject, IDisposable
 
     /// <summary>
     /// Builds and sends the current light state to the controller. A no-op for
-    /// non-DualSense devices or after disposal.
+    /// non-DualSense devices, after disposal, or while a preview-only update is in progress.
     /// </summary>
     private void ApplyState()
     {
-        if (_device is null || _disposed)
+        if (_device is null || _disposed || _suppressWrite)
         {
             return;
         }

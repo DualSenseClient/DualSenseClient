@@ -5,9 +5,12 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DualSenseClient.Controllers;
+using DualSenseClient.Controllers.Devices;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.Logging;
+using DualSenseClient.Settings;
+using DualSenseClient.Settings.Sections;
 
 namespace DualSenseClient.GUI.ViewModels;
 
@@ -37,6 +40,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// Notification service used to surface connect/disconnect events.
     /// </summary>
     private readonly INotificationService _notifications;
+
+    /// <summary>
+    /// Profile service used to apply each controller's bound profile when it connects.
+    /// </summary>
+    private readonly ProfileService _profileService;
 
     /// <summary>
     /// Devices opened by this ViewModel that are not currently owned by the tracker.
@@ -78,11 +86,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// <param name="scanner">Scanner used to discover and watch controllers.</param>
     /// <param name="tracker">Tracker that owns the selected controller.</param>
     /// <param name="notifications">Notification service for connect/disconnect events.</param>
-    public MainViewModel(IControllerScanner scanner, IControllerTracker tracker, INotificationService notifications)
+    /// <param name="profileService">Profile service used to apply bound profiles on connect.</param>
+    public MainViewModel(IControllerScanner scanner, IControllerTracker tracker, INotificationService notifications, ProfileService profileService)
     {
         _scanner = scanner;
         _tracker = tracker;
         _notifications = notifications;
+        _profileService = profileService;
         _tracker.ActiveControllerChanged += OnActiveControllerChanged;
         _scanner.ControllerConnected += OnControllerConnected;
         _scanner.ControllerDisconnected += OnControllerDisconnected;
@@ -115,6 +125,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         {
             Controllers.Add(new ControllerItem(controller));
             _ownedDevices.Add(controller);
+            ApplyBoundProfile(controller);
         }
         _log.Info($"Found {Controllers.Count} controller(s) on initial scan");
 
@@ -153,6 +164,31 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         _tracker.SelectController(null);
         IsScanning = false;
+    }
+
+    /// <summary>
+    /// Looks up the profile used by a connected controller (the profile bound to its MAC
+    /// address, falling back to its HID device path, then to the default profile) and
+    /// applies it. Profiles are applied here rather than in the controller device itself.
+    /// </summary>
+    /// <param name="controller">The controller that just connected.</param>
+    private void ApplyBoundProfile(IControllerDevice controller)
+    {
+        if (controller is not DualSenseDevice device)
+        {
+            return;
+        }
+
+        string? mac = device.PairingInfo?.ClientMac;
+        string? path = device.Info.Path;
+        Profile? profile = _profileService.GetProfileForControllerOrDefault(mac, path);
+        if (profile is null)
+        {
+            return;
+        }
+
+        _log.Info($"Applying profile '{profile.Name}' to {device.Info.ProductName}");
+        device.ApplyProfile(profile);
     }
 
     /// <summary>
@@ -202,6 +238,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
             Controllers.Add(new ControllerItem(controller));
             _ownedDevices.Add(controller);
+            ApplyBoundProfile(controller);
             _notifications.ShowSuccess($"{controller.ConnectionType} controller connected: {controller.Info.ProductName}", 3);
             _log.Info($"Controller connected: {controller.Info.ProductName}");
 

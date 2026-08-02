@@ -28,6 +28,7 @@ public abstract class ServiceConfigurator
 
         // Settings
         services.AddSingleton<SettingsService>();
+        services.AddSingleton<ProfileService>();
 
         // Services
         services.AddSingleton<IMessageBoxService, MessageBoxService>();

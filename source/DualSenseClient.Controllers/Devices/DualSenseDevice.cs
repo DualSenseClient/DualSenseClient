@@ -4,6 +4,7 @@ using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Hid;
 using DualSenseClient.Logging;
+using DualSenseClient.Settings.Sections;
 using DualSenseClient.Controllers.DualSense.Enum;
 
 namespace DualSenseClient.Controllers.Devices;
@@ -125,6 +126,8 @@ public class DualSenseDevice : ControllerDevice
 
     /// <summary>
     /// Creates a new DualSense controller wrapper around an already-opened HID device.
+    /// Profiles are not applied here; the owning application applies a profile later via
+    /// <see cref="ApplyProfile"/> once the device is connected.
     /// </summary>
     /// <param name="device">The opened HID device for this controller.</param>
     /// <param name="info">The device info that was used to discover and open the device.</param>
@@ -236,6 +239,41 @@ public class DualSenseDevice : ControllerDevice
 
         _log.Debug($"Sending output report 0x{report.Raw[0]:X2} ({report.Length} byte(s))");
         SendOutput(report.Raw, 0, report.Length);
+    }
+
+    /// <summary>
+    /// Applies the given profile (lightbar color, microphone LED mode, and player LEDs)
+    /// to the controller immediately.
+    /// </summary>
+    /// <param name="profile">The profile to apply.</param>
+    public void ApplyProfile(Profile profile)
+    {
+        SetStateData payload = new SetStateData
+        {
+            // The RGB bytes are gated by ValidFlag1.AllowLedColor, but taking over the
+            // lightbar from the controller's default (BT-connect blue) additionally requires
+            // ValidFlag2.AllowColorFadeAnim plus the lightbar-setup byte (payload offset 41)
+            // written to 0x02 ("light out"). This mirrors the hid-playstation driver.
+            ValidFlag1 = ValidFlags.AllowMuteLight | ValidFlags.AllowLedColor | ValidFlags.AllowPlayerIndicators,
+            ValidFlag2 = ValidFlags.AllowColorFadeAnim,
+            MuteLedMode = profile.MicLed.Mode,
+            LightFadeAnimation = 0x02,
+            PlayerLeds = (PlayerLedMask)profile.PlayerLeds.Mask,
+            LedRed = profile.Lightbar.Red,
+            LedGreen = profile.Lightbar.Green,
+            LedBlue = profile.Lightbar.Blue
+        };
+
+        _log.Debug($"Applying profile: RGB({profile.Lightbar.Red}, {profile.Lightbar.Green}, {profile.Lightbar.Blue}), mic LED {profile.MicLed.Mode}, player LEDs {profile.PlayerLeds.Mask}");
+
+        try
+        {
+            SendOutputState(payload);
+        }
+        catch (HidException ex)
+        {
+            _log.Error($"Failed to apply profile '{profile.Name}': {ex.Message}");
+        }
     }
 
     /// <summary>
