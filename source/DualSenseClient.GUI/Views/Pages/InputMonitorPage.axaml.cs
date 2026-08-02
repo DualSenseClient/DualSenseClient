@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.Controllers.DualSense.Input;
@@ -69,6 +70,16 @@ public partial class InputMonitorPage : UserControl
         SubscribeItem(_viewModel.CurrentDevice);
         UpdateDots();
         UpdateGraphs();
+    }
+
+    /// <summary>
+    /// Turns off any active output-test effects (vibration / adaptive triggers) when the
+    /// page is unloaded so the controller is not left buzzing or with trigger force applied.
+    /// </summary>
+    protected override void OnUnloaded(RoutedEventArgs e)
+    {
+        _item?.ResetTestOutputs();
+        base.OnUnloaded(e);
     }
 
     /// <summary>

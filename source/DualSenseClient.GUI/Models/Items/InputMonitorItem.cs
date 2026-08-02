@@ -4,6 +4,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using DualSenseClient.Controllers.DualSense.Events;
 using DualSenseClient.Controllers.DualSense.Input;
+using DualSenseClient.Controllers.DualSense.Triggers;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.Hid;
@@ -145,10 +146,374 @@ public sealed partial class InputMonitorItem : ObservableObject, IDisposable
     /// </summary>
     private bool _disposed;
 
+    // ── Output Test ───────────────────────────────────────────
+
+    /// <summary>
+    /// Whether the left rumble motor is enabled.
+    /// </summary>
+    private bool _leftMotorEnabled;
+
+    /// <summary>
+    /// Left rumble motor strength (0-255).
+    /// </summary>
+    private int _leftMotorStrength;
+
+    /// <summary>
+    /// Whether the right rumble motor is enabled.
+    /// </summary>
+    private bool _rightMotorEnabled;
+
+    /// <summary>
+    /// Right rumble motor strength (0-255).
+    /// </summary>
+    private int _rightMotorStrength;
+
+    /// <summary>
+    /// Index into <see cref="TriggerEffectModes"/>: the left (L2) adaptive trigger effect mode.
+    /// </summary>
+    private int _leftTriggerModeIndex;
+
+    /// <summary>
+    /// Left (L2) trigger resistance/effect force (0-255).
+    /// </summary>
+    private int _leftTriggerForce = 100;
+
+    /// <summary>
+    /// Left (L2) trigger effect start position (0-255).
+    /// </summary>
+    private int _leftTriggerStart;
+
+    /// <summary>
+    /// Left (L2) trigger effect end position (0-255).
+    /// </summary>
+    private int _leftTriggerEnd = 255;
+
+    /// <summary>
+    /// Left (L2) automatic mode effect frequency (0-15).
+    /// </summary>
+    private int _leftTriggerFrequency = 5;
+
+    /// <summary>
+    /// Index into <see cref="TriggerEffectModes"/>: the right (R2) adaptive trigger effect mode.
+    /// </summary>
+    private int _rightTriggerModeIndex;
+
+    /// <summary>
+    /// Right (R2) trigger resistance/effect force (0-255).
+    /// </summary>
+    private int _rightTriggerForce = 100;
+
+    /// <summary>
+    /// Right (R2) trigger effect start position (0-255).
+    /// </summary>
+    private int _rightTriggerStart;
+
+    /// <summary>
+    /// Right (R2) trigger effect end position (0-255).
+    /// </summary>
+    private int _rightTriggerEnd = 255;
+
+    /// <summary>
+    /// Right (R2) automatic mode effect frequency (0-15).
+    /// </summary>
+    private int _rightTriggerFrequency = 5;
+
+    /// <summary>
+    /// Delay after a slider stops changing before its value is applied to the controller,
+    /// so dragging a slider does not spam output reports.
+    /// </summary>
+    private static readonly TimeSpan OutputDebounceDelay = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>
+    /// Runs pending vibration/trigger updates after the slider debounce delay elapses.
+    /// </summary>
+    private readonly DispatcherTimer? _outputDebounceTimer;
+
+    /// <summary>
+    /// Whether a debounced vibration update is waiting to be applied.
+    /// </summary>
+    private bool _vibrationPending;
+
+    /// <summary>
+    /// Whether a debounced trigger effect update is waiting to be applied.
+    /// </summary>
+    private bool _triggersPending;
+
     /// <summary>
     /// The controller item being displayed.
     /// </summary>
     public ControllerItem Controller { get; }
+
+    /// <summary>
+    /// The adaptive trigger modes offered by the effect pickers (index 0 is Off).
+    /// </summary>
+    public IReadOnlyList<TriggerEffectModeItem> TriggerEffectModes { get; }
+
+    /// <summary>
+    /// Whether the left rumble motor is enabled (two-way). Applied to the controller on change.
+    /// </summary>
+    public bool LeftMotorEnabled
+    {
+        get => _leftMotorEnabled;
+        set
+        {
+            if (SetProperty(ref _leftMotorEnabled, value))
+            {
+                ApplyVibration();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Left rumble motor strength (0-255). Applied to the controller once the slider settles.
+    /// </summary>
+    public int LeftMotorStrength
+    {
+        get => _leftMotorStrength;
+        set
+        {
+            if (SetProperty(ref _leftMotorStrength, value))
+            {
+                ScheduleVibrationUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether the right rumble motor is enabled (two-way). Applied to the controller on change.
+    /// </summary>
+    public bool RightMotorEnabled
+    {
+        get => _rightMotorEnabled;
+        set
+        {
+            if (SetProperty(ref _rightMotorEnabled, value))
+            {
+                ApplyVibration();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Right rumble motor strength (0-255). Applied to the controller once the slider settles.
+    /// </summary>
+    public int RightMotorStrength
+    {
+        get => _rightMotorStrength;
+        set
+        {
+            if (SetProperty(ref _rightMotorStrength, value))
+            {
+                ScheduleVibrationUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Left (L2) trigger effect mode (two-way, index into <see cref="TriggerEffectModes"/>,
+    /// default 0 = Off). Applied to the controller on change.
+    /// </summary>
+    public int LeftTriggerModeIndex
+    {
+        get => _leftTriggerModeIndex;
+        set
+        {
+            int clamped = Math.Clamp(value, 0, TriggerEffectModes.Count - 1);
+            if (SetProperty(ref _leftTriggerModeIndex, clamped))
+            {
+                ApplyTriggerEffects();
+                NotifyLeftTriggerVisibilities();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Left (L2) trigger force (0-255). Applied to the controller once the slider settles.
+    /// </summary>
+    public int LeftTriggerForce
+    {
+        get => _leftTriggerForce;
+        set
+        {
+            if (SetProperty(ref _leftTriggerForce, value))
+            {
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Left (L2) trigger effect start position (0-255). Applied to the controller once the slider settles.
+    /// </summary>
+    public int LeftTriggerStart
+    {
+        get => _leftTriggerStart;
+        set
+        {
+            if (SetProperty(ref _leftTriggerStart, value))
+            {
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Left (L2) trigger effect end position (0-255). Applied to the controller once the slider settles.
+    /// </summary>
+    public int LeftTriggerEnd
+    {
+        get => _leftTriggerEnd;
+        set
+        {
+            if (SetProperty(ref _leftTriggerEnd, value))
+            {
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Left (L2) automatic mode effect frequency (0-15). Applied to the controller once the slider settles.
+    /// </summary>
+    public int LeftTriggerFrequency
+    {
+        get => _leftTriggerFrequency;
+        set
+        {
+            if (SetProperty(ref _leftTriggerFrequency, value))
+            {
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Right (R2) trigger effect mode (two-way, index into <see cref="TriggerEffectModes"/>,
+    /// default 0 = Off). Applied to the controller on change.
+    /// </summary>
+    public int RightTriggerModeIndex
+    {
+        get => _rightTriggerModeIndex;
+        set
+        {
+            int clamped = Math.Clamp(value, 0, TriggerEffectModes.Count - 1);
+            if (SetProperty(ref _rightTriggerModeIndex, clamped))
+            {
+                ApplyTriggerEffects();
+                NotifyRightTriggerVisibilities();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Right (R2) trigger force (0-255). Applied to the controller once the slider settles.
+    /// </summary>
+    public int RightTriggerForce
+    {
+        get => _rightTriggerForce;
+        set
+        {
+            if (SetProperty(ref _rightTriggerForce, value))
+            {
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Right (R2) trigger effect start position (0-255). Applied to the controller once the slider settles.
+    /// </summary>
+    public int RightTriggerStart
+    {
+        get => _rightTriggerStart;
+        set
+        {
+            if (SetProperty(ref _rightTriggerStart, value))
+            {
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Right (R2) trigger effect end position (0-255). Applied to the controller once the slider settles.
+    /// </summary>
+    public int RightTriggerEnd
+    {
+        get => _rightTriggerEnd;
+        set
+        {
+            if (SetProperty(ref _rightTriggerEnd, value))
+            {
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Right (R2) automatic mode effect frequency (0-15). Applied to the controller once the slider settles.
+    /// </summary>
+    public int RightTriggerFrequency
+    {
+        get => _rightTriggerFrequency;
+        set
+        {
+            if (SetProperty(ref _rightTriggerFrequency, value))
+            {
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether any left (L2) trigger effect parameter is applicable, i.e. a mode other than Off is selected.
+    /// </summary>
+    public bool LeftTriggerParametersVisible => SelectedLeftTriggerMode != TriggerEffectType.Off;
+
+    /// <summary>
+    /// Whether the left (L2) start-position slider applies to the selected mode.
+    /// </summary>
+    public bool LeftTriggerStartVisible => LeftTriggerParametersVisible;
+
+    /// <summary>
+    /// Whether the left (L2) end-position slider applies to the selected mode (Trigger mode only).
+    /// </summary>
+    public bool LeftTriggerEndVisible => SelectedLeftTriggerMode == TriggerEffectType.Trigger;
+
+    /// <summary>
+    /// Whether the left (L2) force slider applies to the selected mode.
+    /// </summary>
+    public bool LeftTriggerForceVisible => LeftTriggerParametersVisible;
+
+    /// <summary>
+    /// Whether the left (L2) frequency slider applies to the selected mode (Automatic mode only).
+    /// </summary>
+    public bool LeftTriggerFrequencyVisible => SelectedLeftTriggerMode == TriggerEffectType.Automatic;
+
+    /// <summary>
+    /// Whether any right (R2) trigger effect parameter is applicable, i.e. a mode other than Off is selected.
+    /// </summary>
+    public bool RightTriggerParametersVisible => SelectedRightTriggerMode != TriggerEffectType.Off;
+
+    /// <summary>
+    /// Whether the right (R2) start-position slider applies to the selected mode.
+    /// </summary>
+    public bool RightTriggerStartVisible => RightTriggerParametersVisible;
+
+    /// <summary>
+    /// Whether the right (R2) end-position slider applies to the selected mode (Trigger mode only).
+    /// </summary>
+    public bool RightTriggerEndVisible => SelectedRightTriggerMode == TriggerEffectType.Trigger;
+
+    /// <summary>
+    /// Whether the right (R2) force slider applies to the selected mode.
+    /// </summary>
+    public bool RightTriggerForceVisible => RightTriggerParametersVisible;
+
+    /// <summary>
+    /// Whether the right (R2) frequency slider applies to the selected mode (Automatic mode only).
+    /// </summary>
+    public bool RightTriggerFrequencyVisible => SelectedRightTriggerMode == TriggerEffectType.Automatic;
 
     /// <summary>
     /// Human-readable product name.
@@ -448,6 +813,19 @@ public sealed partial class InputMonitorItem : ObservableObject, IDisposable
         Controller = controller;
         _device = controller.Device as DualSenseDevice;
 
+        TriggerEffectModes =
+        [
+            new TriggerEffectModeItem(TriggerEffectType.Off, GetText("InputMonitorPage.OutputTest.Triggers.Mode.Off")),
+            new TriggerEffectModeItem(TriggerEffectType.Resistance, GetText("InputMonitorPage.OutputTest.Triggers.Mode.Resistance")),
+            new TriggerEffectModeItem(TriggerEffectType.Trigger, GetText("InputMonitorPage.OutputTest.Triggers.Mode.Trigger")),
+            new TriggerEffectModeItem(TriggerEffectType.Automatic, GetText("InputMonitorPage.OutputTest.Triggers.Mode.Automatic"))
+        ];
+        _leftTriggerModeIndex = 0;
+        _rightTriggerModeIndex = 0;
+
+        _outputDebounceTimer = new DispatcherTimer { Interval = OutputDebounceDelay };
+        _outputDebounceTimer.Tick += OnOutputDebounceTick;
+
         if (_device?.InputReport is { } report)
         {
             _input = report.Input;
@@ -475,12 +853,179 @@ public sealed partial class InputMonitorItem : ObservableObject, IDisposable
         }
 
         _disposed = true;
+        StopOutputDebounce();
+        ResetTestOutputs();
         if (_device is not null)
         {
             _device.InputStateChanged -= OnInputStateChanged;
             _device.MotionChanged -= OnMotionChanged;
             _device.TouchpadChanged -= OnTouchpadChanged;
         }
+    }
+
+    /// <summary>
+    /// Marks a vibration update as pending and restarts the output debounce timer.
+    /// </summary>
+    private void ScheduleVibrationUpdate()
+    {
+        _vibrationPending = true;
+        RestartOutputDebounce();
+    }
+
+    /// <summary>
+    /// Marks a trigger effect update as pending and restarts the output debounce timer.
+    /// </summary>
+    private void ScheduleTriggerUpdate()
+    {
+        _triggersPending = true;
+        RestartOutputDebounce();
+    }
+
+    /// <summary>
+    /// Restarts the debounce timer so the pending updates are applied only once the
+    /// slider value has been stable for <see cref="OutputDebounceDelay"/>.
+    /// </summary>
+    private void RestartOutputDebounce()
+    {
+        _outputDebounceTimer?.Stop();
+        _outputDebounceTimer?.Start();
+    }
+
+    /// <summary>
+    /// Stops the debounce timer and discards any pending updates.
+    /// </summary>
+    private void StopOutputDebounce()
+    {
+        _outputDebounceTimer?.Stop();
+        _vibrationPending = false;
+        _triggersPending = false;
+    }
+
+    /// <summary>
+    /// Applies any pending debounced updates when the debounce delay elapses.
+    /// </summary>
+    private void OnOutputDebounceTick(object? sender, EventArgs e)
+    {
+        _outputDebounceTimer?.Stop();
+        if (_vibrationPending)
+        {
+            _vibrationPending = false;
+            ApplyVibration();
+        }
+
+        if (_triggersPending)
+        {
+            _triggersPending = false;
+            ApplyTriggerEffects();
+        }
+    }
+
+    /// <summary>
+    /// Sends the current per-motor vibration state to the controller, turning each motor off
+    /// when its channel is disabled. No-op when no DualSense device is wrapped.
+    /// </summary>
+    private void ApplyVibration()
+    {
+        if (_device is null)
+        {
+            return;
+        }
+
+        byte left = LeftMotorEnabled ? (byte)LeftMotorStrength : (byte)0;
+        byte right = RightMotorEnabled ? (byte)RightMotorStrength : (byte)0;
+        _device.SetVibration(left, right);
+    }
+
+    /// <summary>
+    /// Builds the adaptive trigger effect block for the given mode and parameters.
+    /// </summary>
+    private static TriggerEffectBlock BuildTriggerEffect(TriggerEffectType mode, byte start, byte end, byte force, byte frequency)
+    {
+        return mode switch
+        {
+            TriggerEffectType.Resistance => TriggerEffectBuilder.Resistance(start, force),
+            TriggerEffectType.Trigger => TriggerEffectBuilder.Trigger(start, end, force),
+            TriggerEffectType.Automatic => TriggerEffectBuilder.Automatic(frequency, force, start),
+            _ => TriggerEffectBuilder.Off()
+        };
+    }
+
+    /// <summary>
+    /// Sends the current per-trigger effect state to the controller, turning each trigger off
+    /// when its mode is Off. No-op when no DualSense device is wrapped.
+    /// </summary>
+    private void ApplyTriggerEffects()
+    {
+        if (_device is null)
+        {
+            return;
+        }
+
+        TriggerEffectBlock left = BuildTriggerEffect(
+            SelectedLeftTriggerMode, (byte)LeftTriggerStart, (byte)LeftTriggerEnd,
+            (byte)LeftTriggerForce, (byte)LeftTriggerFrequency);
+        TriggerEffectBlock right = BuildTriggerEffect(
+            SelectedRightTriggerMode, (byte)RightTriggerStart, (byte)RightTriggerEnd,
+            (byte)RightTriggerForce, (byte)RightTriggerFrequency);
+        _device.SetTriggerEffects(left, right);
+    }
+
+    /// <summary>
+    /// Turns off the vibration motors and adaptive trigger effects on the controller and
+    /// resets the output-test state so the bound UI reflects the powered-down outputs.
+    /// </summary>
+    public void ResetTestOutputs()
+    {
+        StopOutputDebounce();
+        _device?.ResetOutputs();
+
+        SetProperty(ref _leftMotorEnabled, false, nameof(LeftMotorEnabled));
+        SetProperty(ref _rightMotorEnabled, false, nameof(RightMotorEnabled));
+        SetProperty(ref _leftMotorStrength, 0, nameof(LeftMotorStrength));
+        SetProperty(ref _rightMotorStrength, 0, nameof(RightMotorStrength));
+        if (SetProperty(ref _leftTriggerModeIndex, 0, nameof(LeftTriggerModeIndex)))
+        {
+            NotifyLeftTriggerVisibilities();
+        }
+
+        if (SetProperty(ref _rightTriggerModeIndex, 0, nameof(RightTriggerModeIndex)))
+        {
+            NotifyRightTriggerVisibilities();
+        }
+    }
+
+    /// <summary>
+    /// The trigger effect mode currently selected in the left (L2) picker.
+    /// </summary>
+    private TriggerEffectType SelectedLeftTriggerMode => TriggerEffectModes[LeftTriggerModeIndex].Value;
+
+    /// <summary>
+    /// The trigger effect mode currently selected in the right (R2) picker.
+    /// </summary>
+    private TriggerEffectType SelectedRightTriggerMode => TriggerEffectModes[RightTriggerModeIndex].Value;
+
+    /// <summary>
+    /// Re-raises the left (L2) trigger parameter visibility properties after its mode changes.
+    /// </summary>
+    private void NotifyLeftTriggerVisibilities()
+    {
+        OnPropertyChanged(nameof(LeftTriggerParametersVisible));
+        OnPropertyChanged(nameof(LeftTriggerStartVisible));
+        OnPropertyChanged(nameof(LeftTriggerEndVisible));
+        OnPropertyChanged(nameof(LeftTriggerForceVisible));
+        OnPropertyChanged(nameof(LeftTriggerFrequencyVisible));
+    }
+
+    /// <summary>
+    /// Re-raises the right (R2) trigger parameter visibility properties after its mode changes.
+    /// </summary>
+    private void NotifyRightTriggerVisibilities()
+    {
+        OnPropertyChanged(nameof(RightTriggerParametersVisible));
+        OnPropertyChanged(nameof(RightTriggerStartVisible));
+        OnPropertyChanged(nameof(RightTriggerEndVisible));
+        OnPropertyChanged(nameof(RightTriggerForceVisible));
+        OnPropertyChanged(nameof(RightTriggerFrequencyVisible));
     }
 
     /// <summary>

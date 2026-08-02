@@ -119,6 +119,27 @@
     <sys:String x:Key="InputMonitorPage.Button.L4">L4</sys:String>
     <sys:String x:Key="InputMonitorPage.Button.R4">R4</sys:String>
 
+    <!-- Input Monitor Page: Output Test -->
+    <sys:String x:Key="InputMonitorPage.OutputTest.Title">Output Test</sys:String>
+    <sys:String x:Key="InputMonitorPage.OutputTest.Description">Vibration and adaptive trigger testing</sys:String>
+    <sys:String x:Key="InputMonitorPage.OutputTest.Vibration.Title">Vibration</sys:String>
+    <sys:String x:Key="InputMonitorPage.OutputTest.Vibration.Left">Left Motor</sys:String>
+    <sys:String x:Key="InputMonitorPage.OutputTest.Vibration.Right">Right Motor</sys:String>
+    <sys:String x:Key="InputMonitorPage.OutputTest.Vibration.Enable">Rumble</sys:String>
+    <sys:String x:Key="InputMonitorPage.OutputTest.Vibration.Strength">Strength</sys:String>
+    <sys:String x:Key="InputMonitorPage.OutputTest.Triggers.Title">Adaptive Triggers</sys:String>
+    <sys:String x:Key="InputMonitorPage.OutputTest.Triggers.Left">L2</sys:String>
+    <sys:String x:Key="InputMonitorPage.OutputTest.Triggers.Right">R2</sys:String>
+    <sys:String x:Key="InputMonitorPage.OutputTest.Triggers.Mode">Effect mode</sys:String>
+    <sys:String x:Key="InputMonitorPage.OutputTest.Triggers.Mode.Off">Off</sys:String>
+    <sys:String x:Key="InputMonitorPage.OutputTest.Triggers.Mode.Resistance">Resistance</sys:String>
+    <sys:String x:Key="InputMonitorPage.OutputTest.Triggers.Mode.Trigger">Trigger (weapon)</sys:String>
+    <sys:String x:Key="InputMonitorPage.OutputTest.Triggers.Mode.Automatic">Automatic (vibration)</sys:String>
+    <sys:String x:Key="InputMonitorPage.OutputTest.Triggers.Start">Start position</sys:String>
+    <sys:String x:Key="InputMonitorPage.OutputTest.Triggers.End">End position</sys:String>
+    <sys:String x:Key="InputMonitorPage.OutputTest.Triggers.Force">Force</sys:String>
+    <sys:String x:Key="InputMonitorPage.OutputTest.Triggers.Frequency">Frequency</sys:String>
+
     <!-- Profile Page -->
     <sys:String x:Key="ProfilePage.NoDevice.Title">No controller selected</sys:String>
     <sys:String x:Key="ProfilePage.NoDevice.Description">Select a DualSense controller from the title bar to customize its profile.</sys:String>
