@@ -8,6 +8,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\DualSenseClient.Hid\DualSenseClient.Hid.csproj" />
+      <ProjectReference Include="..\DualSenseClient.Settings\DualSenseClient.Settings.csproj" />
     </ItemGroup>
 
 </Project>
