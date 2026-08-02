@@ -813,6 +813,126 @@
                     </Expander>
                 </StackPanel>
             </Expander>
+
+            <!-- Output Test: vibration and adaptive trigger testing -->
+            <Expander IsVisible="{Binding HasDevice}"
+                      IsExpanded="True">
+                <Expander.Header>
+                    <cards:CardHeader Title="{DynamicResource InputMonitorPage.OutputTest.Title}"
+                                      Description="{DynamicResource InputMonitorPage.OutputTest.Description}"
+                                      Icon="{x:Static fic:Symbol.Pulse}"
+                                      MinHeight="64" />
+                </Expander.Header>
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Vibration.Title}"
+                               FontWeight="SemiBold"
+                               Margin="0,4,0,0" />
+                    <Grid ColumnDefinitions="*,16,*">
+                        <StackPanel Grid.Column="0"
+                                    Spacing="8">
+                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Vibration.Left}"
+                                       FontWeight="SemiBold"
+                                       Margin="0,4,0,0" />
+                            <cards:ToggleSwitchCard Title="{DynamicResource InputMonitorPage.OutputTest.Vibration.Enable}"
+                                                    IsChecked="{Binding CurrentDevice.LeftMotorEnabled, Mode=TwoWay}" />
+                            <cards:SliderCard Title="{DynamicResource InputMonitorPage.OutputTest.Vibration.Strength}"
+                                              Minimum="0"
+                                              Maximum="255"
+                                              TickFrequency="1"
+                                              IsEnabled="{Binding CurrentDevice.LeftMotorEnabled}"
+                                              Value="{Binding CurrentDevice.LeftMotorStrength, Mode=TwoWay}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2"
+                                    Spacing="8">
+                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Vibration.Right}"
+                                       FontWeight="SemiBold"
+                                       Margin="0,4,0,0" />
+                            <cards:ToggleSwitchCard Title="{DynamicResource InputMonitorPage.OutputTest.Vibration.Enable}"
+                                                    IsChecked="{Binding CurrentDevice.RightMotorEnabled, Mode=TwoWay}" />
+                            <cards:SliderCard Title="{DynamicResource InputMonitorPage.OutputTest.Vibration.Strength}"
+                                              Minimum="0"
+                                              Maximum="255"
+                                              TickFrequency="1"
+                                              IsEnabled="{Binding CurrentDevice.RightMotorEnabled}"
+                                              Value="{Binding CurrentDevice.RightMotorStrength, Mode=TwoWay}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Title}"
+                               FontWeight="SemiBold"
+                               Margin="0,12,0,0" />
+                    <Grid ColumnDefinitions="*,16,*">
+                        <StackPanel Grid.Column="0"
+                                    Spacing="8">
+                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Left}"
+                                       FontWeight="SemiBold"
+                                       Margin="0,4,0,0" />
+                            <cards:ComboBoxCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Mode}"
+                                                ItemsSource="{Binding CurrentDevice.TriggerEffectModes}"
+                                                SelectedIndex="{Binding CurrentDevice.LeftTriggerModeIndex, Mode=TwoWay}" />
+                            <cards:SliderCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Start}"
+                                              Minimum="0"
+                                              Maximum="255"
+                                              TickFrequency="1"
+                                              IsVisible="{Binding CurrentDevice.LeftTriggerStartVisible}"
+                                              Value="{Binding CurrentDevice.LeftTriggerStart, Mode=TwoWay}" />
+                            <cards:SliderCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.End}"
+                                              Minimum="0"
+                                              Maximum="255"
+                                              TickFrequency="1"
+                                              IsVisible="{Binding CurrentDevice.LeftTriggerEndVisible}"
+                                              Value="{Binding CurrentDevice.LeftTriggerEnd, Mode=TwoWay}" />
+                            <cards:SliderCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Force}"
+                                              Minimum="0"
+                                              Maximum="255"
+                                              TickFrequency="1"
+                                              IsVisible="{Binding CurrentDevice.LeftTriggerForceVisible}"
+                                              Value="{Binding CurrentDevice.LeftTriggerForce, Mode=TwoWay}" />
+                            <cards:SliderCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Frequency}"
+                                              Minimum="0"
+                                              Maximum="15"
+                                              TickFrequency="1"
+                                              IsVisible="{Binding CurrentDevice.LeftTriggerFrequencyVisible}"
+                                              Value="{Binding CurrentDevice.LeftTriggerFrequency, Mode=TwoWay}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2"
+                                    Spacing="8">
+                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Right}"
+                                       FontWeight="SemiBold"
+                                       Margin="0,4,0,0" />
+                            <cards:ComboBoxCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Mode}"
+                                                ItemsSource="{Binding CurrentDevice.TriggerEffectModes}"
+                                                SelectedIndex="{Binding CurrentDevice.RightTriggerModeIndex, Mode=TwoWay}" />
+                            <cards:SliderCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Start}"
+                                              Minimum="0"
+                                              Maximum="255"
+                                              TickFrequency="1"
+                                              IsVisible="{Binding CurrentDevice.RightTriggerStartVisible}"
+                                              Value="{Binding CurrentDevice.RightTriggerStart, Mode=TwoWay}" />
+                            <cards:SliderCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.End}"
+                                              Minimum="0"
+                                              Maximum="255"
+                                              TickFrequency="1"
+                                              IsVisible="{Binding CurrentDevice.RightTriggerEndVisible}"
+                                              Value="{Binding CurrentDevice.RightTriggerEnd, Mode=TwoWay}" />
+                            <cards:SliderCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Force}"
+                                              Minimum="0"
+                                              Maximum="255"
+                                              TickFrequency="1"
+                                              IsVisible="{Binding CurrentDevice.RightTriggerForceVisible}"
+                                              Value="{Binding CurrentDevice.RightTriggerForce, Mode=TwoWay}" />
+                            <cards:SliderCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Frequency}"
+                                              Minimum="0"
+                                              Maximum="15"
+                                              TickFrequency="1"
+                                              IsVisible="{Binding CurrentDevice.RightTriggerFrequencyVisible}"
+                                              Value="{Binding CurrentDevice.RightTriggerFrequency, Mode=TwoWay}" />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Expander>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

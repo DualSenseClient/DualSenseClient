@@ -73,6 +73,12 @@ public readonly struct FirmwareInfo
     public string UpdateVersion => IsValid ? FormatUpdateVersion(GetUInt16(44)) : string.Empty;
 
     /// <summary>
+    /// Raw update version (bytes 44-45, uint16 LE). The high byte is the major
+    /// version and the low byte the minor version.
+    /// </summary>
+    public ushort UpdateVersionValue => IsValid ? GetUInt16(44) : (ushort)0;
+
+    /// <summary>
     /// Update image info (byte 46).
     /// </summary>
     public byte UpdateImageInfo => IsValid ? _raw[46] : (byte)0;

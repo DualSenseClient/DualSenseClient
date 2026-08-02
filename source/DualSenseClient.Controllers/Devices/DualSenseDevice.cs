@@ -6,6 +6,7 @@ using DualSenseClient.Hid;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings.Sections;
 using DualSenseClient.Controllers.DualSense.Enum;
+using DualSenseClient.Controllers.DualSense.Triggers;
 
 namespace DualSenseClient.Controllers.Devices;
 
@@ -51,6 +52,16 @@ public class DualSenseDevice : ControllerDevice
     /// <see cref="DualSenseEdgeDevice"/> overrides this.
     /// </summary>
     public virtual bool IsEdge => false;
+
+    /// <summary>
+    /// Whether this controller uses the "vibration v2" rumble encoding: firmware update
+    /// version >= 2.21 for a base DualSense, always for a DualSense Edge. Mirrors the
+    /// kernel's <c>dualsense_use_vibration_v2</c> gate. When <c>false</c>, the v1
+    /// encoding (flag 0 bit 0) is used instead.
+    /// </summary>
+    public bool UsesVibrationV2 =>
+        IsEdge ||
+        (FirmwareInfo?.IsValid == true && FirmwareInfo.Value.UpdateVersionValue >= ((2 << 8) | 21));
 
     /// <inheritdoc/>
     public override int MaxOutputReportLength => ConnectionType switch
@@ -274,6 +285,73 @@ public class DualSenseDevice : ControllerDevice
         {
             _log.Error($"Failed to apply profile '{profile.Name}': {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Sets the classic (DS4-style) rumble motors. Sends a minimal output report carrying
+    /// only the rumble flags and motor values, so no other controller state (lightbar,
+    /// trigger effects, audio) is disturbed.
+    /// </summary>
+    /// <remarks>
+    /// Follows the hid-playstation driver's encoding: HAPTICS_SELECT is always set, and
+    /// either flag 0 bit 0 (v1) or flag 2 bit 2 (v2) selects the rumble encoding
+    /// depending on <see cref="UsesVibrationV2"/>. A strength of 0 turns that motor off.
+    /// </remarks>
+    /// <param name="left">Left (low-frequency) motor strength (0-255).</param>
+    /// <param name="right">Right (high-frequency) motor strength (0-255).</param>
+    public void SetVibration(byte left, byte right)
+    {
+        SetStateData payload = new SetStateData
+        {
+            ValidFlag0 = ValidFlags.UseRumbleNotHaptics
+                         | (UsesVibrationV2 ? ValidFlags.None : ValidFlags.EnableRumbleEmulation),
+            ValidFlag2 = UsesVibrationV2 ? ValidFlags.EnableImprovedRumbleEmu : ValidFlags.None,
+            RumbleLeft = left,
+            RumbleRight = right
+        };
+
+        try
+        {
+            SendOutputState(payload);
+        }
+        catch (HidException ex)
+        {
+            _log.Error($"Failed to set vibration (left={left}, right={right}): {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Applies adaptive trigger effects to both triggers. Pass <see cref="TriggerEffectBuilder.Off"/>
+    /// to clear an effect.
+    /// </summary>
+    /// <param name="left">Effect block for the L2 (left) trigger.</param>
+    /// <param name="right">Effect block for the R2 (right) trigger.</param>
+    public void SetTriggerEffects(TriggerEffectBlock left, TriggerEffectBlock right)
+    {
+        SetStateData payload = new SetStateData
+        {
+            ValidFlag0 = ValidFlags.AllowLeftTriggerFfb | ValidFlags.AllowRightTriggerFfb,
+            L2TriggerEffect = left,
+            R2TriggerEffect = right
+        };
+
+        try
+        {
+            SendOutputState(payload);
+        }
+        catch (HidException ex)
+        {
+            _log.Error($"Failed to set trigger effects: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Turns off the rumble motors and clears the adaptive trigger effects.
+    /// </summary>
+    public void ResetOutputs()
+    {
+        SetVibration(0, 0);
+        SetTriggerEffects(TriggerEffectBuilder.Off(), TriggerEffectBuilder.Off());
     }
 
     /// <summary>
