@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -243,6 +244,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
             _log.Info($"Controller connected: {controller.Info.ProductName}");
 
             SelectedItem ??= Controllers[^1];
+            // Fix for Steam applying their own color profile when the device connects
+            // TODO: Find a better solution
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5));
+                ApplyBoundProfile(controller);
+            });
         });
     }
 
