@@ -15,7 +15,7 @@ namespace DualSenseClient.GUI.Views.Pages;
 /// <see cref="UserControl.DataContext"/>. The page is hosted in a frame with
 /// <c>CacheSize=0</c>, so a fresh instance (and fresh selection subscription) is created
 /// on each navigation. <see cref="OnLoaded"/> refreshes the ViewModel so the displayed
-/// profiles and assignment match the current profile file on every navigation.
+/// profiles and assignment match the current profile service state on every navigation.
 /// </remarks>
 public partial class ProfilePage : UserControl
 {
