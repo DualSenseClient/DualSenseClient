@@ -4,6 +4,7 @@ using Avalonia.Media;
 using FluentAvalonia.UI.Windowing;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.GUI.Services;
+using DualSenseClient.GUI.ViewModels;
 using DualSenseClient.Settings;
 
 namespace DualSenseClient.GUI.Controls;
@@ -51,18 +52,18 @@ internal class AppSplashScreen : IFAApplicationSplashScreen
 
     /// <summary>
     /// Called by <see cref="FAAppWindow"/> to run initialization tasks during the splash screen.
-    /// Loads persistent data (e.g. controller profiles) on a background thread and reports
-    /// progress to the <see cref="SplashScreenView"/>.
+    /// Loads persistent data (e.g. controller profiles) and scans for connected controllers on
+    /// a background thread, reporting progress to the <see cref="SplashScreenView"/>.
     /// </summary>
-    /// <param name="token">A cancellation token to signal when the splash screen should be canceled.</param>
+    /// <param name="token">A cancellation token to signal when the splash screen should be cancelled.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
     public async Task RunTasks(CancellationToken token)
     {
-        await Task.Run(async () =>
-        {
-            _splashScreen.UpdateStatusMessage(LocalizationService.GetText("SplashScreen.LoadingProfiles"));
-            App.Services.GetRequiredService<ProfileService>().Load();
-            await Task.Delay(1, token);
-        }, token);
+        _splashScreen.UpdateStatusMessage(LocalizationService.GetText("SplashScreen.LoadingProfiles"));
+        App.Services.GetRequiredService<ProfileService>().Load();
+
+        MainViewModel mainViewModel = App.Services.GetRequiredService<MainViewModel>();
+        _splashScreen.UpdateStatusMessage(LocalizationService.GetText("SplashScreen.ScanningControllers"));
+        await mainViewModel.InitializeScanningAsync(token);
     }
 }
