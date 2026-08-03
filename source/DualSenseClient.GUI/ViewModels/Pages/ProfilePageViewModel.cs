@@ -31,7 +31,8 @@ namespace DualSenseClient.GUI.ViewModels.Pages;
 /// </para>
 /// <para>
 /// <see cref="Refresh"/> is called from the page's <c>OnLoaded</c> to resynchronize with the
-/// current profile file and controller selection on every navigation.
+/// current profile service state and controller selection on every navigation. Profiles are
+/// loaded from disk once during startup (see <see cref="Controls.AppSplashScreen"/>).
 /// </para>
 /// </remarks>
 public partial class ProfilePageViewModel : ObservableObject
@@ -188,12 +189,11 @@ public partial class ProfilePageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Resynchronizes the page with the current profile file and controller selection.
+    /// Resynchronizes the page with the current profile service state and controller selection.
     /// Called on construction and from the page's <c>OnLoaded</c>.
     /// </summary>
     public void Refresh()
     {
-        _profileService.Load();
         RebuildProfiles();
         UpdateDevice();
     }
