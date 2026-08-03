@@ -11,6 +11,7 @@
 
     <!-- Splash Screen -->
     <sys:String x:Key="SplashScreen.LoadingProfiles">Loading profiles...</sys:String>
+    <sys:String x:Key="SplashScreen.ScanningControllers">Scanning for controllers...</sys:String>
 
     <!-- Device Info Page -->
     <sys:String x:Key="MainWindow.Devices">Device Info</sys:String>

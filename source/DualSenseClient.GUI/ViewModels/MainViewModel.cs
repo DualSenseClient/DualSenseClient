@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -82,6 +83,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private bool _isUpdatingSelected;
 
     /// <summary>
+    /// Guards against overlapping scans, e.g. a double-click on the scan toggle.
+    /// </summary>
+    private bool _isScanningInProgress;
+
+    /// <summary>
     /// Creates a new <see cref="MainViewModel"/> wired to the scanner, tracker, and notification service.
     /// </summary>
     /// <param name="scanner">Scanner used to discover and watch controllers.</param>
@@ -103,11 +109,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// Starts or stops controller scanning depending on the current state.
     /// </summary>
     [RelayCommand]
-    private void ToggleScanning()
+    private async Task ToggleScanning()
     {
         if (!IsScanning)
         {
-            StartScanning();
+            await InitializeScanningAsync(CancellationToken.None);
         }
         else
         {
@@ -117,34 +123,63 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     /// <summary>
     /// Performs an initial scan of connected controllers and starts watching for connection changes.
+    /// The HID enumeration (device opens and feature report reads) runs on a background thread;
+    /// controller list updates are marshaled to the UI thread.
     /// </summary>
-    private void StartScanning()
+    /// <param name="token">A cancellation token to cancel the scan.</param>
+    public async Task InitializeScanningAsync(CancellationToken token)
     {
+        if (_isScanningInProgress)
+        {
+            return;
+        }
+
         _log.Debug("Starting controller scanning");
-
-        foreach (IControllerDevice controller in _scanner.Scan())
+        _isScanningInProgress = true;
+        try
         {
-            Controllers.Add(new ControllerItem(controller));
-            _ownedDevices.Add(controller);
-            ApplyBoundProfile(controller);
-        }
-        _log.Info($"Found {Controllers.Count} controller(s) on initial scan");
+            IReadOnlyList<IControllerDevice> devices = await Task.Run(() => _scanner.Scan(), token);
 
-        string? activePath = _tracker.ActiveController?.Info.Path;
-        if (activePath is not null)
-        {
-            foreach (ControllerItem item in Controllers)
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (item.Device.Info.Path == activePath)
+                if (token.IsCancellationRequested)
                 {
-                    SelectedItem = item;
-                    break;
+                    foreach (IControllerDevice device in devices)
+                    {
+                        device.Dispose();
+                    }
+                    return;
                 }
-            }
-        }
 
-        _scanner.StartWatching();
-        IsScanning = true;
+                foreach (IControllerDevice controller in devices)
+                {
+                    Controllers.Add(new ControllerItem(controller));
+                    _ownedDevices.Add(controller);
+                    ApplyBoundProfile(controller);
+                }
+                _log.Info($"Found {Controllers.Count} controller(s) on initial scan");
+
+                string? activePath = _tracker.ActiveController?.Info.Path;
+                if (activePath is not null)
+                {
+                    foreach (ControllerItem item in Controllers)
+                    {
+                        if (item.Device.Info.Path == activePath)
+                        {
+                            SelectedItem = item;
+                            break;
+                        }
+                    }
+                }
+
+                _scanner.StartWatching();
+                IsScanning = true;
+            });
+        }
+        finally
+        {
+            _isScanningInProgress = false;
+        }
     }
 
     /// <summary>
