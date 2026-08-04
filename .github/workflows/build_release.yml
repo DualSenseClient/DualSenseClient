@@ -17,6 +17,11 @@ on:
         required: false
         type: boolean
         default: false
+      skip_translation_progress:
+        description: "Skip translation progress chart update"
+        required: false
+        type: boolean
+        default: true
   pull_request:
     types: [closed]
   push:
@@ -38,8 +43,8 @@ jobs:
     needs: check_localization
     if: |
       needs.check_localization.result == 'success' &&
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
-      github.ref == 'refs/heads/main'
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.skip_translation_progress))
     uses: ./.github/workflows/update_translation_progress.yml
 
   build:
