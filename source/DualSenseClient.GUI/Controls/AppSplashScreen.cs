@@ -61,6 +61,7 @@ internal class AppSplashScreen : IFAApplicationSplashScreen
     {
         _splashScreen.UpdateStatusMessage(LocalizationService.GetText("SplashScreen.LoadingProfiles"));
         App.Services.GetRequiredService<ProfileService>().Load();
+        App.Services.GetRequiredService<ControllerInfoService>().Load();
 
         MainViewModel mainViewModel = App.Services.GetRequiredService<MainViewModel>();
         _splashScreen.UpdateStatusMessage(LocalizationService.GetText("SplashScreen.ScanningControllers"));

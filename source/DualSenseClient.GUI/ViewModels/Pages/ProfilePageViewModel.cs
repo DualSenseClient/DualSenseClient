@@ -53,9 +53,14 @@ public partial class ProfilePageViewModel : ObservableObject
     private readonly MainViewModel _mainViewModel;
 
     /// <summary>
-    /// Service used to read and persist profiles and controller bindings.
+    /// Service used to read and persist profiles.
     /// </summary>
     private readonly ProfileService _profileService;
+
+    /// <summary>
+    /// Service storing controller info and controller-to-profile assignments.
+    /// </summary>
+    private readonly ControllerInfoService _controllerService;
 
     /// <summary>
     /// Service used for delete confirmations.
@@ -93,7 +98,7 @@ public partial class ProfilePageViewModel : ObservableObject
     /// profile, or the default profile when unbound.
     /// </summary>
     private string CurrentUsedProfileName
-        => _profileService.GetBoundProfileName(CurrentMac, CurrentDevicePath) ?? ProfileService.DefaultProfileName;
+        => _controllerService.GetBoundProfileName(CurrentMac, CurrentDevicePath) ?? ProfileService.DefaultProfileName;
 
     /// <summary>
     /// All saved profiles, shown in the profile list and editor.
@@ -141,7 +146,7 @@ public partial class ProfilePageViewModel : ObservableObject
                 return -1;
             }
 
-            string? bound = _profileService.GetBoundProfileName(CurrentMac, CurrentDevicePath);
+            string? bound = _controllerService.GetBoundProfileName(CurrentMac, CurrentDevicePath);
             if (bound is null)
             {
                 return -1;
@@ -164,14 +169,14 @@ public partial class ProfilePageViewModel : ObservableObject
             }
 
             string? profileName = AssignedProfileOptions[value];
-            string? current = _profileService.GetBoundProfileName(CurrentMac, CurrentDevicePath);
+            string? current = _controllerService.GetBoundProfileName(CurrentMac, CurrentDevicePath);
             if (string.Equals(profileName, current, StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
 
             _log.Info($"Binding controller {CurrentMac} to profile '{profileName}'");
-            _profileService.SetControllerProfile(CurrentMac, CurrentDevicePath, profileName);
+            _controllerService.SetControllerProfile(CurrentMac, CurrentDevicePath, profileName);
             ApplyBoundProfileToController();
         }
     }
@@ -183,6 +188,7 @@ public partial class ProfilePageViewModel : ObservableObject
     {
         _mainViewModel = App.Services.GetRequiredService<MainViewModel>();
         _profileService = App.Services.GetRequiredService<ProfileService>();
+        _controllerService = App.Services.GetRequiredService<ControllerInfoService>();
         _messageBox = App.Services.GetRequiredService<IMessageBoxService>();
         _mainViewModel.PropertyChanged += OnMainViewModelPropertyChanged;
         Refresh();
@@ -231,6 +237,7 @@ public partial class ProfilePageViewModel : ObservableObject
 
         bool controllerWasUsing = HasDevice && string.Equals(CurrentUsedProfileName, name, StringComparison.OrdinalIgnoreCase);
         _profileService.DeleteProfile(name);
+        _controllerService.RemoveProfileReferences(name);
         SelectedProfile = null;
         RebuildProfiles();
 
@@ -295,7 +302,7 @@ public partial class ProfilePageViewModel : ObservableObject
 
         if (CurrentDevice is not null)
         {
-            Profile? applied = _profileService.GetProfileForControllerOrDefault(CurrentMac, CurrentDevicePath);
+            Profile? applied = GetCurrentControllerProfile();
             if (applied is not null)
             {
                 CurrentDevice.SetPreview(applied.Lightbar.Red, applied.Lightbar.Green, applied.Lightbar.Blue);
@@ -368,10 +375,15 @@ public partial class ProfilePageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Refreshes the assignment dropdown after a profile is renamed.
+    /// Refreshes the assignment dropdown after a profile is renamed, and re-points the
+    /// controller assignments referencing the old name.
     /// </summary>
     private void OnProfileRenamed(object? sender, EventArgs e)
     {
+        if (e is ProfileRenamedEventArgs args)
+        {
+            _controllerService.UpdateProfileName(args.OldName, args.NewName);
+        }
         BuildAssignedProfileOptions();
     }
 
@@ -393,7 +405,7 @@ public partial class ProfilePageViewModel : ObservableObject
             return;
         }
 
-        Profile? profile = _profileService.GetProfileForControllerOrDefault(CurrentMac, CurrentDevicePath);
+        Profile? profile = GetCurrentControllerProfile();
         if (profile is not null)
         {
             ApplyProfileToController(profile);
@@ -411,11 +423,21 @@ public partial class ProfilePageViewModel : ObservableObject
             return;
         }
 
-        Profile? profile = _profileService.GetProfileForControllerOrDefault(CurrentMac, CurrentDevicePath);
+        Profile? profile = GetCurrentControllerProfile();
         if (profile is not null)
         {
             ApplyProfileToController(profile);
         }
+    }
+
+    /// <summary>
+    /// Gets the profile the selected controller is currently using: the bound profile, or
+    /// the default profile when unbound or the bound profile no longer exists.
+    /// </summary>
+    private Profile? GetCurrentControllerProfile()
+    {
+        string? bound = _controllerService.GetBoundProfileName(CurrentMac, CurrentDevicePath);
+        return _profileService.GetProfile(bound ?? ProfileService.DefaultProfileName);
     }
 
     /// <summary>

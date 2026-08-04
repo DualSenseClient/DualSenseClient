@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Feature;
@@ -8,7 +9,7 @@ namespace DualSenseClient.GUI.Models.Items;
 /// <summary>
 /// Wraps a detected controller for display in the title bar combobox.
 /// </summary>
-public sealed class ControllerItem
+public sealed partial class ControllerItem : ObservableObject
 {
     /// <summary>
     /// The underlying controller device.
@@ -16,9 +17,10 @@ public sealed class ControllerItem
     public IControllerDevice Device { get; }
 
     /// <summary>
-    /// Human-readable product name.
+    /// Human-readable name shown in the title bar: the user's custom name for the
+    /// controller, or the product name when none was set.
     /// </summary>
-    public string DisplayName => Device.Info.ProductName;
+    [ObservableProperty] private string _displayName;
 
     /// <summary>
     /// Physical transport (USB / Bluetooth).
@@ -41,9 +43,11 @@ public sealed class ControllerItem
     /// Creates a new controller item wrapping the given device.
     /// </summary>
     /// <param name="device">The controller device to display.</param>
-    public ControllerItem(IControllerDevice device)
+    /// <param name="displayName">The name to show in the UI (custom name or product name).</param>
+    public ControllerItem(IControllerDevice device, string displayName)
     {
         Device = device;
+        _displayName = displayName;
         FirmwareInfo = (device as DualSenseDevice)?.FirmwareInfo;
         PairingInfo = (device as DualSenseDevice)?.PairingInfo;
     }
