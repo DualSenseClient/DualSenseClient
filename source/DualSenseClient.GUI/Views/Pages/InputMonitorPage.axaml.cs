@@ -4,10 +4,12 @@ using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.GUI.Models.Items;
+using DualSenseClient.GUI.Services;
 using DualSenseClient.GUI.ViewModels.Pages;
 
 namespace DualSenseClient.GUI.Views.Pages;
@@ -80,6 +82,42 @@ public partial class InputMonitorPage : UserControl
     {
         _item?.ResetTestOutputs();
         base.OnUnloaded(e);
+    }
+
+    /// <summary>
+    /// Opens an audio file for the current controller's audio player using the platform
+    /// file picker.
+    /// </summary>
+    private async void OnOpenAudioClick(object? sender, RoutedEventArgs e)
+    {
+        if (_item?.Audio is not { } audio)
+        {
+            return;
+        }
+
+        TopLevel? top = TopLevel.GetTopLevel(this);
+        if (top?.StorageProvider is not { } provider)
+        {
+            return;
+        }
+
+        IReadOnlyList<IStorageFile> files = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = LocalizationService.GetText("InputMonitorPage.Audio.PickTitle"),
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new FilePickerFileType(LocalizationService.GetText("InputMonitorPage.Audio.FileType"))
+                {
+                    Patterns = ["*.wav", "*.mp3", "*.flac", "*.aac", "*.m4a", "*.ogg", "*.wma", "*.aiff", "*.mp4"]
+                }
+            ]
+        });
+
+        if (files.Count > 0)
+        {
+            audio.OpenFile(files[0].Path.LocalPath);
+        }
     }
 
     /// <summary>

@@ -172,7 +172,11 @@ public sealed class HidDevice : IHidDevice
             throw new HidException("SDL_hid_read_timeout failed");
         }
 
-        _log.Trace($"Read {result} byte(s) from '{DevicePath}'");
+        if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
+        {
+            _log.Trace($"Read {result} byte(s) from '{DevicePath}'");
+        }
+
         return result;
     }
 
@@ -209,7 +213,11 @@ public sealed class HidDevice : IHidDevice
             throw new HidException("SDL_hid_write failed");
         }
 
-        _log.Trace($"Wrote {result} byte(s) to '{DevicePath}'");
+        if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
+        {
+            _log.Trace($"Wrote {result} byte(s) to '{DevicePath}'");
+        }
+
         return result;
     }
 

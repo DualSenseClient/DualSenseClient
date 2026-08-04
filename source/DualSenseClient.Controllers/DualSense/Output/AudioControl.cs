@@ -37,12 +37,19 @@ public enum AudioControl : byte
     NoiseCancelEnable = 0x08,
 
     /// <summary>
-    /// Route audio output to the headphones.
+    /// Route audio output to the headphones (L+R channels to the jack, speaker muted).
     /// </summary>
     OutputPathHeadphones = 0x00,
 
     /// <summary>
-    /// Route audio output to the speaker.
+    /// Route audio output to both the headphones and the internal speaker. The speaker is
+    /// mono, so the output-path matrix splits the source: left channel to the headset and
+    /// right channel to the speaker.
+    /// </summary>
+    OutputPathBoth = 0x20,
+
+    /// <summary>
+    /// Route audio output to the speaker (right channel to the mono speaker, headset muted).
     /// </summary>
     OutputPathSpeaker = 0x30,
 

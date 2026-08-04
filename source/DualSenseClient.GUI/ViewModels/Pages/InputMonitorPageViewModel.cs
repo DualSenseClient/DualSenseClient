@@ -2,6 +2,7 @@ using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.GUI.Models.Items;
+using SoundFlow.Abstracts;
 
 namespace DualSenseClient.GUI.ViewModels.Pages;
 
@@ -26,6 +27,11 @@ public partial class InputMonitorPageViewModel : ObservableObject
     private readonly MainViewModel _mainViewModel;
 
     /// <summary>
+    /// The shared audio engine used by the page's audio player.
+    /// </summary>
+    private readonly AudioEngine _audioEngine;
+
+    /// <summary>
     /// The controller currently shown on this page, or <c>null</c> when none is selected.
     /// </summary>
     public InputMonitorItem? CurrentDevice { get; private set; }
@@ -46,6 +52,7 @@ public partial class InputMonitorPageViewModel : ObservableObject
     public InputMonitorPageViewModel()
     {
         _mainViewModel = App.Services.GetRequiredService<MainViewModel>();
+        _audioEngine = App.Services.GetRequiredService<AudioEngine>();
         _mainViewModel.PropertyChanged += OnMainViewModelPropertyChanged;
         UpdateDevice();
     }
@@ -70,7 +77,7 @@ public partial class InputMonitorPageViewModel : ObservableObject
         _previousItem?.Dispose();
 
         ControllerItem? selected = _mainViewModel.SelectedItem;
-        CurrentDevice = selected is not null ? new InputMonitorItem(selected) : null;
+        CurrentDevice = selected is not null ? new InputMonitorItem(selected, _audioEngine) : null;
         _previousItem = CurrentDevice;
 
         OnPropertyChanged(nameof(CurrentDevice));

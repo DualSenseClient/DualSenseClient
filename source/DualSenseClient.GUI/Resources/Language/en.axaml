@@ -144,6 +144,28 @@
     <sys:String x:Key="InputMonitorPage.OutputTest.Triggers.Force">Force</sys:String>
     <sys:String x:Key="InputMonitorPage.OutputTest.Triggers.Frequency">Frequency</sys:String>
 
+    <!-- Input Monitor Page: Audio Player -->
+    <sys:String x:Key="InputMonitorPage.Audio.Title">Audio Player</sys:String>
+    <sys:String x:Key="InputMonitorPage.Audio.Description">Play audio to your PC, the DualSense speaker, headset, or haptics</sys:String>
+    <sys:String x:Key="InputMonitorPage.Audio.File">File</sys:String>
+    <sys:String x:Key="InputMonitorPage.Audio.Open">Open</sys:String>
+    <sys:String x:Key="InputMonitorPage.Audio.PickTitle">Open audio file</sys:String>
+    <sys:String x:Key="InputMonitorPage.Audio.FileType">Audio files</sys:String>
+    <sys:String x:Key="InputMonitorPage.Audio.Output.Title">Output Destinations</sys:String>
+    <sys:String x:Key="InputMonitorPage.Audio.Output.Desktop">Desktop Speakers</sys:String>
+    <sys:String x:Key="InputMonitorPage.Audio.Output.DualSense">DualSense Output</sys:String>
+    <sys:String x:Key="InputMonitorPage.Audio.Output.DualSense.Description">Where the controller plays the stream. The speaker and headset cannot run at the same time.</sys:String>
+    <sys:String x:Key="InputMonitorPage.Audio.Output.None">Off</sys:String>
+    <sys:String x:Key="InputMonitorPage.Audio.Output.Speaker">Speaker</sys:String>
+    <sys:String x:Key="InputMonitorPage.Audio.Output.Headset">Headset</sys:String>
+    <sys:String x:Key="InputMonitorPage.Audio.Output.Haptics">Haptic Feedback</sys:String>
+    <sys:String x:Key="InputMonitorPage.Audio.OutputVolume">Output Volume</sys:String>
+    <sys:String x:Key="InputMonitorPage.Audio.HapticStrength">Haptic Strength</sys:String>
+    <sys:String x:Key="InputMonitorPage.Audio.Play">Play</sys:String>
+    <sys:String x:Key="InputMonitorPage.Audio.Pause">Pause</sys:String>
+    <sys:String x:Key="InputMonitorPage.Audio.Stop">Stop</sys:String>
+    <sys:String x:Key="InputMonitorPage.Audio.NoFile">No file loaded</sys:String>
+
     <!-- Profile Page -->
     <sys:String x:Key="ProfilePage.NoDevice.Title">No controller selected</sys:String>
     <sys:String x:Key="ProfilePage.NoDevice.Description">Select a DualSense controller from the title bar to customize its profile.</sys:String>

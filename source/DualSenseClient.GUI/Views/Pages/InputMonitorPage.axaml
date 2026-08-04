@@ -54,6 +54,15 @@
             <Setter Property="Padding" Value="6,4" />
             <Setter Property="TextElement.FontSize" Value="11" />
         </Style>
+        <!-- Round icon button used by the audio player transport controls -->
+        <Style Selector="Button.audio-transport">
+            <Setter Property="Width" Value="44" />
+            <Setter Property="Height" Value="44" />
+            <Setter Property="CornerRadius" Value="22" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
     </UserControl.Styles>
     <ScrollViewer HorizontalScrollBarVisibility="Auto">
         <StackPanel Spacing="16" Margin="24">
@@ -930,6 +939,167 @@
                                               IsVisible="{Binding CurrentDevice.RightTriggerFrequencyVisible}"
                                               Value="{Binding CurrentDevice.RightTriggerFrequency, Mode=TwoWay}" />
                         </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Expander>
+
+            <!-- Audio Player: play files to the desktop, controller speaker, headset, or haptics -->
+            <Expander IsVisible="{Binding HasDevice}"
+                      IsExpanded="False">
+                <Expander.Header>
+                    <cards:CardHeader Title="{DynamicResource InputMonitorPage.Audio.Title}"
+                                      Description="{DynamicResource InputMonitorPage.Audio.Description}"
+                                      Icon="{x:Static fic:Symbol.MusicNote2}"
+                                      MinHeight="64" />
+                </Expander.Header>
+                <StackPanel Spacing="8">
+                    <!-- File picker and loaded file name -->
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Grid.Column="0"
+                                    Margin="0,0,12,0"
+                                    Padding="8"
+                                    CornerRadius="6"
+                                    Background="{DynamicResource AccentFillColorDefaultBrush}"
+                                    VerticalAlignment="Center">
+                                <ic:FluentIcon Icon="MusicNote2"
+                                               IconVariant="Regular"
+                                               IconSize="Size16"
+                                               Foreground="{DynamicResource TextOnAccentFillColorSelectedTextBrush}" />
+                            </Border>
+                            <StackPanel Grid.Column="1"
+                                        Spacing="2"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center">
+                                <TextBlock Text="{Binding CurrentDevice.Audio.FileName}"
+                                           FontWeight="SemiBold"
+                                           MaxWidth="480"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip.Tip="{Binding CurrentDevice.Audio.FileName}"
+                                           IsVisible="{Binding CurrentDevice.Audio.HasFile}" />
+                                <TextBlock Text="{DynamicResource InputMonitorPage.Audio.NoFile}"
+                                           IsVisible="{Binding !CurrentDevice.Audio.HasFile}" />
+                                <TextBlock Text="{DynamicResource InputMonitorPage.Audio.File}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                            <Button Grid.Column="2"
+                                    Click="OnOpenAudioClick"
+                                    Classes="accent"
+                                    VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <ic:FluentIcon Icon="FolderOpen"
+                                                   IconVariant="Regular"
+                                                   IconSize="Size16" />
+                                    <TextBlock Text="{DynamicResource InputMonitorPage.Audio.Open}" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </cards:CustomCard>
+
+                    <!-- Transport: seek slider, clocks, and play/stop controls -->
+                    <cards:CustomCard>
+                        <StackPanel Spacing="8">
+                            <Slider Minimum="0"
+                                    Maximum="{Binding CurrentDevice.Audio.DurationSeconds}"
+                                    Value="{Binding CurrentDevice.Audio.PositionSeconds, Mode=TwoWay}"
+                                    IsEnabled="{Binding CurrentDevice.Audio.HasFile}"
+                                    UseLayoutRounding="False" />
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="{Binding CurrentDevice.Audio.PositionText}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding CurrentDevice.Audio.DurationText}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                           VerticalAlignment="Center" />
+                            </Grid>
+                            <StackPanel Orientation="Horizontal"
+                                        HorizontalAlignment="Center"
+                                        Spacing="12">
+                                <Button Classes="audio-transport accent"
+                                        Command="{Binding CurrentDevice.Audio.TogglePlayPauseCommand}">
+                                    <Grid>
+                                        <ic:FluentIcon Icon="Play"
+                                                       IconVariant="Regular"
+                                                       IconSize="Size20"
+                                                       IsVisible="{Binding !CurrentDevice.Audio.IsPlaying}" />
+                                        <ic:FluentIcon Icon="Pause"
+                                                       IconVariant="Regular"
+                                                       IconSize="Size20"
+                                                       IsVisible="{Binding CurrentDevice.Audio.IsPlaying}" />
+                                    </Grid>
+                                </Button>
+                            </StackPanel>
+                        </StackPanel>
+                    </cards:CustomCard>
+
+                    <!-- Output destinations -->
+                    <TextBlock Text="{DynamicResource InputMonitorPage.Audio.Output.Title}"
+                               FontWeight="SemiBold"
+                               Margin="0,4,0,0" />
+                    <cards:ToggleSwitchCard Title="{DynamicResource InputMonitorPage.Audio.Output.Desktop}"
+                                            IsChecked="{Binding CurrentDevice.Audio.PlayToDesktop, Mode=TwoWay}" />
+                    <Grid ColumnDefinitions="*,16,*"
+                          RowDefinitions="Auto,8,Auto">
+                        <cards:ComboBoxCard Grid.Row="0"
+                                            Grid.Column="0"
+                                            Title="{DynamicResource InputMonitorPage.Audio.Output.DualSense}"
+                                            Tooltip="{DynamicResource InputMonitorPage.Audio.Output.DualSense.Description}"
+                                            IsEnabled="{Binding CurrentDevice.Audio.CanUseControllerOutputs}"
+                                            ItemsSource="{Binding CurrentDevice.Audio.ControllerOutputOptions}"
+                                            SelectedIndex="{Binding CurrentDevice.Audio.ControllerOutputIndex, Mode=TwoWay}" />
+                        <cards:ToggleSwitchCard Grid.Row="0"
+                                                Grid.Column="2"
+                                                Title="{DynamicResource InputMonitorPage.Audio.Output.Haptics}"
+                                                IsEnabled="{Binding CurrentDevice.Audio.CanUseControllerOutputs}"
+                                                IsChecked="{Binding CurrentDevice.Audio.PlayToHaptics, Mode=TwoWay}" />
+                        <cards:CustomCard Grid.Row="2" Grid.Column="0">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="{DynamicResource InputMonitorPage.Audio.OutputVolume}"
+                                           FontWeight="SemiBold" />
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Slider Grid.Column="0"
+                                            Minimum="0"
+                                            Maximum="255"
+                                            TickFrequency="1"
+                                            VerticalAlignment="Center"
+                                            IsEnabled="{Binding CurrentDevice.Audio.CanUseControllerOutputs}"
+                                            UseLayoutRounding="False"
+                                            Value="{Binding CurrentDevice.Audio.SpeakerVolume, Mode=TwoWay}" />
+                                    <TextBlock Grid.Column="1"
+                                               Margin="12,0,0,0"
+                                               VerticalAlignment="Center"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               Text="{Binding CurrentDevice.Audio.SpeakerVolume, StringFormat={}{0:0}}" />
+                                </Grid>
+                            </StackPanel>
+                        </cards:CustomCard>
+                        <cards:CustomCard Grid.Row="2" Grid.Column="2">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="{DynamicResource InputMonitorPage.Audio.HapticStrength}"
+                                           FontWeight="SemiBold" />
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Slider Grid.Column="0"
+                                            Minimum="0"
+                                            Maximum="200"
+                                            TickFrequency="1"
+                                            VerticalAlignment="Center"
+                                            IsEnabled="{Binding CurrentDevice.Audio.CanUseControllerOutputs}"
+                                            UseLayoutRounding="False"
+                                            Value="{Binding CurrentDevice.Audio.HapticStrength, Mode=TwoWay}" />
+                                    <TextBlock Grid.Column="1"
+                                               Margin="12,0,0,0"
+                                               VerticalAlignment="Center"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               Text="{Binding CurrentDevice.Audio.HapticStrength, StringFormat={}{0:0}}" />
+                                </Grid>
+                            </StackPanel>
+                        </cards:CustomCard>
                     </Grid>
                 </StackPanel>
             </Expander>

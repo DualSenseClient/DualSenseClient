@@ -7,6 +7,9 @@ using DualSenseClient.GUI.Views;
 using DualSenseClient.Hid;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
+using SoundFlow.Abstracts;
+using SoundFlow.Backends.MiniAudio;
+using SoundFlow.Codecs.FFMpeg;
 
 namespace DualSenseClient.GUI.Services;
 
@@ -35,6 +38,16 @@ public abstract class ServiceConfigurator
         services.AddSingleton<INotificationService, NotificationService>();
         services.AddSingleton<ThemeService>();
         services.AddSingleton<NavigationService>();
+
+        // Audio engine (SoundFlow/MiniAudio). One shared engine owns the WASAPI context,
+        // the device list, and the codec registry; the FFmpeg codec adds decoding for
+        // formats beyond the core wav/mp3/flac set.
+        services.AddSingleton<AudioEngine>(_ =>
+        {
+            AudioEngine engine = new MiniAudioEngine();
+            engine.RegisterCodecFactory(new FFmpegCodecFactory());
+            return engine;
+        });
 
         // Controllers
         services.AddSingleton<IHidDeviceEnumerator, HidDeviceEnumerator>();
