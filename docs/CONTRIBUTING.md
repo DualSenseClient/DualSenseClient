@@ -1,6 +1,6 @@
 # Contributing Guide
 
-Welcome, and thank you for your interest in contributing to DualSenseClient. Please follow these guidelines to maintain
+Welcome, and thank you for your interest in contributing to DualSense Client. Please follow these guidelines to maintain
 code quality and consistency across the project.
 
 ---
@@ -28,10 +28,12 @@ code quality and consistency across the project.
 
 ## Project Structure
 
-The project is organized into four projects:
+The project is organized into six projects:
 
 - **DualSenseClient.GUI**: Main application project containing Views, ViewModels, and UI-related logic
 - **DualSenseClient.Core**: Core library containing shared models, enums, and utilities
+- **DualSenseClient.Controllers**: Controller handling, DualSense protocol, and audio/haptics
+- **DualSenseClient.Hid**: SDL3-based HID device access
 - **DualSenseClient.Settings**: JSON-based settings persistence with backup recovery
 - **DualSenseClient.Logging**: Custom logging infrastructure with file and console sinks
 
@@ -182,7 +184,7 @@ All shared logic should be placed in the appropriate library project to facilita
     - `Info`: General operational messages
     - `Warning`: Potential issues that don't stop execution
     - `Error`: Errors that cause operations to fail
-    - `Fatal`: Critical errors that may cause application termination
+    - `Critical`: Critical errors that may cause application termination
 
 - Throw `Exception` (or specific exception types) for unimplemented features or invalid states
 
@@ -212,6 +214,8 @@ The project uses **NUnit** as the testing framework. Tests are located in `tests
 tests/DualSenseClient.Tests/
 ├── Logging/      # Tests for logging infrastructure
 ├── Settings/     # Tests for settings persistence
+├── Controllers/  # Tests for the DualSense protocol and audio/haptics
+├── Hid/          # Tests for HID enumeration
 └── Core/         # Tests for shared utilities (PathResolver, etc.)
 ```
 
@@ -256,7 +260,7 @@ When testing components that create files (e.g., `FileLogSink`, `SettingsService
 
 ## Creating Custom Themes
 
-DualSenseClient supports custom themes. To create a new theme:
+DualSense Client supports custom themes. To create a new theme:
 
 1. **Copy the template file**
    - Navigate to `source/DualSenseClient.GUI/Resources/Theme/`
@@ -363,9 +367,9 @@ DualSenseClient supports custom themes. To create a new theme:
 2. **Write Meaningful Commits**:
    - Use conventional commit format:
      ```bash
-     git commit -m "[Feature] Add game details editor dialog"
-     git commit -m "[Bugfix] Fix crash when loading corrupted library file"
-     git commit -m "[Refactor] Extract logging logic to separate service"
+     git commit -m "feat(dualsense): Add game details editor dialog"
+     git commit -m "fix(ci): Fix crash when loading corrupted library file"
+     git commit -m "refactor(misc): Extract logging logic to separate service"
      ```
    - Keep commits atomic and focused on a single change
    - Write clear, descriptive commit messages
@@ -382,4 +386,4 @@ DualSenseClient supports custom themes. To create a new theme:
 
 ---
 
-Thank you for contributing to DualSenseClient!
+Thank you for contributing to DualSense Client!
