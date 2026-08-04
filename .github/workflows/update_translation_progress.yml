@@ -4,6 +4,10 @@ on:
   workflow_dispatch:
   workflow_call:
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   update_translation_progress:
     runs-on: windows-latest
@@ -21,15 +25,6 @@ jobs:
 
       - name: Install Python dependencies
         run: pip install Pillow
-
-      - name: Generate translation progress data
-        id: translation-data
-        shell: pwsh
-        run: |
-          $data = python ./scripts/generate_translation_progress.py --json
-          echo "data<<EOF" >> $env:GITHUB_OUTPUT
-          echo "$data" >> $env:GITHUB_OUTPUT
-          echo "EOF" >> $env:GITHUB_OUTPUT
 
       - name: Generate translation chart
         run: python ./scripts/generate_translation_progress.py --chart
@@ -49,20 +44,25 @@ jobs:
             Write-Host "Translation progress chart has changed"
           }
 
+      - name: Get current date
+        id: date
+        shell: pwsh
+        run: echo "date=$(Get-Date -Format 'yyyy-MM-dd')" >> $env:GITHUB_OUTPUT
+
       - name: Create branch and commit
         if: steps.git-check.outputs.changed == 'true'
         run: |
-          git config --local user.email "${{ secrets.GITHUB_ACTOR }}+github-actions[bot]@users.noreply.github.com"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
 
-          git checkout -b translation-progress
+          git checkout -b "translation-progress-${{ steps.date.outputs.date }}"
 
           git add assets/translation-progress.png
           git commit -m "chore(localization): Update translation progress chart"
 
       - name: Push branch
         if: steps.git-check.outputs.changed == 'true'
-        run: git push origin translation-progress
+        run: git push origin "translation-progress-${{ steps.date.outputs.date }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -77,7 +77,7 @@ jobs:
                 owner,
                 repo,
                 title: 'chore(localization): Update translation progress chart',
-                head: 'translation-progress',
+                  head: 'translation-progress-${{ steps.date.outputs.date }}',
                 base: 'main',
                 body: 'Automated PR to update translation progress chart from CI workflow.'
               });
@@ -88,9 +88,9 @@ jobs:
                 const prs = await github.rest.pulls.list({
                   owner,
                   repo,
-                  head: 'translation-progress',
+                head: 'translation-progress-${{ steps.date.outputs.date }}',
                   base: 'main'
-                }));
+                });
                 if (prs.data.length > 0) {
                   const pr = prs.data[0];
                   await github.rest.pulls.update({
