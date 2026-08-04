@@ -48,6 +48,42 @@ public class DualSenseDeviceOutputTests
         }
     }
 
+    private sealed class DisposingHidDevice : IHidDevice
+    {
+        private bool _disposed;
+
+        public ushort VendorId => 0x054C;
+
+        public ushort ProductId => 0x0CE6;
+
+        public string DevicePath => "test";
+
+        public bool IsConnected => !_disposed;
+
+        public int Read(byte[] buffer, int offset, int count, int timeoutMs) => 0;
+
+        public Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken ct) => Task.FromResult(0);
+
+        public int Write(byte[] buffer, int offset, int count)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return count;
+        }
+
+        public byte[] GetFeatureReport(byte reportId, int bufferSize = 64) => [];
+
+        public void SendFeatureReport(byte[] buffer, int offset, int count)
+        {
+        }
+
+        public string GetProductName() => "Test";
+
+        public void Dispose()
+        {
+            _disposed = true;
+        }
+    }
+
     private sealed class StubHidDeviceInfo(ConnectionType busType) : IHidDeviceInfo
     {
         public string Path => "test";
@@ -129,5 +165,25 @@ public class DualSenseDeviceOutputTests
 
         device.SendOutputState(payload);
         Assert.That(hid.LastWrite[1], Is.EqualTo(0x00)); // wraps back to sequence 0
+    }
+
+    [Test]
+    public void SendOutputState_AfterDispose_ThrowsHidException()
+    {
+        DisposingHidDevice hid = new DisposingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Usb));
+        hid.Dispose();
+
+        Assert.Throws<HidException>(() => device.SendOutputState(new SetStateData()));
+    }
+
+    [Test]
+    public void SetVibration_AfterDispose_DoesNotThrow()
+    {
+        DisposingHidDevice hid = new DisposingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Usb));
+        hid.Dispose();
+
+        Assert.DoesNotThrow(() => device.SetVibration(0, 0));
     }
 }

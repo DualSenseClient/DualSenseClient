@@ -158,10 +158,18 @@ public class DualSenseDevice : ControllerDevice
     {
         _log.Debug("Read Loop Start");
         byte[] buffer = new byte[MaxOutputReportLength];
-        while (!ct.IsCancellationRequested && IsConnected)
+        while (!ct.IsCancellationRequested)
         {
             try
             {
+                // Checked inside the try so a disposed device (which makes IsConnected
+                // throw ObjectDisposedException) ends the loop like any other read failure
+                // instead of escaping as a faulted background task.
+                if (!IsConnected)
+                {
+                    break;
+                }
+
                 int result = await ReadInputAsync(buffer, 0, buffer.Length, ct);
                 if (result <= 0)
                 {
@@ -171,9 +179,12 @@ public class DualSenseDevice : ControllerDevice
 
                 ProcessInputReport(buffer);
             }
-            catch (HidException)
+            catch (HidException ex)
             {
-                _log.Error("SDL_hid_read_timeout failed");
+                // A failed read is the normal symptom of the controller being
+                // unplugged or the link dropping, so log it as a disconnect
+                // rather than an error.
+                _log.Warning($"Read failed, controller disconnected: {ex.Message}");
                 break;
             }
             catch (OperationCanceledException)

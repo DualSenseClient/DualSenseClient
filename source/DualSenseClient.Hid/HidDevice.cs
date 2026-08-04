@@ -166,7 +166,9 @@ public sealed class HidDevice : IHidDevice
 
         if (result < 0)
         {
-            _log.Error($"SDL_hid_read_timeout failed on '{DevicePath}'");
+            // A failed read is the normal symptom of a disconnected controller;
+            // the read loop reports it at the appropriate level.
+            _log.Debug($"SDL_hid_read_timeout failed on '{DevicePath}'");
             throw new HidException("SDL_hid_read_timeout failed");
         }
 
