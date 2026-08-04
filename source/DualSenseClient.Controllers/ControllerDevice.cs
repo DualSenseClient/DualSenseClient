@@ -84,34 +84,105 @@ public abstract class ControllerDevice(IHidDevice device, IHidDeviceInfo info) :
     public abstract ControllerType ControllerType { get; }
 
     /// <inheritdoc/>
-    public bool IsConnected => device.IsConnected;
+    public bool IsConnected
+    {
+        get
+        {
+            try
+            {
+                return device.IsConnected;
+            }
+            catch (ObjectDisposedException)
+            {
+                // A disposed device is not connected.
+                return false;
+            }
+        }
+    }
 
     /// <inheritdoc/>
     public abstract int MaxOutputReportLength { get; }
 
     /// <inheritdoc/>
     public virtual int ReadInput(byte[] buffer, int offset, int count, int timeoutMs)
-        => device.Read(buffer, offset, count, timeoutMs);
+    {
+        try
+        {
+            return device.Read(buffer, offset, count, timeoutMs);
+        }
+        catch (ObjectDisposedException)
+        {
+            throw new HidException("Cannot read from a disposed device");
+        }
+    }
 
     /// <inheritdoc/>
     public virtual void SendOutput(byte[] buffer, int offset, int count)
-        => device.Write(buffer, offset, count);
+    {
+        try
+        {
+            device.Write(buffer, offset, count);
+        }
+        catch (ObjectDisposedException)
+        {
+            // The device was disposed (e.g. the controller was unplugged). Writing to a
+            // disposed device is an expected race with disconnect, so surface it as a
+            // regular HID failure for callers to handle instead of crashing.
+            throw new HidException("Cannot write to a disposed device");
+        }
+    }
 
     /// <inheritdoc/>
-    public virtual Task<int> ReadInputAsync(byte[] buffer, int offset, int count, CancellationToken ct)
-        => device.ReadAsync(buffer, offset, count, ct);
+    public virtual async Task<int> ReadInputAsync(byte[] buffer, int offset, int count, CancellationToken ct)
+    {
+        try
+        {
+            return await device.ReadAsync(buffer, offset, count, ct);
+        }
+        catch (ObjectDisposedException)
+        {
+            throw new HidException("Cannot read from a disposed device");
+        }
+    }
 
     /// <inheritdoc/>
     public virtual byte[] GetFeatureReport(byte reportId, int bufferSize = 64)
-        => device.GetFeatureReport(reportId, bufferSize);
+    {
+        try
+        {
+            return device.GetFeatureReport(reportId, bufferSize);
+        }
+        catch (ObjectDisposedException)
+        {
+            throw new HidException("Cannot read a feature report from a disposed device");
+        }
+    }
 
     /// <inheritdoc/>
     public virtual void SendFeatureReport(byte[] buffer, int offset, int count)
-        => device.SendFeatureReport(buffer, offset, count);
+    {
+        try
+        {
+            device.SendFeatureReport(buffer, offset, count);
+        }
+        catch (ObjectDisposedException)
+        {
+            throw new HidException("Cannot send a feature report to a disposed device");
+        }
+    }
 
     /// <inheritdoc/>
     public virtual string GetProductName()
-        => device.GetProductName();
+    {
+        try
+        {
+            return device.GetProductName();
+        }
+        catch (ObjectDisposedException)
+        {
+            throw new HidException("Cannot get the product name of a disposed device");
+        }
+    }
 
     /// <inheritdoc/>
     public void Dispose()
