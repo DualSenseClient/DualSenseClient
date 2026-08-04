@@ -6,6 +6,7 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.Core.Models;
+using DualSenseClient.Core.Utilities;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.Logging;
@@ -59,6 +60,11 @@ public partial class SettingsPageViewModel : ObservableObject
     /// <see cref="LocalizationService.GetSupportedLanguages"/>.
     /// </summary>
     public ObservableCollection<LanguageItem> AppLanguages { get; set; } = [];
+
+    /// <summary>
+    /// Application version string including the build commit, shown in the page header.
+    /// </summary>
+    public string ApplicationVersion => AppInfo.VersionWithCommit;
 
     /// <summary>
     /// Index of the currently selected language in <see cref="AppLanguages"/>.
