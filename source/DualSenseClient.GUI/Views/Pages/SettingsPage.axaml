@@ -13,6 +13,31 @@
     </Design.DataContext>
     <ScrollViewer>
         <StackPanel Spacing="16" Margin="24">
+            <!-- App Header -->
+            <TextBlock Text="{DynamicResource MainWindow.Settings}"
+                       FontSize="24"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            <StackPanel Orientation="Horizontal" Spacing="15" Margin="0,0,0,10">
+                <Image Source="/Assets/icon.png" Width="80" Height="80" VerticalAlignment="Center" />
+                <StackPanel Orientation="Vertical" Spacing="5" VerticalAlignment="Center">
+                    <TextBlock Text="{DynamicResource SettingsPage.Header.AppName}"
+                               FontSize="24"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                    <TextBlock Text="{Binding ApplicationVersion, Mode=OneTime}"
+                               FontSize="14"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Margin="1,0,0,0" />
+                    <StackPanel Orientation="Horizontal">
+                        <HyperlinkButton NavigateUri="https://github.com/shazzaam7/DualSenseClient"
+                                         Content="{DynamicResource SettingsPage.Header.Github}"
+                                         FontSize="12"
+                                         Margin="-10,0,0,0" />
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+
             <!-- UI Settings -->
             <Expander>
                 <Expander.Header>
