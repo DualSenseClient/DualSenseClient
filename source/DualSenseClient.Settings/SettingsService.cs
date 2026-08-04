@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
+using DualSenseClient.Core.Utilities;
 using DualSenseClient.Logging;
 
 namespace DualSenseClient.Settings;
@@ -54,7 +55,7 @@ public sealed class SettingsService
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SettingsService"/> class.
-    /// Settings are stored at <c>{AppContext.BaseDirectory}/Config/config.json</c>.
+    /// Settings are stored at <c>{PathResolver.BaseDirectory}/Config/config.json</c>.
     /// </summary>
     public SettingsService()
         : this(null)
@@ -71,12 +72,12 @@ public sealed class SettingsService
     /// </param>
     /// <param name="settingsPath">
     /// The full path to the settings JSON file.
-    /// If <c>null</c>, defaults to <c>{AppContext.BaseDirectory}/Config/config.json</c>.
+    /// If <c>null</c>, defaults to <c>{PathResolver.BaseDirectory}/Config/config.json</c>.
     /// </param>
     public SettingsService(JsonSerializerOptions? jsonOptions = null, string? settingsPath = null)
     {
         string path = settingsPath
-                      ?? Path.Combine(AppContext.BaseDirectory, "Config", "config.json");
+                      ?? PathResolver.GetFullPath("Config", "config.json");
         _store = new JsonFileStore<Settings>(path, jsonOptions)
         {
             WriteDefaultsWhenMissing = true,

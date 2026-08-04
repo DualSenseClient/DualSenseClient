@@ -12,12 +12,12 @@ on:
         default: false
     outputs:
       sha_short:
-        value: ${{ jobs.build.outputs.sha_short }}
+        value: ${{ jobs.build_windows.outputs.sha_short }}
       branch:
-        value: ${{ jobs.build.outputs.branch }}
+        value: ${{ jobs.build_windows.outputs.branch }}
 
 jobs:
-  build:
+  build_windows:
     runs-on: windows-latest
     outputs:
       sha_short: ${{ steps.info.outputs.sha_short }}
@@ -65,3 +65,69 @@ jobs:
         with:
           name: DualSenseClient
           path: publish/desktop/DualSenseClient.exe
+
+  build_linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish the app
+        run: >
+          dotnet publish -c Release -r linux-x64 --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:NightlyBuild=${{ inputs.is_experimental }}
+          -o publish/desktop
+          source/DualSenseClient.GUI/DualSenseClient.GUI.csproj
+
+      - name: Create AppImage
+        shell: bash
+        run: |
+          set -e
+
+          curl -sL -o appimagetool "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
+          chmod +x appimagetool
+
+          mkdir -p AppDir/usr/bin
+          cp publish/desktop/DualSenseClient AppDir/usr/bin/DualSenseClient
+          chmod +x AppDir/usr/bin/DualSenseClient
+          cp source/DualSenseClient.GUI/Assets/icon.png AppDir/dualsenseclient.png
+
+          cat > AppDir/DualSenseClient.desktop <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=DualSenseClient
+          Comment=DualSense controller client
+          Exec=DualSenseClient
+          Icon=dualsenseclient
+          Categories=Utility;Game;
+          Terminal=false
+          EOF
+
+          cat > AppDir/AppRun <<'EOF'
+          #!/bin/sh
+          exec "$APPDIR/usr/bin/DualSenseClient" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+
+          ./appimagetool --appimage-extract-and-run AppDir DualSenseClient.AppImage
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: DualSenseClient-linux
+          path: publish/desktop/DualSenseClient
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: DualSenseClient-linux-appimage
+          path: DualSenseClient.AppImage

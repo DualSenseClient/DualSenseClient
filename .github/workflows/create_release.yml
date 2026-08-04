@@ -20,15 +20,28 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download build artifact
+      - name: Download Windows artifact
         uses: actions/download-artifact@v8
         with:
           name: "DualSenseClient"
           path: ./publish/desktop
 
-      - name: Create ZIP archive
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: "DualSenseClient-linux"
+          path: ./publish/desktop-linux
+
+      - name: Download AppImage artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: "DualSenseClient-linux-appimage"
+          path: ./publish/appimage
+
+      - name: Create ZIP archives
         run: |
           Compress-Archive -Path .\publish\desktop\* -DestinationPath .\DualSenseClient.zip
+          Compress-Archive -Path .\publish\desktop-linux\* -DestinationPath .\DualSenseClient-linux.zip
 
       - name: Get latest stable release info
         id: stable_release
@@ -107,7 +120,7 @@ jobs:
           }
 
           Write-Host "Creating new nightly release..."
-          gh release create $tag DualSenseClient.zip --prerelease --title "DualSenseClient (Nightly)" --notes "$notes" --target $branch
+          gh release create $tag DualSenseClient.zip DualSenseClient-linux.zip .\publish\appimage\DualSenseClient.AppImage --prerelease --title "DualSenseClient (Nightly)" --notes "$notes" --target $branch
 
       - name: Create stable release
         if: "inputs.is_stable"
@@ -118,5 +131,5 @@ jobs:
           $shaShort = "${{ steps.info.outputs.sha_short }}"
 
           Write-Host "Creating stable draft release..."
-          gh release create $shaShort DualSenseClient.zip --draft --generate-notes --title "DualSenseClient ($shaShort)"
+          gh release create $shaShort DualSenseClient.zip DualSenseClient-linux.zip .\publish\appimage\DualSenseClient.AppImage --draft --generate-notes --title "DualSenseClient ($shaShort)"
           Write-Host "Stable draft release created! Go to GitHub to publish it."

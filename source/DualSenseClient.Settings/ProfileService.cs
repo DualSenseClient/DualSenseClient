@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DualSenseClient.Core.Utilities;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings.Sections;
 
@@ -66,7 +67,7 @@ public sealed class ProfileService
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ProfileService"/> class.
-    /// Profiles are stored at <c>{AppContext.BaseDirectory}/Config/profiles.json</c>.
+    /// Profiles are stored at <c>{PathResolver.BaseDirectory}/Config/profiles.json</c>.
     /// </summary>
     public ProfileService() : this(null)
     {
@@ -82,12 +83,12 @@ public sealed class ProfileService
     /// </param>
     /// <param name="profilesPath">
     /// The full path to the profiles JSON file.
-    /// If <c>null</c>, defaults to <c>{AppContext.BaseDirectory}/Config/profiles.json</c>.
+    /// If <c>null</c>, defaults to <c>{PathResolver.BaseDirectory}/Config/profiles.json</c>.
     /// </param>
     public ProfileService(JsonSerializerOptions? jsonOptions = null, string? profilesPath = null)
     {
         string path = profilesPath
-                      ?? Path.Combine(AppContext.BaseDirectory, "Config", "profiles.json");
+                      ?? PathResolver.GetFullPath("Config", "profiles.json");
         _store = new JsonFileStore<ProfileSettings>(path, jsonOptions)
         {
             WriteDefaultsWhenMissing = true,

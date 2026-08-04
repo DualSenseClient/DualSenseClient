@@ -17,6 +17,28 @@ public class PathResolverTests
     }
 
     [Test]
+    public void BaseDirectory_IsNotInTempDirectory()
+    {
+        string tempPath = Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar);
+        Assert.That(PathResolver.BaseDirectory, Does.Not.StartWith(tempPath));
+    }
+
+    [Test]
+    public void BaseDirectory_IsWritable()
+    {
+        string probeFile = Path.Combine(PathResolver.BaseDirectory, $".write-test-{Guid.NewGuid():N}.tmp");
+        try
+        {
+            File.WriteAllText(probeFile, string.Empty);
+            Assert.That(File.Exists(probeFile), Is.True);
+        }
+        finally
+        {
+            File.Delete(probeFile);
+        }
+    }
+
+    [Test]
     public void GetFullPath_RelativePath_CombinesWithBaseDirectory()
     {
         string result = PathResolver.GetFullPath("some/relative/path");

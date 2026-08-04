@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using DualSenseClient.Core.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.GUI.Views;
@@ -67,7 +68,7 @@ public partial class App : Application
             DualSenseClientLogger.Configure(logLevel,
                 new CompositeLogSink(
                     new MinimumLevelFilterSink(new ConsoleLogSink(), () => DualSenseClientLogger.MinimumLevel),
-                    new FileLogSink(@"Logs\DualSenseClient.log")
+                    new FileLogSink(PathResolver.GetFullPath(@"Logs\DualSenseClient.log"))
                 )
             );
 

@@ -28,8 +28,10 @@ public static class PathResolver
     /// </summary>
     /// <remarks>
     /// Attempts resolution in order: <c>AppContext.BaseDirectory</c>, executable directory,
-    /// <c>AppDomain.CurrentDomain.BaseDirectory</c>, and finally the current working directory.
-    /// Paths located within the system temp directory are skipped to avoid single-file deployment issues.
+    /// <c>AppDomain.CurrentDomain.BaseDirectory</c>, the XDG config directory on Linux, and
+    /// finally the current working directory.
+    /// Directories that are temporary or not writable are skipped to avoid single-file
+    /// deployment and read-only install issues.
     /// </remarks>
     /// <returns>
     /// An absolute path representing the application's base directory.
@@ -37,36 +39,83 @@ public static class PathResolver
     private static string ResolveBaseDirectory()
     {
         string baseDirectory = AppContext.BaseDirectory;
-        if (!string.IsNullOrEmpty(baseDirectory) && !IsTempDirectory(baseDirectory))
+        if (IsUsableBaseDirectory(baseDirectory))
         {
             _log.Debug($"Base directory resolved from AppContext.BaseDirectory: '{baseDirectory}'");
             return baseDirectory;
         }
 
         string? exePath = Path.GetDirectoryName(Environment.ProcessPath);
-        if (!string.IsNullOrEmpty(exePath))
+        if (IsUsableBaseDirectory(exePath))
         {
             _log.Debug($"Base directory resolved from executable path: '{exePath}'");
-            return exePath;
+            return exePath!;
         }
 
         string appDomainDir = AppDomain.CurrentDomain.BaseDirectory;
-        if (!string.IsNullOrEmpty(appDomainDir) && !IsTempDirectory(appDomainDir))
+        if (IsUsableBaseDirectory(appDomainDir))
         {
             _log.Debug($"Base directory resolved from AppDomain.BaseDirectory: '{appDomainDir}'");
             return appDomainDir;
         }
 
+        if (OperatingSystem.IsLinux())
+        {
+            string xdgBase = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            if (!string.IsNullOrEmpty(xdgBase))
+            {
+                string xdgDir = Path.Combine(xdgBase, "DualSenseClient");
+                _log.Warning($"Base directory is not usable, falling back to XDG config directory: '{xdgDir}'");
+                return xdgDir;
+            }
+        }
+
         string fallbackDir = Directory.GetCurrentDirectory();
         _log.Debug($"Base directory resolved from current working directory: '{fallbackDir}'");
         return fallbackDir;
+    }
 
-        static bool IsTempDirectory(string path)
+    /// <summary>
+    /// Determines whether a path can serve as the application's base directory.
+    /// </summary>
+    /// <param name="path">The path to evaluate.</param>
+    /// <returns>
+    /// <c>true</c> if the path is non-empty, not located in the system temp directory,
+    /// and writable; otherwise, <c>false</c>.
+    /// </returns>
+    private static bool IsUsableBaseDirectory(string? path) =>
+        !string.IsNullOrEmpty(path) && !IsTempDirectory(path) && IsWritable(path);
+
+    /// <summary>
+    /// Determines whether the specified directory exists and can be written to.
+    /// </summary>
+    /// <param name="path">The directory to probe.</param>
+    /// <returns><c>true</c> if a probe file can be created and deleted; otherwise, <c>false</c>.</returns>
+    private static bool IsWritable(string path)
+    {
+        try
         {
-            string tempPath = Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar);
-            string normalizedPath = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar);
-            return normalizedPath.StartsWith(tempPath, StringComparison.OrdinalIgnoreCase);
+            string probeFile = Path.Combine(path, $".write-test-{Guid.NewGuid():N}.tmp");
+            File.WriteAllText(probeFile, string.Empty);
+            File.Delete(probeFile);
+            return true;
         }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Determines whether the specified path is located within the system temp directory.
+    /// </summary>
+    /// <param name="path">The path to evaluate.</param>
+    /// <returns><c>true</c> if the path starts with the system temp directory; otherwise, <c>false</c>.</returns>
+    private static bool IsTempDirectory(string path)
+    {
+        string tempPath = Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar);
+        string normalizedPath = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar);
+        return normalizedPath.StartsWith(tempPath, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
