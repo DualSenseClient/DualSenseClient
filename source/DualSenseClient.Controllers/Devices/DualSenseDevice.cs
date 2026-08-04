@@ -43,6 +43,18 @@ public class DualSenseDevice : ControllerDevice
     /// </summary>
     private byte _outputSequence;
 
+    /// <summary>
+    /// Builds the Bluetooth-only audio (<c>0x35</c>) and haptics (<c>0x32</c>) reports.
+    /// The rolling sequence and packet counters live here, so the builder must only be
+    /// touched by the audio writer thread (guarded by <see cref="_audioWriteLock"/>).
+    /// </summary>
+    private readonly BluetoothAudioReportBuilder _bluetoothAudioReports = new BluetoothAudioReportBuilder();
+
+    /// <summary>
+    /// Serializes writes of the Bluetooth audio/haptics report stream.
+    /// </summary>
+    private readonly object _audioWriteLock = new object();
+
     /// <inheritdoc/>
     public override ControllerType ControllerType => ControllerType.DualSense;
 
@@ -363,6 +375,142 @@ public class DualSenseDevice : ControllerDevice
     {
         SetVibration(0, 0);
         SetTriggerEffects(TriggerEffectBuilder.Off(), TriggerEffectBuilder.Off());
+    }
+
+    /// <summary>
+    /// Restarts the Bluetooth audio/haptics report sequence and packet counters.
+    /// Call this before starting a stream.
+    /// </summary>
+    public void ResetBluetoothAudioStream()
+    {
+        lock (_audioWriteLock)
+        {
+            _bluetoothAudioReports.Reset();
+        }
+    }
+
+    /// <summary>
+    /// Sends the report <c>0x32</c> init-prime that opens the Bluetooth audio/haptics
+    /// stream. The stream must be primed before sending audio or haptics reports.
+    /// </summary>
+    /// <param name="state">The output state embedded in the prime (routing/volume).</param>
+    public void SendBluetoothAudioPrime(SetStateData state)
+    {
+        EnsureBluetoothAudio();
+        lock (_audioWriteLock)
+        {
+            TrySendAudioReport(_bluetoothAudioReports.BuildInitPrime(state));
+        }
+    }
+
+    /// <summary>
+    /// Sends a report <c>0x32</c> voice-coil haptics frame (64 bytes of s8 stereo PCM).
+    /// </summary>
+    /// <param name="hapticsPcm">64 bytes of interleaved s8 stereo material.</param>
+    public void SendBluetoothHaptics(ReadOnlySpan<byte> hapticsPcm)
+    {
+        EnsureBluetoothAudio();
+        lock (_audioWriteLock)
+        {
+            TrySendAudioReport(_bluetoothAudioReports.BuildHapticsReport(hapticsPcm));
+        }
+    }
+
+    /// <summary>
+    /// Sends a combined report <c>0x36</c> carrying the output state, one 200-byte Opus
+    /// frame and the 64-byte voice-coil haptics frame in a single report. Audio and
+    /// haptics must share one report per tick; interleaving a separate <c>0x32</c>
+    /// haptics report with the <c>0x35</c> audio lane breaks the controller's audio
+    /// stream.
+    /// </summary>
+    /// <param name="state">The 47-byte output state embedded in the report.</param>
+    /// <param name="opusFrame">A 200-byte Opus frame.</param>
+    /// <param name="hapticsPcm">64 bytes of interleaved s8 stereo material.</param>
+    /// <param name="route">Which output the audio frame targets.</param>
+    public void SendBluetoothAudioAndHaptics(SetStateData state, ReadOnlySpan<byte> opusFrame, ReadOnlySpan<byte> hapticsPcm, BluetoothAudioRoute route)
+    {
+        EnsureBluetoothAudio();
+        lock (_audioWriteLock)
+        {
+            TrySendAudioReport(_bluetoothAudioReports.BuildCombinedReport(state, opusFrame, hapticsPcm, route));
+        }
+    }
+
+    /// <summary>
+    /// Sends a report <c>0x35</c> speaker/headset audio frame (one 200-byte Opus frame).
+    /// </summary>
+    /// <param name="opusFrame">A 200-byte Opus frame.</param>
+    /// <param name="route">Which output the frame targets.</param>
+    public void SendBluetoothAudio(ReadOnlySpan<byte> opusFrame, BluetoothAudioRoute route)
+    {
+        EnsureBluetoothAudio();
+        lock (_audioWriteLock)
+        {
+            TrySendAudioReport(_bluetoothAudioReports.BuildAudioReport(opusFrame, route));
+        }
+    }
+
+    /// <summary>
+    /// Routes audio output and applies speaker/headphone volume over either transport.
+    /// Uses the output-state report (USB <c>0x02</c> / Bluetooth <c>0x31</c>), which is
+    /// the authoritative switch for which destination is actually driven.
+    /// </summary>
+    /// <param name="outputControl">Output path selection: speaker, headphones, or both.</param>
+    /// <param name="speakerVolume">Speaker volume (0-255; the controller accepts roughly 0x3D-0x64).</param>
+    /// <param name="headphoneVolume">Headphone volume (0-255).</param>
+    /// <param name="preampGain">Speaker preamp gain, bits [2:0] of audio_control2 (<c>0x2</c> = +6 dB).</param>
+    public void SetAudioOutput(AudioControl outputControl, byte speakerVolume, byte headphoneVolume, byte preampGain = 0x02)
+    {
+        SetStateData payload = new SetStateData
+        {
+            ValidFlag0 = ValidFlags.AllowSpeakerVolume | ValidFlags.AllowHeadphoneVolume | ValidFlags.AllowAudioControl,
+            ValidFlag1 = ValidFlags.AllowAudioControl2,
+            SpeakerVolume = speakerVolume,
+            HeadphoneVolume = headphoneVolume,
+            AudioControl = outputControl,
+            AudioControl2 = preampGain
+        };
+
+        try
+        {
+            SendOutputState(payload);
+        }
+        catch (HidException ex)
+        {
+            _log.Error($"Failed to set audio output: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Throws if the current transport cannot carry the <c>0x35</c>/<c>0x32</c> reports.
+    /// </summary>
+    private void EnsureBluetoothAudio()
+    {
+        if (ConnectionType != ConnectionType.Bluetooth)
+        {
+            throw new InvalidOperationException("The 0x35/0x32 audio reports require a Bluetooth connection.");
+        }
+    }
+
+    /// <summary>
+    /// Writes an audio/haptics report, logging rather than throwing on HID failures so a
+    /// dropped link stops the stream instead of crashing the writer thread.
+    /// </summary>
+    private void TrySendAudioReport(byte[] report)
+    {
+        try
+        {
+            if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
+            {
+                _log.Trace($"Sending audio report 0x{report[0]:X2} ({report.Length} byte(s)): {BitConverter.ToString(report, 0, report.Length)}");
+            }
+
+            SendOutput(report, 0, report.Length);
+        }
+        catch (HidException ex)
+        {
+            _log.Error($"Failed to send audio report 0x{report[0]:X2}: {ex.Message}");
+        }
     }
 
     /// <summary>

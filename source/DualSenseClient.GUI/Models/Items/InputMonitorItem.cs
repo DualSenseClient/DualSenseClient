@@ -8,6 +8,7 @@ using DualSenseClient.Controllers.DualSense.Triggers;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.Hid;
+using SoundFlow.Abstracts;
 
 namespace DualSenseClient.GUI.Models.Items;
 
@@ -243,6 +244,12 @@ public sealed partial class InputMonitorItem : ObservableObject, IDisposable
     /// The controller item being displayed.
     /// </summary>
     public ControllerItem Controller { get; }
+
+    /// <summary>
+    /// The audio player for the wrapped controller, or a desktop-only player when no
+    /// DualSense is present. Always available while a controller is selected.
+    /// </summary>
+    public AudioPlayerItem Audio { get; }
 
     /// <summary>
     /// The adaptive trigger modes offered by the effect pickers (index 0 is Off).
@@ -808,10 +815,12 @@ public sealed partial class InputMonitorItem : ObservableObject, IDisposable
     /// input events.
     /// </summary>
     /// <param name="controller">The controller item to display.</param>
-    public InputMonitorItem(ControllerItem controller)
+    /// <param name="engine">The shared audio engine used by the audio player.</param>
+    public InputMonitorItem(ControllerItem controller, AudioEngine engine)
     {
         Controller = controller;
         _device = controller.Device as DualSenseDevice;
+        Audio = new AudioPlayerItem(_device, engine);
 
         TriggerEffectModes =
         [
@@ -855,6 +864,7 @@ public sealed partial class InputMonitorItem : ObservableObject, IDisposable
         _disposed = true;
         StopOutputDebounce();
         ResetTestOutputs();
+        Audio.Dispose();
         if (_device is not null)
         {
             _device.InputStateChanged -= OnInputStateChanged;
