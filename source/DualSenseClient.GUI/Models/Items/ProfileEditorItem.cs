@@ -8,6 +8,33 @@ using DualSenseClient.Settings.Sections;
 namespace DualSenseClient.GUI.Models.Items;
 
 /// <summary>
+/// Provides the previous and new name when a profile is renamed.
+/// </summary>
+public sealed class ProfileRenamedEventArgs : EventArgs
+{
+    /// <summary>
+    /// The profile name before the rename.
+    /// </summary>
+    public string OldName { get; }
+
+    /// <summary>
+    /// The profile name after the rename.
+    /// </summary>
+    public string NewName { get; }
+
+    /// <summary>
+    /// Creates a new rename event args instance.
+    /// </summary>
+    /// <param name="oldName">The profile name before the rename.</param>
+    /// <param name="newName">The profile name after the rename.</param>
+    public ProfileRenamedEventArgs(string oldName, string newName)
+    {
+        OldName = oldName;
+        NewName = newName;
+    }
+}
+
+/// <summary>
 /// Display model for editing a single <see cref="Profile"/> in the profile manager.
 /// Exposes the lightbar color, microphone LED mode, and player LED layout for editing and
 /// persists every change back to the profile file immediately.
@@ -20,7 +47,8 @@ namespace DualSenseClient.GUI.Models.Items;
 /// </para>
 /// <para>
 /// The name is editable directly: assigning a new name renames the underlying profile via
-/// <see cref="ProfileService.RenameProfile"/>, which also re-points any controller bindings.
+/// <see cref="ProfileService.RenameProfile"/> (in-memory with a debounced save) and raises
+/// <see cref="ProfileRenamed"/> so the owning ViewModel can re-point controller assignments.
 /// </para>
 /// </remarks>
 public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
@@ -66,7 +94,7 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
     /// Raised after the profile has been renamed, so the owning ViewModel can refresh
     /// any profile name lists (e.g. the controller assignment dropdown).
     /// </summary>
-    public event EventHandler? ProfileRenamed;
+    public event EventHandler<ProfileRenamedEventArgs>? ProfileRenamed;
 
     /// <summary>
     /// Raised after the profile's lights or name change, so the owning ViewModel can
@@ -95,10 +123,11 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
                 return;
             }
 
-            if (_profileService.RenameProfileInMemory(Profile.Name, trimmed))
+            string oldName = Profile.Name;
+            if (_profileService.RenameProfileInMemory(oldName, trimmed))
             {
                 OnPropertyChanged();
-                ProfileRenamed?.Invoke(this, EventArgs.Empty);
+                ProfileRenamed?.Invoke(this, new ProfileRenamedEventArgs(oldName, trimmed));
                 ProfileChanged?.Invoke(this, EventArgs.Empty);
                 ScheduleCommit();
             }

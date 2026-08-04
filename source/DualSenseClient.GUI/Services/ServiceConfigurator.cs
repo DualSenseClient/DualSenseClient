@@ -32,6 +32,7 @@ public abstract class ServiceConfigurator
         // Settings
         services.AddSingleton<SettingsService>();
         services.AddSingleton<ProfileService>();
+        services.AddSingleton<ControllerInfoService>();
 
         // Services
         services.AddSingleton<IMessageBoxService, MessageBoxService>();

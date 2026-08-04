@@ -47,7 +47,6 @@ public class ProfileServiceTests
     public void Load_MissingFile_FallsBackToDefaults()
     {
         ProfileService service = CreateService();
-        Assert.That(service.Settings.ControllerBindings, Is.Empty);
         Assert.That(service.Settings.Profiles, Has.Count.EqualTo(1));
         Assert.That(service.Settings.Profiles[0].Name, Is.EqualTo(ProfileService.DefaultProfileName));
     }
@@ -82,7 +81,7 @@ public class ProfileServiceTests
     public void Load_ExistingFileWithoutDefault_SeedsDefaultProfile()
     {
         string path = Path.Combine(_tempDir, "profiles.json");
-        File.WriteAllText(path, """{"profiles":[{"name":"Night Mode"}],"controller_bindings":[]}""");
+        File.WriteAllText(path, """{"profiles":[{"name":"Night Mode"}]}""");
         ProfileService service = new ProfileService(profilesPath: path);
         Assert.Multiple(() =>
         {
@@ -90,15 +89,6 @@ public class ProfileServiceTests
             Assert.That(service.GetProfile(ProfileService.DefaultProfileName), Is.Not.Null);
             Assert.That(service.Settings.Profiles, Has.Count.EqualTo(2));
         });
-    }
-
-    [Test]
-    public void GetProfileForControllerOrDefault_ReturnsDefault_WhenUnbound()
-    {
-        ProfileService service = CreateService();
-        service.CreateProfile("Night Mode");
-        Profile? profile = service.GetProfileForControllerOrDefault("AA:BB:CC:DD:EE:FF");
-        Assert.That(profile?.Name, Is.EqualTo(ProfileService.DefaultProfileName));
     }
 
     [Test]
@@ -138,131 +128,33 @@ public class ProfileServiceTests
     }
 
     [Test]
-    public void SetControllerProfile_BindsByMac()
+    public void RenameProfile_UpdatesProfileAndPersists()
     {
         ProfileService service = CreateService();
         service.CreateProfile("Night Mode");
-        service.SetControllerProfile("AA:BB:CC:DD:EE:FF", "Night Mode");
-
-        Assert.That(service.GetBoundProfileName("AA:BB:CC:DD:EE:FF"), Is.EqualTo("Night Mode"));
-        Assert.That(service.GetProfileForController("AA:BB:CC:DD:EE:FF"), Is.Not.Null);
-        Assert.That(service.GetProfileForController("11:22:33:44:55:66"), Is.Null);
-    }
-
-    [Test]
-    public void SetControllerProfile_NormalizesMacCaseAndWhitespace()
-    {
-        ProfileService service = CreateService();
-        service.CreateProfile("Night Mode");
-        service.SetControllerProfile("aa:bb:cc:dd:ee:ff", "Night Mode");
-        Assert.That(service.GetBoundProfileName("AA:BB:CC:DD:EE:FF"), Is.EqualTo("Night Mode"));
-    }
-
-    [Test]
-    public void SetControllerProfile_ClearsBinding_WhenProfileNull()
-    {
-        ProfileService service = CreateService();
-        service.SetControllerProfile("AA:BB:CC:DD:EE:FF", "Night Mode");
-        service.SetControllerProfile("AA:BB:CC:DD:EE:FF", null);
-        Assert.That(service.GetBoundProfileName("AA:BB:CC:DD:EE:FF"), Is.Null);
-    }
-
-    [Test]
-    public void SetControllerProfile_BindsByDevicePath_WhenMacUnavailable()
-    {
-        ProfileService service = CreateService();
-        service.CreateProfile("Night Mode");
-        service.SetControllerProfile(null, @"\\?\HID#VID_054C#1", "Night Mode");
-
-        Assert.That(service.GetBoundProfileName(null, @"\\?\HID#VID_054C#1"), Is.EqualTo("Night Mode"));
-        Assert.That(service.GetProfileForController(null, @"\\?\HID#VID_054C#1"), Is.Not.Null);
-    }
-
-    [Test]
-    public void SetControllerProfile_ReplacesBinding_ByMacOrDevicePath()
-    {
-        ProfileService service = CreateService();
-        service.CreateProfile("One");
-        service.CreateProfile("Two");
-        service.SetControllerProfile("AA:BB:CC:DD:EE:FF", @"\\?\HID#VID_054C#1", "One");
-        service.SetControllerProfile("AA:BB:CC:DD:EE:FF", @"\\?\HID#VID_054C#1", "Two");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(service.GetBoundProfileName("AA:BB:CC:DD:EE:FF"), Is.EqualTo("Two"));
-            Assert.That(service.GetBoundProfileName(null, @"\\?\HID#VID_054C#1"), Is.EqualTo("Two"));
-            Assert.That(service.Settings.ControllerBindings, Has.Count.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public void GetBoundProfileName_PrefersMacOverDevicePath()
-    {
-        ProfileService service = CreateService();
-        service.CreateProfile("Path-Only");
-        service.CreateProfile("Mac-Bound");
-        // Simulates an edge case where two bindings share a device path: the MAC-bound
-        // binding must win when a MAC is available, and the path binding is the fallback.
-        service.Settings.ControllerBindings.Add(new ControllerBinding
-        {
-            MacAddress = string.Empty,
-            DevicePath = @"\\?\HID#shared",
-            ProfileName = "Path-Only"
-        });
-        service.Settings.ControllerBindings.Add(new ControllerBinding
-        {
-            MacAddress = "AA:BB:CC:DD:EE:FF",
-            DevicePath = @"\\?\HID#shared",
-            ProfileName = "Mac-Bound"
-        });
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(service.GetBoundProfileName("AA:BB:CC:DD:EE:FF", @"\\?\HID#shared"), Is.EqualTo("Mac-Bound"));
-            Assert.That(service.GetBoundProfileName(null, @"\\?\HID#shared"), Is.EqualTo("Path-Only"));
-        });
-    }
-
-    [Test]
-    public void SetControllerProfile_EmptyMac_IsIgnored()
-    {
-        ProfileService service = CreateService();
-        service.SetControllerProfile(string.Empty, "Night Mode");
-        service.SetControllerProfile("   ", "Night Mode");
-        Assert.That(service.Settings.ControllerBindings, Is.Empty);
-    }
-
-    [Test]
-    public void RenameProfile_UpdatesBindings()
-    {
-        ProfileService service = CreateService();
-        service.CreateProfile("Night Mode");
-        service.SetControllerProfile("AA:BB:CC:DD:EE:FF", "Night Mode");
 
         bool renamed = service.RenameProfile("Night Mode", "Dark Mode");
 
         Assert.Multiple(() =>
         {
             Assert.That(renamed, Is.True);
-            Assert.That(service.GetBoundProfileName("AA:BB:CC:DD:EE:FF"), Is.EqualTo("Dark Mode"));
             Assert.That(service.GetProfile("Dark Mode"), Is.Not.Null);
             Assert.That(service.GetProfile("Night Mode"), Is.Null);
         });
     }
 
     [Test]
-    public void RenameProfileInMemory_UpdatesBindingsWithoutSaving()
+    public void RenameProfileInMemory_DoesNotPersist()
     {
         ProfileService service = CreateService();
         service.CreateProfile("Night Mode");
-        service.SetControllerProfile("AA:BB:CC:DD:EE:FF", "Night Mode");
 
         bool renamed = service.RenameProfileInMemory("Night Mode", "Dark Mode");
 
         Assert.Multiple(() =>
         {
             Assert.That(renamed, Is.True);
-            Assert.That(service.GetBoundProfileName("AA:BB:CC:DD:EE:FF"), Is.EqualTo("Dark Mode"));
+            Assert.That(service.GetProfile("Dark Mode"), Is.Not.Null);
         });
         Assert.That(File.ReadAllText(ProfilesPath), Does.Not.Contain("Dark Mode"));
     }
@@ -283,11 +175,10 @@ public class ProfileServiceTests
     }
 
     [Test]
-    public void DeleteProfile_RemovesProfileAndBindings()
+    public void DeleteProfile_RemovesProfile()
     {
         ProfileService service = CreateService();
         service.CreateProfile("Night Mode");
-        service.SetControllerProfile("AA:BB:CC:DD:EE:FF", "Night Mode");
 
         bool deleted = service.DeleteProfile("Night Mode");
 
@@ -295,8 +186,6 @@ public class ProfileServiceTests
         {
             Assert.That(deleted, Is.True);
             Assert.That(service.GetProfile("Night Mode"), Is.Null);
-            Assert.That(service.GetBoundProfileName("AA:BB:CC:DD:EE:FF"), Is.Null);
-            Assert.That(service.GetProfileForController("AA:BB:CC:DD:EE:FF"), Is.Null);
         });
     }
 
@@ -319,22 +208,6 @@ public class ProfileServiceTests
         {
             Assert.That(deleted, Is.True);
             Assert.That(service.GetProfile(ProfileService.DefaultProfileName), Is.Not.Null);
-        });
-    }
-
-    [Test]
-    public void DeleteProfile_UnboundController_FallsBackToDefault()
-    {
-        ProfileService service = CreateService();
-        service.CreateProfile("Night Mode");
-        service.SetControllerProfile("AA:BB:CC:DD:EE:FF", "Night Mode");
-
-        service.DeleteProfile("Night Mode");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(service.GetBoundProfileName("AA:BB:CC:DD:EE:FF"), Is.Null);
-            Assert.That(service.GetProfileForControllerOrDefault("AA:BB:CC:DD:EE:FF")?.Name, Is.EqualTo(ProfileService.DefaultProfileName));
         });
     }
 

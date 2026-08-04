@@ -58,6 +58,13 @@ public class TextBoxCard : ContentControl
         nameof(TextBoxMaxWidth),
         160.0);
 
+    /// <summary>
+    /// Maximum number of characters the TextBox accepts. <c>0</c> means no limit.
+    /// </summary>
+    public static readonly StyledProperty<int> MaxLengthProperty = AvaloniaProperty.Register<TextBoxCard, int>(
+        nameof(MaxLength),
+        0);
+
     /// <inheritdoc cref="TitleProperty"/>
     public string? Title
     {
@@ -112,5 +119,12 @@ public class TextBoxCard : ContentControl
     {
         get => GetValue(TextBoxMaxWidthProperty);
         set => SetValue(TextBoxMaxWidthProperty, value);
+    }
+
+    /// <inheritdoc cref="MaxLengthProperty"/>
+    public int MaxLength
+    {
+        get => GetValue(MaxLengthProperty);
+        set => SetValue(MaxLengthProperty, value);
     }
 }

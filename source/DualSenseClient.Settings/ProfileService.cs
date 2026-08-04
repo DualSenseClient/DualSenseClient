@@ -8,9 +8,9 @@ namespace DualSenseClient.Settings;
 
 /// <summary>
 /// Service for managing controller profiles with JSON file persistence.
-/// Stores named profiles (lightbar color, microphone LED mode, and player LED layout)
-/// plus controller-to-profile bindings keyed by controller MAC address with a device
-/// path fallback.
+/// Stores named profiles (lightbar color, microphone LED mode, and player LED layout).
+/// Controller-to-profile assignments are stored separately by
+/// <see cref="ControllerInfoService"/>.
 /// </summary>
 /// <remarks>
 /// This is a separate settings service from <see cref="SettingsService"/>: it persists to
@@ -150,128 +150,6 @@ public sealed class ProfileService
     }
 
     /// <summary>
-    /// Gets the name of the profile bound to a controller, or <c>null</c> if none.
-    /// The binding is looked up by MAC address first, falling back to the HID device path.
-    /// </summary>
-    /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>
-    /// <param name="devicePath">The controller's HID device path, or <c>null</c>/empty when unavailable.</param>
-    public string? GetBoundProfileName(string? mac, string? devicePath)
-    {
-        string normalizedMac = NormalizeMac(mac);
-        string normalizedPath = NormalizePath(devicePath);
-
-        foreach (ControllerBinding binding in Settings.ControllerBindings)
-        {
-            if (!string.IsNullOrEmpty(normalizedMac)
-                && string.Equals(NormalizeMac(binding.MacAddress), normalizedMac, StringComparison.Ordinal))
-            {
-                return binding.ProfileName;
-            }
-        }
-
-        foreach (ControllerBinding binding in Settings.ControllerBindings)
-        {
-            if (!string.IsNullOrEmpty(normalizedPath)
-                && string.Equals(NormalizePath(binding.DevicePath), normalizedPath, StringComparison.Ordinal))
-            {
-                return binding.ProfileName;
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// Gets the name of the profile bound to a controller MAC address, or <c>null</c> if none.
-    /// </summary>
-    /// <param name="mac">The controller's Bluetooth MAC address.</param>
-    public string? GetBoundProfileName(string mac) => GetBoundProfileName(mac, null);
-
-    /// <summary>
-    /// Gets the profile bound to a controller, or <c>null</c> if the controller is unbound
-    /// or the bound profile no longer exists. Lookup uses the MAC address first, falling
-    /// back to the HID device path.
-    /// </summary>
-    /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>
-    /// <param name="devicePath">The controller's HID device path, or <c>null</c>/empty when unavailable.</param>
-    public Profile? GetProfileForController(string? mac, string? devicePath)
-    {
-        string? profileName = GetBoundProfileName(mac, devicePath);
-        return profileName is null ? null : GetProfile(profileName);
-    }
-
-    /// <summary>
-    /// Gets the profile bound to a controller MAC address, or <c>null</c> if
-    /// the controller is unbound or the bound profile no longer exists.
-    /// </summary>
-    /// <param name="mac">The controller's Bluetooth MAC address.</param>
-    public Profile? GetProfileForController(string mac) => GetProfileForController(mac, null);
-
-    /// <summary>
-    /// Gets the profile bound to a controller, or the <see cref="DefaultProfileName"/>
-    /// profile when the controller is unbound. Lookup uses the MAC address first, falling
-    /// back to the HID device path. Returns <c>null</c> only when neither the bound profile
-    /// nor the default exists.
-    /// </summary>
-    /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>
-    /// <param name="devicePath">The controller's HID device path, or <c>null</c>/empty when unavailable.</param>
-    public Profile? GetProfileForControllerOrDefault(string? mac, string? devicePath)
-    {
-        return GetProfileForController(mac, devicePath) ?? GetProfile(DefaultProfileName);
-    }
-
-    /// <summary>
-    /// Gets the profile bound to a controller MAC address, or the
-    /// <see cref="DefaultProfileName"/> profile when the controller is unbound.
-    /// Returns <c>null</c> only when neither the bound profile nor the default exists.
-    /// </summary>
-    /// <param name="mac">The controller's Bluetooth MAC address.</param>
-    public Profile? GetProfileForControllerOrDefault(string mac)
-    {
-        return GetProfileForControllerOrDefault(mac, null);
-    }
-
-    /// <summary>
-    /// Sets (or clears) the profile bound to a controller and persists the change.
-    /// Any existing binding for the same MAC address or device path is replaced.
-    /// </summary>
-    /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>
-    /// <param name="devicePath">The controller's HID device path, or <c>null</c>/empty when unavailable.</param>
-    /// <param name="profileName">The profile name to bind, or <c>null</c>/empty to unbind.</param>
-    public void SetControllerProfile(string? mac, string? devicePath, string? profileName)
-    {
-        string normalizedMac = NormalizeMac(mac);
-        string normalizedPath = NormalizePath(devicePath);
-        if (string.IsNullOrEmpty(normalizedMac) && string.IsNullOrEmpty(normalizedPath))
-        {
-            return;
-        }
-
-        Settings.ControllerBindings.RemoveAll(b =>
-            (!string.IsNullOrEmpty(normalizedMac) && string.Equals(NormalizeMac(b.MacAddress), normalizedMac, StringComparison.Ordinal))
-            || (!string.IsNullOrEmpty(normalizedPath) && string.Equals(NormalizePath(b.DevicePath), normalizedPath, StringComparison.Ordinal)));
-
-        if (!string.IsNullOrWhiteSpace(profileName))
-        {
-            Settings.ControllerBindings.Add(new ControllerBinding
-            {
-                MacAddress = normalizedMac,
-                DevicePath = normalizedPath,
-                ProfileName = profileName
-            });
-        }
-
-        Save();
-    }
-
-    /// <summary>
-    /// Sets (or clears) the profile bound to a controller MAC address and persists the change.
-    /// </summary>
-    /// <param name="mac">The controller's Bluetooth MAC address.</param>
-    /// <param name="profileName">The profile name to bind, or <c>null</c>/empty to unbind.</param>
-    public void SetControllerProfile(string mac, string? profileName) => SetControllerProfile(mac, null, profileName);
-
-    /// <summary>
     /// Creates a new profile with a unique name derived from <paramref name="baseName"/>
     /// (e.g. "Profile", "Profile 2") and persists it. The new profile is returned.
     /// </summary>
@@ -323,9 +201,8 @@ public sealed class ProfileService
     }
 
     /// <summary>
-    /// Renames a profile in memory (updating any controller bindings referencing it)
-    /// without persisting. Callers that want the rename persisted should call
-    /// <see cref="RenameProfile"/> instead, or schedule their own save.
+    /// Renames a profile in memory without persisting. Callers that want the rename
+    /// persisted should call <see cref="RenameProfile"/> instead, or schedule their own save.
     /// </summary>
     /// <param name="oldName">The current profile name.</param>
     /// <param name="newName">The desired profile name.</param>
@@ -350,19 +227,12 @@ public sealed class ProfileService
         }
 
         profile.Name = trimmed;
-        foreach (ControllerBinding binding in Settings.ControllerBindings)
-        {
-            if (string.Equals(binding.ProfileName, oldName, StringComparison.OrdinalIgnoreCase))
-            {
-                binding.ProfileName = trimmed;
-            }
-        }
 
         return true;
     }
 
     /// <summary>
-    /// Renames a profile and updates any controller bindings referencing it.
+    /// Renames a profile.
     /// </summary>
     /// <param name="oldName">The current profile name.</param>
     /// <param name="newName">The desired profile name.</param>
@@ -380,9 +250,10 @@ public sealed class ProfileService
     }
 
     /// <summary>
-    /// Deletes a profile and removes any controller bindings referencing it.
-    /// The <see cref="DefaultProfileName"/> profile is re-seeded when it is deleted so a
-    /// fallback profile is always available for controllers using a deleted profile.
+    /// Deletes a profile. The <see cref="DefaultProfileName"/> profile is re-seeded when it
+    /// is deleted so a fallback profile is always available for controllers using a
+    /// deleted profile. Callers should also notify <see cref="ControllerInfoService"/>
+    /// to clear controller assignments referencing the deleted profile.
     /// </summary>
     /// <param name="name">The profile name to delete.</param>
     /// <returns><c>true</c> if the profile was deleted, <c>false</c> if it did not exist.</returns>
@@ -395,7 +266,6 @@ public sealed class ProfileService
         }
 
         Settings.Profiles.Remove(profile);
-        Settings.ControllerBindings.RemoveAll(b => string.Equals(b.ProfileName, name, StringComparison.OrdinalIgnoreCase));
         EnsureDefaultProfile();
         Save();
         return true;
@@ -420,14 +290,4 @@ public sealed class ProfileService
         }
         return $"{candidate} {suffix}";
     }
-
-    /// <summary>
-    /// Normalizes a MAC address to uppercase trimmed form so lookups are case-insensitive.
-    /// </summary>
-    private static string NormalizeMac(string? mac) => mac?.Trim().ToUpperInvariant() ?? string.Empty;
-
-    /// <summary>
-    /// Normalizes an HID device path by trimming surrounding whitespace.
-    /// </summary>
-    private static string NormalizePath(string? devicePath) => devicePath?.Trim() ?? string.Empty;
 }

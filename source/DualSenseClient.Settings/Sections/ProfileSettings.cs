@@ -20,12 +20,6 @@ public class ProfileSettings
     public List<Profile> Profiles { get; set; } = [];
 
     /// <summary>
-    /// Gets or sets the controller-to-profile bindings keyed by controller MAC address.
-    /// </summary>
-    [JsonPropertyName("controller_bindings")]
-    public List<ControllerBinding> ControllerBindings { get; set; } = [];
-
-    /// <summary>
     /// Initializes a new instance of the <see cref="ProfileSettings"/> class,
     /// seeding the <see cref="DefaultProfileName"/> profile (blue lightbar, everything
     /// else off) when it is missing so a baseline profile is always available.

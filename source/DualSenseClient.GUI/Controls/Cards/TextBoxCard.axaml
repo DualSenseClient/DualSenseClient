@@ -17,6 +17,7 @@
                                  VerticalAlignment="Center"
                                  MinWidth="{TemplateBinding TextBoxMinWidth}"
                                  MaxWidth="{TemplateBinding TextBoxMaxWidth}"
+                                 MaxLength="{TemplateBinding MaxLength}"
                                  Text="{Binding Text, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" />
                     </Grid>
                 </local:CustomCard>

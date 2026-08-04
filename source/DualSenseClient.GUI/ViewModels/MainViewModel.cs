@@ -44,9 +44,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly INotificationService _notifications;
 
     /// <summary>
-    /// Profile service used to apply each controller's bound profile when it connects.
+    /// Profile service used to look up profiles by name.
     /// </summary>
     private readonly ProfileService _profileService;
+
+    /// <summary>
+    /// Service storing persistent controller info (custom name, MAC address, device path,
+    /// and bound profile), used to register controllers and apply their bound profiles.
+    /// </summary>
+    private readonly ControllerInfoService _controllerService;
 
     /// <summary>
     /// Devices opened by this ViewModel that are not currently owned by the tracker.
@@ -93,16 +99,19 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// <param name="scanner">Scanner used to discover and watch controllers.</param>
     /// <param name="tracker">Tracker that owns the selected controller.</param>
     /// <param name="notifications">Notification service for connect/disconnect events.</param>
-    /// <param name="profileService">Profile service used to apply bound profiles on connect.</param>
-    public MainViewModel(IControllerScanner scanner, IControllerTracker tracker, INotificationService notifications, ProfileService profileService)
+    /// <param name="profileService">Profile service used to look up profiles by name.</param>
+    /// <param name="controllerService">Service storing persistent controller info and profile bindings.</param>
+    public MainViewModel(IControllerScanner scanner, IControllerTracker tracker, INotificationService notifications, ProfileService profileService, ControllerInfoService controllerService)
     {
         _scanner = scanner;
         _tracker = tracker;
         _notifications = notifications;
         _profileService = profileService;
+        _controllerService = controllerService;
         _tracker.ActiveControllerChanged += OnActiveControllerChanged;
         _scanner.ControllerConnected += OnControllerConnected;
         _scanner.ControllerDisconnected += OnControllerDisconnected;
+        _controllerService.ControllersChanged += OnControllersChanged;
     }
 
     /// <summary>
@@ -153,9 +162,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
                 foreach (IControllerDevice controller in devices)
                 {
-                    Controllers.Add(new ControllerItem(controller));
-                    _ownedDevices.Add(controller);
-                    ApplyBoundProfile(controller);
+                    AddController(controller);
                 }
                 _log.Info($"Found {Controllers.Count} controller(s) on initial scan");
 
@@ -203,6 +210,24 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
+    /// Registers a connected controller with the controller info service (so it can be
+    /// renamed and assigned a profile), adds it to the list under its stored display name,
+    /// and applies its bound profile. Called from the UI thread.
+    /// </summary>
+    /// <param name="controller">The controller that just connected.</param>
+    private void AddController(IControllerDevice controller)
+    {
+        string? mac = (controller as DualSenseDevice)?.PairingInfo?.ClientMac;
+        string path = controller.Info.Path;
+        _controllerService.RegisterController(mac, path, controller.Info.ProductName);
+        string displayName = _controllerService.GetDisplayName(mac, path, controller.Info.ProductName);
+
+        Controllers.Add(new ControllerItem(controller, displayName));
+        _ownedDevices.Add(controller);
+        ApplyBoundProfile(controller);
+    }
+
+    /// <summary>
     /// Looks up the profile used by a connected controller (the profile bound to its MAC
     /// address, falling back to its HID device path, then to the default profile) and
     /// applies it. Profiles are applied here rather than in the controller device itself.
@@ -217,7 +242,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         string? mac = device.PairingInfo?.ClientMac;
         string? path = device.Info.Path;
-        Profile? profile = _profileService.GetProfileForControllerOrDefault(mac, path);
+        string? profileName = _controllerService.GetBoundProfileName(mac, path) ?? ProfileService.DefaultProfileName;
+        Profile? profile = _profileService.GetProfile(profileName);
         if (profile is null)
         {
             return;
@@ -272,9 +298,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            Controllers.Add(new ControllerItem(controller));
-            _ownedDevices.Add(controller);
-            ApplyBoundProfile(controller);
+            AddController(controller);
             _notifications.ShowSuccess($"{controller.ConnectionType} controller connected: {controller.Info.ProductName}", 3);
             _log.Info($"Controller connected: {controller.Info.ProductName}");
 
@@ -351,6 +375,20 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
+    /// Refreshes every listed controller's display name when controller info changes
+    /// (e.g. the user renames a controller on the device info page). Raised on the UI
+    /// thread because all controller info saves originate from UI ViewModels.
+    /// </summary>
+    private void OnControllersChanged(object? sender, EventArgs e)
+    {
+        foreach (ControllerItem item in Controllers)
+        {
+            string? mac = (item.Device as DualSenseDevice)?.PairingInfo?.ClientMac;
+            item.DisplayName = _controllerService.GetDisplayName(mac, item.Device.Info.Path, item.Device.Info.ProductName);
+        }
+    }
+
+    /// <summary>
     /// Unsubscribes from events and disposes the owned controllers.
     /// </summary>
     public void Dispose()
@@ -363,6 +401,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _tracker.ActiveControllerChanged -= OnActiveControllerChanged;
         _scanner.ControllerConnected -= OnControllerConnected;
         _scanner.ControllerDisconnected -= OnControllerDisconnected;
+        _controllerService.ControllersChanged -= OnControllersChanged;
 
         foreach (IControllerDevice device in _ownedDevices)
         {
