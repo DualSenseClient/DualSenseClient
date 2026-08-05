@@ -44,7 +44,8 @@ jobs:
     if: |
       needs.check_localization.result == 'success' &&
       github.ref == 'refs/heads/main' &&
-      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.skip_translation_progress))
+      github.event_name == 'workflow_dispatch' &&
+      !inputs.skip_translation_progress
     uses: ./.github/workflows/update_translation_progress.yml
 
   build:
