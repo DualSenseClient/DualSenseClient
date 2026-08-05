@@ -110,6 +110,25 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     private DeviceInfoItem? _previousItem;
 
     /// <summary>
+    /// Whether the battery indicator shows the percentage text (instead of the icon).
+    /// Clicking the shown element toggles to the other.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowBatteryIcon))]
+    private bool showBatteryPercentage;
+
+    /// <summary>
+    /// Whether the battery indicator shows the icon (instead of the percentage text).
+    /// </summary>
+    public bool ShowBatteryIcon => !ShowBatteryPercentage;
+
+    /// <summary>
+    /// Switches the battery indicator between the percentage text and the icon.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleBatteryDisplay() => ShowBatteryPercentage = !ShowBatteryPercentage;
+
+    /// <summary>
     /// Whether a controller is selected and its info can be displayed.
     /// </summary>
     public bool HasDevice => CurrentDevice is not null;
