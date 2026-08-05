@@ -76,11 +76,23 @@
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Text="{DynamicResource DeviceInfoPage.Battery.Level}"
                                        VerticalAlignment="Center" />
-                            <ic:FluentIcon Grid.Column="1"
-                                           Icon="{Binding CurrentDevice.BatteryIcon}"
-                                           IconVariant="Filled"
-                                           ToolTip.Tip="{Binding CurrentDevice.BatteryPercentage}"
-                                           VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1"
+                                        Orientation="Horizontal"
+                                        Spacing="6"
+                                        VerticalAlignment="Center">
+                                <Button Command="{Binding ToggleBatteryDisplayCommand}"
+                                        IsVisible="{Binding ShowBatteryPercentage}"
+                                        ToolTip.Tip="{Binding CurrentDevice.BatteryPercentage}"
+                                        Padding="8,4">
+                                    <TextBlock Text="{Binding CurrentDevice.BatteryPercentage}" />
+                                </Button>
+                                <Button Command="{Binding ToggleBatteryDisplayCommand}"
+                                        IsVisible="{Binding ShowBatteryIcon}"
+                                        ToolTip.Tip="{Binding CurrentDevice.BatteryPercentage}"
+                                        Padding="8,4">
+                                    <ic:FluentIcon Icon="{Binding CurrentDevice.BatteryIcon}" />
+                                </Button>
+                            </StackPanel>
                         </Grid>
                     </cards:CustomCard>
                     <cards:CustomCard>
