@@ -39,7 +39,13 @@ public readonly struct BatteryState : IEquatable<BatteryState>
                 return null; // unknown / invalid
             }
 
-            return Math.Min(level * 10, 100);
+            return PowerState switch
+            {
+                BatteryPowerState.Discharging => Math.Min(level * 10 + 5, 100),
+                BatteryPowerState.Charging => Math.Max((level - 1) * 10, 0),
+                BatteryPowerState.ChargingComplete => 100,
+                _ => null
+            };
         }
     }
 
@@ -66,19 +72,7 @@ public readonly struct BatteryState : IEquatable<BatteryState>
     /// <summary>
     /// Display-friendly battery percentage (100% when charging complete, -1 when unknown).
     /// </summary>
-    public int DisplayPercentage
-    {
-        get
-        {
-            // Charging complete = Always percentage 100%
-            if (PowerState == BatteryPowerState.ChargingComplete)
-            {
-                return 100;
-            }
-
-            return Percentage ?? -1;
-        }
-    }
+    public int DisplayPercentage => Percentage ?? -1;
 
     /// <summary>
     /// Returns true if the raw battery byte is equal.
