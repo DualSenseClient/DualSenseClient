@@ -65,6 +65,13 @@
                                            IsVisible="{Binding IsScanning}" />
                         </Panel>
                     </Button>
+                    <Button Command="{Binding DisconnectControllerCommand}"
+                            IsVisible="{Binding CanDisconnectController}"
+                            ToolTip.Tip="{DynamicResource MainWindow.DisconnectController}"
+                            WindowDecorationProperties.ElementRole="User">
+                        <ic:FluentIcon Icon="PlugDisconnected"
+                                       IconVariant="Regular" />
+                    </Button>
                 </StackPanel>
             </Border>
         </Grid>

@@ -6,10 +6,12 @@ using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DualSenseClient.Bluetooth;
 using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Services;
+using DualSenseClient.Hid;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
 using DualSenseClient.Settings.Sections;
@@ -55,6 +57,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly ControllerInfoService _controllerService;
 
     /// <summary>
+    /// Bluetooth service used to manually disconnect Bluetooth-connected controllers.
+    /// </summary>
+    private readonly IBluetoothService _bluetooth;
+
+    /// <summary>
     /// Devices opened by this ViewModel that are not currently owned by the tracker.
     /// Devices are removed from this list when they are handed to the tracker as the active controller.
     /// </summary>
@@ -68,7 +75,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// <summary>
     /// The controller selected in the title bar combobox.
     /// </summary>
-    [ObservableProperty] private ControllerItem? _selectedItem;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanDisconnectController))]
+    private ControllerItem? _selectedItem;
+
+    /// <summary>
+    /// Whether the disconnect button should be shown: the selected controller
+    /// is connected over Bluetooth.
+    /// </summary>
+    public bool CanDisconnectController => SelectedItem?.Device.ConnectionType == ConnectionType.Bluetooth;
 
     /// <summary>
     /// Whether the scanner is currently watching for controller connection changes.
@@ -101,13 +115,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// <param name="notifications">Notification service for connect/disconnect events.</param>
     /// <param name="profileService">Profile service used to look up profiles by name.</param>
     /// <param name="controllerService">Service storing persistent controller info and profile bindings.</param>
-    public MainViewModel(IControllerScanner scanner, IControllerTracker tracker, INotificationService notifications, ProfileService profileService, ControllerInfoService controllerService)
+    /// <param name="bluetooth">Service used to manually disconnect Bluetooth controllers.</param>
+    public MainViewModel(IControllerScanner scanner, IControllerTracker tracker, INotificationService notifications, ProfileService profileService, ControllerInfoService controllerService, IBluetoothService bluetooth)
     {
         _scanner = scanner;
         _tracker = tracker;
         _notifications = notifications;
         _profileService = profileService;
         _controllerService = controllerService;
+        _bluetooth = bluetooth;
         _tracker.ActiveControllerChanged += OnActiveControllerChanged;
         _scanner.ControllerConnected += OnControllerConnected;
         _scanner.ControllerDisconnected += OnControllerDisconnected;
@@ -127,6 +143,38 @@ public partial class MainViewModel : ObservableObject, IDisposable
         else
         {
             StopScanning();
+        }
+    }
+
+    /// <summary>
+    /// Manually disconnects the selected Bluetooth controller using
+    /// <see cref="IBluetoothService"/>. The device stays paired; the watcher removes
+    /// it from the controller list once the connection drops.
+    /// </summary>
+    [RelayCommand]
+    private async Task DisconnectController()
+    {
+        if (SelectedItem?.Device is not DualSenseDevice device)
+        {
+            return;
+        }
+
+        string? mac = device.PairingInfo?.ClientMac;
+        if (string.IsNullOrEmpty(mac))
+        {
+            _notifications.ShowWarning(LocalizationService.GetText("MainWindow.DisconnectController.NoMac"), 3);
+            return;
+        }
+
+        _log.Info($"Disconnecting Bluetooth controller {device.Info.ProductName} ({mac})");
+        bool disconnected = await Task.Run(() => _bluetooth.Disconnect(mac));
+        if (disconnected)
+        {
+            _notifications.ShowSuccess(string.Format(LocalizationService.GetText("MainWindow.DisconnectController.Success"), device.Info.ProductName), 3);
+        }
+        else
+        {
+            _notifications.ShowWarning(string.Format(LocalizationService.GetText("MainWindow.DisconnectController.Failed"), device.Info.ProductName), 3);
         }
     }
 
