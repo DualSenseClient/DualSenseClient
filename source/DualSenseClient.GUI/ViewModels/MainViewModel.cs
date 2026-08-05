@@ -179,6 +179,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     }
                 }
 
+                // Make the first scanned controller the active one when nothing is selected yet.
+                if (SelectedItem is null && Controllers.Count > 0)
+                {
+                    SelectedItem = Controllers[0];
+                }
+
                 _scanner.StartWatching();
                 IsScanning = true;
             });
