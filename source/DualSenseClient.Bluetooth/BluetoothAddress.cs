@@ -3,8 +3,7 @@ using System.Globalization;
 namespace DualSenseClient.Bluetooth;
 
 /// <summary>
-/// Converts between textual MAC addresses and the 48-bit numeric addresses used by
-/// the Windows Bluetooth APIs.
+/// Converts between textual MAC addresses and their 48-bit numeric value.
 /// </summary>
 public static class BluetoothAddress
 {

@@ -19,7 +19,8 @@ public interface IBluetoothService
 /// <summary>
 /// Default implementation of <see cref="IBluetoothService"/>.
 /// Windows uses the Bluetooth radio driver via <see cref="WindowsBluetooth"/>;
-/// other platforms are not implemented yet and report failure.
+/// Linux uses BlueZ over D-Bus via <see cref="LinuxBluetooth"/>. Other platforms
+/// are not implemented yet and report failure.
 /// </summary>
 public sealed class BluetoothService : IBluetoothService
 {
@@ -38,12 +39,17 @@ public sealed class BluetoothService : IBluetoothService
             return false;
         }
 
-        if (!OperatingSystem.IsWindows())
+        if (OperatingSystem.IsWindows())
         {
-            _log.Warning("Bluetooth disconnect is not supported on this platform yet");
-            return false;
+            return WindowsBluetooth.Disconnect(address.Value);
         }
 
-        return WindowsBluetooth.Disconnect(address.Value);
+        if (OperatingSystem.IsLinux())
+        {
+            return LinuxBluetooth.Disconnect(address.Value);
+        }
+
+        _log.Warning("Bluetooth disconnect is not supported on this platform yet");
+        return false;
     }
 }
