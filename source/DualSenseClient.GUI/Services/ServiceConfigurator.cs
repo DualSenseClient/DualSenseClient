@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.Extensions.DependencyInjection;
+using DualSenseClient.Bluetooth;
 using DualSenseClient.Controllers;
 using DualSenseClient.GUI.ViewModels;
 using DualSenseClient.GUI.ViewModels.Pages;
@@ -55,6 +56,9 @@ public abstract class ServiceConfigurator
         services.AddSingleton<IHidDeviceEnumerator, HidDeviceEnumerator>();
         services.AddSingleton<IControllerScanner, ControllerScanner>();
         services.AddSingleton<IControllerTracker, ControllerTracker>();
+
+        // Bluetooth
+        services.AddSingleton<IBluetoothService, BluetoothService>();
 
         // ViewModels
         services.AddSingleton<MainWindowViewModel>();
