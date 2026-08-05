@@ -139,6 +139,7 @@ Requires the .NET 10 SDK. Releases are produced automatically by CI for Windows 
 - [Fluent Avalonia](https://github.com/amwx/FluentAvalonia) — Fluent Design System for Avalonia
 - [Fluent Icons](https://github.com/davidxuang/FluentIcons) — Fluent icon set for modern interfaces
 - [SDL3](https://github.com/libsdl-org/SDL) (via [ppy.SDL3-CS](https://github.com/ppy/SDL3-CS)) — Cross-platform HID access for USB and Bluetooth
+- [Tmds.DBus](https://github.com/tmds/Tmds.DBus) — D-Bus client for BlueZ integration on Linux (Bluetooth disconnect; Windows uses the native Bluetooth radio driver via P/Invoke)
 - [Concentus](https://github.com/lostromb/concentus) — Opus audio encoding for Bluetooth haptics
 - [SoundFlow](https://github.com/LSXPrime/SoundFlow) — Audio playback with FFmpeg codec support
 - [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet) — MVVM framework with source generators
