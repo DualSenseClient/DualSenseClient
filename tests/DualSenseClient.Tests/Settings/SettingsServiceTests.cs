@@ -61,6 +61,9 @@ public class SettingsServiceTests
         Assert.That(settings.Debug.LogLevel, Is.EqualTo(LogLevel.Info));
         Assert.That(settings.Ui.Language, Is.EqualTo("en"));
         Assert.That(settings.Ui.Theme, Is.EqualTo(DualSenseClient.Core.Models.Theme.System));
+        Assert.That(settings.Ui.CloseToTray, Is.True);
+        Assert.That(settings.Ui.StartInTray, Is.False);
+        Assert.That(settings.Ui.ShowBatteryPercentage, Is.True);
     }
 
     [Test]
@@ -70,6 +73,9 @@ public class SettingsServiceTests
         SettingsModel saved = new();
         saved.Debug.LogLevel = LogLevel.Warning;
         saved.Ui.Language = "de";
+        saved.Ui.CloseToTray = false;
+        saved.Ui.StartInTray = true;
+        saved.Ui.ShowBatteryPercentage = false;
 
         string json = JsonSerializer.Serialize(saved, CreateJsonOptions());
         File.WriteAllText(settingsPath, json);
@@ -79,6 +85,9 @@ public class SettingsServiceTests
 
         Assert.That(loaded.Debug.LogLevel, Is.EqualTo(LogLevel.Warning));
         Assert.That(loaded.Ui.Language, Is.EqualTo("de"));
+        Assert.That(loaded.Ui.CloseToTray, Is.False);
+        Assert.That(loaded.Ui.StartInTray, Is.True);
+        Assert.That(loaded.Ui.ShowBatteryPercentage, Is.False);
     }
 
     [Test]

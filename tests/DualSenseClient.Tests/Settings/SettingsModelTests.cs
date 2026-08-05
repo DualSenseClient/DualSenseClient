@@ -66,4 +66,49 @@ public class SettingsModelTests
         ui.Theme = Theme.Dark;
         Assert.That(ui.Theme, Is.EqualTo(Theme.Dark));
     }
+
+    [Test]
+    public void UiSettings_Default_CloseToTrayIsTrue()
+    {
+        UiSettings ui = new();
+        Assert.That(ui.CloseToTray, Is.True);
+    }
+
+    [Test]
+    public void UiSettings_Default_StartInTrayIsFalse()
+    {
+        UiSettings ui = new();
+        Assert.That(ui.StartInTray, Is.False);
+    }
+
+    [Test]
+    public void UiSettings_CanSetCloseToTray()
+    {
+        UiSettings ui = new();
+        ui.CloseToTray = false;
+        Assert.That(ui.CloseToTray, Is.False);
+    }
+
+    [Test]
+    public void UiSettings_CanSetStartInTray()
+    {
+        UiSettings ui = new();
+        ui.StartInTray = true;
+        Assert.That(ui.StartInTray, Is.True);
+    }
+
+    [Test]
+    public void UiSettings_Default_ShowBatteryPercentageIsTrue()
+    {
+        UiSettings ui = new();
+        Assert.That(ui.ShowBatteryPercentage, Is.True);
+    }
+
+    [Test]
+    public void UiSettings_CanSetShowBatteryPercentage()
+    {
+        UiSettings ui = new();
+        ui.ShowBatteryPercentage = false;
+        Assert.That(ui.ShowBatteryPercentage, Is.False);
+    }
 }

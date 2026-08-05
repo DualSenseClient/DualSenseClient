@@ -39,6 +39,7 @@ public abstract class ServiceConfigurator
         services.AddSingleton<INotificationService, NotificationService>();
         services.AddSingleton<ThemeService>();
         services.AddSingleton<NavigationService>();
+        services.AddSingleton<TrayIconService>();
 
         // Audio engine (SoundFlow/MiniAudio). One shared engine owns the WASAPI context,
         // the device list, and the codec registry; the FFmpeg codec adds decoding for

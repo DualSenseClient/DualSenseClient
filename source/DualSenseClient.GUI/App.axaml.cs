@@ -41,6 +41,13 @@ public partial class App : Application
     public static IServiceProvider Services { get; private set; } = ServiceConfigurator.ConfigureServices();
 
     /// <summary>
+    /// Whether the application is shutting down via the tray menu's Exit item.
+    /// Set so the main window's close handler stops intercepting window closes
+    /// and lets the shutdown proceed.
+    /// </summary>
+    public static bool IsExiting { get; set; }
+
+    /// <summary>
     /// Logger instance for application-level events.
     /// </summary>
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("App");
@@ -82,9 +89,35 @@ public partial class App : Application
 
             MainWindow mainWindow = Services.GetRequiredService<MainWindow>();
             desktop.MainWindow = mainWindow;
+
+            // When "start in tray" is enabled, hide the window once it opens.
+            // The lifetime's ShowMainWindow call runs after this method, so the
+            // window must be hidden in its Opened handler instead of here.
+            if (settingsService.Settings.Ui.StartInTray)
+            {
+                mainWindow.Opened += HideStartupWindow;
+            }
+
+            // Tray icon (created for its side effects: icon, menu, and subscriptions).
+            _ = Services.GetRequiredService<TrayIconService>();
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>
+    /// Hides the main window on its first opening when the "start in tray" setting
+    /// is enabled, leaving the application running in the system tray.
+    /// </summary>
+    private static void HideStartupWindow(object? sender, EventArgs e)
+    {
+        if (sender is not MainWindow mainWindow)
+        {
+            return;
+        }
+
+        mainWindow.Opened -= HideStartupWindow;
+        mainWindow.Hide();
     }
 
     /// <summary>
