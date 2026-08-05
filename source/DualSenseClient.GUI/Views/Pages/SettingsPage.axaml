@@ -61,6 +61,32 @@
                                         SelectedIndex="{Binding SelectedThemeIndex}" />
                 </StackPanel>
             </Expander>
+            <!-- Window Settings -->
+            <Expander>
+                <Expander.Header>
+                    <cards:CardHeader Title="{DynamicResource SettingsPage.Window.Title}"
+                                      Description="{DynamicResource SettingsPage.Window.Description}"
+                                      Icon="{x:Static fic:Symbol.Window}"
+                                      MinHeight="64" />
+                </Expander.Header>
+                <StackPanel Spacing="8">
+                    <!-- Close to Tray -->
+                    <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.ShareCloseTray}"
+                                            Title="{DynamicResource SettingsPage.Window.CloseToTray.Title}"
+                                            Description="{DynamicResource SettingsPage.Window.CloseToTray.Description}"
+                                            IsChecked="{Binding CloseToTray}" />
+                    <!-- Start in Tray -->
+                    <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.ArrowMinimize}"
+                                            Title="{DynamicResource SettingsPage.Window.StartInTray.Title}"
+                                            Description="{DynamicResource SettingsPage.Window.StartInTray.Description}"
+                                            IsChecked="{Binding StartInTray}" />
+                    <!-- Show Battery Percentage -->
+                    <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.Battery9}"
+                                            Title="{DynamicResource SettingsPage.Window.BatteryPercentage.Title}"
+                                            Description="{DynamicResource SettingsPage.Window.BatteryPercentage.Description}"
+                                            IsChecked="{Binding ShowBatteryPercentage}" />
+                </StackPanel>
+            </Expander>
             <!-- Debug Settings -->
             <Expander>
                 <Expander.Header>

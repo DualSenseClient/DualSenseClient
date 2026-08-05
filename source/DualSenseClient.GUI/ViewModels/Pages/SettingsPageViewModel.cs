@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
@@ -234,6 +233,70 @@ public partial class SettingsPageViewModel : ObservableObject
         }
     }
 
+    // ─────────────────────────────────────────────────────────────── Tray
+    /// <summary>
+    /// Whether closing the main window hides it to the system tray instead of exiting.
+    /// Persisted to <see cref="Sections.UiSettings.CloseToTray"/>.
+    /// </summary>
+    [ObservableProperty] private bool closeToTray;
+
+    /// <summary>
+    /// Called after <see cref="CloseToTray"/> changes. Persists the choice to settings.
+    /// </summary>
+    partial void OnCloseToTrayChanged(bool oldValue, bool newValue)
+    {
+        if (_suppressUpdates || oldValue == newValue)
+        {
+            return;
+        }
+
+        _log.Info($"Close to tray changed to '{newValue}'");
+        _settingsService.Settings.Ui.CloseToTray = newValue;
+        _settingsService.SaveSettings();
+    }
+
+    /// <summary>
+    /// Whether the application starts with its main window hidden in the system tray.
+    /// Persisted to <see cref="Sections.UiSettings.StartInTray"/>.
+    /// </summary>
+    [ObservableProperty] private bool startInTray;
+
+    /// <summary>
+    /// Called after <see cref="StartInTray"/> changes. Persists the choice to settings.
+    /// </summary>
+    partial void OnStartInTrayChanged(bool oldValue, bool newValue)
+    {
+        if (_suppressUpdates || oldValue == newValue)
+        {
+            return;
+        }
+
+        _log.Info($"Start in tray changed to '{newValue}'");
+        _settingsService.Settings.Ui.StartInTray = newValue;
+        _settingsService.SaveSettings();
+    }
+
+    /// <summary>
+    /// Whether the tray icon shows the selected controller's battery percentage.
+    /// Persisted to <see cref="Sections.UiSettings.ShowBatteryPercentage"/>.
+    /// </summary>
+    [ObservableProperty] private bool showBatteryPercentage;
+
+    /// <summary>
+    /// Called after <see cref="ShowBatteryPercentage"/> changes. Persists the choice to settings.
+    /// </summary>
+    partial void OnShowBatteryPercentageChanged(bool oldValue, bool newValue)
+    {
+        if (_suppressUpdates || oldValue == newValue)
+        {
+            return;
+        }
+
+        _log.Info($"Show battery percentage changed to '{newValue}'");
+        _settingsService.Settings.Ui.ShowBatteryPercentage = newValue;
+        _settingsService.SaveSettings();
+    }
+
     /// <summary>
     /// Initializes a new instance of <see cref="SettingsPageViewModel"/>.
     /// Resolves dependencies from the DI container and loads current settings into UI state.
@@ -316,5 +379,10 @@ public partial class SettingsPageViewModel : ObservableObject
 
         // Log level
         OnPropertyChanged(nameof(SelectedLogLevelIndex));
+
+        // Tray behavior
+        CloseToTray = _settingsService.Settings.Ui.CloseToTray;
+        StartInTray = _settingsService.Settings.Ui.StartInTray;
+        ShowBatteryPercentage = _settingsService.Settings.Ui.ShowBatteryPercentage;
     }
 }
