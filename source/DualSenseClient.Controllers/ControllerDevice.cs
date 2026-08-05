@@ -185,7 +185,7 @@ public abstract class ControllerDevice(IHidDevice device, IHidDeviceInfo info) :
     }
 
     /// <inheritdoc/>
-    public void Dispose()
+    public virtual void Dispose()
     {
         device.Dispose();
     }

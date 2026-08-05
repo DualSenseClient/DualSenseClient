@@ -138,4 +138,71 @@ public class DualSenseDeviceDisposeTests
 
         Assert.Throws<HidException>(() => device.GetProductName());
     }
+
+    private sealed class CancellableHidDevice : IHidDevice
+    {
+        public readonly TaskCompletionSource<CancellationToken> ReadStarted =
+            new TaskCompletionSource<CancellationToken>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private bool _disposed;
+
+        public ushort VendorId => 0x054C;
+
+        public ushort ProductId => 0x0CE6;
+
+        public string DevicePath => "test";
+
+        public bool IsConnected => !_disposed;
+
+        public int Read(byte[] buffer, int offset, int count, int timeoutMs)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return 0;
+        }
+
+        public async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken ct)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            ReadStarted.TrySetResult(ct);
+            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+            return 0;
+        }
+
+        public int Write(byte[] buffer, int offset, int count)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return count;
+        }
+
+        public byte[] GetFeatureReport(byte reportId, int bufferSize = 64)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return [];
+        }
+
+        public void SendFeatureReport(byte[] buffer, int offset, int count)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+        }
+
+        public string GetProductName()
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return "Test";
+        }
+
+        public void Dispose() => _disposed = true;
+    }
+
+    [Test]
+    public void Dispose_CancelsTheReadLoop()
+    {
+        CancellableHidDevice hid = new CancellableHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Usb));
+
+        CancellationToken loopToken = hid.ReadStarted.Task.GetAwaiter().GetResult();
+        device.Dispose();
+
+        Assert.That(loopToken.IsCancellationRequested, Is.True);
+    }
 }

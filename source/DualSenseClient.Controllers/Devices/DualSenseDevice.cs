@@ -55,6 +55,11 @@ public class DualSenseDevice : ControllerDevice
     /// </summary>
     private readonly object _audioWriteLock = new object();
 
+    /// <summary>
+    /// 1 once <see cref="Dispose"/> has run, guarding against double disposal.
+    /// </summary>
+    private int _disposed;
+
     /// <inheritdoc/>
     public override ControllerType ControllerType => ControllerType.DualSense;
 
@@ -617,5 +622,28 @@ public class DualSenseDevice : ControllerDevice
             _log.Trace($"{button} released");
             ButtonReleased?.Invoke(this, new ButtonEventArgs(button));
         }
+    }
+
+    /// <inheritdoc/>
+    public override void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        _cts.Cancel();
+        base.Dispose();
+
+        try
+        {
+            _readTask.Wait(TimeSpan.FromSeconds(2));
+        }
+        catch (AggregateException ex)
+        {
+            _log.Warning($"Read loop did not stop cleanly on dispose: {ex.InnerException?.Message}");
+        }
+
+        _cts.Dispose();
     }
 }
