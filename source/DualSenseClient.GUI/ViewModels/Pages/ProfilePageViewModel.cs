@@ -63,6 +63,11 @@ public partial class ProfilePageViewModel : ObservableObject
     private readonly ControllerInfoService _controllerService;
 
     /// <summary>
+    /// Service storing the global list of special actions.
+    /// </summary>
+    private readonly SpecialActionService _specialActionService;
+
+    /// <summary>
     /// Service used for delete confirmations.
     /// </summary>
     private readonly IMessageBoxService _messageBox;
@@ -104,6 +109,34 @@ public partial class ProfilePageViewModel : ObservableObject
     /// All saved profiles, shown in the profile list and editor.
     /// </summary>
     public ObservableCollection<ProfileEditorItem> Profiles { get; } = [];
+
+    /// <summary>
+    /// The global list of special actions, shown in the special actions section.
+    /// </summary>
+    public ObservableCollection<SpecialActionItem> SpecialActions { get; } = [];
+
+    /// <summary>
+    /// Whether any special actions exist.
+    /// </summary>
+    public bool HasSpecialActions => SpecialActions.Count > 0;
+
+    /// <summary>
+    /// The special action currently being edited, or <c>null</c> when none exists.
+    /// </summary>
+    [ObservableProperty] private SpecialActionItem? _selectedSpecialAction;
+
+    /// <summary>
+    /// Whether a special action is selected for editing.
+    /// </summary>
+    public bool HasSelectedSpecialAction => SelectedSpecialAction is not null;
+
+    /// <summary>
+    /// Notifies the editor visibility when the selection changes.
+    /// </summary>
+    partial void OnSelectedSpecialActionChanged(SpecialActionItem? value)
+    {
+        OnPropertyChanged(nameof(HasSelectedSpecialAction));
+    }
 
     /// <summary>
     /// The profile currently being edited, or <c>null</c> when none exists.
@@ -189,6 +222,7 @@ public partial class ProfilePageViewModel : ObservableObject
         _mainViewModel = App.Services.GetRequiredService<MainViewModel>();
         _profileService = App.Services.GetRequiredService<ProfileService>();
         _controllerService = App.Services.GetRequiredService<ControllerInfoService>();
+        _specialActionService = App.Services.GetRequiredService<SpecialActionService>();
         _messageBox = App.Services.GetRequiredService<IMessageBoxService>();
         _mainViewModel.PropertyChanged += OnMainViewModelPropertyChanged;
         Refresh();
@@ -201,6 +235,7 @@ public partial class ProfilePageViewModel : ObservableObject
     public void Refresh()
     {
         RebuildProfiles();
+        RebuildSpecialActions();
         UpdateDevice();
     }
 
@@ -267,6 +302,23 @@ public partial class ProfilePageViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Creates a new special action, enabled for the controller currently selected on this
+    /// page, and adds it to the list for editing. New actions have no button combination
+    /// until the user selects one.
+    /// </summary>
+    [RelayCommand]
+    private void AddSpecialAction()
+    {
+        SpecialAction action = _specialActionService.CreateAction(
+            null,
+            SpecialActionService.GetControllerId(CurrentMac, CurrentDevicePath));
+        SpecialActionItem item = AddSpecialActionItem(action);
+        SpecialActions.Add(item);
+        SelectedSpecialAction = item;
+        OnPropertyChanged(nameof(HasSpecialActions));
+    }
+
+    /// <summary>
     /// Re-applies the profile currently used by the selected controller (the bound profile,
     /// or the default when unbound) to push its current settings back to the controller.
     /// </summary>
@@ -274,6 +326,24 @@ public partial class ProfilePageViewModel : ObservableObject
     private void ReapplyProfile()
     {
         ApplyBoundProfileToController();
+    }
+
+    /// <summary>
+    /// Deletes a special action after its delete button is pressed, and persists the change.
+    /// </summary>
+    private void OnSpecialActionDeleteRequested(object? sender, EventArgs e)
+    {
+        if (sender is not SpecialActionItem item)
+        {
+            return;
+        }
+
+        _log.Info($"Deleting special action '{item.Action.Name}'");
+        _specialActionService.DeleteAction(item.Action.Id);
+        SpecialActions.Remove(item);
+        item.Dispose();
+        SelectedSpecialAction = SpecialActions.FirstOrDefault();
+        OnPropertyChanged(nameof(HasSpecialActions));
     }
 
     /// <summary>
@@ -314,6 +384,46 @@ public partial class ProfilePageViewModel : ObservableObject
         OnPropertyChanged(nameof(CurrentMac));
         OnPropertyChanged(nameof(CurrentDevicePath));
         OnPropertyChanged(nameof(SelectedAssignedProfileIndex));
+        RebuildSpecialActions();
+    }
+
+    /// <summary>
+    /// Rebuilds the <see cref="SpecialActions"/> collection from the current service state,
+    /// binding each item to the currently selected controller. Disposes and unsubscribes
+    /// previous items first.
+    /// </summary>
+    private void RebuildSpecialActions()
+    {
+        foreach (SpecialActionItem item in SpecialActions)
+        {
+            item.DeleteRequested -= OnSpecialActionDeleteRequested;
+            item.Dispose();
+        }
+        SpecialActions.Clear();
+
+        string? controllerId = SpecialActionService.GetControllerId(CurrentMac, CurrentDevicePath);
+        foreach (SpecialAction action in _specialActionService.Settings.Actions)
+        {
+            SpecialActions.Add(AddSpecialActionItem(action, controllerId));
+        }
+
+        SelectedSpecialAction = SpecialActions.FirstOrDefault();
+        OnPropertyChanged(nameof(HasSpecialActions));
+    }
+
+    /// <summary>
+    /// Wraps an action in a new <see cref="SpecialActionItem"/> and subscribes to its
+    /// delete request. When <paramref name="controllerId"/> is <c>null</c>, the current
+    /// controller's identifier from the page selection is used.
+    /// </summary>
+    private SpecialActionItem AddSpecialActionItem(SpecialAction action, string? controllerId = null)
+    {
+        SpecialActionItem item = new SpecialActionItem(
+            action,
+            _specialActionService,
+            controllerId ?? SpecialActionService.GetControllerId(CurrentMac, CurrentDevicePath));
+        item.DeleteRequested += OnSpecialActionDeleteRequested;
+        return item;
     }
 
     /// <summary>
