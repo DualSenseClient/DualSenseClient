@@ -344,6 +344,13 @@
                                                       ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.ApplyWhileHeld.ToolTip}"
                                                       HorizontalAlignment="Left" />
 
+                                        <cards:NumberBoxCard Title="{DynamicResource ProfilePage.SpecialActions.Duration}"
+                                                             Description="{DynamicResource ProfilePage.SpecialActions.Duration.Description}"
+                                                             Minimum="0"
+                                                             Maximum="60"
+                                                             Value="{Binding DurationSeconds}"
+                                                             IsVisible="{Binding IsDurationVisible}" />
+
                                         <StackPanel Spacing="8"
                                                     IsVisible="{Binding IsColorAction}">
                                             <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Color}"

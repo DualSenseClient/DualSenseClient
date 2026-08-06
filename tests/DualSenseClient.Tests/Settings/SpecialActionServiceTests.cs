@@ -260,6 +260,7 @@ public class SpecialActionServiceTests
         action.Effects.RemoveAt(0);
         action.HoldTimeMs = 1500;
         action.ApplyWhileHeld = true;
+        action.DurationMs = 3000;
         service.Save();
 
         SpecialActionService reloaded = CreateService();
@@ -283,6 +284,7 @@ public class SpecialActionServiceTests
             Assert.That(loaded.Effects[2].HapticStrength, Is.EqualTo(150));
             Assert.That(loaded.HoldTimeMs, Is.EqualTo(1500));
             Assert.That(loaded.ApplyWhileHeld, Is.True);
+            Assert.That(loaded.DurationMs, Is.EqualTo(3000));
             Assert.That(loaded.EnabledControllers, Is.EqualTo(new[] { "AA:BB:CC:DD:EE:FF" }));
         });
     }

@@ -270,6 +270,8 @@
     <sys:String x:Key="ProfilePage.SpecialActions.HoldTime.Description">Seconds to hold the combination before it fires. 0 = fires immediately.</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.ApplyWhileHeld">Apply only while held</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.ApplyWhileHeld.ToolTip">Lights change only while the combination is held and revert on release; a sound plays while held and stops on release.</sys:String>
+    <sys:String x:Key="ProfilePage.SpecialActions.Duration">Show duration</sys:String>
+    <sys:String x:Key="ProfilePage.SpecialActions.Duration.Description">Seconds the light effects stay applied before the profile is restored. 0 = stay applied.</sys:String>
 
     <!-- Settings Page -->
     <sys:String x:Key="SettingsPage.Header.AppName">DualSense Client</sys:String>

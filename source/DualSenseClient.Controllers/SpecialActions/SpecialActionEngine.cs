@@ -41,7 +41,10 @@ public sealed class SpecialActionExecutedEventArgs : EventArgs
 /// interrupting it (pressing an extra button or releasing a combination button) resets the
 /// timer. Light actions can also be marked <see cref="SpecialAction.ApplyWhileHeld"/>: they
 /// are applied while the combination is held and the controller reverts to its bound profile
-/// (see <see cref="ProfileProvider"/>) once a combination button is released. Sound actions
+/// (see <see cref="ProfileProvider"/>) once a combination button is released. Alternatively
+/// they can carry a duration (<see cref="SpecialAction.DurationMs"/>): they stay applied for
+/// that long and the controller then reverts to its bound profile automatically, whether or
+/// not the combination is still held. Sound actions
 /// play an audio file through the controller speaker (see <see cref="SoundPlayerFactory"/>);
 /// marked <see cref="SpecialAction.ApplyWhileHeld"/>, the sound plays while the combination
 /// is held and stops on release.
@@ -68,6 +71,11 @@ public sealed class SpecialActionEngine : IDisposable
     /// Upper bound for a hold duration.
     /// </summary>
     public const int MaxHoldTimeMs = 10000;
+
+    /// <summary>
+    /// Upper bound for how long a light effect stays applied before the profile is restored.
+    /// </summary>
+    public const int MaxDurationMs = 60000;
 
     /// <summary>
     /// Logger instance.
@@ -122,6 +130,12 @@ public sealed class SpecialActionEngine : IDisposable
     private readonly HashSet<Guid> _sustainedActive = new HashSet<Guid>();
 
     /// <summary>
+    /// Timed light actions that are currently applied, keyed by action id and mapped to
+    /// their restore deadline (after which the bound profile is re-applied).
+    /// </summary>
+    private readonly Dictionary<Guid, DateTime> _timedActive = new Dictionary<Guid, DateTime>();
+
+    /// <summary>
     /// The player used by <see cref="SpecialActionTypes.PlaySound"/> actions, created lazily
     /// from <see cref="SoundPlayerFactory"/> on the first sound trigger and released on
     /// detach.
@@ -170,6 +184,7 @@ public sealed class SpecialActionEngine : IDisposable
             _fired.Clear();
             _pending.Clear();
             _sustainedActive.Clear();
+            _timedActive.Clear();
 
             device.ButtonPressed += OnButtonPressed;
             device.ButtonReleased += OnButtonReleased;
@@ -220,6 +235,12 @@ public sealed class SpecialActionEngine : IDisposable
                 {
                     StopSound();
                 }
+            }
+
+            if (_timedActive.Count > 0)
+            {
+                _timedActive.Clear();
+                RestoreBaseState();
             }
         }
     }
@@ -324,13 +345,14 @@ public sealed class SpecialActionEngine : IDisposable
 
     /// <summary>
     /// Fires actions whose hold deadline has passed while the exact combination is still
-    /// held. Called by the timer on the thread pool.
+    /// held, and restores the bound profile for timed light actions whose duration elapsed.
+    /// Called by the timer on the thread pool.
     /// </summary>
     private void CheckPendingHolds()
     {
         lock (_lock)
         {
-            if (_device is null || _pending.Count == 0)
+            if (_device is null || (_pending.Count == 0 && _timedActive.Count == 0))
             {
                 return;
             }
@@ -359,6 +381,16 @@ public sealed class SpecialActionEngine : IDisposable
                 }
 
                 Fire(action);
+            }
+
+            // Timed light actions: restore the bound profile once their duration elapsed.
+            foreach (Guid id in _timedActive.Keys.ToList())
+            {
+                if (now >= _timedActive[id])
+                {
+                    _timedActive.Remove(id);
+                    RestoreBaseState();
+                }
             }
         }
     }
@@ -411,7 +443,7 @@ public sealed class SpecialActionEngine : IDisposable
             }
 
             // The hold state is per action, not per effect: the whole set of effects is
-            // one-shot or applied while held together.
+            // one-shot, applied while held, or applied for a duration together.
             if (action.ApplyWhileHeld && action.Effects.Any(e => IsSustainedEffect(e.Type)))
             {
                 _sustainedActive.Add(action.Id);
@@ -419,6 +451,13 @@ public sealed class SpecialActionEngine : IDisposable
             else
             {
                 _fired.Add(action.Id);
+
+                int durationMs = Math.Clamp(action.DurationMs, 0, MaxDurationMs);
+                if (durationMs > 0 && action.Effects.Any(e => IsTimedEffect(e.Type)))
+                {
+                    // A repeated fire (re-hold) restarts the duration.
+                    _timedActive[action.Id] = DateTime.UtcNow.AddMilliseconds(durationMs);
+                }
             }
 
             foreach (SpecialActionEffect effect in action.Effects)
@@ -455,6 +494,15 @@ public sealed class SpecialActionEngine : IDisposable
             or SpecialActionTypes.ShowBatteryLevel;
 
     /// <summary>
+    /// Whether an effect type supports the timed duration behavior (<see cref="SpecialAction.DurationMs"/>):
+    /// the light effects, which can be reverted by re-applying the bound profile.
+    /// </summary>
+    private static bool IsTimedEffect(string type) =>
+        type is SpecialActionTypes.SetLightbarColor
+            or SpecialActionTypes.SetPlayerLeds
+            or SpecialActionTypes.ShowBatteryLevel;
+
+    /// <summary>
     /// Executes a single effect on the attached controller.
     /// </summary>
     private void ExecuteEffect(SpecialActionEffect effect)
@@ -483,7 +531,7 @@ public sealed class SpecialActionEngine : IDisposable
     }
 
     /// <summary>
-    /// Reverts a while-held light action by re-applying the profile resolved via
+    /// Reverts a while-held or timed light action by re-applying the profile resolved via
     /// <see cref="ProfileProvider"/> (the protocol cannot read the current light state back,
     /// so the bound profile is the source of truth). No-op when no provider is set or it
     /// resolves to <c>null</c>.
@@ -501,7 +549,7 @@ public sealed class SpecialActionEngine : IDisposable
             return;
         }
 
-        _log.Debug("Restoring bound profile after while-held special action");
+        _log.Debug("Restoring bound profile after special action");
         try
         {
             _device.ApplyProfile(profile);
@@ -636,6 +684,7 @@ public sealed class SpecialActionEngine : IDisposable
         _fired.Clear();
         _pending.Clear();
         _sustainedActive.Clear();
+        _timedActive.Clear();
 
         _soundPlayer?.Dispose();
         _soundPlayer = null;

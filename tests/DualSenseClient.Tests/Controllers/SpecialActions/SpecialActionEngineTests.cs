@@ -1294,4 +1294,129 @@ public class SpecialActionEngineTests
         engine.Dispose();
         device.Dispose();
     }
+
+    [Test]
+    public void TimedLightbar_RestoresProfileAfterDuration()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        engine.ProfileProvider = _ => CreateRestoreProfile();
+        SpecialAction action = CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: false);
+        action.DurationMs = 300;
+        engine.UpdateActions([action]);
+
+        FeedReport(device, CreateReport());
+        FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
+        Assert.That(hid.Writes, Has.Count.EqualTo(1));
+        Assert.That(hid.Writes[0][45], Is.EqualTo(0xAA));
+
+        Assert.That(WaitUntil(() => hid.Writes.Count == 2), Is.True, "Timed light action did not restore the profile after its duration");
+        Assert.Multiple(() =>
+        {
+            Assert.That(hid.Writes[^1][45], Is.EqualTo(0x01));
+            Assert.That(hid.Writes[^1][46], Is.EqualTo(0x02));
+            Assert.That(hid.Writes[^1][47], Is.EqualTo(0x03));
+        });
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void TimedLightbar_ReleaseDoesNotRestoreBeforeDuration()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        engine.ProfileProvider = _ => CreateRestoreProfile();
+        SpecialAction action = CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: false);
+        action.DurationMs = 2000;
+        engine.UpdateActions([action]);
+
+        FeedReport(device, CreateReport());
+        FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
+        Assert.That(hid.Writes, Has.Count.EqualTo(1));
+
+        // Releasing the combination re-arms the action but does not restore early; the
+        // effect stays until the duration elapsed.
+        FeedReport(device, CreateReport(ButtonType.L1));
+        FeedReport(device, CreateReport());
+        Assert.That(hid.Writes, Has.Count.EqualTo(1));
+
+        Assert.That(WaitUntil(() => hid.Writes.Count == 2, 4000), Is.True, "Timed light action did not restore the profile after its duration");
+        Assert.That(hid.Writes[^1][45], Is.EqualTo(0x01));
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void TimedLightbar_ApplyWhileHeldWins_RestoresOnReleaseOnly()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        engine.ProfileProvider = _ => CreateRestoreProfile();
+        SpecialAction action = CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: true);
+        action.DurationMs = 300;
+        engine.UpdateActions([action]);
+
+        FeedReport(device, CreateReport());
+        FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
+        Assert.That(hid.Writes, Has.Count.EqualTo(1));
+
+        FeedReport(device, CreateReport(ButtonType.L1));
+        FeedReport(device, CreateReport());
+        Assert.That(hid.Writes, Has.Count.EqualTo(2));
+
+        // The duration is ignored while apply-while-held is set: no restore after it.
+        Thread.Sleep(500);
+        Assert.That(hid.Writes, Has.Count.EqualTo(2));
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void TimedLightbar_UpdateActions_RestoresActiveTimedState()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        engine.ProfileProvider = _ => CreateRestoreProfile();
+        SpecialAction action = CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: false);
+        action.DurationMs = 5000;
+        engine.UpdateActions([action]);
+
+        FeedReport(device, CreateReport());
+        FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
+        Assert.That(hid.Writes, Has.Count.EqualTo(1));
+
+        // A config change while a timed action is active reverts it to the bound profile.
+        engine.UpdateActions([CreateAction(ButtonType.Triangle)]);
+        Assert.That(hid.Writes, Has.Count.EqualTo(2));
+        Assert.That(hid.Writes[^1][45], Is.EqualTo(0x01));
+
+        // The cleared timed state must not restore again.
+        Thread.Sleep(200);
+        Assert.That(hid.Writes, Has.Count.EqualTo(2));
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void TimedPlayerLeds_RestoresProfileAfterDuration()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        engine.ProfileProvider = _ => CreateRestoreProfile();
+        SpecialAction action = CreateAction(ButtonType.L1, ButtonType.R1);
+        action.Effects[0].Type = SpecialActionTypes.SetPlayerLeds;
+        action.Effects[0].PlayerLedMask = 0x05;
+        action.DurationMs = 300;
+        engine.UpdateActions([action]);
+
+        FeedReport(device, CreateReport());
+        FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
+        Assert.That(hid.Writes, Has.Count.EqualTo(1));
+
+        Assert.That(WaitUntil(() => hid.Writes.Count == 2), Is.True, "Timed player LED action did not restore the profile after its duration");
+        Assert.That(hid.Writes[^1][45], Is.EqualTo(0x01));
+
+        engine.Dispose();
+        device.Dispose();
+    }
 }

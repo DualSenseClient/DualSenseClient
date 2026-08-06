@@ -394,6 +394,14 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     [ObservableProperty] private bool _applyWhileHeld;
 
     /// <summary>
+    /// How long the light effects stay applied (in seconds, 0-60) before the bound profile
+    /// is restored. <c>0</c> keeps them applied. Mutually exclusive with
+    /// <see cref="ApplyWhileHeld"/>. Bridged to <see cref="SpecialAction.DurationMs"/> on
+    /// load and persist.
+    /// </summary>
+    [ObservableProperty] private double _durationSeconds;
+
+    /// <summary>
     /// The audio file played by the play-sound effect.
     /// </summary>
     public string? SoundPath
@@ -531,6 +539,11 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     public bool IsApplyWhileHeldVisible => IsColorAction || IsPlayerLedsAction || IsBatteryAction || IsSoundAction;
 
     /// <summary>
+    /// Whether the duration field is relevant: the light effects support the timed restore.
+    /// </summary>
+    public bool IsDurationVisible => IsColorAction || IsPlayerLedsAction || IsBatteryAction;
+
+    /// <summary>
     /// Whether the haptic strength slider is shown (sound effects with haptics enabled).
     /// </summary>
     public bool IsHapticVisible => IsSoundAction && HapticFeedback;
@@ -594,6 +607,7 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
         _playerLed5 = (ledMask & 0x10) != 0;
         _holdTimeSeconds = action.HoldTimeMs / 1000.0;
         _applyWhileHeld = action.ApplyWhileHeld;
+        _durationSeconds = action.DurationMs / 1000.0;
         _soundVolume = Effect(SpecialActionTypes.PlaySound)?.SoundVolume ?? 0x50;
         _soundOutputDevice = Effect(SpecialActionTypes.PlaySound)?.SoundOutputDevice ?? SoundOutputDevices.Speaker;
         _hapticFeedback = Effect(SpecialActionTypes.PlaySound)?.HapticFeedback ?? false;
@@ -801,6 +815,7 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsSoundAction));
         OnPropertyChanged(nameof(IsBatteryAction));
         OnPropertyChanged(nameof(IsApplyWhileHeldVisible));
+        OnPropertyChanged(nameof(IsDurationVisible));
         OnPropertyChanged(nameof(IsHapticVisible));
     }
 
@@ -810,9 +825,32 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     partial void OnHoldTimeSecondsChanged(double value) => Persist();
 
     /// <summary>
-    /// Persists the new apply-while-held setting.
+    /// Persists the new apply-while-held setting. A checked toggle clears the duration so
+    /// the modes stay mutually exclusive (while held wins over timed).
     /// </summary>
-    partial void OnApplyWhileHeldChanged(bool value) => Persist();
+    partial void OnApplyWhileHeldChanged(bool value)
+    {
+        if (value)
+        {
+            DurationSeconds = 0;
+        }
+
+        Persist();
+    }
+
+    /// <summary>
+    /// Persists the new duration. A duration above zero unchecks apply-while-held so the
+    /// modes stay mutually exclusive (while held wins over timed).
+    /// </summary>
+    partial void OnDurationSecondsChanged(double value)
+    {
+        if (value > 0)
+        {
+            ApplyWhileHeld = false;
+        }
+
+        Persist();
+    }
 
     /// <summary>
     /// Persists the new speaker volume.
@@ -940,6 +978,7 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
         Action.Buttons = Buttons.Where(b => b.IsChecked).Select(b => b.Button.ToString()).ToList();
         Action.HoldTimeMs = (int)Math.Round(Math.Clamp(HoldTimeSeconds, 0, SpecialActionEngine.MaxHoldTimeMs / 1000.0) * 1000);
         Action.ApplyWhileHeld = ApplyWhileHeld;
+        Action.DurationMs = (int)Math.Round(Math.Clamp(DurationSeconds, 0, SpecialActionEngine.MaxDurationMs / 1000.0) * 1000);
 
         SpecialActionEffect? color = Effect(SpecialActionTypes.SetLightbarColor);
         if (color is not null)

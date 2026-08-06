@@ -265,6 +265,16 @@ public class SpecialAction
     public bool ApplyWhileHeld { get; set; }
 
     /// <summary>
+    /// Gets or sets how long (in milliseconds) the light effects (lightbar color, player
+    /// LEDs, battery level) stay applied after the action fires, before the bound profile
+    /// is restored automatically. <c>0</c> keeps them applied. Ignored for sound and
+    /// disconnect effects, and when <see cref="ApplyWhileHeld"/> is set (the release
+    /// reverts the effects then).
+    /// </summary>
+    [JsonPropertyName("duration_ms")]
+    public int DurationMs { get; set; }
+
+    /// <summary>
     /// Gets or sets the identifiers of the controllers this action is enabled for
     /// (see <see cref="SpecialActionService.GetControllerId"/>). An empty list means the
     /// action is defined but disabled everywhere.
