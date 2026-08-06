@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using DualSenseClient.Core.Utilities;
 using DualSenseClient.Logging;
@@ -40,6 +41,11 @@ public sealed class SpecialActionService
     /// The JSON file store backing this service.
     /// </summary>
     private readonly JsonFileStore<SpecialActionsSettings> _store;
+
+    /// <summary>
+    /// The JSON serializer options used to read, write, export, and import actions.
+    /// </summary>
+    private readonly JsonSerializerOptions _jsonOptions;
 
     /// <summary>
     /// Synchronizes access to action load/save operations.
@@ -96,7 +102,16 @@ public sealed class SpecialActionService
     {
         string path = actionsPath
                       ?? PathResolver.GetFullPath("Config", "special_actions.json");
-        _store = new JsonFileStore<SpecialActionsSettings>(path, jsonOptions)
+        _jsonOptions = jsonOptions ?? new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+            Converters =
+            {
+                new JsonStringEnumConverter()
+            }
+        };
+        _store = new JsonFileStore<SpecialActionsSettings>(path, _jsonOptions)
         {
             WriteDefaultsWhenMissing = true,
             BackupBeforeSave = true
@@ -175,6 +190,126 @@ public sealed class SpecialActionService
         Settings.Actions.Remove(action);
         Save();
         return true;
+    }
+
+    /// <summary>
+    /// Exports all special actions to a JSON file at <paramref name="path"/>. The file has
+    /// the same shape as the app's <c>special_actions.json</c> (<c>{"actions": [...]}</c>),
+    /// so it can be imported back or shared between machines. Controller enablement
+    /// (<c>controllers</c>) is not exported; imported actions are disabled until re-enabled.
+    /// </summary>
+    /// <param name="path">The full path of the file to write.</param>
+    public void ExportActions(string path)
+    {
+        lock (_lock)
+        {
+            string json = SerializeForExport(Settings.Actions);
+            File.WriteAllText(path, json);
+            _log.Info($"Exported {Settings.Actions.Count} special actions to '{path}'");
+        }
+    }
+
+    /// <summary>
+    /// Exports a single special action to a JSON file at <paramref name="path"/>. The file
+    /// has the same shape as <see cref="ExportActions"/> (<c>{"actions": [...]}</c>), so a
+    /// single export can be imported back just like a full export. Controller enablement
+    /// (<c>controllers</c>) is not exported.
+    /// </summary>
+    /// <param name="id">The identifier of the action to export.</param>
+    /// <param name="path">The full path of the file to write.</param>
+    /// <exception cref="ArgumentException">Thrown when no action with <paramref name="id"/> exists.</exception>
+    public void ExportAction(Guid id, string path)
+    {
+        lock (_lock)
+        {
+            SpecialAction? action = Settings.Actions.FirstOrDefault(a => a.Id == id);
+            if (action is null)
+            {
+                throw new ArgumentException($"Special action '{id}' does not exist", nameof(id));
+            }
+
+            string json = SerializeForExport([action]);
+            File.WriteAllText(path, json);
+            _log.Info($"Exported special action '{action.Name}' to '{path}'");
+        }
+    }
+
+    /// <summary>
+    /// Serializes actions to the export file shape, stripping the <c>controllers</c>
+    /// property (controller enablement is machine- and controller-specific and must not be
+    /// shared in export files).
+    /// </summary>
+    private string SerializeForExport(IEnumerable<SpecialAction> actions)
+    {
+        JsonObject wrapper = JsonSerializer.SerializeToNode(new SpecialActionsSettings { Actions = actions.ToList() }, _jsonOptions)!.AsObject();
+        if (wrapper["actions"] is JsonArray array)
+        {
+            foreach (JsonObject? action in array.OfType<JsonObject>())
+            {
+                action.Remove("controllers");
+            }
+        }
+
+        return wrapper.ToJsonString(_jsonOptions);
+    }
+
+    /// <summary>
+    /// Imports special actions from a JSON file (either <c>{"actions": [...]}</c> or a bare
+    /// array), assigns fresh identifiers and unique names so imported actions never collide
+    /// with existing ones, and persists the change.
+    /// </summary>
+    /// <param name="path">The full path of the file to read.</param>
+    /// <returns>The number of actions imported (0 when the file contains none or is invalid).</returns>
+    public int ImportActions(string path)
+    {
+        lock (_lock)
+        {
+            List<SpecialAction>? imported = ParseActionList(File.ReadAllText(path));
+            if (imported is null || imported.Count == 0)
+            {
+                _log.Warning($"No importable special actions found in '{path}'");
+                return 0;
+            }
+
+            foreach (SpecialAction action in imported)
+            {
+                action.Id = Guid.NewGuid();
+                action.Name = GetUniqueName(action.Name);
+                Settings.Actions.Add(action);
+            }
+
+            _log.Info($"Imported {imported.Count} special actions from '{path}'");
+            Save();
+            return imported.Count;
+        }
+    }
+
+    /// <summary>
+    /// Parses the JSON of an actions export file into the action list it carries, or
+    /// <c>null</c> when the file has no recognized shape (no <c>actions</c> array and not a
+    /// bare array). Unknown properties are ignored and missing ones use defaults.
+    /// </summary>
+    private List<SpecialAction>? ParseActionList(string json)
+    {
+        try
+        {
+            using JsonDocument doc = JsonDocument.Parse(json);
+            JsonElement list = doc.RootElement.ValueKind switch
+            {
+                JsonValueKind.Array => doc.RootElement,
+                JsonValueKind.Object when doc.RootElement.TryGetProperty("actions", out JsonElement actions)
+                                          && actions.ValueKind == JsonValueKind.Array => actions,
+                _ => default
+            };
+            return list.ValueKind == JsonValueKind.Undefined
+                ? null
+                : list.Deserialize<List<SpecialAction>>(_jsonOptions);
+        }
+        catch (Exception ex)
+        {
+            _log.Warning($"Failed to parse special actions export: {ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>

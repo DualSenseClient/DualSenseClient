@@ -215,11 +215,23 @@
                                       Icon="{x:Static fic:Symbol.Pulse}"
                                       MinHeight="64">
                         <cards:CardHeader.ActionContent>
-                            <Button Command="{Binding AddSpecialActionCommand}"
-                                    ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.New}">
-                                <ic:FluentIcon Icon="Add"
-                                               IconVariant="Regular" />
-                            </Button>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Click="OnImportSpecialActionsClick"
+                                        ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.Import.ToolTip}">
+                                    <ic:FluentIcon Icon="ArrowImport"
+                                                   IconVariant="Regular" />
+                                </Button>
+                                <Button Click="OnExportSpecialActionsClick"
+                                        ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.Export.ToolTip}">
+                                    <ic:FluentIcon Icon="ArrowExport"
+                                                   IconVariant="Regular" />
+                                </Button>
+                                <Button Command="{Binding AddSpecialActionCommand}"
+                                        ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.New}">
+                                    <ic:FluentIcon Icon="Add"
+                                                   IconVariant="Regular" />
+                                </Button>
+                            </StackPanel>
                         </cards:CardHeader.ActionContent>
                     </cards:CardHeader>
                 </Expander.Header>
@@ -253,11 +265,17 @@
                             <DataTemplate x:DataType="items:SpecialActionItem">
                                 <cards:CustomCard>
                                     <StackPanel Spacing="8">
-                                        <Grid ColumnDefinitions="*,Auto"
+                                        <Grid ColumnDefinitions="*,Auto,Auto"
                                               ColumnSpacing="8">
                                             <TextBox Text="{Binding Name, Mode=TwoWay}"
                                                      PlaceholderText="{DynamicResource ProfilePage.SpecialActions.Name}" />
                                             <Button Grid.Column="1"
+                                                    Click="OnExportSpecialActionClick"
+                                                    ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.Export.One}">
+                                                <ic:FluentIcon Icon="ArrowExport"
+                                                               IconVariant="Regular" />
+                                            </Button>
+                                            <Button Grid.Column="2"
                                                     Command="{Binding DeleteCommand}"
                                                     ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.Delete}">
                                                 <ic:FluentIcon Icon="Delete"

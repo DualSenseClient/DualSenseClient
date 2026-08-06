@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DualSenseClient.Settings;
 using DualSenseClient.Settings.Sections;
 
@@ -430,5 +431,221 @@ public class SpecialActionServiceTests
         File.WriteAllText(path, """{"actions":[{"name":"One","unknown_field":123},{"name":"Two"}]}""");
         SpecialActionService service = new SpecialActionService(actionsPath: path);
         Assert.That(service.Settings.Actions.Select(a => a.Name), Is.EquivalentTo(new[] { "One", "Two" }));
+    }
+
+    [Test]
+    public void ExportThenImport_RoundTripsActionsAndEffects()
+    {
+        SpecialActionService source = CreateService();
+        SpecialAction action = source.CreateAction("Beep", "AA:BB:CC:DD:EE:FF");
+        action.Effects.Clear();
+        action.Effects.Add(new SpecialActionEffect
+        {
+            Type = SpecialActionTypes.SetLightbarColor,
+            Red = 12,
+            Green = 34,
+            Blue = 56
+        });
+        action.Effects.Add(new SpecialActionEffect
+        {
+            Type = SpecialActionTypes.PlaySound,
+            SoundPath = @"C:\sounds\beep.wav",
+            SoundVolume = 0x7F,
+            SoundOutputDevice = SoundOutputDevices.Headset,
+            HapticFeedback = true,
+            HapticStrength = 150
+        });
+        action.Effects.Add(new SpecialActionEffect
+        {
+            Type = SpecialActionTypes.ShowBatteryLevel,
+            BatteryColors = [new BatteryLevelColor { Red = 1, Green = 2, Blue = 3 }]
+        });
+
+        string exportPath = Path.Combine(_tempDir, "export.json");
+        source.ExportActions(exportPath);
+
+        SpecialActionService target = new SpecialActionService(actionsPath: Path.Combine(_tempDir, "target", "special_actions.json"));
+        int count = target.ImportActions(exportPath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(count, Is.EqualTo(1));
+            Assert.That(target.Settings.Actions, Has.Count.EqualTo(1));
+        });
+
+        SpecialAction imported = target.Settings.Actions[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(imported.Name, Is.EqualTo("Beep"));
+            Assert.That(imported.EnabledControllers, Is.Empty);
+            Assert.That(imported.Id, Is.Not.EqualTo(action.Id));
+            Assert.That(imported.Effects, Has.Count.EqualTo(3));
+        });
+
+        SpecialActionEffect lightbar = imported.Effects[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(lightbar.Type, Is.EqualTo(SpecialActionTypes.SetLightbarColor));
+            Assert.That(lightbar.Red, Is.EqualTo(12));
+            Assert.That(lightbar.Green, Is.EqualTo(34));
+            Assert.That(lightbar.Blue, Is.EqualTo(56));
+        });
+
+        SpecialActionEffect sound = imported.Effects[1];
+        Assert.Multiple(() =>
+        {
+            Assert.That(sound.Type, Is.EqualTo(SpecialActionTypes.PlaySound));
+            Assert.That(sound.SoundPath, Is.EqualTo(@"C:\sounds\beep.wav"));
+            Assert.That(sound.SoundVolume, Is.EqualTo(0x7F));
+            Assert.That(sound.SoundOutputDevice, Is.EqualTo(SoundOutputDevices.Headset));
+            Assert.That(sound.HapticFeedback, Is.True);
+            Assert.That(sound.HapticStrength, Is.EqualTo(150));
+        });
+
+        SpecialActionEffect battery = imported.Effects[2];
+        Assert.Multiple(() =>
+        {
+            Assert.That(battery.Type, Is.EqualTo(SpecialActionTypes.ShowBatteryLevel));
+            Assert.That(battery.BatteryColors, Has.Count.EqualTo(1));
+            Assert.That(battery.BatteryColors![0].Red, Is.EqualTo(1));
+            Assert.That(battery.BatteryColors[0].Blue, Is.EqualTo(3));
+        });
+    }
+
+    [Test]
+    public void ExportActions_WritesSettingsShape()
+    {
+        SpecialActionService source = CreateService();
+        source.CreateAction("Beep", null);
+
+        string exportPath = Path.Combine(_tempDir, "export.json");
+        source.ExportActions(exportPath);
+
+        using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(exportPath));
+        Assert.Multiple(() =>
+        {
+            Assert.That(doc.RootElement.ValueKind, Is.EqualTo(JsonValueKind.Object));
+            Assert.That(doc.RootElement.TryGetProperty("actions", out JsonElement actions), Is.True);
+            Assert.That(actions.ValueKind, Is.EqualTo(JsonValueKind.Array));
+            Assert.That(actions.GetArrayLength(), Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void ImportActions_AssignsFreshIdsAndUniqueNames()
+    {
+        SpecialActionService source = CreateService();
+        source.CreateAction("Beep", null);
+        string exportPath = Path.Combine(_tempDir, "export.json");
+        source.ExportActions(exportPath);
+
+        SpecialActionService target = new SpecialActionService(actionsPath: Path.Combine(_tempDir, "target", "special_actions.json"));
+        Assert.That(target.ImportActions(exportPath), Is.EqualTo(1));
+        Assert.That(target.ImportActions(exportPath), Is.EqualTo(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(target.Settings.Actions, Has.Count.EqualTo(2));
+            Assert.That(target.Settings.Actions.Select(a => a.Id).Distinct().Count(), Is.EqualTo(2));
+            Assert.That(target.Settings.Actions.Select(a => a.Name), Is.EquivalentTo(new[] { "Beep", "Beep 2" }));
+        });
+    }
+
+    [Test]
+    public void ExportAction_WritesOnlyThatAction()
+    {
+        SpecialActionService source = CreateService();
+        SpecialAction beep = source.CreateAction("Beep", null);
+        source.CreateAction("Bop", null);
+
+        string exportPath = Path.Combine(_tempDir, "export.json");
+        source.ExportAction(beep.Id, exportPath);
+
+        using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(exportPath));
+        Assert.Multiple(() =>
+        {
+            Assert.That(doc.RootElement.TryGetProperty("actions", out JsonElement actions), Is.True);
+            Assert.That(actions.GetArrayLength(), Is.EqualTo(1));
+            Assert.That(actions[0].GetProperty("name").GetString(), Is.EqualTo("Beep"));
+        });
+
+        SpecialActionService target = new SpecialActionService(actionsPath: Path.Combine(_tempDir, "target", "special_actions.json"));
+        Assert.That(target.ImportActions(exportPath), Is.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(target.Settings.Actions, Has.Count.EqualTo(1));
+            Assert.That(target.Settings.Actions[0].Name, Is.EqualTo("Beep"));
+        });
+    }
+
+    [Test]
+    public void ExportAction_MissingId_Throws()
+    {
+        SpecialActionService source = CreateService();
+
+        Assert.Throws<ArgumentException>(() => source.ExportAction(Guid.NewGuid(), Path.Combine(_tempDir, "export.json")));
+    }
+
+    [Test]
+    public void ExportActions_OmitsControllers()
+    {
+        SpecialActionService source = CreateService();
+        SpecialAction action = source.CreateAction("Beep", "AA:BB:CC:DD:EE:FF");
+
+        string fullPath = Path.Combine(_tempDir, "full.json");
+        source.ExportActions(fullPath);
+        string singlePath = Path.Combine(_tempDir, "single.json");
+        source.ExportAction(action.Id, singlePath);
+
+        using JsonDocument full = JsonDocument.Parse(File.ReadAllText(fullPath));
+        using JsonDocument single = JsonDocument.Parse(File.ReadAllText(singlePath));
+        Assert.Multiple(() =>
+        {
+            Assert.That(full.RootElement.GetProperty("actions")[0].TryGetProperty("controllers", out _), Is.False);
+            Assert.That(single.RootElement.GetProperty("actions")[0].TryGetProperty("controllers", out _), Is.False);
+        });
+
+        SpecialActionService target = new SpecialActionService(actionsPath: Path.Combine(_tempDir, "target", "special_actions.json"));
+        Assert.That(target.ImportActions(fullPath), Is.EqualTo(1));
+        Assert.That(target.Settings.Actions[0].EnabledControllers, Is.Empty);
+    }
+
+    [Test]
+    public void ImportActions_BareArray_IsSupported()
+    {
+        string path = Path.Combine(_tempDir, "import.json");
+        File.WriteAllText(path, """[{"name":"Bare","buttons":["Cross"],"effects":[{"type":"Disconnect"}]}]""");
+
+        SpecialActionService target = CreateService();
+        int count = target.ImportActions(path);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(count, Is.EqualTo(1));
+            Assert.That(target.Settings.Actions[0].Name, Is.EqualTo("Bare"));
+            Assert.That(target.Settings.Actions[0].Effects[0].Type, Is.EqualTo(SpecialActionTypes.Disconnect));
+        });
+    }
+
+    [Test]
+    public void ImportActions_InvalidFile_ReturnsZero()
+    {
+        string path = Path.Combine(_tempDir, "import.json");
+        File.WriteAllText(path, "not valid json {{{");
+
+        SpecialActionService target = CreateService();
+        Assert.That(target.ImportActions(path), Is.EqualTo(0));
+        Assert.That(target.Settings.Actions, Is.Empty);
+    }
+
+    [Test]
+    public void ImportActions_UnrecognizedShape_ReturnsZero()
+    {
+        string path = Path.Combine(_tempDir, "import.json");
+        File.WriteAllText(path, """{"profiles":[{"name":"Not actions"}]}""");
+
+        SpecialActionService target = CreateService();
+        Assert.That(target.ImportActions(path), Is.EqualTo(0));
+        Assert.That(target.Settings.Actions, Is.Empty);
     }
 }

@@ -319,6 +319,77 @@ public partial class ProfilePageViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Exports all special actions to the given file and shows an error dialog on failure.
+    /// </summary>
+    /// <param name="path">The full path of the file to write.</param>
+    public async Task ExportSpecialActions(string path)
+    {
+        try
+        {
+            _specialActionService.ExportActions(path);
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"Failed to export special actions: {ex.Message}");
+            await _messageBox.ShowErrorAsync(
+                LocalizationService.GetText("ProfilePage.SpecialActions.Export.Error.Title"),
+                LocalizationService.GetText("ProfilePage.SpecialActions.Export.Error.Message"));
+        }
+    }
+
+    /// <summary>
+    /// Exports a single special action to the given file and shows an error dialog on failure.
+    /// </summary>
+    /// <param name="item">The action to export.</param>
+    /// <param name="path">The full path of the file to write.</param>
+    public async Task ExportSpecialAction(SpecialActionItem item, string path)
+    {
+        try
+        {
+            _specialActionService.ExportAction(item.Action.Id, path);
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"Failed to export special action '{item.Action.Name}': {ex.Message}");
+            await _messageBox.ShowErrorAsync(
+                LocalizationService.GetText("ProfilePage.SpecialActions.Export.Error.Title"),
+                LocalizationService.GetText("ProfilePage.SpecialActions.Export.Error.Message"));
+        }
+    }
+
+    /// <summary>
+    /// Imports special actions from the given file, refreshes the list, and reports the
+    /// outcome (nothing found or a failure) in a dialog.
+    /// </summary>
+    /// <param name="path">The full path of the file to read.</param>
+    public async Task ImportSpecialActions(string path)
+    {
+        try
+        {
+            int count = _specialActionService.ImportActions(path);
+            RebuildSpecialActions();
+            if (count <= 0)
+            {
+                await _messageBox.ShowWarningAsync(
+                    LocalizationService.GetText("ProfilePage.SpecialActions.Import.Empty.Title"),
+                    LocalizationService.GetText("ProfilePage.SpecialActions.Import.Empty.Message"));
+                return;
+            }
+
+            await _messageBox.ShowInfoAsync(
+                LocalizationService.GetText("ProfilePage.SpecialActions.Import.Success.Title"),
+                LocalizationService.GetText("ProfilePage.SpecialActions.Import.Success.Message").Replace("{count}", count.ToString()));
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"Failed to import special actions: {ex.Message}");
+            await _messageBox.ShowErrorAsync(
+                LocalizationService.GetText("ProfilePage.SpecialActions.Import.Error.Title"),
+                LocalizationService.GetText("ProfilePage.SpecialActions.Import.Error.Message"));
+        }
+    }
+
+    /// <summary>
     /// Re-applies the profile currently used by the selected controller (the bound profile,
     /// or the default when unbound) to push its current settings back to the controller.
     /// </summary>
