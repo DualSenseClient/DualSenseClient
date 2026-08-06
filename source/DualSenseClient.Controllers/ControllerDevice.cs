@@ -1,4 +1,6 @@
-﻿using DualSenseClient.Hid;
+﻿using DualSenseClient.Bluetooth;
+using DualSenseClient.Hid;
+using DualSenseClient.Logging;
 
 namespace DualSenseClient.Controllers;
 
@@ -63,6 +65,13 @@ public interface IControllerDevice : IDisposable
     /// Gets the human-readable product name.
     /// </summary>
     string GetProductName();
+
+    /// <summary>
+    /// Disconnects the controller from the PC over Bluetooth.
+    /// The device stays paired and can be reconnected later.
+    /// </summary>
+    /// <returns><c>true</c> if the controller was disconnected; otherwise, <c>false</c>.</returns>
+    bool DisconnectController();
 }
 
 /// <summary>
@@ -74,6 +83,11 @@ public interface IControllerDevice : IDisposable
 /// <param name="info">The device info that was used to discover and open the device.</param>
 public abstract class ControllerDevice(IHidDevice device, IHidDeviceInfo info) : IControllerDevice
 {
+    /// <summary>
+    /// Logger instance.
+    /// </summary>
+    private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("ControllerDevice");
+
     /// <inheritdoc/>
     public IHidDeviceInfo Info => info;
 
@@ -182,6 +196,32 @@ public abstract class ControllerDevice(IHidDevice device, IHidDeviceInfo info) :
         {
             throw new HidException("Cannot get the product name of a disposed device");
         }
+    }
+
+    /// <summary>
+    /// The controller's Bluetooth MAC address (XX:XX:XX:XX:XX:XX), or <c>null</c>
+    /// when it is unknown. Only meaningful for controllers connected over Bluetooth.
+    /// </summary>
+    protected virtual string? BluetoothMacAddress => null;
+
+    /// <inheritdoc/>
+    public bool DisconnectController()
+    {
+        if (ConnectionType != ConnectionType.Bluetooth)
+        {
+            _log.Warning($"{GetProductName()} is not connected via Bluetooth, nothing to disconnect");
+            return false;
+        }
+
+        string? mac = BluetoothMacAddress;
+        if (string.IsNullOrEmpty(mac))
+        {
+            _log.Warning($"Could not read the Bluetooth MAC address of {GetProductName()}");
+            return false;
+        }
+
+        _log.Info($"Disconnecting Bluetooth controller {GetProductName()} ({mac})");
+        return BluetoothService.Disconnect(mac);
     }
 
     /// <inheritdoc/>

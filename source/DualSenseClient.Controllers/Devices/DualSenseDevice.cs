@@ -101,6 +101,9 @@ public class DualSenseDevice : ControllerDevice
     /// </summary>
     public PairingInfo? PairingInfo { get; private set; }
 
+    /// <inheritdoc/>
+    protected override string? BluetoothMacAddress => PairingInfo?.ClientMac;
+
     /// <summary>
     /// Current state of input
     /// </summary>

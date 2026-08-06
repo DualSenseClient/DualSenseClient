@@ -57,9 +57,6 @@ public abstract class ServiceConfigurator
         services.AddSingleton<IControllerScanner, ControllerScanner>();
         services.AddSingleton<IControllerTracker, ControllerTracker>();
 
-        // Bluetooth
-        services.AddSingleton<IBluetoothService, BluetoothService>();
-
         // ViewModels
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<SettingsPageViewModel>();

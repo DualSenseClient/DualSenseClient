@@ -13,6 +13,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\DualSenseClient.Bluetooth\DualSenseClient.Bluetooth.csproj" />
       <ProjectReference Include="..\DualSenseClient.Core\DualSenseClient.Core.csproj" />
       <ProjectReference Include="..\DualSenseClient.Hid\DualSenseClient.Hid.csproj" />
       <ProjectReference Include="..\DualSenseClient.Settings\DualSenseClient.Settings.csproj" />

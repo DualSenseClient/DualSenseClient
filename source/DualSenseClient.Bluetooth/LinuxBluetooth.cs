@@ -4,7 +4,7 @@ using Tmds.DBus;
 namespace DualSenseClient.Bluetooth;
 
 /// <summary>
-/// Linux implementation of <see cref="IBluetoothService"/>.
+/// Linux implementation of <see cref="BluetoothService"/>.
 /// Talks to BlueZ (org.bluez) over the system D-Bus: finds the <c>org.bluez.Device1</c>
 /// object whose address matches the controller and calls its <c>Disconnect</c> method,
 /// which drops the ACL link without unpairing the device.

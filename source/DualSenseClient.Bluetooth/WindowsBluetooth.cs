@@ -5,7 +5,7 @@ using DualSenseClient.Logging;
 namespace DualSenseClient.Bluetooth;
 
 /// <summary>
-/// Windows implementation of <see cref="IBluetoothService"/>.
+/// Windows implementation of <see cref="BluetoothService"/>.
 /// Opens the local Bluetooth radios (bthprops.cpl) and sends
 /// <c>IOCTL_BTH_DISCONNECT_DEVICE</c> (bthioctl.h) to drop the link to a classic
 /// Bluetooth device without unpairing it.
