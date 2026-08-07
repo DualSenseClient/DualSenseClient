@@ -73,12 +73,14 @@ public sealed class DualSenseSpecialActionSoundPlayer : ISpecialActionSoundPlaye
     /// <inheritdoc/>
     public void Stop()
     {
-        bool writerActive = _player.IsWriterActive;
+        // Request the release first: a writer that exits between this write and the
+        // <see cref="IsWriterActive"/> read will pick the request up via <c>WriterExited</c>.
+        // When no writer is (or was) running, none will, so it is released directly here.
         _resetRoutePending = true;
+        bool writerActive = _player.IsWriterActive;
         _player.Stop();
         if (!writerActive)
         {
-            // No writer is running, so it will never request the release itself.
             _resetRoutePending = false;
             ResetAudioRoute();
         }
@@ -87,16 +89,14 @@ public sealed class DualSenseSpecialActionSoundPlayer : ISpecialActionSoundPlaye
     /// <inheritdoc/>
     public void Dispose()
     {
+        // Request the release before disposing so a winding-down writer still delivers it
+        // through <see cref="OnWriterExited"/>; when it already exited, release directly.
+        _resetRoutePending = true;
         bool writerActive = _player.IsWriterActive;
         _player.Dispose();
-        if (writerActive)
+        if (!writerActive)
         {
-            // A writer is still winding down; the still-attached <see cref="OnWriterExited"/>
-            // handler releases the route once it has sent its last frame.
-            _resetRoutePending = true;
-        }
-        else
-        {
+            _resetRoutePending = false;
             ResetAudioRoute();
         }
     }

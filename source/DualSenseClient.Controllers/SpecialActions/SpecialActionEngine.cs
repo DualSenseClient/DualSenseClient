@@ -440,9 +440,14 @@ public sealed class SpecialActionEngine : IDisposable
 
         try
         {
+            // Snapshot the effects: the UI thread keeps mutating the action's list (effect
+            // toggles), so evaluating a copy prevents a modified-during-enumeration
+            // exception while the combination is held.
+            SpecialActionEffect[] effects = action.Effects.ToArray();
+
             // Skip actions with no usable effects: nothing to execute and no point
             // marking them, so a later edit can fire the next hold immediately.
-            if (!action.Effects.Any(e => e.Enabled && IsKnownEffectType(e.Type)))
+            if (!effects.Any(e => e.Enabled && IsKnownEffectType(e.Type)))
             {
                 _log.Warning($"Special action '{action.Name}' has no usable effects");
                 return;
@@ -450,7 +455,7 @@ public sealed class SpecialActionEngine : IDisposable
 
             // The hold state is per action, not per effect: the whole set of effects is
             // one-shot, applied while held, or applied for a duration together.
-            if (action.ApplyWhileHeld && action.Effects.Any(e => e.Enabled && IsSustainedEffect(e.Type)))
+            if (action.ApplyWhileHeld && effects.Any(e => e.Enabled && IsSustainedEffect(e.Type)))
             {
                 _sustainedActive.Add(action.Id);
             }
@@ -459,14 +464,14 @@ public sealed class SpecialActionEngine : IDisposable
                 _fired.Add(action.Id);
 
                 int durationMs = Math.Clamp(action.DurationMs, 0, MaxDurationMs);
-                if (durationMs > 0 && action.Effects.Any(e => e.Enabled && IsTimedEffect(e.Type)))
+                if (durationMs > 0 && effects.Any(e => e.Enabled && IsTimedEffect(e.Type)))
                 {
                     // A repeated fire (re-hold) restarts the duration.
                     _timedActive[action.Id] = DateTime.UtcNow.AddMilliseconds(durationMs);
                 }
             }
 
-            foreach (SpecialActionEffect effect in action.Effects)
+            foreach (SpecialActionEffect effect in effects)
             {
                 if (effect.Enabled)
                 {
