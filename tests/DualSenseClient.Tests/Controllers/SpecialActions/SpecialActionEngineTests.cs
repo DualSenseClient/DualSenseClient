@@ -435,6 +435,64 @@ public class SpecialActionEngineTests
     }
 
     [Test]
+    public void AllEffectsDisabled_DoesNotFireOrWrite()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        SpecialAction action = CreateAction(ButtonType.L1, ButtonType.R1);
+        action.Effects[0].Type = SpecialActionTypes.SetLightbarColor;
+        action.Effects[0].Red = 0xAA;
+        action.Effects[0].Green = 0xBB;
+        action.Effects[0].Blue = 0xCC;
+        action.Effects[0].Enabled = false;
+        engine.UpdateActions([action]);
+        int executions = 0;
+        engine.ActionExecuted += (_, _) => executions++;
+
+        FeedReport(device, CreateReport());
+        FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(executions, Is.EqualTo(0));
+            Assert.That(hid.Writes, Is.Empty);
+        });
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void DisabledEffect_IsSkipped_ButEnabledEffectsExecute()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        SpecialAction action = CreateAction(ButtonType.L1, ButtonType.R1);
+        action.Effects[0].Type = SpecialActionTypes.SetLightbarColor;
+        action.Effects[0].Red = 0xAA;
+        action.Effects[0].Green = 0xBB;
+        action.Effects[0].Blue = 0xCC;
+        action.Effects[0].Enabled = false;
+        action.Effects.Add(new SpecialActionEffect { Type = SpecialActionTypes.SetPlayerLeds, PlayerLedMask = 0x05 });
+        engine.UpdateActions([action]);
+        int executions = 0;
+        engine.ActionExecuted += (_, _) => executions++;
+
+        FeedReport(device, CreateReport());
+        FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(executions, Is.EqualTo(1));
+            // Only the player LEDs report was written; the disabled lightbar effect was skipped.
+            Assert.That(hid.Writes, Has.Count.EqualTo(1));
+            Assert.That(hid.Writes[0][2], Is.EqualTo((byte)ValidFlags.AllowPlayerIndicators));
+            Assert.That(hid.Writes[0][44], Is.EqualTo(0x05));
+        });
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
     public void SetPlayerLeds_WritesLedMaskReport()
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();

@@ -26,7 +26,7 @@ public sealed partial class SpecialActionButtonItem : ObservableObject
     public ButtonType Button { get; }
 
     /// <summary>
-    /// The button name shown on the toggle.
+    /// The localized button name shown on the toggle.
     /// </summary>
     public string DisplayName { get; }
 
@@ -49,10 +49,17 @@ public sealed partial class SpecialActionButtonItem : ObservableObject
     public SpecialActionButtonItem(ButtonType button, bool isChecked, Action<bool> onChanged)
     {
         Button = button;
-        DisplayName = button.ToString();
+        DisplayName = GetDisplayName(button);
         _isChecked = isChecked;
         _onChanged = onChanged;
     }
+
+    /// <summary>
+    /// The localized display name of a button (e.g. "D-Pad Up", "Left Fn"), falling back
+    /// to the enum name when no translation exists.
+    /// </summary>
+    public static string GetDisplayName(ButtonType button) =>
+        LocalizationService.GetText($"ProfilePage.SpecialActions.Button.{button}");
 
     /// <summary>
     /// Forwards toggle changes to the owning item.
@@ -514,24 +521,24 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     private BatteryLevelItem SelectedBatteryLevelItem => BatteryLevels[Math.Clamp(SelectedBatteryLevel, 0, BatteryLevels.Count - 1)];
 
     /// <summary>
-    /// Whether the action has the set-lightbar-color effect.
+    /// Whether the action has the set-lightbar-color effect enabled.
     /// </summary>
-    public bool IsColorAction => HasEffect(SpecialActionTypes.SetLightbarColor);
+    public bool IsColorAction => Effect(SpecialActionTypes.SetLightbarColor)?.Enabled ?? false;
 
     /// <summary>
-    /// Whether the action has the set-player-LEDs effect.
+    /// Whether the action has the set-player-LEDs effect enabled.
     /// </summary>
-    public bool IsPlayerLedsAction => HasEffect(SpecialActionTypes.SetPlayerLeds);
+    public bool IsPlayerLedsAction => Effect(SpecialActionTypes.SetPlayerLeds)?.Enabled ?? false;
 
     /// <summary>
-    /// Whether the action has the play-sound effect.
+    /// Whether the action has the play-sound effect enabled.
     /// </summary>
-    public bool IsSoundAction => HasEffect(SpecialActionTypes.PlaySound);
+    public bool IsSoundAction => Effect(SpecialActionTypes.PlaySound)?.Enabled ?? false;
 
     /// <summary>
-    /// Whether the action has the show-battery-level effect.
+    /// Whether the action has the show-battery-level effect enabled.
     /// </summary>
-    public bool IsBatteryAction => HasEffect(SpecialActionTypes.ShowBatteryLevel);
+    public bool IsBatteryAction => Effect(SpecialActionTypes.ShowBatteryLevel)?.Enabled ?? false;
 
     /// <summary>
     /// Whether the apply-while-held toggle is relevant: light and sound effects support it.
@@ -590,11 +597,11 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
         _service = service;
         _controllerId = controllerId;
 
-        _effectDisconnect = HasEffect(SpecialActionTypes.Disconnect);
-        _effectLightbar = HasEffect(SpecialActionTypes.SetLightbarColor);
-        _effectPlayerLeds = HasEffect(SpecialActionTypes.SetPlayerLeds);
-        _effectSound = HasEffect(SpecialActionTypes.PlaySound);
-        _effectBattery = HasEffect(SpecialActionTypes.ShowBatteryLevel);
+        _effectDisconnect = Effect(SpecialActionTypes.Disconnect)?.Enabled ?? false;
+        _effectLightbar = Effect(SpecialActionTypes.SetLightbarColor)?.Enabled ?? false;
+        _effectPlayerLeds = Effect(SpecialActionTypes.SetPlayerLeds)?.Enabled ?? false;
+        _effectSound = Effect(SpecialActionTypes.PlaySound)?.Enabled ?? false;
+        _effectBattery = Effect(SpecialActionTypes.ShowBatteryLevel)?.Enabled ?? false;
         _isEnabledForThisController = SpecialActionService.IsEnabledFor(action, controllerId);
         _ledRed = Effect(SpecialActionTypes.SetLightbarColor)?.Red ?? 0;
         _ledGreen = Effect(SpecialActionTypes.SetLightbarColor)?.Green ?? 0;
@@ -740,22 +747,28 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Adds or removes an effect of the given type (a type can appear at most once), then
-    /// refreshes the parameter section visibility and persists. The show-battery-level
-    /// effect conflicts with the light-changing effects (set-lightbar-color and
-    /// set-player-LEDs): enabling one removes the other(s) so the lightbar can never be
-    /// claimed twice.
+    /// Adds, enables, or disables an effect of the given type (a type can appear at most
+    /// once), then refreshes the parameter section visibility and persists. An effect that
+    /// is turned off stays in the list with its parameters, so turning it back on restores
+    /// the previous configuration. The show-battery-level effect conflicts with the
+    /// light-changing effects (set-lightbar-color and set-player-LEDs): enabling one
+    /// disables the other(s) so the lightbar can never be claimed twice.
     /// </summary>
     private void SetEffect(string type, bool enabled)
     {
         SpecialActionEffect? existing = Effect(type);
-        if (enabled && existing is null)
+        if (existing is null)
         {
+            if (!enabled)
+            {
+                return;
+            }
+
             Action.Effects.Add(new SpecialActionEffect { Type = type });
         }
-        else if (!enabled && existing is not null)
+        else
         {
-            Action.Effects.Remove(existing);
+            existing.Enabled = enabled;
         }
 
         if (enabled)
@@ -776,12 +789,16 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Removes an effect of the given type from the action and unchecks its toggle,
-    /// without re-entering <see cref="SetEffect"/>.
+    /// Disables an effect of the given type, keeping its parameters for a later re-enable,
+    /// and unchecks its toggle without re-entering <see cref="SetEffect"/>.
     /// </summary>
     private void DisableEffect(string type)
     {
-        Action.Effects.RemoveAll(e => e.Type == type);
+        SpecialActionEffect? existing = Effect(type);
+        if (existing is not null)
+        {
+            existing.Enabled = false;
+        }
 
         _suppressEffectChanges = true;
         try
@@ -1050,11 +1067,6 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
         _pendingCommit = false;
         _service.Save();
     }
-
-    /// <summary>
-    /// Whether the action has an effect of the given type.
-    /// </summary>
-    private bool HasEffect(string type) => Effect(type) is not null;
 
     /// <summary>
     /// The action's effect of the given type, or <c>null</c> when it has none.

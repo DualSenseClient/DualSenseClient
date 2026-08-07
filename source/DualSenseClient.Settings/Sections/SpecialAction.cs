@@ -93,6 +93,14 @@ public class SpecialActionEffect
     public string Type { get; set; } = SpecialActionTypes.SetLightbarColor;
 
     /// <summary>
+    /// Gets or sets whether the effect is active. A disabled effect stays in the list with
+    /// its parameters (so toggling it back on restores them), but is not executed. Missing
+    /// in older files, which behaves as enabled.
+    /// </summary>
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets the lightbar red channel (0-255), used by <see cref="SpecialActionTypes.SetLightbarColor"/>.
     /// </summary>
     [JsonPropertyName("red")]

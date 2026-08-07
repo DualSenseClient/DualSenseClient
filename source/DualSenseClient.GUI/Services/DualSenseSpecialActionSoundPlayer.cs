@@ -12,8 +12,9 @@ namespace DualSenseClient.GUI.Services;
 /// Plays a special action's sound file through a controller speaker or a headset in the
 /// headset jack, optionally driving the haptic actuators with the audio. Wraps the shared
 /// <see cref="DualSenseAudioPlayer"/> (desktop output disabled, the chosen controller
-/// output routed), and closes the route when playback stops so the controller does not
-/// keep the audio path selected.
+/// output routed), and releases the controller audio route once playback has fully stopped —
+/// whether it ends naturally or via <see cref="Stop"/> — so the controller does not keep the
+/// audio path selected.
 /// </summary>
 public sealed class DualSenseSpecialActionSoundPlayer : ISpecialActionSoundPlayer
 {
@@ -33,6 +34,13 @@ public sealed class DualSenseSpecialActionSoundPlayer : ISpecialActionSoundPlaye
     private readonly DualSenseAudioPlayer _player;
 
     /// <summary>
+    /// Whether to release the audio route once the writer loop exits. Written from the
+    /// caller's thread (<see cref="Play"/>/<see cref="Stop"/>/<see cref="Dispose"/>) and read
+    /// on the writer thread (<c>PlaybackEnded</c>/<c>WriterExited</c>), so it must be volatile.
+    /// </summary>
+    private volatile bool _resetRoutePending;
+
+    /// <summary>
     /// Creates a player for the given controller.
     /// </summary>
     /// <param name="device">The controller to play through.</param>
@@ -41,11 +49,16 @@ public sealed class DualSenseSpecialActionSoundPlayer : ISpecialActionSoundPlaye
     {
         _device = device;
         _player = new DualSenseAudioPlayer(device, new DualSenseAudioEndpointFinder(engine), engine);
+        _player.PlaybackEnded += OnPlaybackEnded;
+        _player.WriterExited += OnWriterExited;
     }
 
     /// <inheritdoc/>
     public void Play(string path, SoundOutputTarget output, byte speakerVolume, bool hapticFeedback, int hapticStrength)
     {
+        // A new playback applies its own route, so any pending release from a previous one
+        // must not touch this session when the previous writer exits late.
+        _resetRoutePending = false;
         _player.ApplyOptions(
             desktop: false,
             speaker: output == SoundOutputTarget.Speaker,
@@ -60,10 +73,64 @@ public sealed class DualSenseSpecialActionSoundPlayer : ISpecialActionSoundPlaye
     /// <inheritdoc/>
     public void Stop()
     {
+        bool writerActive = _player.IsWriterActive;
+        _resetRoutePending = true;
         _player.Stop();
+        if (!writerActive)
+        {
+            // No writer is running, so it will never request the release itself.
+            _resetRoutePending = false;
+            ResetAudioRoute();
+        }
+    }
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        bool writerActive = _player.IsWriterActive;
+        _player.Dispose();
+        if (writerActive)
+        {
+            // A writer is still winding down; the still-attached <see cref="OnWriterExited"/>
+            // handler releases the route once it has sent its last frame.
+            _resetRoutePending = true;
+        }
+        else
+        {
+            ResetAudioRoute();
+        }
+    }
+
+    /// <summary>
+    /// Requests the route release when the current playback ends on its own.
+    /// </summary>
+    private void OnPlaybackEnded(object? sender, EventArgs e) => _resetRoutePending = true;
+
+    /// <summary>
+    /// Releases the controller audio route once the writer loop has fully exited, ordering
+    /// the release report after the last audio frame. Only fires when a release was
+    /// requested; a new <see cref="Play"/> clears the pending request so a stale writer
+    /// cannot tear down a newer playback.
+    /// </summary>
+    private void OnWriterExited(object? sender, EventArgs e)
+    {
+        if (!_resetRoutePending)
+        {
+            return;
+        }
+
+        _resetRoutePending = false;
+        ResetAudioRoute();
+    }
+
+    /// <summary>
+    /// Resets the audio route to the default headphone path, unselecting the speaker so the
+    /// controller does not keep the audio path primed.
+    /// </summary>
+    private void ResetAudioRoute()
+    {
         try
         {
-            // Close the speaker route so the audio path is not left primed on the controller.
             _device.SetAudioOutput(AudioControl.OutputPathHeadphones, 0x3F, 0x3F);
         }
         catch (Exception ex)
@@ -71,7 +138,4 @@ public sealed class DualSenseSpecialActionSoundPlayer : ISpecialActionSoundPlaye
             _log.Error($"Failed to reset audio output after sound action: {ex.Message}");
         }
     }
-
-    /// <inheritdoc/>
-    public void Dispose() => _player.Dispose();
 }

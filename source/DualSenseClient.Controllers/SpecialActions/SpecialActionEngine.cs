@@ -223,8 +223,13 @@ public sealed class SpecialActionEngine : IDisposable
             // new list is what will be evaluated next.
             bool hadSustainedSound = _sustainedActive.Count > 0
                                      && _actions.Any(a => _sustainedActive.Contains(a.Id)
-                                                          && a.Effects.Any(e => e.Type == SpecialActionTypes.PlaySound));
-            _actions = actions ?? [];
+                                                          && a.Effects.Any(e => e.Enabled
+                                                                                && e.Type == SpecialActionTypes.PlaySound));
+            // Snapshot the list: the caller passes the live settings collection, which the
+            // UI thread keeps mutating (create/delete/import). Evaluating a stale snapshot
+            // is safe and prevents a modified-during-enumeration exception on the read-loop
+            // thread (which would kill the controller's input loop).
+            _actions = (actions ?? []).ToList();
             _pending.Clear();
             _fired.Clear();
             if (_sustainedActive.Count > 0)
@@ -326,14 +331,15 @@ public sealed class SpecialActionEngine : IDisposable
                     _fired.Remove(action.Id);
                     if (_sustainedActive.Remove(action.Id))
                     {
-                        if (action.Effects.Any(e => e.Type == SpecialActionTypes.PlaySound))
+                        if (action.Effects.Any(e => e.Enabled && e.Type == SpecialActionTypes.PlaySound))
                         {
                             StopSound();
                         }
 
-                        if (action.Effects.Any(e => e.Type is SpecialActionTypes.SetLightbarColor
-                                or SpecialActionTypes.SetPlayerLeds
-                                or SpecialActionTypes.ShowBatteryLevel))
+                        if (action.Effects.Any(e => e.Enabled
+                                                    && e.Type is SpecialActionTypes.SetLightbarColor
+                                                        or SpecialActionTypes.SetPlayerLeds
+                                                        or SpecialActionTypes.ShowBatteryLevel))
                         {
                             RestoreBaseState();
                         }
@@ -436,7 +442,7 @@ public sealed class SpecialActionEngine : IDisposable
         {
             // Skip actions with no usable effects: nothing to execute and no point
             // marking them, so a later edit can fire the next hold immediately.
-            if (!action.Effects.Any(e => IsKnownEffectType(e.Type)))
+            if (!action.Effects.Any(e => e.Enabled && IsKnownEffectType(e.Type)))
             {
                 _log.Warning($"Special action '{action.Name}' has no usable effects");
                 return;
@@ -444,7 +450,7 @@ public sealed class SpecialActionEngine : IDisposable
 
             // The hold state is per action, not per effect: the whole set of effects is
             // one-shot, applied while held, or applied for a duration together.
-            if (action.ApplyWhileHeld && action.Effects.Any(e => IsSustainedEffect(e.Type)))
+            if (action.ApplyWhileHeld && action.Effects.Any(e => e.Enabled && IsSustainedEffect(e.Type)))
             {
                 _sustainedActive.Add(action.Id);
             }
@@ -453,7 +459,7 @@ public sealed class SpecialActionEngine : IDisposable
                 _fired.Add(action.Id);
 
                 int durationMs = Math.Clamp(action.DurationMs, 0, MaxDurationMs);
-                if (durationMs > 0 && action.Effects.Any(e => IsTimedEffect(e.Type)))
+                if (durationMs > 0 && action.Effects.Any(e => e.Enabled && IsTimedEffect(e.Type)))
                 {
                     // A repeated fire (re-hold) restarts the duration.
                     _timedActive[action.Id] = DateTime.UtcNow.AddMilliseconds(durationMs);
@@ -462,7 +468,10 @@ public sealed class SpecialActionEngine : IDisposable
 
             foreach (SpecialActionEffect effect in action.Effects)
             {
-                ExecuteEffect(effect);
+                if (effect.Enabled)
+                {
+                    ExecuteEffect(effect);
+                }
             }
 
             ActionExecuted?.Invoke(this, new SpecialActionExecutedEventArgs(action));
