@@ -510,14 +510,16 @@ public sealed class DualSenseAudioPlayer : IDisposable
 
             if (_source is not null)
             {
+                // Rebuild the render targets first: the WASAPI opens and the queue
+                // pre-roll can take tens of milliseconds, and the Bluetooth preroll
+                // must end exactly one tick before the first real audio frame — a
+                // gap after the silence lets the controller's buffer underrun and
+                // crackle when audio resumes.
+                RebuildRenderTargets();
                 if (_device is not null && IsBluetooth)
                 {
-                    _device.ResetBluetoothAudioStream();
-                    SendBluetoothPrime();
-                    SendBtPreroll();
+                    RestartBluetoothStream();
                 }
-
-                RebuildRenderTargets();
             }
         }
 
@@ -525,9 +527,10 @@ public sealed class DualSenseAudioPlayer : IDisposable
         long nextTick = Stopwatch.GetTimestamp() + tickPeriodTicks;
         while (!ct.IsCancellationRequested)
         {
+            bool restartOccurred;
             try
             {
-                if (!ProcessBlock(ct))
+                if (!ProcessBlock(ct, out restartOccurred))
                 {
                     break;
                 }
@@ -542,7 +545,13 @@ public sealed class DualSenseAudioPlayer : IDisposable
                 break;
             }
 
-            nextTick += tickPeriodTicks;
+            // A restart consumes ~100 ms (preroll + render-target rebuild); re-anchor
+            // the deadline so the first real frame lands exactly one tick after the
+            // last preroll silence and the loop never bursts catch-up frames into the
+            // pad's shallow receive buffer (which drops audio and crackles).
+            nextTick = restartOccurred
+                ? Stopwatch.GetTimestamp() + tickPeriodTicks
+                : nextTick + tickPeriodTicks;
             WaitUntil(nextTick);
         }
 
@@ -573,10 +582,11 @@ public sealed class DualSenseAudioPlayer : IDisposable
     /// Reads one block from the source and feeds every enabled target. Returns
     /// <c>false</c> when playback should stop.
     /// </summary>
-    private bool ProcessBlock(CancellationToken ct)
+    private bool ProcessBlock(CancellationToken ct, out bool restartOccurred)
     {
         ct.ThrowIfCancellationRequested();
 
+        restartOccurred = false;
         int read;
         lock (_sync)
         {
@@ -589,14 +599,12 @@ public sealed class DualSenseAudioPlayer : IDisposable
             if (_restartRequested)
             {
                 _restartRequested = false;
+                restartOccurred = true;
+                RebuildRenderTargets();
                 if (IsBluetooth)
                 {
-                    _device!.ResetBluetoothAudioStream();
-                    SendBluetoothPrime();
-                    SendBtPreroll();
+                    RestartBluetoothStream();
                 }
-
-                RebuildRenderTargets();
             }
 
             read = _source.Read(_floatBlock, 0, BlockSamples);
@@ -689,6 +697,22 @@ public sealed class DualSenseAudioPlayer : IDisposable
     {
         _log.Debug("Sending Bluetooth audio stream init-prime");
         _device!.SendBluetoothAudioPrime(CreateAudioState());
+    }
+
+    /// <summary>
+    /// Resets and re-primes the Bluetooth audio/haptics stream and warms it up with
+    /// <see cref="BtPrerollPackets"/> silence reports. The Opus encoder is recreated so
+    /// its internal state starts clean together with the controller's decoder after the
+    /// re-prime; the caller must then re-anchor the tick deadline so the first real
+    /// audio frame follows exactly one tick after the last silence report.
+    /// </summary>
+    private void RestartBluetoothStream()
+    {
+        _device!.ResetBluetoothAudioStream();
+        _opusEncoder?.Dispose();
+        _opusEncoder = null;
+        SendBluetoothPrime();
+        SendBtPreroll();
     }
 
     /// <summary>
