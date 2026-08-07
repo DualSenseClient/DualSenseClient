@@ -280,17 +280,104 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
 
     /// <summary>
     /// The selected buttons of the combination, joined with " + " (or a placeholder when
-    /// none are selected), shown in the special actions list to identify the action.
+    /// none are selected), shown in the special actions list to identify the action. When a
+    /// touchpad gesture is selected, the gesture name is shown instead.
     /// </summary>
     public string ComboSummary
     {
         get
         {
+            if (HasGesture)
+            {
+                return GestureOptions[SelectedGestureIndex];
+            }
+
             string[] names = Buttons.Where(b => b.IsChecked).Select(b => b.DisplayName).ToArray();
             return names.Length > 0
                 ? string.Join(" + ", names)
                 : LocalizationService.GetText("ProfilePage.SpecialActions.Combo.None");
         }
+    }
+
+    /// <summary>
+    /// Whether the action is triggered by a touchpad gesture instead of a button combination.
+    /// </summary>
+    public bool HasGesture => !string.IsNullOrEmpty(TouchpadGesture);
+
+    /// <summary>
+    /// The trigger type options, in selection order (0 = button combination, 1 = touchpad
+    /// gesture). Only one trigger can be selected per action.
+    /// </summary>
+    public ObservableCollection<string> TriggerOptions { get; } =
+    [
+        LocalizationService.GetText("ProfilePage.SpecialActions.Trigger.Buttons"),
+        LocalizationService.GetText("ProfilePage.SpecialActions.Trigger.Touchpad")
+    ];
+
+    /// <summary>
+    /// The selected entry in <see cref="TriggerOptions"/>, bridged to
+    /// <see cref="TouchpadGesture"/>: the touchpad trigger stores the current swipe
+    /// direction, the button trigger clears it.
+    /// </summary>
+    public int SelectedTriggerIndex
+    {
+        get => HasGesture ? 1 : 0;
+        set => TouchpadGesture = value == 1 ? Gesture : null;
+    }
+
+    /// <summary>
+    /// The touchpad gesture that triggers the action, one of <see cref="TouchpadGestures"/>,
+    /// or <c>null</c> for a button combination. Changing it persists immediately.
+    /// </summary>
+    [ObservableProperty] private string? _touchpadGesture;
+
+    /// <summary>
+    /// The swipe direction selected for the touchpad trigger, one of
+    /// <see cref="TouchpadGestures"/>. Kept separate from <see cref="TouchpadGesture"/> so
+    /// the chosen direction is preserved when the trigger is switched back to a button
+    /// combination.
+    /// </summary>
+    [ObservableProperty] private string _gesture = TouchpadGestures.SwipeUp;
+
+    /// <summary>
+    /// The swipe direction options, in selection order (up, down, left, right).
+    /// </summary>
+    public ObservableCollection<string> GestureOptions { get; } =
+    [
+        LocalizationService.GetText("ProfilePage.SpecialActions.Gesture.SwipeUp"),
+        LocalizationService.GetText("ProfilePage.SpecialActions.Gesture.SwipeDown"),
+        LocalizationService.GetText("ProfilePage.SpecialActions.Gesture.SwipeLeft"),
+        LocalizationService.GetText("ProfilePage.SpecialActions.Gesture.SwipeRight")
+    ];
+
+    /// <summary>
+    /// The selected entry in <see cref="GestureOptions"/>, bridged to <see cref="Gesture"/>.
+    /// </summary>
+    public int SelectedGestureIndex
+    {
+        get
+        {
+            if (string.Equals(Gesture, TouchpadGestures.SwipeDown, StringComparison.OrdinalIgnoreCase))
+            {
+                return 1;
+            }
+            if (string.Equals(Gesture, TouchpadGestures.SwipeLeft, StringComparison.OrdinalIgnoreCase))
+            {
+                return 2;
+            }
+            if (string.Equals(Gesture, TouchpadGestures.SwipeRight, StringComparison.OrdinalIgnoreCase))
+            {
+                return 3;
+            }
+            return 0;
+        }
+        set => Gesture = value switch
+        {
+            1 => TouchpadGestures.SwipeDown,
+            2 => TouchpadGestures.SwipeLeft,
+            3 => TouchpadGestures.SwipeRight,
+            _ => TouchpadGestures.SwipeUp
+        };
     }
 
     /// <summary>
@@ -541,9 +628,10 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     public bool IsBatteryAction => Effect(SpecialActionTypes.ShowBatteryLevel)?.Enabled ?? false;
 
     /// <summary>
-    /// Whether the apply-while-held toggle is relevant: light and sound effects support it.
+    /// Whether the apply-while-held toggle is relevant: light and sound effects support it,
+    /// but touchpad-triggered actions never use it.
     /// </summary>
-    public bool IsApplyWhileHeldVisible => IsColorAction || IsPlayerLedsAction || IsBatteryAction || IsSoundAction;
+    public bool IsApplyWhileHeldVisible => !HasGesture && (IsColorAction || IsPlayerLedsAction || IsBatteryAction || IsSoundAction);
 
     /// <summary>
     /// Whether the duration field is relevant: the light effects support the timed restore.
@@ -615,6 +703,8 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
         _holdTimeSeconds = action.HoldTimeMs / 1000.0;
         _applyWhileHeld = action.ApplyWhileHeld;
         _durationSeconds = action.DurationMs / 1000.0;
+        _gesture = NormalizeGesture(action.TouchpadGesture) ?? TouchpadGestures.SwipeUp;
+        _touchpadGesture = NormalizeGesture(action.TouchpadGesture);
         _soundVolume = Effect(SpecialActionTypes.PlaySound)?.SoundVolume ?? 0x50;
         _soundOutputDevice = Effect(SpecialActionTypes.PlaySound)?.SoundOutputDevice ?? SoundOutputDevices.Speaker;
         _hapticFeedback = Effect(SpecialActionTypes.PlaySound)?.HapticFeedback ?? false;
@@ -689,6 +779,38 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
         }
 
         _service.SetEnabledForController(Action.Id, _controllerId, value);
+    }
+
+    /// <summary>
+    /// Re-raises the derived properties (trigger selector, combo summary, gesture
+    /// visibility) and persists the new gesture. Touchpad-triggered actions never use
+    /// apply-while-held, so the toggle is cleared and hidden.
+    /// </summary>
+    partial void OnTouchpadGestureChanged(string? value)
+    {
+        if (!string.IsNullOrEmpty(value))
+        {
+            ApplyWhileHeld = false;
+        }
+
+        OnPropertyChanged(nameof(HasGesture));
+        OnPropertyChanged(nameof(ComboSummary));
+        OnPropertyChanged(nameof(SelectedGestureIndex));
+        OnPropertyChanged(nameof(SelectedTriggerIndex));
+        OnPropertyChanged(nameof(IsApplyWhileHeldVisible));
+        Persist();
+    }
+
+    /// <summary>
+    /// Pushes a changed swipe direction into <see cref="TouchpadGesture"/> while the
+    /// touchpad trigger is active so it persists.
+    /// </summary>
+    partial void OnGestureChanged(string value)
+    {
+        if (HasGesture)
+        {
+            TouchpadGesture = value;
+        }
     }
 
     /// <summary>
@@ -993,6 +1115,7 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
         }
 
         Action.Buttons = Buttons.Where(b => b.IsChecked).Select(b => b.Button.ToString()).ToList();
+        Action.TouchpadGesture = string.IsNullOrWhiteSpace(TouchpadGesture) ? null : TouchpadGesture;
         Action.HoldTimeMs = (int)Math.Round(Math.Clamp(HoldTimeSeconds, 0, SpecialActionEngine.MaxHoldTimeMs / 1000.0) * 1000);
         Action.ApplyWhileHeld = ApplyWhileHeld;
         Action.DurationMs = (int)Math.Round(Math.Clamp(DurationSeconds, 0, SpecialActionEngine.MaxDurationMs / 1000.0) * 1000);
@@ -1106,6 +1229,27 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     /// Converts a slider value to the 0-255 channel byte.
     /// </summary>
     private static byte Channel(double value) => (byte)Math.Round(Math.Clamp(value, 0, 255));
+
+    /// <summary>
+    /// Normalizes a stored gesture to its canonical <see cref="TouchpadGestures"/> constant
+    /// (case-insensitive), or <c>null</c> when none or an unknown value is stored.
+    /// </summary>
+    private static string? NormalizeGesture(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value switch
+        {
+            var gesture when string.Equals(gesture, TouchpadGestures.SwipeUp, StringComparison.OrdinalIgnoreCase) => TouchpadGestures.SwipeUp,
+            var gesture when string.Equals(gesture, TouchpadGestures.SwipeDown, StringComparison.OrdinalIgnoreCase) => TouchpadGestures.SwipeDown,
+            var gesture when string.Equals(gesture, TouchpadGestures.SwipeLeft, StringComparison.OrdinalIgnoreCase) => TouchpadGestures.SwipeLeft,
+            var gesture when string.Equals(gesture, TouchpadGestures.SwipeRight, StringComparison.OrdinalIgnoreCase) => TouchpadGestures.SwipeRight,
+            _ => null
+        };
+    }
 
     /// <summary>
     /// Releases the item: stops the debounce timer and flushes any pending changes so

@@ -111,8 +111,71 @@ public class SpecialActionEngineTests
         return buffer;
     }
 
+    /// <summary>
+    /// Creates a report with no finger on the touchpad: both touch points inactive. The
+    /// payload starts at buffer offset 1, so payload bytes 32-39 (touchpad) are
+    /// buffer[33..40].
+    /// </summary>
+    private static byte[] CreateNoTouchReport()
+    {
+        byte[] buffer = CreateReport();
+        buffer[33] = 0x80;
+        buffer[34] = 0x00;
+        buffer[35] = 0x00;
+        buffer[36] = 0x00;
+        buffer[37] = 0x80;
+        buffer[38] = 0x00;
+        buffer[39] = 0x00;
+        buffer[40] = 0x00;
+        return buffer;
+    }
+
+    /// <summary>
+    /// Creates a report with touch point 1 active at the given position (touch point 2
+    /// inactive). Packed 12-bit coordinates: X = ((b2 & 0x0F) << 8) | b1, Y = (b3 << 4) | (b2 >> 4).
+    /// </summary>
+    private static byte[] CreateTouchReport(ushort x, ushort y, byte trackingId = 1)
+    {
+        byte[] buffer = CreateNoTouchReport();
+        buffer[33] = (byte)(trackingId & 0x7F);
+        buffer[34] = (byte)(x & 0xFF);
+        buffer[35] = (byte)(((y & 0x0F) << 4) | ((x >> 8) & 0x0F));
+        buffer[36] = (byte)(y >> 4);
+        return buffer;
+    }
+
+    /// <summary>
+    /// Creates a report with both touch points active.
+    /// </summary>
+    private static byte[] CreateTwoTouchReport(ushort x1, ushort y1, ushort x2, ushort y2)
+    {
+        byte[] buffer = CreateTouchReport(x1, y1, trackingId: 1);
+        buffer[37] = 0x02;
+        buffer[38] = (byte)(x2 & 0xFF);
+        buffer[39] = (byte)(((y2 & 0x0F) << 4) | ((x2 >> 8) & 0x0F));
+        buffer[40] = (byte)(y2 >> 4);
+        return buffer;
+    }
+
     private static void FeedReport(DualSenseDevice device, byte[] buffer) =>
         ProcessInputReportMethod.Invoke(device, [buffer]);
+
+    /// <summary>
+    /// Performs a single-finger swipe: finger down at <paramref name="fromX"/>, then moved to
+    /// <paramref name="toX"/> (past the engine's swipe threshold). The finger is not lifted,
+    /// so a hold can be released or re-armed later.
+    /// </summary>
+    private static void SwipeRight(DualSenseDevice device, ushort fromX = 100, ushort toX = 600)
+    {
+        FeedReport(device, CreateNoTouchReport());
+        FeedReport(device, CreateTouchReport(fromX, 500));
+        FeedReport(device, CreateTouchReport(toX, 520));
+    }
+
+    /// <summary>
+    /// Lifts the finger from the touchpad, ending the current gesture.
+    /// </summary>
+    private static void LiftFinger(DualSenseDevice device) => FeedReport(device, CreateNoTouchReport());
 
     private static SpecialAction CreateAction(params ButtonType[] buttons) => new SpecialAction
     {
@@ -221,6 +284,38 @@ public class SpecialActionEngineTests
         ApplyWhileHeld = applyWhileHeld,
         EnabledControllers = { "test" }
     };
+
+    /// <summary>
+    /// Creates a gesture action with a disconnect effect for the given gesture.
+    /// </summary>
+    private static SpecialAction CreateGestureAction(string gesture) => new SpecialAction
+    {
+        TouchpadGesture = gesture,
+        Effects = { new SpecialActionEffect { Type = SpecialActionTypes.Disconnect } },
+        EnabledControllers = { "test" }
+    };
+
+    /// <summary>
+    /// Creates a lightbar action triggered by the given gesture with the given RGB and
+    /// apply-while-held setting.
+    /// </summary>
+    private static SpecialAction CreateGestureLightbarAction(string gesture, byte red, byte green, byte blue, bool applyWhileHeld) =>
+        new SpecialAction
+        {
+            TouchpadGesture = gesture,
+            Effects =
+            {
+                new SpecialActionEffect
+                {
+                    Type = SpecialActionTypes.SetLightbarColor,
+                    Red = red,
+                    Green = green,
+                    Blue = blue
+                }
+            },
+            ApplyWhileHeld = applyWhileHeld,
+            EnabledControllers = { "test" }
+        };
 
     /// <summary>
     /// Polls until the condition holds or the timeout elapses. Needed because the
@@ -1473,6 +1568,233 @@ public class SpecialActionEngineTests
 
         Assert.That(WaitUntil(() => hid.Writes.Count == 2), Is.True, "Timed player LED action did not restore the profile after its duration");
         Assert.That(hid.Writes[^1][45], Is.EqualTo(0x01));
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void GestureSwipeRight_FiresOnSwipe()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired(CreateGestureAction(TouchpadGestures.SwipeRight));
+        int executions = 0;
+        engine.ActionExecuted += (_, _) => executions++;
+
+        SwipeRight(device);
+
+        Assert.That(executions, Is.EqualTo(1));
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void GestureSwipeLeft_FiresOnSwipe()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired(CreateGestureAction(TouchpadGestures.SwipeLeft));
+        int executions = 0;
+        engine.ActionExecuted += (_, _) => executions++;
+
+        FeedReport(device, CreateNoTouchReport());
+        FeedReport(device, CreateTouchReport(1500, 500));
+        FeedReport(device, CreateTouchReport(900, 520));
+
+        Assert.That(executions, Is.EqualTo(1));
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void GestureSwipeUp_FiresOnSwipe()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired(CreateGestureAction(TouchpadGestures.SwipeUp));
+        int executions = 0;
+        engine.ActionExecuted += (_, _) => executions++;
+
+        FeedReport(device, CreateNoTouchReport());
+        FeedReport(device, CreateTouchReport(500, 900));
+        FeedReport(device, CreateTouchReport(520, 300));
+
+        Assert.That(executions, Is.EqualTo(1));
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void GestureSwipeDown_FiresOnSwipe()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired(CreateGestureAction(TouchpadGestures.SwipeDown));
+        int executions = 0;
+        engine.ActionExecuted += (_, _) => executions++;
+
+        FeedReport(device, CreateNoTouchReport());
+        FeedReport(device, CreateTouchReport(500, 200));
+        FeedReport(device, CreateTouchReport(520, 800));
+
+        Assert.That(executions, Is.EqualTo(1));
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void Gesture_SwipeBelowThreshold_DoesNotFire()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired(CreateGestureAction(TouchpadGestures.SwipeRight));
+        int executions = 0;
+        engine.ActionExecuted += (_, _) => executions++;
+
+        FeedReport(device, CreateNoTouchReport());
+        FeedReport(device, CreateTouchReport(100, 500));
+        FeedReport(device, CreateTouchReport(200, 520));
+        LiftFinger(device);
+
+        Assert.That(executions, Is.EqualTo(0));
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void Gesture_WrongDirection_DoesNotFire()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired(CreateGestureAction(TouchpadGestures.SwipeLeft));
+        int executions = 0;
+        engine.ActionExecuted += (_, _) => executions++;
+
+        SwipeRight(device);
+        LiftFinger(device);
+
+        Assert.That(executions, Is.EqualTo(0));
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void Gesture_WithHoldTime_FiresAfterDeadline()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
+        SpecialAction action = CreateGestureAction(TouchpadGestures.SwipeRight);
+        action.HoldTimeMs = 200;
+        engine.UpdateActions([action]);
+        int executions = 0;
+        engine.ActionExecuted += (_, _) => executions++;
+
+        SwipeRight(device);
+        Assert.That(executions, Is.EqualTo(0));
+
+        Assert.That(WaitUntil(() => executions == 1), Is.True, "Gesture action did not fire after the hold duration");
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void Gesture_WithHoldTime_FingerLiftedBeforeDeadline_DoesNotFire()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
+        SpecialAction action = CreateGestureAction(TouchpadGestures.SwipeRight);
+        action.HoldTimeMs = 200;
+        engine.UpdateActions([action]);
+        int executions = 0;
+        engine.ActionExecuted += (_, _) => executions++;
+
+        SwipeRight(device);
+        Thread.Sleep(50);
+        LiftFinger(device);
+        Thread.Sleep(400);
+
+        Assert.That(executions, Is.EqualTo(0));
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void Gesture_ReArmsOnNextSwipe()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired(CreateGestureAction(TouchpadGestures.SwipeRight));
+        int executions = 0;
+        engine.ActionExecuted += (_, _) => executions++;
+
+        SwipeRight(device);
+        Assert.That(executions, Is.EqualTo(1));
+
+        // Releasing the finger re-arms the action; the next swipe fires it again.
+        LiftFinger(device);
+        SwipeRight(device);
+        Assert.That(executions, Is.EqualTo(2));
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void Gesture_WhileHeldLight_AppliesOnSwipeAndRestoresOnFingerUp()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        engine.ProfileProvider = _ => CreateRestoreProfile();
+        engine.UpdateActions([CreateGestureLightbarAction(TouchpadGestures.SwipeRight, 0xAA, 0xBB, 0xCC, applyWhileHeld: true)]);
+
+        SwipeRight(device);
+        Assert.That(hid.Writes, Has.Count.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(hid.Writes[0][45], Is.EqualTo(0xAA));
+            Assert.That(hid.Writes[0][46], Is.EqualTo(0xBB));
+            Assert.That(hid.Writes[0][47], Is.EqualTo(0xCC));
+        });
+
+        // Lifting the finger reverts to the bound profile.
+        LiftFinger(device);
+        Assert.That(hid.Writes, Has.Count.EqualTo(2));
+        Assert.Multiple(() =>
+        {
+            Assert.That(hid.Writes[^1][45], Is.EqualTo(0x01));
+            Assert.That(hid.Writes[^1][46], Is.EqualTo(0x02));
+            Assert.That(hid.Writes[^1][47], Is.EqualTo(0x03));
+        });
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void Gesture_TwoFingers_DoesNotFire()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired(CreateGestureAction(TouchpadGestures.SwipeRight));
+        int executions = 0;
+        engine.ActionExecuted += (_, _) => executions++;
+
+        FeedReport(device, CreateNoTouchReport());
+        FeedReport(device, CreateTwoTouchReport(100, 500, 400, 600));
+        FeedReport(device, CreateTouchReport(600, 520));
+        FeedReport(device, CreateNoTouchReport());
+
+        Assert.That(executions, Is.EqualTo(0));
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void GestureAction_IgnoresButtons()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
+        SpecialAction action = CreateGestureAction(TouchpadGestures.SwipeRight);
+        action.Buttons.Add(ButtonType.L1.ToString());
+        engine.UpdateActions([action]);
+        int executions = 0;
+        engine.ActionExecuted += (_, _) => executions++;
+
+        FeedReport(device, CreateReport());
+        FeedReport(device, CreateReport(ButtonType.L1));
+        FeedReport(device, CreateReport());
+
+        Assert.That(executions, Is.EqualTo(0));
 
         engine.Dispose();
         device.Dispose();

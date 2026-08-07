@@ -39,6 +39,39 @@ public static class SpecialActionTypes
 }
 
 /// <summary>
+/// Touchpad gesture names supported by special actions. Stored as strings in settings so
+/// the settings layer does not reference the controller protocol; the executing side
+/// (<c>DualSenseClient.Controllers.SpecialActions.SpecialActionEngine</c>) interprets them.
+/// </summary>
+public static class TouchpadGestures
+{
+    /// <summary>
+    /// No gesture: the action is triggered by its button combination instead.
+    /// </summary>
+    public const string None = "";
+
+    /// <summary>
+    /// A single finger swiped left across the touchpad.
+    /// </summary>
+    public const string SwipeLeft = "SwipeLeft";
+
+    /// <summary>
+    /// A single finger swiped right across the touchpad.
+    /// </summary>
+    public const string SwipeRight = "SwipeRight";
+
+    /// <summary>
+    /// A single finger swiped up across the touchpad.
+    /// </summary>
+    public const string SwipeUp = "SwipeUp";
+
+    /// <summary>
+    /// A single finger swiped down across the touchpad.
+    /// </summary>
+    public const string SwipeDown = "SwipeDown";
+}
+
+/// <summary>
 /// Audio output device names for the play-sound effect. Stored as strings in settings so
 /// the settings layer does not reference the controller protocol; the executing side
 /// (<c>DualSenseClient.Controllers.SpecialActions</c>) interprets them.
@@ -205,9 +238,10 @@ public class SpecialActionEffect
 }
 
 /// <summary>
-/// A user-defined special action: an exact combination of buttons held on the controller
-/// that executes a set of effects (e.g. disconnect the controller or change the lightbar
-/// color), re-arming after the combination is released.
+/// A user-defined special action: an exact combination of buttons held on the controller,
+/// or a single-finger touchpad swipe (<see cref="TouchpadGesture"/>), that executes a set
+/// of effects (e.g. disconnect the controller or change the lightbar color), re-arming
+/// after the trigger is released.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -245,10 +279,19 @@ public class SpecialAction
 
     /// <summary>
     /// Gets or sets the button names forming the combination (exact match; any extra
-    /// button held disables it). Stored as <c>ButtonType</c> names.
+    /// button held disables it). Stored as <c>ButtonType</c> names. Ignored when
+    /// <see cref="TouchpadGesture"/> is set.
     /// </summary>
     [JsonPropertyName("buttons")]
     public List<string> Buttons { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets the touchpad gesture that triggers the action, one of
+    /// <see cref="TouchpadGestures"/>. When set, the gesture triggers the action instead
+    /// of <see cref="Buttons"/>.
+    /// </summary>
+    [JsonPropertyName("gesture")]
+    public string? TouchpadGesture { get; set; }
 
     /// <summary>
     /// Gets or sets the effects executed when the action fires, at most one per

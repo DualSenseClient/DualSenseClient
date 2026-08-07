@@ -1,5 +1,6 @@
 using DualSenseClient.Controllers.DualSense.Enum;
 using DualSenseClient.Controllers.DualSense.Events;
+using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Logging;
@@ -29,25 +30,28 @@ public sealed class SpecialActionExecutedEventArgs : EventArgs
 }
 
 /// <summary>
-/// Watches a controller's button events and executes special actions when the user holds an
-/// exact button combination: the action fires once the moment the held set equals the
-/// combination (extra buttons held prevent it from firing), and re-arms only after at least
-/// one combination button is released.
+/// Watches a controller's button and touchpad events and executes special actions when the
+/// user holds an exact button combination or performs a single-finger touchpad swipe (see
+/// <see cref="SpecialAction.TouchpadGesture"/>): a button action fires once the moment the
+/// held set equals the combination (extra buttons held prevent it from firing), and a
+/// gesture action fires once the finger has traveled far enough across the touchpad. Both
+/// re-arm only after their trigger is released.
 /// </summary>
 /// <remarks>
 /// <para>
 /// An action can declare a hold duration (<see cref="SpecialAction.HoldTimeMs"/>): the exact
-/// combination must then be held continuously for that long before the action fires, and
-/// interrupting it (pressing an extra button or releasing a combination button) resets the
-/// timer. Light actions can also be marked <see cref="SpecialAction.ApplyWhileHeld"/>: they
-/// are applied while the combination is held and the controller reverts to its bound profile
-/// (see <see cref="ProfileProvider"/>) once a combination button is released. Alternatively
-/// they can carry a duration (<see cref="SpecialAction.DurationMs"/>): they stay applied for
-/// that long and the controller then reverts to its bound profile automatically, whether or
-/// not the combination is still held. Sound actions
-/// play an audio file through the controller speaker (see <see cref="SoundPlayerFactory"/>);
-/// marked <see cref="SpecialAction.ApplyWhileHeld"/>, the sound plays while the combination
-/// is held and stops on release.
+/// combination must then be held continuously, or the swipe finger stay down, for that long
+/// before the action fires, and interrupting it (pressing an extra button, releasing a
+/// combination button, or lifting the finger) resets the timer. Light actions can also be
+/// marked <see cref="SpecialAction.ApplyWhileHeld"/>: they are applied while the trigger is
+/// held and the controller reverts to its bound profile (see <see cref="ProfileProvider"/>)
+/// once a combination button is released or the swipe finger is lifted. Alternatively they
+/// can carry a duration (<see cref="SpecialAction.DurationMs"/>): they stay applied for that
+/// long and the controller then reverts to its bound profile automatically, whether or not
+/// the trigger is still held. Sound actions play an audio file through the controller
+/// speaker (see <see cref="SoundPlayerFactory"/>); marked
+/// <see cref="SpecialAction.ApplyWhileHeld"/>, the sound plays while the trigger is held
+/// and stops on release.
 /// </para>
 /// <para>
 /// Only actions enabled for the attached controller (see
@@ -76,6 +80,12 @@ public sealed class SpecialActionEngine : IDisposable
     /// Upper bound for how long a light effect stays applied before the profile is restored.
     /// </summary>
     public const int MaxDurationMs = 60000;
+
+    /// <summary>
+    /// Minimum horizontal or vertical distance (in touchpad pixels, out of 1920x1080) a
+    /// finger must travel before the movement counts as a swipe.
+    /// </summary>
+    private const int MinSwipeDistance = 120;
 
     /// <summary>
     /// Logger instance.
@@ -112,6 +122,18 @@ public sealed class SpecialActionEngine : IDisposable
     /// The buttons currently held on the attached controller.
     /// </summary>
     private readonly HashSet<ButtonType> _held = new HashSet<ButtonType>();
+
+    /// <summary>
+    /// Start position of the current single-finger touch, used to measure the swipe distance
+    /// and direction. Reset when the finger lifts or a second finger is detected.
+    /// </summary>
+    private (ushort X, ushort Y)? _touchStart;
+
+    /// <summary>
+    /// The gesture (see <see cref="TouchpadGestures"/>) committed by the current touch, or
+    /// <c>null</c> while no finger is down or it has not crossed the swipe threshold yet.
+    /// </summary>
+    private string? _lastGesture;
 
     /// <summary>
     /// Actions that have already fired for the current hold, re-armed on release.
@@ -185,9 +207,12 @@ public sealed class SpecialActionEngine : IDisposable
             _pending.Clear();
             _sustainedActive.Clear();
             _timedActive.Clear();
+            _touchStart = null;
+            _lastGesture = null;
 
             device.ButtonPressed += OnButtonPressed;
             device.ButtonReleased += OnButtonReleased;
+            device.TouchpadChanged += OnTouchpadChanged;
             _log.Debug($"Special actions attached to {device.Info.ProductName} (controller id: {_controllerId ?? "unknown"})");
         }
     }
@@ -232,6 +257,8 @@ public sealed class SpecialActionEngine : IDisposable
             _actions = (actions ?? []).ToList();
             _pending.Clear();
             _fired.Clear();
+            _touchStart = null;
+            _lastGesture = null;
             if (_sustainedActive.Count > 0)
             {
                 _sustainedActive.Clear();
@@ -276,11 +303,73 @@ public sealed class SpecialActionEngine : IDisposable
     }
 
     /// <summary>
-    /// Evaluates every action against the current held set:
-    /// schedules or fires it when the held set exactly equals the combination, and re-arms
-    /// an action when a combination button is released (extra held buttons neither re-arm
-    /// nor fire). Any deviation from the exact combination cancels a pending hold, so a
-    /// fresh exact hold restarts the hold duration.
+    /// Tracks the touchpad's first touch point and detects single-finger swipes: the touch
+    /// start is recorded on finger-down, and the swipe is committed once the finger has
+    /// traveled at least <see cref="MinSwipeDistance"/> pixels in one direction. A second
+    /// finger cancels tracking (not a single-finger swipe), and lifting the finger releases
+    /// the gesture, which re-arms gesture actions and reverts while-held effects.
+    /// </summary>
+    private void OnTouchpadChanged(object? sender, TouchpadEventArgs e)
+    {
+        lock (_lock)
+        {
+            TouchPoint touch = e.CurrentState.Touch1;
+            bool isActive = touch.IsActive;
+
+            if (!isActive)
+            {
+                // The finger lifted: the gesture (if any) is over.
+                _touchStart = null;
+                _lastGesture = null;
+                EvaluateCombos();
+                return;
+            }
+
+            // A second finger is down: not a single-finger swipe, cancel tracking.
+            if (e.CurrentState.Touch2.IsActive)
+            {
+                _touchStart = null;
+                _lastGesture = null;
+                return;
+            }
+
+            if (!e.PreviousState.Touch1.IsActive)
+            {
+                // Fresh touch: a swipe is measured from this position.
+                _touchStart = (touch.X, touch.Y);
+                _lastGesture = null;
+                return;
+            }
+
+            if (_lastGesture is not null || _touchStart is null)
+            {
+                // Already committed, or tracking was cancelled mid-touch.
+                return;
+            }
+
+            // Movement: commit the swipe once the finger travels far enough, using the
+            // dominant axis for the direction.
+            int dx = touch.X - _touchStart.Value.X;
+            int dy = touch.Y - _touchStart.Value.Y;
+            if (Math.Abs(dx) < MinSwipeDistance && Math.Abs(dy) < MinSwipeDistance)
+            {
+                return;
+            }
+
+            _lastGesture = Math.Abs(dx) > Math.Abs(dy)
+                ? (dx < 0 ? TouchpadGestures.SwipeLeft : TouchpadGestures.SwipeRight)
+                : (dy < 0 ? TouchpadGestures.SwipeUp : TouchpadGestures.SwipeDown);
+            EvaluateCombos();
+        }
+    }
+
+    /// <summary>
+    /// Evaluates every action against the current held set and touchpad gesture:
+    /// schedules or fires it when its trigger is active (the held set exactly equals the
+    /// combination, or the committed swipe matches), and re-arms it when the trigger is
+    /// released (a combination button released, or the finger lifted; extra held buttons
+    /// neither re-arm nor fire). Any deviation from the exact trigger cancels a pending
+    /// hold, so a fresh exact trigger restarts the hold duration.
     /// </summary>
     private void EvaluateCombos()
     {
@@ -293,6 +382,12 @@ public sealed class SpecialActionEngine : IDisposable
         {
             if (!SpecialActionService.IsEnabledFor(action, _controllerId))
             {
+                continue;
+            }
+
+            if (!string.IsNullOrEmpty(action.TouchpadGesture))
+            {
+                EvaluateGestureAction(action);
                 continue;
             }
 
@@ -350,6 +445,64 @@ public sealed class SpecialActionEngine : IDisposable
     }
 
     /// <summary>
+    /// Evaluates a gesture action against the touchpad state: fires (or schedules) it once
+    /// its swipe is committed, and re-arms it when the finger lifts. Releasing the touch
+    /// behaves like releasing a combination button: a pending hold is cancelled and a
+    /// while-held effect reverts to the bound profile.
+    /// </summary>
+    private void EvaluateGestureAction(SpecialAction action)
+    {
+        if (IsGestureActive(action))
+        {
+            if (_fired.Contains(action.Id) || _sustainedActive.Contains(action.Id))
+            {
+                return;
+            }
+
+            int holdMs = Math.Clamp(action.HoldTimeMs, 0, MaxHoldTimeMs);
+            if (holdMs > 0)
+            {
+                // The finger is still down; the gesture stays committed until release.
+                _pending[action.Id] = DateTime.UtcNow.AddMilliseconds(holdMs);
+            }
+            else
+            {
+                Fire(action);
+            }
+        }
+        else
+        {
+            // No committed gesture: a pending hold is moot and the action is re-armed
+            // (the swipe's release already happened), reverting while-held effects.
+            _pending.Remove(action.Id);
+            _fired.Remove(action.Id);
+            if (_sustainedActive.Remove(action.Id))
+            {
+                if (action.Effects.Any(e => e.Enabled && e.Type == SpecialActionTypes.PlaySound))
+                {
+                    StopSound();
+                }
+
+                if (action.Effects.Any(e => e.Enabled
+                                            && e.Type is SpecialActionTypes.SetLightbarColor
+                                                or SpecialActionTypes.SetPlayerLeds
+                                                or SpecialActionTypes.ShowBatteryLevel))
+                {
+                    RestoreBaseState();
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether the action's gesture is currently committed on the touchpad (a single finger
+    /// is down and has crossed the swipe threshold in the matching direction).
+    /// </summary>
+    private bool IsGestureActive(SpecialAction action) =>
+        _lastGesture is not null
+        && string.Equals(_lastGesture, action.TouchpadGesture, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Fires actions whose hold deadline has passed while the exact combination is still
     /// held, and restores the bound profile for timed light actions whose duration elapsed.
     /// Called by the timer on the thread pool.
@@ -379,11 +532,22 @@ public sealed class SpecialActionEngine : IDisposable
                     continue;
                 }
 
-                HashSet<ButtonType>? combo = TryParseCombo(action);
-                if (combo is null || !_held.SetEquals(combo))
+                if (!string.IsNullOrEmpty(action.TouchpadGesture))
                 {
-                    // The combination was broken before the deadline.
-                    continue;
+                    if (!IsGestureActive(action))
+                    {
+                        // The finger lifted before the deadline.
+                        continue;
+                    }
+                }
+                else
+                {
+                    HashSet<ButtonType>? combo = TryParseCombo(action);
+                    if (combo is null || !_held.SetEquals(combo))
+                    {
+                        // The combination was broken before the deadline.
+                        continue;
+                    }
                 }
 
                 Fire(action);
@@ -690,6 +854,7 @@ public sealed class SpecialActionEngine : IDisposable
         {
             _device.ButtonPressed -= OnButtonPressed;
             _device.ButtonReleased -= OnButtonReleased;
+            _device.TouchpadChanged -= OnTouchpadChanged;
         }
 
         _device = null;
@@ -699,6 +864,8 @@ public sealed class SpecialActionEngine : IDisposable
         _pending.Clear();
         _sustainedActive.Clear();
         _timedActive.Clear();
+        _touchStart = null;
+        _lastGesture = null;
 
         _soundPlayer?.Dispose();
         _soundPlayer = null;

@@ -236,6 +236,16 @@
     <sys:String x:Key="ProfilePage.SpecialActions.Combo">Button combination</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.Combo.Hint">Held exactly as selected (no extra buttons). Fires once, re-arms after release.</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.Combo.None">No buttons</sys:String>
+    <sys:String x:Key="ProfilePage.SpecialActions.Trigger">Trigger</sys:String>
+    <sys:String x:Key="ProfilePage.SpecialActions.Trigger.Description">How the action fires: an exact button combination or a touchpad swipe. Only one trigger can be selected per action.</sys:String>
+    <sys:String x:Key="ProfilePage.SpecialActions.Trigger.Buttons">Button combination</sys:String>
+    <sys:String x:Key="ProfilePage.SpecialActions.Trigger.Touchpad">Touchpad gesture</sys:String>
+    <sys:String x:Key="ProfilePage.SpecialActions.Gesture">Swipe direction</sys:String>
+    <sys:String x:Key="ProfilePage.SpecialActions.Gesture.Description">Swipe on the touchpad with one finger in this direction to trigger the action. Fires once per swipe.</sys:String>
+    <sys:String x:Key="ProfilePage.SpecialActions.Gesture.SwipeUp">Swipe up</sys:String>
+    <sys:String x:Key="ProfilePage.SpecialActions.Gesture.SwipeDown">Swipe down</sys:String>
+    <sys:String x:Key="ProfilePage.SpecialActions.Gesture.SwipeLeft">Swipe left</sys:String>
+    <sys:String x:Key="ProfilePage.SpecialActions.Gesture.SwipeRight">Swipe right</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.Button.Cross">Cross</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.Button.Circle">Circle</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.Button.Square">Square</sys:String>

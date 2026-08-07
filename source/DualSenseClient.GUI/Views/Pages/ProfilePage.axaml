@@ -287,26 +287,42 @@
                                                       IsChecked="{Binding IsEnabledForThisController}"
                                                       HorizontalAlignment="Left" />
 
-                                        <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Combo}"
-                                                   FontWeight="SemiBold"
-                                                   Margin="0,4,0,0" />
-                                        <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Combo.Hint}"
-                                                   FontSize="12"
-                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                        <ItemsControl ItemsSource="{Binding Buttons}">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <WrapPanel />
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="items:SpecialActionButtonItem">
-                                                    <ToggleButton Content="{Binding DisplayName}"
-                                                                  IsChecked="{Binding IsChecked}"
-                                                                  Margin="2" />
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
+                                        <cards:ComboBoxCard Title="{DynamicResource ProfilePage.SpecialActions.Trigger}"
+                                                            Description="{DynamicResource ProfilePage.SpecialActions.Trigger.Description}"
+                                                            ComboBoxMinWidth="200"
+                                                            ItemsSource="{Binding TriggerOptions}"
+                                                            SelectedIndex="{Binding SelectedTriggerIndex}" />
+
+                                        <cards:ComboBoxCard Title="{DynamicResource ProfilePage.SpecialActions.Gesture}"
+                                                            Description="{DynamicResource ProfilePage.SpecialActions.Gesture.Description}"
+                                                            ComboBoxMinWidth="200"
+                                                            ItemsSource="{Binding GestureOptions}"
+                                                            SelectedIndex="{Binding SelectedGestureIndex}"
+                                                            IsVisible="{Binding HasGesture}" />
+
+                                        <StackPanel Spacing="4"
+                                                    IsVisible="{Binding !HasGesture}">
+                                            <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Combo}"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,4,0,0" />
+                                            <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Combo.Hint}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <ItemsControl ItemsSource="{Binding Buttons}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="items:SpecialActionButtonItem">
+                                                        <ToggleButton Content="{Binding DisplayName}"
+                                                                      IsChecked="{Binding IsChecked}"
+                                                                      Margin="2" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
 
                                         <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Effects.Title}"
                                                    FontWeight="SemiBold"
