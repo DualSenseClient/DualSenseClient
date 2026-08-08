@@ -107,6 +107,10 @@ public partial class App : Application
 
             // Tray icon (created for its side effects: icon, menu, and subscriptions).
             _ = Services.GetRequiredService<TrayIconService>();
+
+            // Special action coordinator (created for its side effects: it attaches the
+            // special actions engine to the active controller).
+            _ = Services.GetRequiredService<SpecialActionCoordinator>();
         }
 
         base.OnFrameworkInitializationCompleted();

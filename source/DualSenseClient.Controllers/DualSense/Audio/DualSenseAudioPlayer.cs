@@ -309,6 +309,12 @@ public sealed class DualSenseAudioPlayer : IDisposable
     public bool IsPlaying => _cts is not null;
 
     /// <summary>
+    /// Whether the writer loop task is still running. A loop that was just stopped may
+    /// briefly outlive <see cref="IsPlaying"/> while it finishes its current frame.
+    /// </summary>
+    public bool IsWriterActive => _loopTask is { IsCompleted: false };
+
+    /// <summary>
     /// Current playback position (the source's read cursor).
     /// </summary>
     public TimeSpan Position { get; private set; }
@@ -332,6 +338,14 @@ public sealed class DualSenseAudioPlayer : IDisposable
     /// Raised when the source reaches the end of the file.
     /// </summary>
     public event EventHandler? PlaybackEnded;
+
+    /// <summary>
+    /// Raised after the writer loop has fully exited — that is, when playback ended
+    /// naturally or was stopped and no further frames will be sent. Consumers can use it
+    /// to order controller-side cleanup (e.g. releasing the audio route) after the last
+    /// audio frame.
+    /// </summary>
+    public event EventHandler? WriterExited;
 
     /// <summary>
     /// Creates the player. Pass <c>null</c> for <paramref name="device"/> to limit
@@ -556,6 +570,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
         }
 
         _log.Debug("Writer loop ended");
+        WriterExited?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>

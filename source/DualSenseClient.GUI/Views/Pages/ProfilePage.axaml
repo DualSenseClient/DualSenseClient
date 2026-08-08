@@ -205,6 +205,343 @@
                     </StackPanel>
                 </StackPanel>
             </Expander>
+
+            <!-- Special actions -->
+            <Expander IsVisible="{Binding HasDevice}"
+                      IsExpanded="False">
+                <Expander.Header>
+                    <cards:CardHeader Title="{DynamicResource ProfilePage.SpecialActions.Title}"
+                                      Description="{DynamicResource ProfilePage.SpecialActions.Description}"
+                                      Icon="{x:Static fic:Symbol.Pulse}"
+                                      MinHeight="64">
+                        <cards:CardHeader.ActionContent>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Click="OnImportSpecialActionsClick"
+                                        ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.Import.ToolTip}">
+                                    <ic:FluentIcon Icon="ArrowImport"
+                                                   IconVariant="Regular" />
+                                </Button>
+                                <Button Click="OnExportSpecialActionsClick"
+                                        ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.Export.ToolTip}">
+                                    <ic:FluentIcon Icon="ArrowExport"
+                                                   IconVariant="Regular" />
+                                </Button>
+                                <Button Command="{Binding AddSpecialActionCommand}"
+                                        ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.New}">
+                                    <ic:FluentIcon Icon="Add"
+                                                   IconVariant="Regular" />
+                                </Button>
+                            </StackPanel>
+                        </cards:CardHeader.ActionContent>
+                    </cards:CardHeader>
+                </Expander.Header>
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Empty}"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               IsVisible="{Binding !HasSpecialActions}" />
+
+                    <ListBox ItemsSource="{Binding SpecialActions}"
+                             SelectedItem="{Binding SelectedSpecialAction}"
+                             MaxHeight="160">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="items:SpecialActionItem">
+                                <StackPanel Orientation="Horizontal"
+                                            Spacing="8">
+                                    <TextBlock Text="{Binding Name}"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding ComboSummary}"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <!-- Editor for the selected special action -->
+                    <ContentControl Content="{Binding SelectedSpecialAction}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate x:DataType="items:SpecialActionItem">
+                                <cards:CustomCard>
+                                    <StackPanel Spacing="8">
+                                        <Grid ColumnDefinitions="*,Auto,Auto"
+                                              ColumnSpacing="8">
+                                            <TextBox Text="{Binding Name, Mode=TwoWay}"
+                                                     PlaceholderText="{DynamicResource ProfilePage.SpecialActions.Name}" />
+                                            <Button Grid.Column="1"
+                                                    Click="OnExportSpecialActionClick"
+                                                    ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.Export.One}">
+                                                <ic:FluentIcon Icon="ArrowExport"
+                                                               IconVariant="Regular" />
+                                            </Button>
+                                            <Button Grid.Column="2"
+                                                    Command="{Binding DeleteCommand}"
+                                                    ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.Delete}">
+                                                <ic:FluentIcon Icon="Delete"
+                                                               IconVariant="Regular" />
+                                            </Button>
+                                        </Grid>
+
+                                        <ToggleButton Content="{DynamicResource ProfilePage.SpecialActions.EnabledForThisController}"
+                                                      IsChecked="{Binding IsEnabledForThisController}"
+                                                      HorizontalAlignment="Left" />
+
+                                        <cards:ComboBoxCard Title="{DynamicResource ProfilePage.SpecialActions.Trigger}"
+                                                            Description="{DynamicResource ProfilePage.SpecialActions.Trigger.Description}"
+                                                            ComboBoxMinWidth="200"
+                                                            ItemsSource="{Binding TriggerOptions}"
+                                                            SelectedIndex="{Binding SelectedTriggerIndex}" />
+
+                                        <cards:ComboBoxCard Title="{DynamicResource ProfilePage.SpecialActions.Gesture}"
+                                                            Description="{DynamicResource ProfilePage.SpecialActions.Gesture.Description}"
+                                                            ComboBoxMinWidth="200"
+                                                            ItemsSource="{Binding GestureOptions}"
+                                                            SelectedIndex="{Binding SelectedGestureIndex}"
+                                                            IsVisible="{Binding HasGesture}" />
+
+                                        <StackPanel Spacing="4"
+                                                    IsVisible="{Binding !HasGesture}">
+                                            <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Combo}"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,4,0,0" />
+                                            <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Combo.Hint}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <ItemsControl ItemsSource="{Binding Buttons}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="items:SpecialActionButtonItem">
+                                                        <ToggleButton Content="{Binding DisplayName}"
+                                                                      IsChecked="{Binding IsChecked}"
+                                                                      Margin="2" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+
+                                        <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Effects.Title}"
+                                                   FontWeight="SemiBold"
+                                                   Margin="0,4,0,0" />
+                                        <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Effects.Description}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        <WrapPanel>
+                                            <ToggleButton Content="{DynamicResource ProfilePage.SpecialActions.Effects.Disconnect}"
+                                                          IsChecked="{Binding EffectDisconnect}"
+                                                          Margin="2" />
+                                            <ToggleButton Content="{DynamicResource ProfilePage.SpecialActions.Effects.Lightbar}"
+                                                          IsChecked="{Binding EffectLightbar}"
+                                                          Margin="2" />
+                                            <ToggleButton Content="{DynamicResource ProfilePage.SpecialActions.Effects.PlayerLeds}"
+                                                          IsChecked="{Binding EffectPlayerLeds}"
+                                                          Margin="2" />
+                                            <ToggleButton Content="{DynamicResource ProfilePage.SpecialActions.Effects.Sound}"
+                                                          IsChecked="{Binding EffectSound}"
+                                                          Margin="2" />
+                                            <ToggleButton Content="{DynamicResource ProfilePage.SpecialActions.Effects.Battery}"
+                                                          IsChecked="{Binding EffectBattery}"
+                                                          Margin="2" />
+                                        </WrapPanel>
+
+                                        <cards:NumberBoxCard Title="{DynamicResource ProfilePage.SpecialActions.HoldTime}"
+                                                             Description="{DynamicResource ProfilePage.SpecialActions.HoldTime.Description}"
+                                                             Minimum="0"
+                                                             Maximum="10"
+                                                             Value="{Binding HoldTimeSeconds}" />
+
+                                        <ToggleButton Content="{DynamicResource ProfilePage.SpecialActions.ApplyWhileHeld}"
+                                                      IsChecked="{Binding ApplyWhileHeld}"
+                                                      IsVisible="{Binding IsApplyWhileHeldVisible}"
+                                                      ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.ApplyWhileHeld.ToolTip}"
+                                                      HorizontalAlignment="Left" />
+
+                                        <cards:NumberBoxCard Title="{DynamicResource ProfilePage.SpecialActions.Duration}"
+                                                             Description="{DynamicResource ProfilePage.SpecialActions.Duration.Description}"
+                                                             Minimum="0"
+                                                             Maximum="60"
+                                                             Value="{Binding DurationSeconds}"
+                                                             IsVisible="{Binding IsDurationVisible}" />
+
+                                        <StackPanel Spacing="8"
+                                                    IsVisible="{Binding IsColorAction}">
+                                            <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Color}"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,4,0,0" />
+                                            <Grid ColumnDefinitions="Auto,*"
+                                                  ColumnSpacing="16">
+                                                <controls:ColorView Grid.Column="0"
+                                                                    Width="320"
+                                                                    Color="{Binding LightbarColor}"
+                                                                    IsColorSpectrumVisible="True"
+                                                                    IsColorPaletteVisible="True"
+                                                                    IsColorComponentsVisible="False"
+                                                                    IsColorPreviewVisible="True"
+                                                                    IsAlphaEnabled="False"
+                                                                    IsAlphaVisible="False" />
+                                                <Grid Grid.Column="1"
+                                                      RowDefinitions="Auto,*,Auto,*,Auto">
+                                                    <cards:SliderCard Grid.Row="0"
+                                                                      Minimum="0"
+                                                                      Maximum="255"
+                                                                      TickFrequency="1"
+                                                                      Title="{DynamicResource ProfilePage.Lightbar.Red}"
+                                                                      Value="{Binding LedRed}" />
+                                                    <cards:SliderCard Grid.Row="2"
+                                                                      Minimum="0"
+                                                                      Maximum="255"
+                                                                      TickFrequency="1"
+                                                                      Title="{DynamicResource ProfilePage.Lightbar.Green}"
+                                                                      Value="{Binding LedGreen}" />
+                                                    <cards:SliderCard Grid.Row="4"
+                                                                      Minimum="0"
+                                                                      Maximum="255"
+                                                                      TickFrequency="1"
+                                                                      Title="{DynamicResource ProfilePage.Lightbar.Blue}"
+                                                                      Value="{Binding LedBlue}" />
+                                                </Grid>
+                                            </Grid>
+                                        </StackPanel>
+
+                                        <StackPanel Spacing="8"
+                                                    IsVisible="{Binding IsPlayerLedsAction}">
+                                            <TextBlock Text="{DynamicResource ProfilePage.PlayerLeds.Title}"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,4,0,0" />
+                                            <UniformGrid Rows="1">
+                                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led1}"
+                                                              IsChecked="{Binding PlayerLed1}"
+                                                              HorizontalAlignment="Center" />
+                                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led2}"
+                                                              IsChecked="{Binding PlayerLed2}"
+                                                              HorizontalAlignment="Center" />
+                                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led3}"
+                                                              IsChecked="{Binding PlayerLed3}"
+                                                              HorizontalAlignment="Center" />
+                                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led4}"
+                                                              IsChecked="{Binding PlayerLed4}"
+                                                              HorizontalAlignment="Center" />
+                                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led5}"
+                                                              IsChecked="{Binding PlayerLed5}"
+                                                              HorizontalAlignment="Center" />
+                                            </UniformGrid>
+                                        </StackPanel>
+
+                                        <StackPanel Spacing="8"
+                                                    IsVisible="{Binding IsSoundAction}">
+                                            <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Sound}"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,4,0,0" />
+                                            <Grid ColumnDefinitions="*,Auto"
+                                                  ColumnSpacing="8">
+                                                <TextBox Text="{Binding SoundPath, Mode=TwoWay}"
+                                                         PlaceholderText="{DynamicResource ProfilePage.SpecialActions.Sound.Placeholder}" />
+                                                <Button Grid.Column="1"
+                                                        Click="OnBrowseSoundClick"
+                                                        ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.Sound.Browse.ToolTip}">
+                                                    <ic:FluentIcon Icon="FolderOpen"
+                                                                   IconVariant="Regular"
+                                                                   IconSize="Size16" />
+                                                </Button>
+                                            </Grid>
+                                            <cards:ComboBoxCard Title="{DynamicResource ProfilePage.SpecialActions.Sound.Output}"
+                                                                Description="{DynamicResource ProfilePage.SpecialActions.Sound.Output.Description}"
+                                                                ComboBoxMinWidth="180"
+                                                                ItemsSource="{Binding SoundOutputOptions}"
+                                                                SelectedIndex="{Binding SelectedSoundOutputIndex}" />
+                                            <cards:SliderCard Minimum="0"
+                                                              Maximum="255"
+                                                              TickFrequency="1"
+                                                              Title="{DynamicResource ProfilePage.SpecialActions.Sound.Volume}"
+                                                              Value="{Binding SoundVolume}" />
+                                            <ToggleButton Content="{DynamicResource ProfilePage.SpecialActions.Sound.Haptics}"
+                                                          IsChecked="{Binding HapticFeedback}"
+                                                          HorizontalAlignment="Left" />
+                                            <cards:SliderCard Minimum="0"
+                                                              Maximum="200"
+                                                              TickFrequency="1"
+                                                              Title="{DynamicResource ProfilePage.SpecialActions.Sound.HapticStrength}"
+                                                              Value="{Binding HapticStrength}"
+                                                              IsVisible="{Binding IsHapticVisible}" />
+                                        </StackPanel>
+
+                                        <StackPanel Spacing="8"
+                                                    IsVisible="{Binding IsBatteryAction}">
+                                            <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Battery}"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,4,0,0" />
+                                            <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Battery.Description}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <cards:ComboBoxCard Title="{DynamicResource ProfilePage.SpecialActions.Battery.Level}"
+                                                                Description="{DynamicResource ProfilePage.SpecialActions.Battery.Level.Description}"
+                                                                ComboBoxMinWidth="200"
+                                                                ItemsSource="{Binding BatteryLevels}"
+                                                                SelectedIndex="{Binding SelectedBatteryLevel}">
+                                                <cards:ComboBoxCard.ItemTemplate>
+                                                    <DataTemplate x:DataType="items:BatteryLevelItem">
+                                                        <StackPanel Orientation="Horizontal"
+                                                                    Spacing="8">
+                                                            <Border Width="14"
+                                                                    Height="14"
+                                                                    CornerRadius="7"
+                                                                    VerticalAlignment="Center"
+                                                                    Background="{Binding Brush}" />
+                                                            <TextBlock Text="{Binding DisplayName}"
+                                                                       VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </cards:ComboBoxCard.ItemTemplate>
+                                            </cards:ComboBoxCard>
+                                            <Button Command="{Binding ResetBatteryColorsCommand}"
+                                                    HorizontalAlignment="Left">
+                                                <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Battery.Reset}" />
+                                            </Button>
+                                            <Grid ColumnDefinitions="Auto,*"
+                                                  ColumnSpacing="16">
+                                                <controls:ColorView Grid.Column="0"
+                                                                    Width="320"
+                                                                    Color="{Binding SelectedBatteryColor}"
+                                                                    IsColorSpectrumVisible="True"
+                                                                    IsColorPaletteVisible="True"
+                                                                    IsColorComponentsVisible="False"
+                                                                    IsColorPreviewVisible="True"
+                                                                    IsAlphaEnabled="False"
+                                                                    IsAlphaVisible="False" />
+                                                <Grid Grid.Column="1"
+                                                      RowDefinitions="Auto,*,Auto,*,Auto">
+                                                    <cards:SliderCard Grid.Row="0"
+                                                                      Minimum="0"
+                                                                      Maximum="255"
+                                                                      TickFrequency="1"
+                                                                      Title="{DynamicResource ProfilePage.Lightbar.Red}"
+                                                                      Value="{Binding SelectedBatteryRed}" />
+                                                    <cards:SliderCard Grid.Row="2"
+                                                                      Minimum="0"
+                                                                      Maximum="255"
+                                                                      TickFrequency="1"
+                                                                      Title="{DynamicResource ProfilePage.Lightbar.Green}"
+                                                                      Value="{Binding SelectedBatteryGreen}" />
+                                                    <cards:SliderCard Grid.Row="4"
+                                                                      Minimum="0"
+                                                                      Maximum="255"
+                                                                      TickFrequency="1"
+                                                                      Title="{DynamicResource ProfilePage.Lightbar.Blue}"
+                                                                      Value="{Binding SelectedBatteryBlue}" />
+                                                </Grid>
+                                            </Grid>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </cards:CustomCard>
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+                </StackPanel>
+            </Expander>
         </StackPanel>
     </ScrollViewer>
 </UserControl>
