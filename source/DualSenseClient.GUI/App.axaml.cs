@@ -74,10 +74,17 @@ public partial class App : Application
             LogLevel logLevel = settingsService.Settings.Debug.LogLevel;
             DualSenseClientLogger.Configure(logLevel,
                 new CompositeLogSink(
-                    new MinimumLevelFilterSink(new ConsoleLogSink(), () => DualSenseClientLogger.MinimumLevel),
+                    new ConsoleLogSink(),
                     new FileLogSink(PathResolver.GetFullPath(@"Logs\DualSenseClient.log"))
                 )
             );
+
+            // Flush buffered log entries and close the file sink when the app exits.
+            desktop.Exit += (_, _) =>
+            {
+                _log.Info("Closing DualSense Client");
+                DualSenseClientLogger.Shutdown();
+            };
 
             BuildInfo.LogStartupBanner(_log);
             RegisterGlobalExceptionHandlers();
@@ -145,6 +152,13 @@ public partial class App : Application
             else
             {
                 _log.Error($"Non-exception object thrown: {args.ExceptionObject.GetType().FullName ?? "null"}");
+            }
+
+            // The process is about to die, so the background flush timer can no longer be
+            // relied on. Flush all buffered entries and close the file sink before exit.
+            if (args.IsTerminating)
+            {
+                DualSenseClientLogger.Shutdown();
             }
         };
 

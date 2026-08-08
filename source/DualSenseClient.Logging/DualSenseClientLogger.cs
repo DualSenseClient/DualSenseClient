@@ -14,10 +14,9 @@ namespace DualSenseClient.Logging;
 /// </para>
 /// <para>
 /// At application startup, call <see cref="Configure"/> to set up the log sink (e.g., a
-/// <see cref="CompositeLogSink"/> with a <see cref="ConsoleLogSink"/> wrapped in a
-/// <see cref="MinimumLevelFilterSink"/> and an unfiltered <see cref="FileLogSink"/>).
-/// This ensures the file captures all levels for diagnostics while the console
-/// respects the configured minimum level.
+/// <see cref="CompositeLogSink"/> with a <see cref="ConsoleLogSink"/> and a
+/// <see cref="FileLogSink"/>). The configured minimum level is enforced centrally by
+/// the logger and therefore applies uniformly to every sink.
 /// </para>
 /// <para>
 /// Throughout the application, obtain a logger via <see cref="For"/> and call level-specific
@@ -27,7 +26,7 @@ namespace DualSenseClient.Logging;
 /// // At startup:
 /// DualSenseClientLogger.Configure(LogLevel.Info,
 ///     new CompositeLogSink(
-///         new MinimumLevelFilterSink(new ConsoleLogSink(), () => DualSenseClientLogger.MinimumLevel),
+///         new ConsoleLogSink(),
 ///         new FileLogSink("Logs\\app.log")));
 ///
 /// // In consumer code:
@@ -275,26 +274,20 @@ public sealed class DualSenseClientLogger
     }
 
     /// <summary>
-    /// Determines whether any logging output is active.
+    /// Determines whether a log entry at the given level would be emitted.
     /// </summary>
-    /// <remarks>
-    /// Per-sink level filtering is handled by <see cref="MinimumLevelFilterSink"/>.
-    /// This method only returns <c>false</c> when <see cref="MinimumLevel"/> is
-    /// <see cref="LogLevel.None"/>, which acts as a global kill-switch that bypasses
-    /// all sinks entirely.
-    /// </remarks>
-    /// <param name="level">The log level to check (unused by the current implementation).</param>
+    /// <param name="level">The log level to check.</param>
     /// <returns>
-    /// <c>true</c> if logging is active; otherwise, <c>false</c>.
+    /// <c>true</c> if <paramref name="level"/> meets or exceeds <see cref="MinimumLevel"/>;
+    /// otherwise, <c>false</c>. When <see cref="MinimumLevel"/> is <see cref="LogLevel.None"/>,
+    /// this always returns <c>false</c>, acting as a global kill-switch.
     /// </returns>
-    internal static bool IsEnabled(LogLevel level) => _minimumLevel != LogLevel.None;
+    internal static bool IsEnabled(LogLevel level) => level >= _minimumLevel;
 
     /// <summary>
     /// Constructs a <see cref="LogEntry"/> and writes it to the active sink.
-    /// Entries are only blocked when <see cref="_minimumLevel"/> is
-    /// <see cref="LogLevel.None"/>; all other entries pass through to the sink
-    /// hierarchy where <see cref="MinimumLevelFilterSink"/> instances enforce
-    /// per-sink filtering.
+    /// Entries below <see cref="MinimumLevel"/> are silently dropped here, so the
+    /// minimum level applies uniformly to every sink in the hierarchy.
     /// </summary>
     internal static void Write(LogLevel level,
         string category, string message, Exception? exception,

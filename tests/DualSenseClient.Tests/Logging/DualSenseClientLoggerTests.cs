@@ -270,7 +270,7 @@ public class DualSenseClientLoggerTests
     public void BelowMinimumLevel_DropsEntry()
     {
         TestLogSink testSink = new TestLogSink();
-        DualSenseClientLogger.Sink = new MinimumLevelFilterSink(testSink, () => DualSenseClientLogger.MinimumLevel);
+        DualSenseClientLogger.Sink = testSink;
         DualSenseClientLogger.MinimumLevel = LogLevel.Warning;
 
         DualSenseClientLogger logger = DualSenseClientLogger.For("TestCategory");
