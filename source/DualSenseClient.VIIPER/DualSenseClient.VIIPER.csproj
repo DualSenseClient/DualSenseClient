@@ -6,4 +6,22 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
+    <ItemGroup>
+        <EmbeddedResource Include="native\version.txt">
+            <LogicalName>libVIIPER.version.txt</LogicalName>
+        </EmbeddedResource>
+    </ItemGroup>
+
+    <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+        <EmbeddedResource Include="native\win-x64\libVIIPER.dll">
+            <LogicalName>libVIIPER.win-x64.dll</LogicalName>
+        </EmbeddedResource>
+    </ItemGroup>
+
+    <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+        <EmbeddedResource Include="native\linux-x64\libVIIPER.so">
+            <LogicalName>libVIIPER.linux-x64.so</LogicalName>
+        </EmbeddedResource>
+    </ItemGroup>
+
 </Project>
