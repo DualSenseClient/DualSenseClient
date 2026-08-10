@@ -36,6 +36,9 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore DualSenseClient.sln
 
+      - name: Fetch native libraries
+        run: python scripts/fetch_native_libraries.py win-x64
+
       - name: Test
         run: dotnet test tests/DualSenseClient.Tests/DualSenseClient.Tests.csproj
 
@@ -78,6 +81,9 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
+
+      - name: Fetch native libraries
+        run: python scripts/fetch_native_libraries.py linux-x64
 
       - name: Publish the app
         run: >
