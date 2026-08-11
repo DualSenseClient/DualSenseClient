@@ -40,4 +40,18 @@ public class EmulationSettings
     /// </summary>
     [JsonPropertyName("mode")]
     public EmulationMode Mode { get; set; } = EmulationMode.Off;
+
+    /// <summary>
+    /// Gets or sets the volume applied to the physical controller's speaker when
+    /// forwarding host audio (0-255, same range as the audio player tester).
+    /// </summary>
+    [JsonPropertyName("forward_volume")]
+    public int ForwardVolume { get; set; } = 0x50;
+
+    /// <summary>
+    /// Gets or sets the haptic vibration strength when forwarding host audio, as a
+    /// percentage (0-200, same range as the audio player tester).
+    /// </summary>
+    [JsonPropertyName("forward_haptics")]
+    public int ForwardHapticStrength { get; set; } = 100;
 }

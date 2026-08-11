@@ -232,7 +232,78 @@ public partial class ProfilePageViewModel : ObservableObject
             profile.Emulation.Mode = mode;
             _profileService.Save();
             OnPropertyChanged(nameof(EmulationModeIndex));
+            OnPropertyChanged(nameof(IsDualSenseEmulation));
             _emulation.Refresh();
+        }
+    }
+
+    /// <summary>
+    /// Whether the profile's emulation mode is DualSense, the only mode with an
+    /// audio forwarding lane.
+    /// </summary>
+    public bool IsDualSenseEmulation => EmulationModeIndex == (int)EmulationMode.DualSense;
+
+    /// <summary>
+    /// The speaker volume applied to the physical controller when forwarding host
+    /// audio (0-255, two-way, persisted). Mirrors the audio player tester's range.
+    /// </summary>
+    public int ForwardVolume
+    {
+        get
+        {
+            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
+            {
+                return 0;
+            }
+            return profile.Emulation.ForwardVolume;
+        }
+        set
+        {
+            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
+            {
+                return;
+            }
+            int clamped = Math.Clamp(value, 0, 255);
+            if (profile.Emulation.ForwardVolume == clamped)
+            {
+                return;
+            }
+            profile.Emulation.ForwardVolume = clamped;
+            _profileService.Save();
+            OnPropertyChanged(nameof(ForwardVolume));
+            _emulation.SetForwardingAudioOptions((byte)clamped, profile.Emulation.ForwardHapticStrength / 100f);
+        }
+    }
+
+    /// <summary>
+    /// The haptic vibration strength when forwarding host audio, as a percentage
+    /// (0-200, two-way, persisted). Mirrors the audio player tester's range.
+    /// </summary>
+    public int ForwardHapticStrength
+    {
+        get
+        {
+            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
+            {
+                return 0;
+            }
+            return profile.Emulation.ForwardHapticStrength;
+        }
+        set
+        {
+            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
+            {
+                return;
+            }
+            int clamped = Math.Clamp(value, 0, 200);
+            if (profile.Emulation.ForwardHapticStrength == clamped)
+            {
+                return;
+            }
+            profile.Emulation.ForwardHapticStrength = clamped;
+            _profileService.Save();
+            OnPropertyChanged(nameof(ForwardHapticStrength));
+            _emulation.SetForwardingAudioOptions((byte)profile.Emulation.ForwardVolume, clamped / 100f);
         }
     }
 
@@ -564,6 +635,9 @@ public partial class ProfilePageViewModel : ObservableObject
         OnPropertyChanged(nameof(SelectedAssignedProfileIndex));
         OnPropertyChanged(nameof(EmulationProfileName));
         OnPropertyChanged(nameof(EmulationModeIndex));
+        OnPropertyChanged(nameof(IsDualSenseEmulation));
+        OnPropertyChanged(nameof(ForwardVolume));
+        OnPropertyChanged(nameof(ForwardHapticStrength));
         OnPropertyChanged(nameof(EmulationStatusText));
         RebuildSpecialActions();
     }

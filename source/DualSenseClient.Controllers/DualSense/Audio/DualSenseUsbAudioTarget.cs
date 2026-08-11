@@ -176,7 +176,7 @@ public sealed class DualSenseUsbAudioTarget : IDisposable
 
             if (_player is not null)
             {
-                _log.Info($"USB audio forwarding started ({( _fourChannel ? "quadraphonic" : "stereo")})");
+                _log.Info($"USB audio forwarding started ({(_fourChannel ? "quadraphonic" : "stereo")})");
             }
             return _player is not null;
         }

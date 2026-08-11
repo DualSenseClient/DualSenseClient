@@ -43,6 +43,13 @@ public interface IEmulationService : IDisposable
     /// the user edits the emulation mode of the applied profile.
     /// </summary>
     void Refresh();
+
+    /// <summary>
+    /// Applies the forwarding volume and haptic strength to the active host-audio
+    /// forwarder without recreating the virtual controller. No-op when DualSense
+    /// emulation is not active.
+    /// </summary>
+    void SetForwardingAudioOptions(byte speakerVolume, float hapticStrength);
 }
 
 /// <summary>
@@ -103,6 +110,14 @@ public sealed class EmulationService : IEmulationService
     /// active, or <c>null</c> in other modes. Lives and dies with <see cref="_virtual"/>.
     /// </summary>
     private ViiperDualSenseAudioForwarder? _forwarder;
+
+    /// <summary>
+    /// Captures the audio the host renders to the virtual DualSense and feeds it to
+    /// <see cref="_forwarder"/>, or <c>null</c> when not forwarding. Lives and dies
+    /// with <see cref="_virtual"/>; must be disposed before the virtual device is
+    /// removed.
+    /// </summary>
+    private ViiperDualSenseAudioCapture? _capture;
 
     private nuint? _serverHandle;
 
@@ -176,6 +191,20 @@ public sealed class EmulationService : IEmulationService
 
     /// <inheritdoc/>
     public void Refresh() => RebuildVirtualController();
+
+    /// <inheritdoc/>
+    public void SetForwardingAudioOptions(byte speakerVolume, float hapticStrength)
+    {
+        lock (_sync)
+        {
+            if (_forwarder is null)
+            {
+                return;
+            }
+            _forwarder.SpeakerVolume = speakerVolume;
+            _forwarder.HapticStrength = Math.Clamp(hapticStrength, 0f, 2f);
+        }
+    }
 
     /// <summary>
     /// (Re)builds the virtual controller whenever the active controller changes.
@@ -289,11 +318,17 @@ public sealed class EmulationService : IEmulationService
             }
 
             ViiperDualSenseAudioForwarder? forwarder = mode == EmulationMode.DualSense
-                ? CreateAudioForwarder(outputs)
+                ? CreateAudioForwarder(outputs, ResolveProfile(device)?.Emulation)
                 : null;
+            ViiperDualSenseAudioCapture? capture = null;
             if (forwarder is not null && virtualController is VirtualDualSenseController dualSense)
             {
                 dualSense.OutputStateReceived += forwarder.UpdateGameOutputState;
+                dualSense.RealtimeHapticsReceived += forwarder.UpdateGameHaptics;
+                if (dualSense.DeviceHandle is { } deviceHandle)
+                {
+                    capture = new ViiperDualSenseAudioCapture(deviceHandle, forwarder);
+                }
             }
             if (forwarder is not null)
             {
@@ -308,6 +343,7 @@ public sealed class EmulationService : IEmulationService
                     {
                         _enumerator.RemoveExcludedDevice(stalePath);
                     }
+                    capture?.Dispose();
                     forwarder?.Dispose();
                     virtualController.Dispose();
                     LibVIIPER.RemoveUSBBus(serverHandle, busId);
@@ -316,6 +352,7 @@ public sealed class EmulationService : IEmulationService
                 _busId = busId;
                 _virtual = virtualController;
                 _forwarder = forwarder;
+                _capture = capture;
                 DeviceSubscribe();
             }
 
@@ -378,13 +415,20 @@ public sealed class EmulationService : IEmulationService
     /// <summary>
     /// Creates the host-audio forwarder for the virtual DualSense: Bluetooth audio
     /// reports to the physical controller over the same outputs lane, and the USB
-    /// UAC render endpoint for wired playback (when the pad exposes one).
+    /// UAC render endpoint for wired playback (when the pad exposes one). The
+    /// profile's forwarding volume and haptic strength are applied on creation.
     /// </summary>
-    private ViiperDualSenseAudioForwarder CreateAudioForwarder(DualSenseDeviceOutputs outputs)
+    private ViiperDualSenseAudioForwarder CreateAudioForwarder(DualSenseDeviceOutputs outputs, EmulationSettings? emulation)
     {
         DualSenseAudioEndpointFinder endpointFinder = new DualSenseAudioEndpointFinder(_audioEngine);
         DualSenseUsbAudioTarget usbTarget = new DualSenseUsbAudioTarget(_audioEngine, endpointFinder);
-        return new ViiperDualSenseAudioForwarder(outputs, usbTarget);
+        ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(outputs, usbTarget);
+        if (emulation is not null)
+        {
+            forwarder.SpeakerVolume = (byte)Math.Clamp(emulation.ForwardVolume, 0, 255);
+            forwarder.HapticStrength = Math.Clamp(emulation.ForwardHapticStrength, 0, 200) / 100f;
+        }
+        return forwarder;
     }
 
     /// <summary>
@@ -464,7 +508,11 @@ public sealed class EmulationService : IEmulationService
         if (virtualController is VirtualDualSenseController dualSense && _forwarder is { } forwarder)
         {
             dualSense.OutputStateReceived -= forwarder.UpdateGameOutputState;
+            dualSense.RealtimeHapticsReceived -= forwarder.UpdateGameHaptics;
         }
+
+        _capture?.Dispose();
+        _capture = null;
 
         _forwarder?.Dispose();
         _forwarder = null;

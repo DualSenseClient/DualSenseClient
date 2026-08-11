@@ -27,11 +27,23 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
     private readonly DSOutputStateCallback _outputStateCallback;
 
     /// <summary>
+    /// Keeps the native realtime-haptics callback delegate alive for the lifetime of the device.
+    /// </summary>
+    private readonly DSRealtimeHapticsCallback _realtimeHapticsCallback;
+
+    /// <summary>
     /// Raised on the libVIIPER callback thread after the game's output state (rumble,
     /// lightbar, player LEDs, trigger effects) was forwarded to the physical controller.
     /// Subscribers must not block.
     /// </summary>
     public event Action<SetStateData>? OutputStateReceived;
+
+    /// <summary>
+    /// Raised on the libVIIPER callback thread with the game's low-latency rear haptics
+    /// payload (the 398-byte combined Bluetooth report), after it was forwarded to the
+    /// physical controller. Subscribers must not block.
+    /// </summary>
+    public event Action<DSOutputState>? RealtimeHapticsReceived;
 
     /// <summary>
     /// Whether the initial battery/connection meta state has been pushed yet.
@@ -54,6 +66,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
     {
         _vibrationV2 = vibrationV2;
         _outputStateCallback = OnOutputState;
+        _realtimeHapticsCallback = OnRealtimeHaptics;
         if (!LibVIIPER.CreateDualSenseDevice(serverHandle, out nuint handle, busId, true, 0, 0, null))
         {
             _log.Error("Failed to create the virtual DualSense device");
@@ -62,6 +75,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
 
         DeviceHandle = handle;
         LibVIIPER.SetDualSenseOutputStateCallback(handle, _outputStateCallback);
+        LibVIIPER.SetDualSenseRealtimeHapticsCallback(handle, _realtimeHapticsCallback);
         _log.Info($"Virtual DualSense created (handle=0x{handle:X})");
     }
 
@@ -201,6 +215,15 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         OutputStateReceived?.Invoke(payload);
     }
 
+    /// <summary>
+    /// Forwards the game's low-latency rear haptics payload to subscribers. Invoked on
+    /// the libVIIPER callback thread.
+    /// </summary>
+    private void OnRealtimeHaptics(nuint handle, DSOutputState output)
+    {
+        RealtimeHapticsReceived?.Invoke(output);
+    }
+
     /// <inheritdoc/>
     public override void Dispose()
     {
@@ -210,6 +233,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         }
         _log.Info("Removing virtual DualSense device");
         LibVIIPER.SetDualSenseOutputStateCallback(handle, null);
+        LibVIIPER.SetDualSenseRealtimeHapticsCallback(handle, null);
         if (!LibVIIPER.RemoveDualSenseDevice(handle))
         {
             _log.Error("The native library failed to remove the virtual DualSense device");

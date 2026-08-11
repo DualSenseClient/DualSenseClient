@@ -1,10 +1,10 @@
 ﻿using System.Diagnostics;
 using DualSenseClient.Controllers.DualSense.Output;
-using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Core.Utilities;
 using DualSenseClient.Hid;
 using DualSenseClient.Logging;
+using DualSenseClient.VIIPER.DualSense;
 
 namespace DualSenseClient.Controllers.DualSense.Audio;
 
@@ -26,22 +26,29 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 /// audio), matching <see cref="DualSenseAudioPlayer"/>.
 /// </para>
 /// <para>
-    /// The Bluetooth audio lane is only opened once audio is actually being fed: the
-    /// first block of a session primes the stream (reset, init-prime and silence
-    /// preroll) and, after the lane has been idle long enough to underrun, the next
-    /// session re-primes. An idle forwarder therefore never occupies the Bluetooth
-    /// audio lane â€” which would make the controller ignore the virtual controller's
-    /// output-state reports (rumble, adaptive triggers, LEDs) â€” and never feeds the
-    /// USB endpoint.
-    /// </para>
-    /// <para>
-    /// While the lane is open the pad still ignores standalone output-state reports, so
-    /// the game's output state is embedded into the combined reports instead: the
-    /// <see cref="UpdateGameOutputState"/> snapshot rides the <c>0x36</c> state block
-    /// and the <c>0x32</c> init-prime (triggers, lightbar and player LEDs apply
-    /// normally, with the audio bytes overridden), and the game's classic rumble is
-    /// synthesized into the haptics PCM as 60/180 Hz sine waves.
-    /// </para>
+/// The Bluetooth audio lane is only opened once audio is actually being fed: the
+/// first block of a session primes the stream (reset, init-prime and silence
+/// preroll) and, after the lane has been idle long enough to underrun, the next
+/// session re-primes. An idle forwarder therefore never occupies the Bluetooth
+/// audio lane â€” which would make the controller ignore the virtual controller's
+/// output-state reports (rumble, adaptive triggers, LEDs) â€” and never feeds the
+/// USB endpoint.
+/// </para>
+/// <para>
+/// While the lane is open the pad still ignores standalone output-state reports, so
+/// the game's output state is embedded into the combined reports instead: the
+/// <see cref="UpdateGameOutputState"/> snapshot rides the <c>0x36</c> state block
+/// and the <c>0x32</c> init-prime (triggers, lightbar and player LEDs apply
+/// normally, with the audio bytes overridden), and the game's classic rumble is
+/// synthesized into the haptics PCM as 60/180 Hz sine waves.
+/// </para>
+/// <para>
+/// When libVIIPER's realtime-haptics callback delivers a fresh, non-silent haptics
+/// payload (the game's own voice-coil data extracted from the 398-byte combined
+/// report via <see cref="UpdateGameHaptics"/>), it replaces the audio-derived
+/// haptics so the pad reproduces the game's actual haptics; the audio-derived path
+/// is only the fallback for games that do not drive the haptics channels.
+/// </para>
 /// </remarks>
 public sealed class ViiperDualSenseAudioForwarder : IDisposable
 {
@@ -79,9 +86,36 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
     private const int TargetBlocks = 3;
 
     /// <summary>
+    /// Offset of the haptics payload within the 398-byte combined Bluetooth report
+    /// delivered by libVIIPER's realtime-haptics callback. The report is the vDS-style
+    /// <c>0x36</c> transport used by the virtual-device feedback stream: <c>[0]</c> is
+    /// the report id, <c>[2..10]</c> the session block (<c>0x91 0x07 0xFE</c> + codec
+    /// flags), <c>[11..73]</c> the <c>0x90 0x3F</c> state block carrying the native
+    /// 47-byte output state at <c>[13..59]</c>, <c>[74..77]</c> the audio sub-packet
+    /// header, and then <see cref="DualSenseBtAudioPipeline.HapticsBytes"/> of
+    /// interleaved s8 stereo PCM at 3 kHz. This matches DS4Windows' consumption of the
+    /// same feedback (<c>DualSenseBluetoothAudioPacer.RealtimeHapticsDataOffset = 78</c>).
+    /// </summary>
+    private const int BluetoothCombinedHapticsPcmOffset = 78;
+
+    /// <summary>
+    /// How long an update from the realtime-haptics callback stays fresh before the
+    /// forwarder falls back to the audio-derived haptics. The callback fires every
+    /// rear-haptics interval (~10.667 ms), so this window (~9 intervals) tolerates
+    /// scheduling gaps while keeping the fallback prompt when the game stops driving
+    /// the haptics channels.
+    /// </summary>
+    private const int GameHapticsFreshWindowMs = 100;
+
+    /// <summary>
     /// Target interval between pump ticks: 512/48000 s = 10.667 ms.
     /// </summary>
     private static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(DualSenseBtAudioPipeline.FramesPerBlock / (double)DualSenseBtAudioPipeline.SampleRate);
+
+    /// <summary>
+    /// <see cref="GameHapticsFreshWindowMs"/> in stopwatch ticks.
+    /// </summary>
+    private static readonly long GameHapticsFreshWindowTicks = (long)(Stopwatch.Frequency * GameHapticsFreshWindowMs / 1000.0);
 
     /// <summary>
     /// Logger instance.
@@ -151,6 +185,26 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
     private readonly byte[] _hapticsPcm = new byte[DualSenseBtAudioPipeline.HapticsBytes];
 
     /// <summary>
+    /// Latest haptics payload delivered by libVIIPER's realtime-haptics callback (the
+    /// game's own voice-coil data), valid while <see cref="_lastGameHapticsTimestamp"/>
+    /// is within <see cref="GameHapticsFreshWindowTicks"/>. Guarded by <see cref="_sync"/>.
+    /// </summary>
+    private readonly byte[] _gameHapticsPcm = new byte[DualSenseBtAudioPipeline.HapticsBytes];
+
+    /// <summary>
+    /// Stopwatch timestamp of the last accepted realtime-haptics update, or 0 when none
+    /// was accepted yet. Guarded by <see cref="_sync"/>.
+    /// </summary>
+    private long _lastGameHapticsTimestamp;
+
+    /// <summary>
+    /// One-shot diagnostics for the realtime-haptics combined report validation.
+    /// </summary>
+    private int _gameHapticsAcceptedLogged;
+
+    private int _gameHapticsRejectedLogged;
+
+    /// <summary>
     /// Scratch buffer for the interleaved quad (S16) block fed to the USB render target.
     /// </summary>
     private readonly short[] _usbQuadBlock = new short[QuadBlockSamples];
@@ -213,6 +267,7 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
     /// 3 kHz haptics sample so the waveform stays continuous across report boundaries.
     /// </summary>
     private double _rumbleLeftPhase;
+
     private double _rumbleRightPhase;
 
     /// <summary>
@@ -220,6 +275,7 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
     /// exponentially per sample so strength changes ramp instead of clicking.
     /// </summary>
     private float _rumbleLeftMagnitude;
+
     private float _rumbleRightMagnitude;
 
     /// <summary>
@@ -246,12 +302,12 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
     }
 
     /// <summary>
-    /// Haptic vibration strength multiplier (1.0 = full).
+    /// Haptic vibration strength multiplier (1.0 = full, 2.0 = 200%).
     /// </summary>
     public float HapticStrength
     {
         get => _hapticStrength;
-        set => _hapticStrength = Math.Clamp(value, 0f, 1f);
+        set => _hapticStrength = Math.Clamp(value, 0f, 2f);
     }
 
     /// <summary>
@@ -399,6 +455,63 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
     }
 
     /// <summary>
+    /// Stores the game's actual haptics payload from libVIIPER's realtime-haptics
+    /// callback, so the pump can embed it into the Bluetooth audio-lane reports instead
+    /// of the audio-derived haptics. The haptics are extracted from the 398-byte
+    /// combined Bluetooth report carried by the callback (<c>0x36</c> header with the
+    /// 64-byte haptics PCM at offset <see cref="BluetoothCombinedHapticsPcmOffset"/>);
+    /// reports that do not match the expected shape are rejected so the forwarder keeps
+    /// the audio-derived fallback. Called from the libVIIPER callback thread; safe to
+    /// call while the forwarder is stopped.
+    /// </summary>
+    public void UpdateGameHaptics(DSOutputState output)
+    {
+        byte[] combined = output.BluetoothCombinedOutputReport;
+        if (combined is not { Length: 398 } || combined[0] != 0x36
+                                            || combined[11] != 0x90 || combined[12] != 0x3F)
+        {
+            if (Interlocked.Exchange(ref _gameHapticsRejectedLogged, 1) == 0)
+            {
+                string head = combined is null
+                    ? "(null)"
+                    : string.Join(" ", combined.AsSpan(0, Math.Min(16, combined.Length)).ToArray().Select(b => b.ToString("X2")));
+                _log.Info($"Realtime-haptics combined report rejected (expected 0x36 report with 0x90 0x3F state block and 64-byte haptics at offset 78); head {head}");
+            }
+            return;
+        }
+
+        lock (_sync)
+        {
+            combined.AsSpan(BluetoothCombinedHapticsPcmOffset, DualSenseBtAudioPipeline.HapticsBytes)
+                .CopyTo(_gameHapticsPcm);
+            _lastGameHapticsTimestamp = Stopwatch.GetTimestamp();
+        }
+
+        if (Interlocked.Exchange(ref _gameHapticsAcceptedLogged, 1) == 0)
+        {
+            _log.Info("Game haptics active: the pad now reproduces the game's own haptics payload");
+        }
+    }
+
+    /// <summary>
+    /// Discards all buffered audio and marks the Bluetooth audio lane as closed, so the
+    /// next audio block re-primes the stream. Called when the virtual controller's
+    /// audio interface resets or changes alternate setting (a stream-generation
+    /// barrier), so stale PCM from the previous generation cannot burst into the pad's
+    /// shallow receive buffer. Safe to call from the libVIIPER speaker-reset callback
+    /// thread.
+    /// </summary>
+    public void Flush()
+    {
+        lock (_sync)
+        {
+            _audioRing.Clear();
+            _btStreamPrimed = false;
+            _lastGameHapticsTimestamp = 0;
+        }
+    }
+
+    /// <summary>
     /// Runs the pump loop until canceled: waits for audio to appear in the ring, then
     /// pops one block per tick and fans it out to every active transport. Ticks are
     /// paced against an accumulated deadline so the average cadence matches
@@ -441,7 +554,7 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
                     // After a long enough empty gap the pad's audio buffer has
                     // underrun, so the next session must open the lane again.
                     if (_outputs is not null && _outputs.ConnectionType == ConnectionType.Bluetooth
-                        && Stopwatch.GetTimestamp() - idleSinceTicks >= RePrimeIdleTicks)
+                                             && Stopwatch.GetTimestamp() - idleSinceTicks >= RePrimeIdleTicks)
                     {
                         _btStreamPrimed = false;
                     }
@@ -514,7 +627,7 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
                 _pipeline.EncodeOpus(_opusBlock, _opusFrame);
                 if (_hapticsEnabled)
                 {
-                    DualSenseBtAudioPipeline.ToHapticsPcm(_pcmBlock, _hapticsPcm, _hapticStrength);
+                    FillHapticsPcm();
                 }
 
                 SendBluetoothReports();
@@ -526,6 +639,41 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
                 _usbTarget.Feed(_usbQuadBlock);
             }
         }
+    }
+
+    /// <summary>
+    /// Fills <see cref="_hapticsPcm"/> for the current block. The game's own haptics
+    /// payload takes priority while it is fresh and non-silent; otherwise the haptics
+    /// are derived from the block's audio content (with the classic rumble folded in).
+    /// Caller must hold <see cref="_sync"/>.
+    /// </summary>
+    private void FillHapticsPcm()
+    {
+        if (TryGetFreshGameHaptics(_hapticsPcm))
+        {
+            return;
+        }
+
+        DualSenseBtAudioPipeline.ToHapticsPcm(_pcmBlock, _hapticsPcm, _hapticStrength);
+    }
+
+    /// <summary>
+    /// Copies the freshest realtime-haptics payload into <paramref name="destination"/>
+    /// if one was delivered recently. A payload is fresh while its timestamp is within
+    /// <see cref="GameHapticsFreshWindowTicks"/> and silent (all zero) payloads are
+    /// ignored, so the derived haptics remain the fallback the moment the game stops
+    /// driving the haptics channels. Caller must hold <see cref="_sync"/>.
+    /// </summary>
+    private bool TryGetFreshGameHaptics(Span<byte> destination)
+    {
+        if (_lastGameHapticsTimestamp == 0
+            || Stopwatch.GetTimestamp() - _lastGameHapticsTimestamp > GameHapticsFreshWindowTicks)
+        {
+            return false;
+        }
+
+        _gameHapticsPcm.CopyTo(destination);
+        return destination.ContainsAnyExcept((byte)0);
     }
 
     /// <summary>
@@ -893,6 +1041,20 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
                 _read = (_read + 1) % _capacity;
                 _count--;
                 return true;
+            }
+        }
+
+        /// <summary>
+        /// Drops every buffered block and the partial-block accumulator.
+        /// </summary>
+        public void Clear()
+        {
+            lock (_lock)
+            {
+                _write = 0;
+                _read = 0;
+                _count = 0;
+                _partialCount = 0;
             }
         }
 

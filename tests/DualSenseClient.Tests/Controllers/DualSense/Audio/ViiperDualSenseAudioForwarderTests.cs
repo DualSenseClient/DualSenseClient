@@ -4,6 +4,7 @@ using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.DualSense.Triggers;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Hid;
+using DualSenseClient.VIIPER.DualSense;
 
 namespace DualSenseClient.Tests.Controllers.DualSense.Audio;
 
@@ -74,6 +75,24 @@ public class ViiperDualSenseAudioForwarderTests
     }
 
     private static readonly float[] AudioBlock = MakeAudioBlock(0.5f);
+
+    /// <summary>
+    /// Builds a 398-byte vDS-style combined Bluetooth report carrying the given haptics
+    /// payload: <c>0x36</c> id, <c>0x91 0x07 0xFE</c> session block, <c>0x90 0x3F</c>
+    /// state block, haptics at offset 78.
+    /// </summary>
+    private static DSOutputState MakeCombinedReport(byte[] haptics, byte reportId = 0x36)
+    {
+        byte[] combined = new byte[398];
+        combined[0] = reportId;
+        combined[2] = 0x91;
+        combined[3] = 0x07;
+        combined[4] = 0xFE;
+        combined[11] = 0x90;
+        combined[12] = 0x3F;
+        haptics.CopyTo(combined, 78);
+        return new DSOutputState { BluetoothCombinedOutputReport = combined };
+    }
 
     /// <summary>
     /// Builds one 512-frame stereo block with a constant amplitude on both channels.
@@ -389,6 +408,172 @@ public class ViiperDualSenseAudioForwarderTests
             Assert.That(frame.Distinct().Count(), Is.GreaterThan(8), "the 60 Hz rumble sine must make the haptics vary across the frame");
             Assert.That(frame.Max(b => (sbyte)b), Is.GreaterThan(20), "the rumble must drive the voice coils");
         });
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void Flush_DiscardsBufferedAudioAndClosesTheLane()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        for (int i = 0; i < 5; i++)
+        {
+            forwarder.FeedPcm(AudioBlock);
+        }
+        WaitUntil(() => fake.ReportCount >= 12, TimeSpan.FromSeconds(3));
+        int beforeFlush = fake.ReportCount;
+        Assert.That(beforeFlush, Is.GreaterThanOrEqualTo(12));
+
+        forwarder.Flush();
+        Thread.Sleep(100);
+
+        Assert.That(fake.ReportCount - beforeFlush, Is.LessThanOrEqualTo(1),
+            "the ring must be empty after Flush: the pump may only finish one in-flight silence report, not keep streaming buffered audio");
+
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => fake.ResetCount >= 2, TimeSpan.FromSeconds(3));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fake.ResetCount, Is.GreaterThanOrEqualTo(2), "the next block must reopen the lane");
+            Assert.That(fake.PrimeCount, Is.GreaterThanOrEqualTo(2));
+        });
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void Flush_ForcesRePrimeEvenWhenAudioResumesWithinTheIdleWindow()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => fake.ReportCount >= 10, TimeSpan.FromSeconds(3));
+
+        forwarder.Flush();
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => fake.PrimeCount >= 2, TimeSpan.FromSeconds(3));
+
+        Assert.That(fake.ResetCount, Is.GreaterThanOrEqualTo(2),
+            "resuming within the idle window must still re-prime after Flush (unlike a plain short gap)");
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void UpdateGameHaptics_ReplacesAudioDerivedHaptics()
+    {
+        byte[] gameHaptics = new byte[64];
+        Array.Fill(gameHaptics, (byte)0x10);
+
+        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        forwarder.UpdateGameHaptics(MakeCombinedReport(gameHaptics));
+        forwarder.FeedPcm(MakeAudioBlock(0f));
+        WaitUntil(() => fake.LastHapticsFrame is { Length: 64 } && fake.LastHapticsFrame.All(b => b == 0x10), TimeSpan.FromSeconds(3));
+
+        Assert.That(fake.LastHapticsFrame.All(b => b == 0x10), Is.True,
+            "the game's haptics payload must replace the audio-derived haptics (silence would derive to zeros)");
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void UpdateGameHaptics_SilentPayloadFallsBackToAudioDerived()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        forwarder.UpdateGameHaptics(MakeCombinedReport(new byte[64]));
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => fake.ReportCount >= 12, TimeSpan.FromSeconds(3));
+
+        byte[] frame = fake.LastHapticsFrame;
+        Assert.Multiple(() =>
+        {
+            Assert.That(frame.Distinct().Count(), Is.EqualTo(1), "a silent game payload must not suppress the audio-derived haptics");
+            Assert.That(frame.Max(b => (sbyte)b), Is.GreaterThan(0), "the audio-derived haptics must still drive the voice coils");
+        });
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void UpdateGameHaptics_StalePayloadFallsBackToAudioDerived()
+    {
+        byte[] gameHaptics = new byte[64];
+        Array.Fill(gameHaptics, (byte)0x10);
+
+        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        forwarder.UpdateGameHaptics(MakeCombinedReport(gameHaptics));
+        Thread.Sleep(150);
+
+        forwarder.FeedPcm(MakeAudioBlock(0f));
+        WaitUntil(() => fake.ReportCount >= 12, TimeSpan.FromSeconds(3));
+
+        Assert.That(fake.LastHapticsFrame.All(b => b == 0), Is.True,
+            "a payload older than the freshness window must not be used (silence derives to zeros)");
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void UpdateGameHaptics_InvalidReportIsIgnored()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        forwarder.UpdateGameHaptics(MakeCombinedReport(new byte[64], reportId: 0x31));
+        forwarder.FeedPcm(MakeAudioBlock(0f));
+        WaitUntil(() => fake.ReportCount >= 12, TimeSpan.FromSeconds(3));
+
+        Assert.That(fake.LastHapticsFrame.All(b => b == 0), Is.True,
+            "a report without the 0x36 id must be rejected and the derived haptics kept");
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void UpdateGameHaptics_AcceptsCapturedViiperReportShape()
+    {
+        // Regression for the real libVIIPER wire format captured in the field logs:
+        // 36 00 91 07 FE 10 10 10 10 10 00 90 3F FD F7 00 ... with haptics at offset 78.
+        byte[] gameHaptics = new byte[64];
+        Array.Fill(gameHaptics, (byte)0x10);
+
+        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        DSOutputState output = MakeCombinedReport(gameHaptics);
+        output.BluetoothCombinedOutputReport[1] = 0x00;
+        output.BluetoothCombinedOutputReport[5] = 0x10;
+        output.BluetoothCombinedOutputReport[6] = 0x10;
+        output.BluetoothCombinedOutputReport[7] = 0x10;
+        output.BluetoothCombinedOutputReport[8] = 0x10;
+        output.BluetoothCombinedOutputReport[9] = 0x10;
+        output.BluetoothCombinedOutputReport[13] = 0xFD;
+        output.BluetoothCombinedOutputReport[14] = 0xF7;
+        forwarder.UpdateGameHaptics(output);
+        forwarder.FeedPcm(MakeAudioBlock(0f));
+        WaitUntil(() => fake.LastHapticsFrame is { Length: 64 } && fake.LastHapticsFrame.All(b => b == 0x10), TimeSpan.FromSeconds(3));
+
+        Assert.That(fake.LastHapticsFrame.All(b => b == 0x10), Is.True,
+            "the captured VIIPER combined-report shape (session block, 0x90 0x3F state block, haptics at 78) must be accepted");
 
         forwarder.Stop();
     }

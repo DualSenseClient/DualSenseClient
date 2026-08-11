@@ -219,6 +219,8 @@
     <sys:String x:Key="ProfilePage.Emulation.Mode.Xbox360">Xbox 360</sys:String>
     <sys:String x:Key="ProfilePage.Emulation.Mode.DualShock4">DualShock 4</sys:String>
     <sys:String x:Key="ProfilePage.Emulation.Mode.DualSense">DualSense</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.ForwardVolume">Audio forwarding volume</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.ForwardHaptics">Audio forwarding haptic strength</sys:String>
     <sys:String x:Key="ProfilePage.Emulation.Status.Idle">No virtual controller is active.</sys:String>
     <sys:String x:Key="ProfilePage.Emulation.Status.Running">Virtual controller active: {mode}</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.Title">Special Actions</sys:String>
