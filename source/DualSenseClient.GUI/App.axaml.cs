@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Core.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.GUI.Services;
@@ -111,6 +112,10 @@ public partial class App : Application
             // Special action coordinator (created for its side effects: it attaches the
             // special actions engine to the active controller).
             _ = Services.GetRequiredService<SpecialActionCoordinator>();
+
+            // Emulation service (started for its side effects: it creates a virtual
+            // controller for the active controller when the bound profile enables it).
+            Services.GetRequiredService<IEmulationService>().Start();
         }
 
         base.OnFrameworkInitializationCompleted();

@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.Controllers.Devices;
+using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.Logging;
@@ -66,6 +67,11 @@ public partial class ProfilePageViewModel : ObservableObject
     /// Service storing the global list of special actions.
     /// </summary>
     private readonly SpecialActionService _specialActionService;
+
+    /// <summary>
+    /// Service creating virtual controllers for the active controller.
+    /// </summary>
+    private readonly IEmulationService _emulation;
 
     /// <summary>
     /// Service used for delete confirmations.
@@ -166,6 +172,95 @@ public partial class ProfilePageViewModel : ObservableObject
     ];
 
     /// <summary>
+    /// Virtual controller emulation mode options for the dropdown, in
+    /// <see cref="EmulationMode"/> order (off, Xbox 360, DualShock 4, DualSense).
+    /// </summary>
+    public ObservableCollection<string> EmulationModes { get; } =
+    [
+        LocalizationService.GetText("ProfilePage.Emulation.Mode.Off"),
+        LocalizationService.GetText("ProfilePage.Emulation.Mode.Xbox360"),
+        LocalizationService.GetText("ProfilePage.Emulation.Mode.DualShock4"),
+        LocalizationService.GetText("ProfilePage.Emulation.Mode.DualSense")
+    ];
+
+    /// <summary>
+    /// The profile whose virtual controller emulation the emulation section edits:
+    /// the profile the selected controller is currently using (bound profile, or the
+    /// default when unbound).
+    /// </summary>
+    public string EmulationProfileName
+    {
+        get
+        {
+            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
+            {
+                return string.Empty;
+            }
+            return profile.Name;
+        }
+    }
+
+    /// <summary>
+    /// The virtual controller emulation mode (<see cref="EmulationMode"/> value) of the
+    /// profile the selected controller is currently using. Setting it persists the change
+    /// immediately and recreates the virtual controller through <see cref="IEmulationService"/>.
+    /// </summary>
+    public int EmulationModeIndex
+    {
+        get
+        {
+            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
+            {
+                return 0;
+            }
+            return (int)profile.Emulation.Mode;
+        }
+        set
+        {
+            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
+            {
+                return;
+            }
+
+            EmulationMode mode = (EmulationMode)Math.Clamp(value, 0, (int)EmulationMode.DualSense);
+            if (profile.Emulation.Mode == mode)
+            {
+                return;
+            }
+
+            _log.Info($"Setting emulation mode of profile '{profile.Name}' to {mode}");
+            profile.Emulation.Mode = mode;
+            _profileService.Save();
+            OnPropertyChanged(nameof(EmulationModeIndex));
+            _emulation.Refresh();
+        }
+    }
+
+    /// <summary>
+    /// Human-readable description of the current virtual controller emulation state,
+    /// reflecting <see cref="IEmulationService.Status"/>.
+    /// </summary>
+    public string EmulationStatusText
+    {
+        get
+        {
+            if (!HasDevice)
+            {
+                return string.Empty;
+            }
+
+            EmulationStatus status = _emulation.Status;
+            if (!status.Running)
+            {
+                return status.Detail ?? LocalizationService.GetText("ProfilePage.Emulation.Status.Idle");
+            }
+
+            string mode = EmulationModes[Math.Clamp((int)status.Mode, 0, EmulationModes.Count - 1)];
+            return LocalizationService.GetText("ProfilePage.Emulation.Status.Running").Replace("{mode}", mode);
+        }
+    }
+
+    /// <summary>
     /// Gets or sets the selected entry in <see cref="AssignedProfileOptions"/>. Setting it
     /// binds the current controller (by MAC, with a device path fallback) to the chosen
     /// profile, applies it immediately, and persists the binding.
@@ -224,6 +319,8 @@ public partial class ProfilePageViewModel : ObservableObject
         _controllerService = App.Services.GetRequiredService<ControllerInfoService>();
         _specialActionService = App.Services.GetRequiredService<SpecialActionService>();
         _messageBox = App.Services.GetRequiredService<IMessageBoxService>();
+        _emulation = App.Services.GetRequiredService<IEmulationService>();
+        _emulation.StateChanged += OnEmulationStateChanged;
         _mainViewModel.PropertyChanged += OnMainViewModelPropertyChanged;
         Refresh();
     }
@@ -429,6 +526,16 @@ public partial class ProfilePageViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Refreshes the emulation status line when the emulation service state changes.
+    /// May be raised on a background thread; notifying the UI from it is safe here
+    /// because Avalonia marshals property changes for bindings.
+    /// </summary>
+    private void OnEmulationStateChanged(object? sender, EventArgs e)
+    {
+        OnPropertyChanged(nameof(EmulationStatusText));
+    }
+
+    /// <summary>
     /// Rebuilds <see cref="CurrentDevice"/> from the shell's selected controller and syncs
     /// the preview color to the profile the controller is using.
     /// Releases the previous item's subscriptions before replacing it.
@@ -455,6 +562,9 @@ public partial class ProfilePageViewModel : ObservableObject
         OnPropertyChanged(nameof(CurrentMac));
         OnPropertyChanged(nameof(CurrentDevicePath));
         OnPropertyChanged(nameof(SelectedAssignedProfileIndex));
+        OnPropertyChanged(nameof(EmulationProfileName));
+        OnPropertyChanged(nameof(EmulationModeIndex));
+        OnPropertyChanged(nameof(EmulationStatusText));
         RebuildSpecialActions();
     }
 
@@ -595,7 +705,8 @@ public partial class ProfilePageViewModel : ObservableObject
 
     /// <summary>
     /// Applies the profile currently used by the selected controller (bound profile, or the
-    /// default when unbound), so an assignment change takes effect immediately.
+    /// default when unbound), so an assignment change takes effect immediately. Also
+    /// re-evaluates virtual controller emulation in case the profile's emulation mode changed.
     /// </summary>
     private void ApplyBoundProfileToController()
     {
@@ -603,6 +714,8 @@ public partial class ProfilePageViewModel : ObservableObject
         {
             return;
         }
+
+        _emulation.Refresh();
 
         Profile? profile = GetCurrentControllerProfile();
         if (profile is not null)

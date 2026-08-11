@@ -31,4 +31,10 @@ public class Profile
     /// </summary>
     [JsonPropertyName("player_leds")]
     public PlayerLedSettings PlayerLeds { get; set; } = new PlayerLedSettings();
+
+    /// <summary>
+    /// Gets or sets the virtual controller emulation settings.
+    /// </summary>
+    [JsonPropertyName("emulation")]
+    public EmulationSettings Emulation { get; set; } = new EmulationSettings();
 }

@@ -211,6 +211,16 @@
     <sys:String x:Key="ProfilePage.PlayerLeds.Led3">LED 3</sys:String>
     <sys:String x:Key="ProfilePage.PlayerLeds.Led4">LED 4</sys:String>
     <sys:String x:Key="ProfilePage.PlayerLeds.Led5">LED 5</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.Title">Emulation</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.Profile">Applies to profile</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.Mode">Virtual controller</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.Mode.Description">Creates a virtual controller that mirrors this controller's input to the host when this profile is applied. Feedback (rumble, lightbar, triggers) is forwarded back.</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.Mode.Off">Off</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.Mode.Xbox360">Xbox 360</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.Mode.DualShock4">DualShock 4</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.Mode.DualSense">DualSense</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.Status.Idle">No virtual controller is active.</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.Status.Running">Virtual controller active: {mode}</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.Title">Special Actions</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.Description">Button combinations that execute actions (disconnect, lights)</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.New">Create a new special action</sys:String>

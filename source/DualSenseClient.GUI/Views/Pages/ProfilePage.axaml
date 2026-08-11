@@ -206,6 +206,35 @@
                 </StackPanel>
             </Expander>
 
+            <!-- Virtual controller emulation -->
+            <Expander IsVisible="{Binding HasDevice}"
+                      IsExpanded="False">
+                <Expander.Header>
+                    <cards:CardHeader Title="{DynamicResource ProfilePage.Emulation.Title}"
+                                      Description="{DynamicResource ProfilePage.Emulation.Mode.Description}"
+                                      Icon="{x:Static fic:Symbol.XboxController}"
+                                      MinHeight="64" />
+                </Expander.Header>
+                <StackPanel Spacing="8">
+                    <cards:CustomCard>
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="{DynamicResource ProfilePage.Emulation.Profile}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Text="{Binding EmulationProfileName}"
+                                       FontWeight="SemiBold" />
+                        </StackPanel>
+                    </cards:CustomCard>
+                    <cards:ComboBoxCard Title="{DynamicResource ProfilePage.Emulation.Mode}"
+                                        ItemsSource="{Binding EmulationModes}"
+                                        SelectedIndex="{Binding EmulationModeIndex}" />
+                    <TextBlock Text="{Binding EmulationStatusText}"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Expander>
+
             <!-- Special actions -->
             <Expander IsVisible="{Binding HasDevice}"
                       IsExpanded="False">
