@@ -27,6 +27,13 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
     private readonly DSOutputStateCallback _outputStateCallback;
 
     /// <summary>
+    /// Raised on the libVIIPER callback thread after the game's output state (rumble,
+    /// lightbar, player LEDs, trigger effects) was forwarded to the physical controller.
+    /// Subscribers must not block.
+    /// </summary>
+    public event Action<SetStateData>? OutputStateReceived;
+
+    /// <summary>
     /// Whether the initial battery/connection meta state has been pushed yet.
     /// </summary>
     private bool _metaInitialized;
@@ -168,7 +175,13 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         SetStateData payload = new SetStateData
         {
             ValidFlag0 = ValidFlags.UseRumbleNotHaptics
-                         | (_vibrationV2 ? ValidFlags.None : ValidFlags.EnableRumbleEmulation),
+                         | (_vibrationV2 ? ValidFlags.None : ValidFlags.EnableRumbleEmulation)
+                         // The trigger blocks always ride this report, so their enable
+                         // bits stay set: with a bit cleared the pad ignores the block
+                         // and retains the previous effect, leaving a trigger stuck
+                         // after the game disables it (mirrors dualsensectl).
+                         | ValidFlags.AllowRightTriggerFfb
+                         | ValidFlags.AllowLeftTriggerFfb,
             ValidFlag2 = _vibrationV2 ? ValidFlags.EnableImprovedRumbleEmu : ValidFlags.None,
             RumbleLeft = output.RumbleLarge,
             RumbleRight = output.RumbleSmall,
@@ -185,6 +198,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         };
 
         Outputs.SendOutputState(payload);
+        OutputStateReceived?.Invoke(payload);
     }
 
     /// <inheritdoc/>

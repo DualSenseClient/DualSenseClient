@@ -1,3 +1,4 @@
+using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.DualSense.Events;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Hid;
@@ -6,13 +7,16 @@ using DualSenseClient.Settings;
 using DualSenseClient.Settings.Sections;
 using DualSenseClient.VIIPER;
 using DualSenseClient.VIIPER.Callbacks;
+using SoundFlow.Abstracts;
 
 namespace DualSenseClient.Controllers.Emulation;
 
 /// <summary>
 /// Creates a virtual controller for the active DualSense when its profile enables
-/// emulation. Owns the libVIIPER USB server, the virtual device lifecycle, and the
-/// HID exclusion that keeps the virtual device out of the app's own enumeration.
+/// emulation. Owns the libVIIPER USB server, the virtual device lifecycle, the
+/// HID exclusion that keeps the virtual device out of the app's own enumeration,
+/// and — for DualSense emulation — the host-audio forwarder that plays host audio
+/// through the physical controller.
 /// </summary>
 public interface IEmulationService : IDisposable
 {
@@ -84,6 +88,7 @@ public sealed class EmulationService : IEmulationService
     private readonly ProfileService _profiles;
     private readonly ControllerInfoService _controllerInfo;
     private readonly IVirtualControllerFactory _factory;
+    private readonly AudioEngine _audioEngine;
 
     /// <summary>
     /// Guards the active controller/virtual controller pair and the server handles.
@@ -92,6 +97,13 @@ public sealed class EmulationService : IEmulationService
 
     private DualSenseDevice? _device;
     private IVirtualController? _virtual;
+
+    /// <summary>
+    /// Forwards host audio to the physical controller while DualSense emulation is
+    /// active, or <c>null</c> in other modes. Lives and dies with <see cref="_virtual"/>.
+    /// </summary>
+    private ViiperDualSenseAudioForwarder? _forwarder;
+
     private nuint? _serverHandle;
 
     /// <summary>
@@ -122,13 +134,15 @@ public sealed class EmulationService : IEmulationService
     /// Creates a new <see cref="EmulationService"/>.
     /// </summary>
     public EmulationService(IControllerTracker tracker, IHidDeviceEnumerator enumerator,
-        ProfileService profiles, ControllerInfoService controllerInfo, IVirtualControllerFactory factory)
+        ProfileService profiles, ControllerInfoService controllerInfo, IVirtualControllerFactory factory,
+        AudioEngine audioEngine)
     {
         _tracker = tracker;
         _enumerator = enumerator;
         _profiles = profiles;
         _controllerInfo = controllerInfo;
         _factory = factory;
+        _audioEngine = audioEngine;
     }
 
     /// <inheritdoc/>
@@ -274,6 +288,18 @@ public sealed class EmulationService : IEmulationService
                 _enumerator.ExcludeDevice(path);
             }
 
+            ViiperDualSenseAudioForwarder? forwarder = mode == EmulationMode.DualSense
+                ? CreateAudioForwarder(outputs)
+                : null;
+            if (forwarder is not null && virtualController is VirtualDualSenseController dualSense)
+            {
+                dualSense.OutputStateReceived += forwarder.UpdateGameOutputState;
+            }
+            if (forwarder is not null)
+            {
+                _log.Info($"Host audio forwarding {(forwarder.Start() ? "started" : "unavailable")} for the virtual DualSense");
+            }
+
             lock (_sync)
             {
                 if (_disposed || !ReferenceEquals(_device, device) || generation != _generation)
@@ -282,12 +308,14 @@ public sealed class EmulationService : IEmulationService
                     {
                         _enumerator.RemoveExcludedDevice(stalePath);
                     }
+                    forwarder?.Dispose();
                     virtualController.Dispose();
                     LibVIIPER.RemoveUSBBus(serverHandle, busId);
                     return;
                 }
                 _busId = busId;
                 _virtual = virtualController;
+                _forwarder = forwarder;
                 DeviceSubscribe();
             }
 
@@ -345,6 +373,18 @@ public sealed class EmulationService : IEmulationService
         }
         return _profiles.GetProfile(ProfileService.DefaultProfileName)
                ?? _profiles.Settings.Profiles.FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Creates the host-audio forwarder for the virtual DualSense: Bluetooth audio
+    /// reports to the physical controller over the same outputs lane, and the USB
+    /// UAC render endpoint for wired playback (when the pad exposes one).
+    /// </summary>
+    private ViiperDualSenseAudioForwarder CreateAudioForwarder(DualSenseDeviceOutputs outputs)
+    {
+        DualSenseAudioEndpointFinder endpointFinder = new DualSenseAudioEndpointFinder(_audioEngine);
+        DualSenseUsbAudioTarget usbTarget = new DualSenseUsbAudioTarget(_audioEngine, endpointFinder);
+        return new ViiperDualSenseAudioForwarder(outputs, usbTarget);
     }
 
     /// <summary>
@@ -420,6 +460,14 @@ public sealed class EmulationService : IEmulationService
         }
         IVirtualController virtualController = _virtual;
         _virtual = null;
+
+        if (virtualController is VirtualDualSenseController dualSense && _forwarder is { } forwarder)
+        {
+            dualSense.OutputStateReceived -= forwarder.UpdateGameOutputState;
+        }
+
+        _forwarder?.Dispose();
+        _forwarder = null;
 
         if (virtualController.VirtualDevicePath is { } path)
         {

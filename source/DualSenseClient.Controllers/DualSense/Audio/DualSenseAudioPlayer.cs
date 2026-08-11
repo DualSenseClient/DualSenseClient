@@ -1,6 +1,4 @@
 using System.Diagnostics;
-using Concentus;
-using Concentus.Enums;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Core.Utilities;
@@ -218,9 +216,9 @@ public sealed class DualSenseAudioPlayer : IDisposable
     private bool _usbFourChannel;
 
     /// <summary>
-    /// The lazy-initialized Opus encoder (48 kHz stereo, 160 kbps CBR).
+    /// Shared Bluetooth audio conversion pipeline (resample, Opus encode, haptics).
     /// </summary>
-    private IOpusEncoder? _opusEncoder;
+    private readonly DualSenseBtAudioPipeline _btPipeline = new DualSenseBtAudioPipeline();
 
     /// <summary>
     /// Scratch buffer for one 512-frame stereo block read from the source.
@@ -499,8 +497,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
         Stop();
         lock (_sync)
         {
-            _opusEncoder?.Dispose();
-            _opusEncoder = null;
+            _btPipeline.Dispose();
         }
     }
 
@@ -653,21 +650,21 @@ public sealed class DualSenseAudioPlayer : IDisposable
 
             if (IsBluetooth && (_playToSpeaker || _playToHeadset || _playToHaptics))
             {
-                ConvertToPcm16(_floatBlock, _pcmBlock);
+                DualSenseBtAudioPipeline.ConvertToPcm16(_floatBlock, _pcmBlock);
                 if (_playToSpeaker || _playToHeadset)
                 {
-                    ResampleToOpusBlock(_pcmBlock, _opusBlock);
-                    EncodeOpus(_opusBlock, _opusFrame);
+                    DualSenseBtAudioPipeline.ResampleToOpusBlock(_pcmBlock, _opusBlock);
+                    _btPipeline.EncodeOpus(_opusBlock, _opusFrame);
                     if (_playToHaptics)
                     {
-                        ToHapticsPcm(_pcmBlock, _hapticsPcm);
+                        DualSenseBtAudioPipeline.ToHapticsPcm(_pcmBlock, _hapticsPcm, _hapticStrength);
                     }
 
                     SendBluetoothAudioReports(_opusFrame);
                 }
                 else
                 {
-                    ToHapticsPcm(_pcmBlock, _hapticsPcm);
+                    DualSenseBtAudioPipeline.ToHapticsPcm(_pcmBlock, _hapticsPcm, _hapticStrength);
                     _device!.SendBluetoothHaptics(_hapticsPcm);
                 }
             }
@@ -724,8 +721,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
     private void RestartBluetoothStream()
     {
         _device!.ResetBluetoothAudioStream();
-        _opusEncoder?.Dispose();
-        _opusEncoder = null;
+        _btPipeline.ResetEncoder();
         SendBluetoothPrime();
         SendBtPreroll();
     }
@@ -1003,11 +999,10 @@ public sealed class DualSenseAudioPlayer : IDisposable
         }
 
         _log.Debug($"Sending {BtPrerollPackets} silence packets to warm up the Bluetooth audio stream");
-        _opusEncoder ??= CreateOpusEncoder();
         _opusBlock.AsSpan().Clear();
         try
         {
-            EncodeOpus(_opusBlock, _opusFrame);
+            _btPipeline.EncodeOpus(_opusBlock, _opusFrame);
         }
         catch (InvalidOperationException ex)
         {
@@ -1041,17 +1036,6 @@ public sealed class DualSenseAudioPlayer : IDisposable
     }
 
     /// <summary>
-    /// Converts a float block to interleaved signed 16-bit PCM.
-    /// </summary>
-    private static void ConvertToPcm16(ReadOnlySpan<float> source, Span<short> target)
-    {
-        for (int i = 0; i < source.Length; i++)
-        {
-            target[i] = (short)Math.Clamp(source[i] * 32767f, short.MinValue, short.MaxValue);
-        }
-    }
-
-    /// <summary>
     /// Expands a stereo float block into a 4-channel float USB stream: channels 1/2 carry
     /// the audio, channels 3/4 carry the haptics scaled by the current strength — or
     /// silence when haptics are disabled.
@@ -1067,86 +1051,6 @@ public sealed class DualSenseAudioPlayer : IDisposable
             quad[o + 2] = stereo[f * 2] * haptic;
             quad[o + 3] = stereo[f * 2 + 1] * haptic;
         }
-    }
-
-    /// <summary>
-    /// Downsamples the block to 64 bytes of interleaved s8 stereo (32 frames at 3 kHz)
-    /// for the Bluetooth haptics report, scaled by the current strength. Each 3 kHz
-    /// sample is the mean of its 16-frame decimation window (512→32) rather than a point
-    /// sample, low-passing the audio before the coarse s8 quantization so high-frequency
-    /// content does not alias into the haptic band (matching vDS's per-chunk averaging).
-    /// </summary>
-    private void ToHapticsPcm(ReadOnlySpan<short> stereo, Span<byte> haptics)
-    {
-        const int decimation = FramesPerBlock / HapticsFrames;
-        for (int i = 0; i < HapticsFrames; i++)
-        {
-            int start = i * decimation;
-            long leftSum = 0;
-            long rightSum = 0;
-            for (int f = 0; f < decimation; f++)
-            {
-                leftSum += stereo[(start + f) * 2];
-                rightSum += stereo[(start + f) * 2 + 1];
-            }
-
-            int left = Math.Clamp((int)(leftSum / (decimation * 256f) * _hapticStrength), -128, 127);
-            int right = Math.Clamp((int)(rightSum / (decimation * 256f) * _hapticStrength), -128, 127);
-            haptics[i * 2] = (byte)left;
-            haptics[i * 2 + 1] = (byte)right;
-        }
-    }
-
-    /// <summary>
-    /// Linearly resamples a 512-frame stereo block down to 480 frames (the Opus frame
-    /// size at 48 kHz), matching the reference implementations' 512→480 conversion.
-    /// </summary>
-    private static void ResampleToOpusBlock(ReadOnlySpan<short> source, Span<short> target)
-    {
-        const double step = (FramesPerBlock - 1) / (double)(OpusFrameSamples - 1);
-        for (int i = 0; i < OpusFrameSamples; i++)
-        {
-            double src = i * step;
-            int idx = (int)src;
-            int nxt = Math.Min(idx + 1, FramesPerBlock - 1);
-            double frac = src - idx;
-            int l0 = source[idx * 2];
-            int l1 = source[nxt * 2];
-            int r0 = source[idx * 2 + 1];
-            int r1 = source[nxt * 2 + 1];
-            target[i * 2] = (short)(int)(l0 + (l1 - l0) * frac);
-            target[i * 2 + 1] = (short)(int)(r0 + (r1 - r0) * frac);
-        }
-    }
-
-    /// <summary>
-    /// Encodes one 480-frame block into a fixed 200-byte Opus frame (48 kHz stereo,
-    /// 160 kbps CBR). The DualSense lane requires exactly 200 bytes; a short frame would
-    /// silently mask a broken encoder configuration, so it is rejected instead.
-    /// </summary>
-    private void EncodeOpus(ReadOnlySpan<short> pcm, Span<byte> frame)
-    {
-        _opusEncoder ??= CreateOpusEncoder();
-        int written = _opusEncoder.Encode(pcm, OpusFrameSamples, frame, frame.Length);
-        if (written != frame.Length)
-        {
-            throw new InvalidOperationException(
-                $"Opus encoder produced {written} bytes for a {OpusFrameSamples}-frame block (expected {frame.Length}); " +
-                "validate the 48 kHz / 10 ms / 160 kbps CBR settings against a real controller.");
-        }
-    }
-
-    /// <summary>
-    /// Creates the Opus encoder with the DualSense-compatible fixed settings.
-    /// </summary>
-    private static IOpusEncoder CreateOpusEncoder()
-    {
-        IOpusEncoder encoder = OpusCodecFactory.CreateEncoder(SampleRate, Channels, OpusApplication.OPUS_APPLICATION_AUDIO);
-        encoder.ExpertFrameDuration = OpusFramesize.OPUS_FRAMESIZE_10_MS;
-        encoder.Bitrate = 200 * 8 * 100;
-        encoder.UseVBR = false;
-        encoder.Complexity = 0;
-        return encoder;
     }
 
     /// <summary>
