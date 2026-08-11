@@ -39,6 +39,21 @@ public interface IHidDeviceEnumerator : IDisposable
     void StopWatching();
 
     /// <summary>
+    /// Excludes the device at the given path from all future enumeration results,
+    /// so devices created by this application (e.g. virtual controllers) are not
+    /// seen as real hardware.
+    /// </summary>
+    /// <param name="path">The device path to exclude.</param>
+    void ExcludeDevice(string path);
+
+    /// <summary>
+    /// Removes a previously excluded device path, making the device appear in
+    /// enumeration results again.
+    /// </summary>
+    /// <param name="path">The device path to unexclude.</param>
+    void RemoveExcludedDevice(string path);
+
+    /// <summary>
     /// Raised when a HID device connects.
     /// </summary>
     event EventHandler<DeviceConnectionEventArgs>? DeviceConnected;
@@ -84,6 +99,51 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     /// Synchronizes access to the device watcher state.
     /// </summary>
     private readonly Lock _watchLock = new Lock();
+
+    /// <summary>
+    /// Synchronizes access to <see cref="_excludedPaths"/>.
+    /// </summary>
+    private readonly Lock _exclusionLock = new Lock();
+
+    /// <summary>
+    /// Device paths hidden from enumeration results.
+    /// </summary>
+    private readonly HashSet<string> _excludedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <inheritdoc/>
+    public void ExcludeDevice(string path)
+    {
+        lock (_exclusionLock)
+        {
+            if (_excludedPaths.Add(path))
+            {
+                _log.Debug($"Excluding device from enumeration: {path}");
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    public void RemoveExcludedDevice(string path)
+    {
+        lock (_exclusionLock)
+        {
+            if (_excludedPaths.Remove(path))
+            {
+                _log.Debug($"Device no longer excluded from enumeration: {path}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Checks whether the given device path has been excluded from enumeration.
+    /// </summary>
+    private bool IsExcluded(string path)
+    {
+        lock (_exclusionLock)
+        {
+            return _excludedPaths.Contains(path);
+        }
+    }
 
     /// <inheritdoc/>
     public void StartWatching(int intervalMs = 1000)
@@ -174,6 +234,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     {
         _log.Debug($"Enumerating devices (vendorId=0x{vendorId:X4}, productId=0x{productId:X4})");
         List<IHidDeviceInfo> all = NativeEnumerate(vendorId, productId);
+        all.RemoveAll(device => IsExcluded(device.Path));
 
         // Split USB and BT — USB passes through, BT probes in parallel for liveness.
         List<IHidDeviceInfo> result = new List<IHidDeviceInfo>(all.Count);
