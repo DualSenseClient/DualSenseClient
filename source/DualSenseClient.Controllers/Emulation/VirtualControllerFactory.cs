@@ -16,7 +16,8 @@ public interface IVirtualControllerFactory
     /// <param name="busId">The bus to attach the device to.</param>
     /// <param name="outputs">The physical controller receiving host feedback.</param>
     /// <param name="vibrationV2">True when the physical controller uses the v2 rumble encoding.</param>
-    IVirtualController? Create(EmulationMode mode, nuint serverHandle, uint busId, IDualSenseOutputs outputs, bool vibrationV2);
+    /// <param name="edge">True to create a DualSense Edge instead of the standard DualSense (DualSense mode only).</param>
+    IVirtualController? Create(EmulationMode mode, nuint serverHandle, uint busId, IDualSenseOutputs outputs, bool vibrationV2, bool edge = false);
 }
 
 /// <summary>
@@ -25,13 +26,13 @@ public interface IVirtualControllerFactory
 public sealed class VirtualControllerFactory : IVirtualControllerFactory
 {
     /// <inheritdoc/>
-    public IVirtualController? Create(EmulationMode mode, nuint serverHandle, uint busId, IDualSenseOutputs outputs, bool vibrationV2)
+    public IVirtualController? Create(EmulationMode mode, nuint serverHandle, uint busId, IDualSenseOutputs outputs, bool vibrationV2, bool edge = false)
     {
         return mode switch
         {
             EmulationMode.Xbox360 => new VirtualXbox360Controller(serverHandle, busId, outputs),
             EmulationMode.DualShock4 => new VirtualDualShock4Controller(serverHandle, busId, outputs),
-            EmulationMode.DualSense => new VirtualDualSenseController(serverHandle, busId, outputs, vibrationV2),
+            EmulationMode.DualSense => new VirtualDualSenseController(serverHandle, busId, outputs, vibrationV2, edge),
             EmulationMode.Off => null,
             _ => null
         };

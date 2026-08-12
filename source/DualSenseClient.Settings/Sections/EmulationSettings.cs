@@ -30,6 +30,38 @@ public enum EmulationMode
 }
 
 /// <summary>
+/// The DualSense hardware variant presented by a virtual DualSense device.
+/// </summary>
+public enum DualSenseVariant
+{
+    /// <summary>
+    /// The standard DualSense.
+    /// </summary>
+    Standard = 0,
+
+    /// <summary>
+    /// The DualSense Edge.
+    /// </summary>
+    Edge = 1
+}
+
+/// <summary>
+/// The physical controller output used when forwarding host audio.
+/// </summary>
+public enum EmulationAudioOutput
+{
+    /// <summary>
+    /// The controller's internal speaker.
+    /// </summary>
+    Speaker = 0,
+
+    /// <summary>
+    /// A headset plugged into the controller's jack.
+    /// </summary>
+    Headset = 1
+}
+
+/// <summary>
 /// The virtual controller emulation settings stored in a controller profile.
 /// </summary>
 public class EmulationSettings
@@ -40,6 +72,21 @@ public class EmulationSettings
     /// </summary>
     [JsonPropertyName("mode")]
     public EmulationMode Mode { get; set; } = EmulationMode.Off;
+
+    /// <summary>
+    /// Gets or sets the DualSense hardware variant of the virtual device when
+    /// <see cref="Mode"/> is <see cref="EmulationMode.DualSense"/>
+    /// (<see cref="DualSenseVariant.Standard"/> by default).
+    /// </summary>
+    [JsonPropertyName("device_type")]
+    public DualSenseVariant DeviceType { get; set; } = DualSenseVariant.Standard;
+
+    /// <summary>
+    /// Gets or sets the physical controller output used when forwarding host audio
+    /// (<see cref="EmulationAudioOutput.Speaker"/> by default).
+    /// </summary>
+    [JsonPropertyName("forward_audio_output")]
+    public EmulationAudioOutput ForwardAudioOutput { get; set; } = EmulationAudioOutput.Speaker;
 
     /// <summary>
     /// Gets or sets the volume applied to the physical controller's speaker when

@@ -225,9 +225,19 @@
                                        FontWeight="SemiBold" />
                         </StackPanel>
                     </cards:CustomCard>
-                    <cards:ComboBoxCard Title="{DynamicResource ProfilePage.Emulation.Mode}"
-                                        ItemsSource="{Binding EmulationModes}"
-                                        SelectedIndex="{Binding EmulationModeIndex}" />
+<cards:ComboBoxCard Title="{DynamicResource ProfilePage.Emulation.Mode}"
+                                         ItemsSource="{Binding EmulationModes}"
+                                         SelectedIndex="{Binding EmulationModeIndex}" />
+                    <cards:ComboBoxCard Title="{DynamicResource ProfilePage.Emulation.DeviceType}"
+                                        Description="{DynamicResource ProfilePage.Emulation.DeviceType.Description}"
+                                        ItemsSource="{Binding DualSenseVariants}"
+                                        SelectedIndex="{Binding DualSenseVariantIndex}"
+                                        IsVisible="{Binding IsDualSenseEmulation}" />
+                    <cards:ComboBoxCard Title="{DynamicResource ProfilePage.Emulation.AudioOutput}"
+                                        Description="{DynamicResource ProfilePage.Emulation.AudioOutput.Description}"
+                                        ItemsSource="{Binding EmulationAudioOutputs}"
+                                        SelectedIndex="{Binding ForwardAudioOutputIndex}"
+                                        IsVisible="{Binding IsDualSenseEmulation}" />
                     <cards:SliderCard Minimum="0"
                                       Maximum="255"
                                       TickFrequency="1"

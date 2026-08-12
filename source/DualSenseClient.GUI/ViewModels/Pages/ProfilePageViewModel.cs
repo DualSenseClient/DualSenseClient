@@ -184,6 +184,26 @@ public partial class ProfilePageViewModel : ObservableObject
     ];
 
     /// <summary>
+    /// DualSense hardware variant options for the dropdown, in
+    /// <see cref="DualSenseVariant"/> order (standard, Edge).
+    /// </summary>
+    public ObservableCollection<string> DualSenseVariants { get; } =
+    [
+        LocalizationService.GetText("ProfilePage.Emulation.DeviceType.Standard"),
+        LocalizationService.GetText("ProfilePage.Emulation.DeviceType.Edge")
+    ];
+
+    /// <summary>
+    /// Forwarded audio output options for the dropdown, in
+    /// <see cref="EmulationAudioOutput"/> order (speaker, headset).
+    /// </summary>
+    public ObservableCollection<string> EmulationAudioOutputs { get; } =
+    [
+        LocalizationService.GetText("ProfilePage.Emulation.AudioOutput.Speaker"),
+        LocalizationService.GetText("ProfilePage.Emulation.AudioOutput.Headset")
+    ];
+
+    /// <summary>
     /// The profile whose virtual controller emulation the emulation section edits:
     /// the profile the selected controller is currently using (bound profile, or the
     /// default when unbound).
@@ -242,6 +262,78 @@ public partial class ProfilePageViewModel : ObservableObject
     /// audio forwarding lane.
     /// </summary>
     public bool IsDualSenseEmulation => EmulationModeIndex == (int)EmulationMode.DualSense;
+
+    /// <summary>
+    /// The DualSense hardware variant (<see cref="DualSenseVariant"/> value) of the
+    /// profile's virtual device. Setting it persists the change immediately and
+    /// recreates the virtual controller through <see cref="IEmulationService"/>.
+    /// </summary>
+    public int DualSenseVariantIndex
+    {
+        get
+        {
+            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
+            {
+                return 0;
+            }
+            return (int)profile.Emulation.DeviceType;
+        }
+        set
+        {
+            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
+            {
+                return;
+            }
+
+            DualSenseVariant variant = (DualSenseVariant)Math.Clamp(value, 0, (int)DualSenseVariant.Edge);
+            if (profile.Emulation.DeviceType == variant)
+            {
+                return;
+            }
+
+            _log.Info($"Setting DualSense variant of profile '{profile.Name}' to {variant}");
+            profile.Emulation.DeviceType = variant;
+            _profileService.Save();
+            OnPropertyChanged(nameof(DualSenseVariantIndex));
+            _emulation.Refresh();
+        }
+    }
+
+    /// <summary>
+    /// The physical controller output (<see cref="EmulationAudioOutput"/> value) used
+    /// when forwarding host audio. Setting it persists the change immediately and
+    /// applies it to the active forwarder without recreating the virtual controller.
+    /// </summary>
+    public int ForwardAudioOutputIndex
+    {
+        get
+        {
+            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
+            {
+                return 0;
+            }
+            return (int)profile.Emulation.ForwardAudioOutput;
+        }
+        set
+        {
+            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
+            {
+                return;
+            }
+
+            EmulationAudioOutput output = (EmulationAudioOutput)Math.Clamp(value, 0, (int)EmulationAudioOutput.Headset);
+            if (profile.Emulation.ForwardAudioOutput == output)
+            {
+                return;
+            }
+
+            _log.Info($"Setting forwarded audio output of profile '{profile.Name}' to {output}");
+            profile.Emulation.ForwardAudioOutput = output;
+            _profileService.Save();
+            OnPropertyChanged(nameof(ForwardAudioOutputIndex));
+            _emulation.SetForwardingAudioOutput(output == EmulationAudioOutput.Headset);
+        }
+    }
 
     /// <summary>
     /// The speaker volume applied to the physical controller when forwarding host
@@ -636,6 +728,8 @@ public partial class ProfilePageViewModel : ObservableObject
         OnPropertyChanged(nameof(EmulationProfileName));
         OnPropertyChanged(nameof(EmulationModeIndex));
         OnPropertyChanged(nameof(IsDualSenseEmulation));
+        OnPropertyChanged(nameof(DualSenseVariantIndex));
+        OnPropertyChanged(nameof(ForwardAudioOutputIndex));
         OnPropertyChanged(nameof(ForwardVolume));
         OnPropertyChanged(nameof(ForwardHapticStrength));
         OnPropertyChanged(nameof(EmulationStatusText));

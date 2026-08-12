@@ -219,6 +219,14 @@
     <sys:String x:Key="ProfilePage.Emulation.Mode.Xbox360">Xbox 360</sys:String>
     <sys:String x:Key="ProfilePage.Emulation.Mode.DualShock4">DualShock 4</sys:String>
     <sys:String x:Key="ProfilePage.Emulation.Mode.DualSense">DualSense</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.DeviceType">DualSense variant</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.DeviceType.Description">The hardware presentation of the virtual controller.</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.DeviceType.Standard">Standard DualSense</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.DeviceType.Edge">DualSense Edge</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.AudioOutput">Forwarded audio output</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.AudioOutput.Description">Where host audio is played back on the physical controller.</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.AudioOutput.Speaker">Speaker</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.AudioOutput.Headset">Headset</sys:String>
     <sys:String x:Key="ProfilePage.Emulation.ForwardVolume">Audio forwarding volume</sys:String>
     <sys:String x:Key="ProfilePage.Emulation.ForwardHaptics">Audio forwarding haptic strength</sys:String>
     <sys:String x:Key="ProfilePage.Emulation.Status.Idle">No virtual controller is active.</sys:String>

@@ -41,6 +41,38 @@ public sealed class ProfileEmulationTests
     }
 
     [Test]
+    public void Profile_Serialization_RoundTripsDualSenseVariantAndAudioOutput()
+    {
+        Profile profile = new Profile
+        {
+            Name = "Test",
+            Emulation =
+            {
+                Mode = EmulationMode.DualSense,
+                DeviceType = DualSenseVariant.Edge,
+                ForwardAudioOutput = EmulationAudioOutput.Headset
+            }
+        };
+        string json = JsonSerializer.Serialize(profile, Options);
+
+        Assert.That(json, Does.Contain("\"device_type\":\"Edge\""));
+        Assert.That(json, Does.Contain("\"forward_audio_output\":\"Headset\""));
+
+        Profile? roundTripped = JsonSerializer.Deserialize<Profile>(json, Options);
+        Assert.That(roundTripped?.Emulation.DeviceType, Is.EqualTo(DualSenseVariant.Edge));
+        Assert.That(roundTripped?.Emulation.ForwardAudioOutput, Is.EqualTo(EmulationAudioOutput.Headset));
+    }
+
+    [Test]
+    public void Profile_Deserialization_WithoutDualSenseOptionsFallsBackToDefaults()
+    {
+        string legacyJson = """{"name":"Legacy","emulation":{"mode":"DualSense"}}""";
+        Profile? profile = JsonSerializer.Deserialize<Profile>(legacyJson, Options);
+        Assert.That(profile?.Emulation.DeviceType, Is.EqualTo(DualSenseVariant.Standard));
+        Assert.That(profile?.Emulation.ForwardAudioOutput, Is.EqualTo(EmulationAudioOutput.Speaker));
+    }
+
+    [Test]
     public void Profile_Deserialization_WithoutEmulationFallsBackToOff()
     {
         string legacyJson = """{"name":"Legacy","player_leds":{"mask":0}}""";

@@ -56,18 +56,35 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
     private readonly bool _vibrationV2;
 
     /// <summary>
+    /// Whether the virtual device presents a DualSense Edge instead of the standard DualSense.
+    /// </summary>
+    private readonly bool _edge;
+
+    /// <summary>
     /// Creates and attaches a virtual DualSense device on the given USB bus.
     /// </summary>
     /// <param name="serverHandle">The USB server hosting the device.</param>
     /// <param name="busId">The bus to attach the device to.</param>
     /// <param name="outputs">The physical controller receiving host feedback.</param>
     /// <param name="vibrationV2">True when the physical controller uses the v2 rumble encoding.</param>
-    public VirtualDualSenseController(nuint serverHandle, uint busId, IDualSenseOutputs outputs, bool vibrationV2) : base(outputs)
+    /// <param name="edge">True to create a DualSense Edge instead of the standard DualSense.</param>
+    public VirtualDualSenseController(nuint serverHandle, uint busId, IDualSenseOutputs outputs, bool vibrationV2, bool edge = false) : base(outputs)
     {
         _vibrationV2 = vibrationV2;
+        _edge = edge;
         _outputStateCallback = OnOutputState;
         _realtimeHapticsCallback = OnRealtimeHaptics;
-        if (!LibVIIPER.CreateDualSenseDevice(serverHandle, out nuint handle, busId, true, 0, 0, null))
+        bool created;
+        nuint handle;
+        if (edge)
+        {
+            created = LibVIIPER.CreateDualSenseEdgeDevice(serverHandle, out handle, busId, true, 0, 0, null);
+        }
+        else
+        {
+            created = LibVIIPER.CreateDualSenseDevice(serverHandle, out handle, busId, true, 0, 0, null);
+        }
+        if (!created)
         {
             _log.Error("Failed to create the virtual DualSense device");
             return;
@@ -76,7 +93,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         DeviceHandle = handle;
         LibVIIPER.SetDualSenseOutputStateCallback(handle, _outputStateCallback);
         LibVIIPER.SetDualSenseRealtimeHapticsCallback(handle, _realtimeHapticsCallback);
-        _log.Info($"Virtual DualSense created (handle=0x{handle:X})");
+        _log.Info($"Virtual DualSense{(edge ? " Edge" : "")} created (handle=0x{handle:X})");
     }
 
     /// <inheritdoc/>

@@ -50,6 +50,13 @@ public interface IEmulationService : IDisposable
     /// emulation is not active.
     /// </summary>
     void SetForwardingAudioOptions(byte speakerVolume, float hapticStrength);
+
+    /// <summary>
+    /// Routes forwarded host audio to the physical controller's headset jack instead
+    /// of its internal speaker without recreating the virtual controller. No-op when
+    /// DualSense emulation is not active.
+    /// </summary>
+    void SetForwardingAudioOutput(bool headset);
 }
 
 /// <summary>
@@ -206,6 +213,19 @@ public sealed class EmulationService : IEmulationService
         }
     }
 
+    /// <inheritdoc/>
+    public void SetForwardingAudioOutput(bool headset)
+    {
+        lock (_sync)
+        {
+            if (_forwarder is null)
+            {
+                return;
+            }
+            _forwarder.PlayToHeadset = headset;
+        }
+    }
+
     /// <summary>
     /// (Re)builds the virtual controller whenever the active controller changes.
     /// </summary>
@@ -277,14 +297,16 @@ public sealed class EmulationService : IEmulationService
                 await Task.Delay(RecreationSettleDelay);
             }
 
-            (ushort vid, ushort pid) = GetDeviceIds(mode);
+            EmulationSettings? emulation = ResolveProfile(device)?.Emulation;
+            bool edge = emulation?.DeviceType == DualSenseVariant.Edge;
+            (ushort vid, ushort pid) = GetDeviceIds(mode, edge);
             DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
             HashSet<string> before = _enumerator.Enumerate(vid, pid)
                 .Select(info => info.Path)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             uint busId = 0;
-            IVirtualController? virtualController = TryCreateOnFreshBus(serverHandle, mode, outputs, device.UsesVibrationV2, ref busId);
+            IVirtualController? virtualController = TryCreateOnFreshBus(serverHandle, mode, outputs, device.UsesVibrationV2, edge, ref busId);
             if (virtualController is null)
             {
                 _log.Warning($"Failed to create the virtual {mode} device; retrying in {(int)CreateRetryDelay.TotalMilliseconds} ms");
@@ -297,7 +319,7 @@ public sealed class EmulationService : IEmulationService
                         return;
                     }
                 }
-                virtualController = TryCreateOnFreshBus(serverHandle, mode, outputs, device.UsesVibrationV2, ref busId);
+                virtualController = TryCreateOnFreshBus(serverHandle, mode, outputs, device.UsesVibrationV2, edge, ref busId);
             }
 
             if (virtualController is null)
@@ -318,7 +340,7 @@ public sealed class EmulationService : IEmulationService
             }
 
             ViiperDualSenseAudioForwarder? forwarder = mode == EmulationMode.DualSense
-                ? CreateAudioForwarder(outputs, ResolveProfile(device)?.Emulation)
+                ? CreateAudioForwarder(outputs, emulation)
                 : null;
             ViiperDualSenseAudioCapture? capture = null;
             if (forwarder is not null && virtualController is VirtualDualSenseController dualSense)
@@ -374,16 +396,17 @@ public sealed class EmulationService : IEmulationService
     /// <param name="mode">The requested emulation mode.</param>
     /// <param name="outputs">The physical controller receiving host feedback.</param>
     /// <param name="vibrationV2">Whether the physical controller uses the V2 report format.</param>
+    /// <param name="edge">Whether the virtual DualSense should be an Edge variant (DualSense mode only).</param>
     /// <param name="busId">Receives the id of the created bus, valid only on success.</param>
     /// <returns>The created virtual controller, or <c>null</c> when creation failed.</returns>
-    private IVirtualController? TryCreateOnFreshBus(nuint serverHandle, EmulationMode mode, DualSenseDeviceOutputs outputs, bool vibrationV2, ref uint busId)
+    private IVirtualController? TryCreateOnFreshBus(nuint serverHandle, EmulationMode mode, DualSenseDeviceOutputs outputs, bool vibrationV2, bool edge, ref uint busId)
     {
         if (!LibVIIPER.CreateUSBBus(serverHandle, ref busId))
         {
             return null;
         }
 
-        IVirtualController? virtualController = _factory.Create(mode, serverHandle, busId, outputs, vibrationV2);
+        IVirtualController? virtualController = _factory.Create(mode, serverHandle, busId, outputs, vibrationV2, edge);
         if (virtualController?.DeviceHandle is null)
         {
             virtualController?.Dispose();
@@ -416,7 +439,8 @@ public sealed class EmulationService : IEmulationService
     /// Creates the host-audio forwarder for the virtual DualSense: Bluetooth audio
     /// reports to the physical controller over the same outputs lane, and the USB
     /// UAC render endpoint for wired playback (when the pad exposes one). The
-    /// profile's forwarding volume and haptic strength are applied on creation.
+    /// profile's forwarding volume, haptic strength and speaker/headset route are
+    /// applied on creation.
     /// </summary>
     private ViiperDualSenseAudioForwarder CreateAudioForwarder(DualSenseDeviceOutputs outputs, EmulationSettings? emulation)
     {
@@ -427,6 +451,7 @@ public sealed class EmulationService : IEmulationService
         {
             forwarder.SpeakerVolume = (byte)Math.Clamp(emulation.ForwardVolume, 0, 255);
             forwarder.HapticStrength = Math.Clamp(emulation.ForwardHapticStrength, 0, 200) / 100f;
+            forwarder.PlayToHeadset = emulation.ForwardAudioOutput == EmulationAudioOutput.Headset;
         }
         return forwarder;
     }
@@ -614,10 +639,11 @@ public sealed class EmulationService : IEmulationService
     /// <summary>
     /// The host VID/PID pair of the virtual device, used for exclusion discovery.
     /// </summary>
-    private static (ushort, ushort) GetDeviceIds(EmulationMode mode) => mode switch
+    private static (ushort, ushort) GetDeviceIds(EmulationMode mode, bool edge) => mode switch
     {
         EmulationMode.Xbox360 => (0x045E, 0x028E),
         EmulationMode.DualShock4 => (0x054C, 0x05C4),
+        EmulationMode.DualSense when edge => (0x054C, 0x0DF2),
         EmulationMode.DualSense => (0x054C, 0x0CE6),
         _ => (0, 0)
     };
