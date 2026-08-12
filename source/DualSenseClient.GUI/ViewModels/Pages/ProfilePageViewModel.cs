@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -49,6 +50,12 @@ public partial class ProfilePageViewModel : ObservableObject
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("ProfilePage");
 
     /// <summary>
+    /// Delay between the last slider change and the profile save, so dragging a slider
+    /// coalesces into a single disk write instead of one save per value change.
+    /// </summary>
+    private static readonly TimeSpan ProfileSaveDebounce = TimeSpan.FromMilliseconds(500);
+
+    /// <summary>
     /// The shell ViewModel owning the controller selection.
     /// </summary>
     private readonly MainViewModel _mainViewModel;
@@ -77,6 +84,12 @@ public partial class ProfilePageViewModel : ObservableObject
     /// Service used for delete confirmations.
     /// </summary>
     private readonly IMessageBoxService _messageBox;
+
+    /// <summary>
+    /// Debounced profile save timer: each slider change restarts it and the save happens
+    /// only after changes stop, avoiding overlapping writes while dragging.
+    /// </summary>
+    private readonly DispatcherTimer _profileSaveTimer;
 
     /// <summary>
     /// Tracks the previous lights item so its subscriptions are released on replacement.
@@ -361,7 +374,7 @@ public partial class ProfilePageViewModel : ObservableObject
                 return;
             }
             profile.Emulation.ForwardVolume = clamped;
-            _profileService.Save();
+            ScheduleProfileSave();
             OnPropertyChanged(nameof(ForwardVolume));
             _emulation.SetForwardingAudioOptions((byte)clamped, profile.Emulation.ForwardHapticStrength / 100f);
         }
@@ -393,7 +406,7 @@ public partial class ProfilePageViewModel : ObservableObject
                 return;
             }
             profile.Emulation.ForwardHapticStrength = clamped;
-            _profileService.Save();
+            ScheduleProfileSave();
             OnPropertyChanged(nameof(ForwardHapticStrength));
             _emulation.SetForwardingAudioOptions((byte)profile.Emulation.ForwardVolume, clamped / 100f);
         }
@@ -485,6 +498,8 @@ public partial class ProfilePageViewModel : ObservableObject
         _emulation = App.Services.GetRequiredService<IEmulationService>();
         _emulation.StateChanged += OnEmulationStateChanged;
         _mainViewModel.PropertyChanged += OnMainViewModelPropertyChanged;
+        _profileSaveTimer = new DispatcherTimer { Interval = ProfileSaveDebounce };
+        _profileSaveTimer.Tick += (_, _) => SaveProfileDebounced();
         Refresh();
     }
 
@@ -915,5 +930,25 @@ public partial class ProfilePageViewModel : ObservableObject
         _log.Info($"Applying profile '{profile.Name}' to {CurrentMac}");
         device.ApplyProfile(profile);
         CurrentDevice.SetPreview(profile.Lightbar.Red, profile.Lightbar.Green, profile.Lightbar.Blue);
+    }
+
+    /// <summary>
+    /// Restarts the debounce timer so the pending profile save is delayed until slider
+    /// changes stop. Mirrors <see cref="DualSenseClient.GUI.Models.Items.ProfileEditorItem"/>'s
+    /// commit pattern for the emulation sliders, which otherwise persist on every drag step.
+    /// </summary>
+    private void ScheduleProfileSave()
+    {
+        _profileSaveTimer.Stop();
+        _profileSaveTimer.Start();
+    }
+
+    /// <summary>
+    /// Flushes the debounced profile save to disk once the debounce period elapses.
+    /// </summary>
+    private void SaveProfileDebounced()
+    {
+        _profileSaveTimer.Stop();
+        _profileService.Save();
     }
 }
