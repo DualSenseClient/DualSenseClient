@@ -1,6 +1,7 @@
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Hid;
+using DualSenseClient.Logging;
 
 namespace DualSenseClient.Controllers.Emulation;
 
@@ -75,6 +76,11 @@ public interface IDualSenseAudioOutputs : IDualSenseOutputs
 public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
 {
     /// <summary>
+    /// Logger instance.
+    /// </summary>
+    private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("DualSenseDeviceOutputs");
+
+    /// <summary>
     /// Guards feedback writes to the physical device.
     /// </summary>
     private readonly Lock _writeLock = new Lock();
@@ -106,7 +112,17 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
     {
         lock (_writeLock)
         {
-            _device.SendOutputState(payload);
+            try
+            {
+                _device.SendOutputState(payload);
+            }
+            catch (HidException ex)
+            {
+                // A dropped link (e.g. Bluetooth disconnect) makes the write fail;
+                // log instead of letting the exception escape the libVIIPER callback
+                // thread and crash the process.
+                _log.Error($"Failed to send output state to the physical controller: {ex.Message}");
+            }
         }
     }
 
