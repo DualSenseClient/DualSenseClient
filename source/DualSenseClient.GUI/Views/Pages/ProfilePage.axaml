@@ -227,12 +227,14 @@
                     </cards:CustomCard>
 <cards:ComboBoxCard Title="{DynamicResource ProfilePage.Emulation.Mode}"
                                          ItemsSource="{Binding EmulationModes}"
-                                         SelectedIndex="{Binding EmulationModeIndex}" />
+                                         SelectedIndex="{Binding EmulationModeIndex}"
+                                         IsEnabled="{Binding CanChangeEmulation}" />
                     <cards:ComboBoxCard Title="{DynamicResource ProfilePage.Emulation.DeviceType}"
                                         Description="{DynamicResource ProfilePage.Emulation.DeviceType.Description}"
                                         ItemsSource="{Binding DualSenseVariants}"
                                         SelectedIndex="{Binding DualSenseVariantIndex}"
-                                        IsVisible="{Binding IsDualSenseEmulation}" />
+                                        IsVisible="{Binding IsDualSenseEmulation}"
+                                        IsEnabled="{Binding CanChangeEmulation}" />
                     <cards:ComboBoxCard Title="{DynamicResource ProfilePage.Emulation.AudioOutput}"
                                         Description="{DynamicResource ProfilePage.Emulation.AudioOutput.Description}"
                                         ItemsSource="{Binding EmulationAudioOutputs}"

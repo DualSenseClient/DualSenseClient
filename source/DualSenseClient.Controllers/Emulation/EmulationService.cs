@@ -263,7 +263,7 @@ public sealed class EmulationService : IEmulationService
             return;
         }
 
-        SetStatus(new EmulationStatus(mode, false, "Creating virtual controller…", null));
+        SetStatus(new EmulationStatus(mode, false, "Creating virtual controller…", null, IsCreating: true));
         _ = CreateVirtualControllerAsync(device, mode, generation, removedDevice);
     }
 

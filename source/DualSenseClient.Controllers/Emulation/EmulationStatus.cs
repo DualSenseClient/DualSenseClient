@@ -9,4 +9,5 @@ public sealed record EmulationStatus(
     EmulationMode Mode,
     bool Running,
     string? Detail,
-    string? VirtualDevicePath);
+    string? VirtualDevicePath,
+    bool IsCreating = false);

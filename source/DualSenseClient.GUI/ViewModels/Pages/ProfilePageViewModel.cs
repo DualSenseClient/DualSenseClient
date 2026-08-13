@@ -437,6 +437,13 @@ public partial class ProfilePageViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Whether the emulation mode and DualSense variant dropdowns may be changed.
+    /// False while a virtual controller is being (re)created: switching mid-creation
+    /// races the removal/creation cycle and can leave multiple virtual devices behind.
+    /// </summary>
+    public bool CanChangeEmulation => !_emulation.Status.IsCreating;
+
+    /// <summary>
     /// Gets or sets the selected entry in <see cref="AssignedProfileOptions"/>. Setting it
     /// binds the current controller (by MAC, with a device path fallback) to the chosen
     /// profile, applies it immediately, and persists the binding.
@@ -711,6 +718,7 @@ public partial class ProfilePageViewModel : ObservableObject
     private void OnEmulationStateChanged(object? sender, EventArgs e)
     {
         OnPropertyChanged(nameof(EmulationStatusText));
+        OnPropertyChanged(nameof(CanChangeEmulation));
     }
 
     /// <summary>
@@ -748,6 +756,7 @@ public partial class ProfilePageViewModel : ObservableObject
         OnPropertyChanged(nameof(ForwardVolume));
         OnPropertyChanged(nameof(ForwardHapticStrength));
         OnPropertyChanged(nameof(EmulationStatusText));
+        OnPropertyChanged(nameof(CanChangeEmulation));
         RebuildSpecialActions();
     }
 
