@@ -906,8 +906,9 @@ public partial class ProfilePageViewModel : ObservableObject
 
     /// <summary>
     /// Applies the profile currently used by the selected controller (bound profile, or the
-    /// default when unbound), so an assignment change takes effect immediately. Also
-    /// re-evaluates virtual controller emulation in case the profile's emulation mode changed.
+    /// default when unbound), so an assignment change takes effect immediately. Only the
+    /// controller-side light settings are reapplied; virtual controller emulation is left
+    /// untouched (it is rebuilt only when the profile's emulation settings are edited).
     /// </summary>
     private void ApplyBoundProfileToController()
     {
@@ -915,8 +916,6 @@ public partial class ProfilePageViewModel : ObservableObject
         {
             return;
         }
-
-        _emulation.Refresh();
 
         Profile? profile = GetCurrentControllerProfile();
         if (profile is not null)
