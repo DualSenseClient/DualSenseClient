@@ -73,7 +73,7 @@ public sealed class ControllerScanner : IControllerScanner
         List<IControllerDevice> controllers = new List<IControllerDevice>();
         foreach (IHidDeviceInfo info in _enumerator.Enumerate(ControllerFactory.KnownDeviceIds))
         {
-            IControllerDevice? controller = ControllerFactory.Create(_enumerator, info);
+            IControllerDevice? controller = TryCreate(info);
             if (controller is not null)
             {
                 controllers.Add(controller);
@@ -121,13 +121,32 @@ public sealed class ControllerScanner : IControllerScanner
     public void Dispose() => StopWatching();
 
     /// <summary>
+    /// Tries to open the device and create a controller wrapper for it.
+    /// A device that is enumerated but cannot be opened (e.g. it is still being
+    /// re-enumerated by the OS, or momentarily grabbed by another process) is
+    /// skipped instead of crashing the caller.
+    /// </summary>
+    private IControllerDevice? TryCreate(IHidDeviceInfo info)
+    {
+        try
+        {
+            return ControllerFactory.Create(_enumerator, info);
+        }
+        catch (Exception ex)
+        {
+            _log.Warning($"Skipping device that could not be opened: {info.ProductName} (VID=0x{info.VendorId:X4}, PID=0x{info.ProductId:X4}, bus={info.BusType}) — {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Handles <see cref="IHidDeviceEnumerator.DeviceConnected"/>.
     /// Tries to create a controller wrapper for the newly connected device;
     /// fires <see cref="ControllerConnected"/> only for recognized controllers.
     /// </summary>
     private void OnDeviceConnected(object? sender, DeviceConnectionEventArgs e)
     {
-        IControllerDevice? controller = ControllerFactory.Create(_enumerator, e.Device);
+        IControllerDevice? controller = TryCreate(e.Device);
         if (controller is null)
         {
             return;

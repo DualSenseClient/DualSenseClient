@@ -54,10 +54,18 @@ public static class ControllerFactory
 
         _log.Debug($"Creating {type} controller for '{info.ProductName}' (VID=0x{info.VendorId:X4}, PID=0x{info.ProductId:X4}, bus={info.BusType}, path={info.Path})");
         IHidDevice device = enumerator.OpenDevice(info.Path);
-        return type switch
+        try
         {
-            ControllerType.DualSense => new DualSenseDevice(device, info),
-            _ => null
-        };
+            return type switch
+            {
+                ControllerType.DualSense => new DualSenseDevice(device, info),
+                _ => null
+            };
+        }
+        catch
+        {
+            device.Dispose();
+            throw;
+        }
     }
 }

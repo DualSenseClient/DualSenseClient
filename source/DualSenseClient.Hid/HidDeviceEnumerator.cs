@@ -142,13 +142,27 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
             foreach (IHidDeviceInfo device in current.Where(device => !prevPaths.Contains(device.Path)))
             {
                 _log.Info($"Device connected: {device.ProductName} (VID=0x{device.VendorId:X4}, PID=0x{device.ProductId:X4})");
-                DeviceConnected?.Invoke(this, new DeviceConnectionEventArgs(DeviceChangeType.Connected, device));
+                try
+                {
+                    DeviceConnected?.Invoke(this, new DeviceConnectionEventArgs(DeviceChangeType.Connected, device));
+                }
+                catch (Exception ex)
+                {
+                    _log.Warning($"DeviceConnected handler threw: {ex.Message}");
+                }
             }
 
             foreach (IHidDeviceInfo device in _previousSnapshot.Where(device => !currPaths.Contains(device.Path)))
             {
                 _log.Info($"Device disconnected: {device.ProductName} (VID=0x{device.VendorId:X4}, PID=0x{device.ProductId:X4})");
-                DeviceDisconnected?.Invoke(this, new DeviceConnectionEventArgs(DeviceChangeType.Disconnected, device));
+                try
+                {
+                    DeviceDisconnected?.Invoke(this, new DeviceConnectionEventArgs(DeviceChangeType.Disconnected, device));
+                }
+                catch (Exception ex)
+                {
+                    _log.Warning($"DeviceDisconnected handler threw: {ex.Message}");
+                }
             }
 
             _previousSnapshot = current;
