@@ -263,7 +263,7 @@ public sealed class EmulationService : IEmulationService
             return;
         }
 
-        SetStatus(new EmulationStatus(mode, false, "Creating virtual controller…", null, IsCreating: true));
+        SetStatus(new EmulationStatus(mode, false, null, null, IsCreating: true));
         _ = CreateVirtualControllerAsync(device, mode, generation, removedDevice);
     }
 
@@ -378,7 +378,8 @@ public sealed class EmulationService : IEmulationService
                 DeviceSubscribe();
             }
 
-            SetStatus(new EmulationStatus(mode, true, null, virtualController.VirtualDevicePath));
+            SetStatus(new EmulationStatus(mode, true, null, virtualController.VirtualDevicePath,
+                Variant: mode == EmulationMode.DualSense ? (edge ? DualSenseVariant.Edge : DualSenseVariant.Standard) : null));
         }
         catch (Exception ex)
         {
@@ -677,7 +678,8 @@ public sealed class EmulationService : IEmulationService
     private void SetStatus(EmulationStatus status)
     {
         Status = status;
-        _log.Info($"Emulation status: {status.Mode} running={status.Running} ({status.Detail ?? status.VirtualDevicePath ?? "ok"})");
+        string detail = status.IsCreating ? "creating" : status.Detail ?? status.VirtualDevicePath ?? "ok";
+        _log.Info($"Emulation status: {status.Mode} running={status.Running} ({detail})");
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
 }

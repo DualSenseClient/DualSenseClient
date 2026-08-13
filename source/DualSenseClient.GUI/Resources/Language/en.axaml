@@ -231,6 +231,8 @@
     <sys:String x:Key="ProfilePage.Emulation.ForwardHaptics">Audio forwarding haptic strength</sys:String>
     <sys:String x:Key="ProfilePage.Emulation.Status.Idle">No virtual controller is active.</sys:String>
     <sys:String x:Key="ProfilePage.Emulation.Status.Running">Virtual controller active: {mode}</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.Status.RunningEdge">Virtual controller active: DualSense Edge</sys:String>
+    <sys:String x:Key="ProfilePage.Emulation.Status.Creating">Creating virtual controller…</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.Title">Special Actions</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.Description">Button combinations that execute actions (disconnect, lights)</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.New">Create a new special action</sys:String>

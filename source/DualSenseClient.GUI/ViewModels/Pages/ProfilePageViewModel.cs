@@ -426,9 +426,18 @@ public partial class ProfilePageViewModel : ObservableObject
             }
 
             EmulationStatus status = _emulation.Status;
+            if (status.IsCreating)
+            {
+                return LocalizationService.GetText("ProfilePage.Emulation.Status.Creating");
+            }
             if (!status.Running)
             {
                 return status.Detail ?? LocalizationService.GetText("ProfilePage.Emulation.Status.Idle");
+            }
+
+            if (status.Variant == DualSenseVariant.Edge)
+            {
+                return LocalizationService.GetText("ProfilePage.Emulation.Status.RunningEdge");
             }
 
             string mode = EmulationModes[Math.Clamp((int)status.Mode, 0, EmulationModes.Count - 1)];

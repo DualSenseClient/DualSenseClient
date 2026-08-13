@@ -10,4 +10,5 @@ public sealed record EmulationStatus(
     bool Running,
     string? Detail,
     string? VirtualDevicePath,
-    bool IsCreating = false);
+    bool IsCreating = false,
+    DualSenseVariant? Variant = null);
