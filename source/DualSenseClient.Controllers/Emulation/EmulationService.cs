@@ -1,6 +1,7 @@
 using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.DualSense.Events;
 using DualSenseClient.Controllers.Devices;
+using DualSenseClient.Controllers.SpecialActions;
 using DualSenseClient.Hid;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
@@ -103,6 +104,7 @@ public sealed class EmulationService : IEmulationService
     private readonly ControllerInfoService _controllerInfo;
     private readonly IVirtualControllerFactory _factory;
     private readonly AudioEngine _audioEngine;
+    private readonly SpecialActionEngine _specialActions;
 
     /// <summary>
     /// Guards the active controller/virtual controller pair and the server handles.
@@ -157,7 +159,7 @@ public sealed class EmulationService : IEmulationService
     /// </summary>
     public EmulationService(IControllerTracker tracker, IHidDeviceEnumerator enumerator,
         ProfileService profiles, ControllerInfoService controllerInfo, IVirtualControllerFactory factory,
-        AudioEngine audioEngine)
+        AudioEngine audioEngine, SpecialActionEngine specialActions)
     {
         _tracker = tracker;
         _enumerator = enumerator;
@@ -165,6 +167,7 @@ public sealed class EmulationService : IEmulationService
         _controllerInfo = controllerInfo;
         _factory = factory;
         _audioEngine = audioEngine;
+        _specialActions = specialActions;
     }
 
     /// <inheritdoc/>
@@ -300,7 +303,7 @@ public sealed class EmulationService : IEmulationService
             EmulationSettings? emulation = ResolveProfile(device)?.Emulation;
             bool edge = emulation?.DeviceType == DualSenseVariant.Edge;
             (ushort vid, ushort pid) = GetDeviceIds(mode, edge);
-            DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
+            DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, _specialActions);
             HashSet<string> before = _enumerator.Enumerate(vid, pid)
                 .Select(info => info.Path)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);

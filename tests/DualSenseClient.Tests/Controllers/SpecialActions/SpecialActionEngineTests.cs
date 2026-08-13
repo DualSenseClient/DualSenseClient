@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Reflection;
 using DualSenseClient.Controllers.DualSense.Enum;
 using DualSenseClient.Controllers.DualSense.Output;
@@ -835,6 +835,165 @@ public class SpecialActionEngineTests
         FeedReport(device, CreateReport(ButtonType.L1));
         FeedReport(device, CreateReport());
         Assert.That(hid.Writes, Has.Count.EqualTo(2));
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void SustainedLightbar_LightbarColorOverride_ActiveWhileHeld_ClearedOnRelease()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        engine.ProfileProvider = _ => CreateRestoreProfile();
+        engine.UpdateActions([CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: true)]);
+
+        FeedReport(device, CreateReport());
+        FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
+        Assert.That(engine.OutputOverride.LightbarColor, Is.EqualTo(((byte)0xAA, (byte)0xBB, (byte)0xCC)));
+
+        // Releasing a combination button ends the action: the override is released.
+        FeedReport(device, CreateReport(ButtonType.L1));
+        FeedReport(device, CreateReport());
+        Assert.That(engine.OutputOverride.LightbarColor, Is.Null);
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void OneShotLightbar_DoesNotSetLightbarColorOverride()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        engine.UpdateActions([CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: false)]);
+
+        FeedReport(device, CreateReport());
+        FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
+        Assert.That(hid.Writes, Has.Count.EqualTo(1));
+        Assert.That(engine.OutputOverride.LightbarColor, Is.Null);
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void TimedLightbar_LightbarColorOverride_ClearedAfterDuration()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        engine.ProfileProvider = _ => CreateRestoreProfile();
+        SpecialAction action = CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: false);
+        action.DurationMs = 300;
+        engine.UpdateActions([action]);
+
+        FeedReport(device, CreateReport());
+        FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
+        Assert.That(engine.OutputOverride.LightbarColor, Is.EqualTo(((byte)0xAA, (byte)0xBB, (byte)0xCC)));
+
+        Assert.That(WaitUntil(() => engine.OutputOverride.LightbarColor is null), Is.True, "Override was not cleared after the duration");
+        Assert.That(hid.Writes, Has.Count.EqualTo(2));
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void ShowBatteryLevel_WhileHeld_SetsLightbarColorOverride_ClearedOnRelease()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
+        engine.UpdateActions([CreateBatteryAction(applyWhileHeld: true)]);
+
+        // Raw battery 0x04 = 45% -> level 4 -> default color (255, 200, 30).
+        FeedReport(device, CreateReportWithBattery(0x04));
+        FeedReport(device, CreateReportWithBattery(0x04, ButtonType.L1, ButtonType.R1));
+        Assert.That(engine.OutputOverride.LightbarColor, Is.EqualTo(((byte)255, (byte)200, (byte)30)));
+
+        FeedReport(device, CreateReport(ButtonType.L1));
+        FeedReport(device, CreateReport());
+        Assert.That(engine.OutputOverride.LightbarColor, Is.Null);
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void Gesture_WhileHeldLight_LightbarColorOverride_ClearedOnFingerUp()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        engine.ProfileProvider = _ => CreateRestoreProfile();
+        engine.UpdateActions([CreateGestureLightbarAction(TouchpadGestures.SwipeRight, 0xAA, 0xBB, 0xCC, applyWhileHeld: true)]);
+
+        SwipeRight(device);
+        Assert.That(hid.Writes, Has.Count.EqualTo(1));
+        Assert.That(engine.OutputOverride.LightbarColor, Is.EqualTo(((byte)0xAA, (byte)0xBB, (byte)0xCC)));
+
+        LiftFinger(device);
+        Assert.That(engine.OutputOverride.LightbarColor, Is.Null);
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void SustainedPlayerLeds_SetsPlayerLedOverride_ClearedOnRelease()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        engine.ProfileProvider = _ => CreateRestoreProfile();
+        SpecialAction action = CreateAction(ButtonType.L1, ButtonType.R1);
+        action.Effects[0].Type = SpecialActionTypes.SetPlayerLeds;
+        action.Effects[0].PlayerLedMask = 0x05;
+        action.ApplyWhileHeld = true;
+        engine.UpdateActions([action]);
+
+        FeedReport(device, CreateReport());
+        FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(hid.Writes, Has.Count.EqualTo(1));
+            Assert.That(engine.OutputOverride.PlayerLeds, Is.EqualTo((byte)0x05));
+            Assert.That(engine.OutputOverride.LightbarColor, Is.Null);
+        });
+
+        // Releasing a combination button ends the action: the override is released.
+        FeedReport(device, CreateReport(ButtonType.L1));
+        FeedReport(device, CreateReport());
+        Assert.That(engine.OutputOverride.PlayerLeds, Is.Null);
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void CombinedLightEffects_SetBothOverrideFields()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        engine.ProfileProvider = _ => CreateRestoreProfile();
+        SpecialAction action = CreateAction(ButtonType.L1, ButtonType.R1);
+        action.Effects[0].Type = SpecialActionTypes.SetLightbarColor;
+        action.Effects[0].Red = 0xAA;
+        action.Effects[0].Green = 0xBB;
+        action.Effects[0].Blue = 0xCC;
+        action.Effects.Add(new SpecialActionEffect
+        {
+            Type = SpecialActionTypes.SetPlayerLeds,
+            PlayerLedMask = 0x05
+        });
+        action.ApplyWhileHeld = true;
+        engine.UpdateActions([action]);
+
+        FeedReport(device, CreateReport());
+        FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(engine.OutputOverride.LightbarColor, Is.EqualTo(((byte)0xAA, (byte)0xBB, (byte)0xCC)));
+            Assert.That(engine.OutputOverride.PlayerLeds, Is.EqualTo((byte)0x05));
+        });
+
+        FeedReport(device, CreateReport(ButtonType.L1));
+        FeedReport(device, CreateReport());
+        Assert.Multiple(() =>
+        {
+            Assert.That(engine.OutputOverride.LightbarColor, Is.Null);
+            Assert.That(engine.OutputOverride.PlayerLeds, Is.Null);
+        });
 
         engine.Dispose();
         device.Dispose();

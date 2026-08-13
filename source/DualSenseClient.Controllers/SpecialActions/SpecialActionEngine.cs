@@ -1,4 +1,4 @@
-using DualSenseClient.Controllers.DualSense.Enum;
+﻿using DualSenseClient.Controllers.DualSense.Enum;
 using DualSenseClient.Controllers.DualSense.Events;
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.DualSense.Output;
@@ -30,6 +30,30 @@ public sealed class SpecialActionExecutedEventArgs : EventArgs
 }
 
 /// <summary>
+/// The controller output fields held by the active light actions of a
+/// <see cref="SpecialActionEngine"/>. Each field is non-<c>null</c> while at least one
+/// active action holds it, and carries the value of the most recently fired such action.
+/// The emulation output forwarding path merges this over the game's output state, so the
+/// game cannot overwrite an active action's output. Add a new nullable property here
+/// (and fill it in the engine's effect execution) whenever a new effect type interacts
+/// with the controller's output state.
+/// </summary>
+public readonly struct OutputStateOverride
+{
+    /// <summary>
+    /// The lightbar color held by the most recently fired active light action, or
+    /// <c>null</c> while no active action holds a color.
+    /// </summary>
+    public (byte Red, byte Green, byte Blue)? LightbarColor { get; init; }
+
+    /// <summary>
+    /// The player LED mask held by the most recently fired active light action, or
+    /// <c>null</c> while no active action holds a mask.
+    /// </summary>
+    public byte? PlayerLeds { get; init; }
+}
+
+/// <summary>
 /// Watches a controller's button and touchpad events and executes special actions when the
 /// user holds an exact button combination or performs a single-finger touchpad swipe (see
 /// <see cref="SpecialAction.TouchpadGesture"/>): a button action fires once the moment the
@@ -48,8 +72,11 @@ public sealed class SpecialActionExecutedEventArgs : EventArgs
 /// once a combination button is released or the swipe finger is lifted. Alternatively they
 /// can carry a duration (<see cref="SpecialAction.DurationMs"/>): they stay applied for that
 /// long and the controller then reverts to its bound profile automatically, whether or not
-/// the trigger is still held. Sound actions play an audio file through the controller
-/// speaker (see <see cref="SoundPlayerFactory"/>); marked
+/// the trigger is still held. While a light action is active, its output fields (lightbar
+/// color, player LEDs) override the output state forwarded from a virtual controller (see
+/// <see cref="OutputStateOverride"/>), so the game cannot overwrite the action's output.
+/// Sound actions play an audio file through the controller speaker (see
+/// <see cref="SoundPlayerFactory"/>); marked
 /// <see cref="SpecialAction.ApplyWhileHeld"/>, the sound plays while the trigger is held
 /// and stops on release.
 /// </para>
@@ -158,6 +185,32 @@ public sealed class SpecialActionEngine : IDisposable
     private readonly Dictionary<Guid, DateTime> _timedActive = new Dictionary<Guid, DateTime>();
 
     /// <summary>
+    /// Output fields held by active light actions, keyed by action id and mapped to the
+    /// applied fields and the fire sequence (the most recently fired action wins per field).
+    /// </summary>
+    private readonly Dictionary<Guid, (OutputStateOverride Applied, long Sequence)> _outputOverrides = new();
+
+    /// <summary>
+    /// Monotonic counter ordering light action fires, so the most recent fire wins when
+    /// several active light actions overlap.
+    /// </summary>
+    private long _overrideSequence;
+
+    /// <summary>
+    /// The lightbar color held by the most recently fired active light action, encoded
+    /// as <c>0xRRGGBB</c>, or a negative value while no active action holds a color.
+    /// Written under <see cref="_lock"/>; read lock-free by the emulation output path.
+    /// </summary>
+    private volatile int _lightbarOverrideCode = -1;
+
+    /// <summary>
+    /// The player LED mask held by the most recently fired active light action, or a
+    /// negative value while no active action holds a mask. Written under
+    /// <see cref="_lock"/>; read lock-free by the emulation output path.
+    /// </summary>
+    private volatile int _playerLedOverrideCode = -1;
+
+    /// <summary>
     /// The player used by <see cref="SpecialActionTypes.PlaySound"/> actions, created lazily
     /// from <see cref="SoundPlayerFactory"/> on the first sound trigger and released on
     /// detach.
@@ -180,6 +233,28 @@ public sealed class SpecialActionEngine : IDisposable
     /// attached controller. When <c>null</c>, sound actions log a warning and do nothing.
     /// </summary>
     public Func<DualSenseDevice, ISpecialActionSoundPlayer>? SoundPlayerFactory { get; set; }
+
+    /// <summary>
+    /// The controller output fields held by the active light actions
+    /// (<see cref="SpecialActionTypes.SetLightbarColor"/>, <see cref="SpecialActionTypes.SetPlayerLeds"/>
+    /// and <see cref="SpecialActionTypes.ShowBatteryLevel"/>; each field is <c>null</c>
+    /// while no active action holds it). The emulation output forwarding path merges
+    /// this over the game's output state, so the game cannot overwrite an active
+    /// action's output for as long as the action stays active.
+    /// </summary>
+    public OutputStateOverride OutputOverride
+    {
+        get
+        {
+            int color = _lightbarOverrideCode;
+            int leds = _playerLedOverrideCode;
+            return new OutputStateOverride
+            {
+                LightbarColor = color < 0 ? null : ((byte)(color >> 16), (byte)(color >> 8), (byte)color),
+                PlayerLeds = leds < 0 ? null : (byte)leds
+            };
+        }
+    }
 
     /// <summary>
     /// Creates a new engine instance and starts its hold-duration timer.
@@ -207,6 +282,9 @@ public sealed class SpecialActionEngine : IDisposable
             _pending.Clear();
             _sustainedActive.Clear();
             _timedActive.Clear();
+            _outputOverrides.Clear();
+            _lightbarOverrideCode = -1;
+            _playerLedOverrideCode = -1;
             _touchStart = null;
             _lastGesture = null;
 
@@ -259,6 +337,9 @@ public sealed class SpecialActionEngine : IDisposable
             _fired.Clear();
             _touchStart = null;
             _lastGesture = null;
+            _outputOverrides.Clear();
+            _lightbarOverrideCode = -1;
+            _playerLedOverrideCode = -1;
             if (_sustainedActive.Count > 0)
             {
                 _sustainedActive.Clear();
@@ -426,6 +507,7 @@ public sealed class SpecialActionEngine : IDisposable
                     _fired.Remove(action.Id);
                     if (_sustainedActive.Remove(action.Id))
                     {
+                        EndOutputOverride(action.Id);
                         if (action.Effects.Any(e => e.Enabled && e.Type == SpecialActionTypes.PlaySound))
                         {
                             StopSound();
@@ -478,6 +560,7 @@ public sealed class SpecialActionEngine : IDisposable
             _fired.Remove(action.Id);
             if (_sustainedActive.Remove(action.Id))
             {
+                EndOutputOverride(action.Id);
                 if (action.Effects.Any(e => e.Enabled && e.Type == SpecialActionTypes.PlaySound))
                 {
                     StopSound();
@@ -559,6 +642,7 @@ public sealed class SpecialActionEngine : IDisposable
                 if (now >= _timedActive[id])
                 {
                     _timedActive.Remove(id);
+                    EndOutputOverride(id);
                     RestoreBaseState();
                 }
             }
@@ -635,12 +719,23 @@ public sealed class SpecialActionEngine : IDisposable
                 }
             }
 
+            OutputStateOverride applied = default;
             foreach (SpecialActionEffect effect in effects)
             {
                 if (effect.Enabled)
                 {
-                    ExecuteEffect(effect);
+                    applied = Combine(applied, ExecuteEffect(effect));
                 }
+            }
+
+            // While the action stays active, its output fields override the emulated
+            // output forwarded from a virtual controller (the most recent fire wins
+            // per field).
+            if ((applied.LightbarColor is not null || applied.PlayerLeds is not null)
+                && (_sustainedActive.Contains(action.Id) || _timedActive.ContainsKey(action.Id)))
+            {
+                _outputOverrides[action.Id] = (applied, ++_overrideSequence);
+                RecomputeOutputOverride();
             }
 
             ActionExecuted?.Invoke(this, new SpecialActionExecutedEventArgs(action));
@@ -681,32 +776,49 @@ public sealed class SpecialActionEngine : IDisposable
             or SpecialActionTypes.ShowBatteryLevel;
 
     /// <summary>
-    /// Executes a single effect on the attached controller.
+    /// Executes a single effect on the attached controller and returns the output fields
+    /// it applied (empty when the effect does not interact with the controller's output).
     /// </summary>
-    private void ExecuteEffect(SpecialActionEffect effect)
+    private OutputStateOverride ExecuteEffect(SpecialActionEffect effect)
     {
         switch (effect.Type)
         {
             case SpecialActionTypes.Disconnect:
                 _device!.DisconnectController();
-                break;
+                return default;
             case SpecialActionTypes.SetLightbarColor:
-                SendLightbarColor(effect.Red, effect.Green, effect.Blue);
-                break;
+                return new OutputStateOverride
+                {
+                    LightbarColor = SendLightbarColor(effect.Red, effect.Green, effect.Blue)
+                };
             case SpecialActionTypes.SetPlayerLeds:
-                SendPlayerLeds(effect.PlayerLedMask);
-                break;
+                return new OutputStateOverride
+                {
+                    PlayerLeds = SendPlayerLeds(effect.PlayerLedMask)
+                };
             case SpecialActionTypes.PlaySound:
                 PlaySound(effect);
-                break;
+                return default;
             case SpecialActionTypes.ShowBatteryLevel:
-                ShowBatteryLevel(effect);
-                break;
+                return new OutputStateOverride
+                {
+                    LightbarColor = ShowBatteryLevel(effect)
+                };
             default:
                 _log.Warning($"Unknown special action effect type '{effect.Type}'");
-                break;
+                return default;
         }
     }
+
+    /// <summary>
+    /// Merges two applied-field snapshots: fields set by <paramref name="newer"/> win,
+    /// fields it leaves unset keep the <paramref name="older"/> values.
+    /// </summary>
+    private static OutputStateOverride Combine(OutputStateOverride older, OutputStateOverride newer) => new()
+    {
+        LightbarColor = newer.LightbarColor ?? older.LightbarColor,
+        PlayerLeds = newer.PlayerLeds ?? older.PlayerLeds
+    };
 
     /// <summary>
     /// Reverts a while-held or timed light action by re-applying the profile resolved via
@@ -743,7 +855,7 @@ public sealed class SpecialActionEngine : IDisposable
     /// over the lightbar from the controller's default state (mirrors
     /// <see cref="DualSenseDevice.ApplyProfile"/>).
     /// </summary>
-    private void SendLightbarColor(byte red, byte green, byte blue)
+    private (byte Red, byte Green, byte Blue) SendLightbarColor(byte red, byte green, byte blue)
     {
         SetStateData payload = new SetStateData
         {
@@ -756,12 +868,13 @@ public sealed class SpecialActionEngine : IDisposable
         };
 
         _device!.SendOutputState(payload);
+        return (red, green, blue);
     }
 
     /// <summary>
     /// Sets the player LED layout from the raw byte mask (bit 0 = LED 1, ... bit 4 = LED 5).
     /// </summary>
-    private void SendPlayerLeds(byte mask)
+    private byte SendPlayerLeds(byte mask)
     {
         SetStateData payload = new SetStateData
         {
@@ -770,6 +883,7 @@ public sealed class SpecialActionEngine : IDisposable
         };
 
         _device!.SendOutputState(payload);
+        return mask;
     }
 
     /// <summary>
@@ -777,20 +891,22 @@ public sealed class SpecialActionEngine : IDisposable
     /// from the latest reported battery percentage (10 levels, level 0 = lowest charge) and
     /// the lightbar is set to that level's color (custom colors, or the effect defaults).
     /// An unknown battery level is logged and skipped, so the lightbar is never corrupted.
+    /// Returns the applied color, or <c>null</c> when the level is unknown.
     /// </summary>
-    private void ShowBatteryLevel(SpecialActionEffect effect)
+    private (byte Red, byte Green, byte Blue)? ShowBatteryLevel(SpecialActionEffect effect)
     {
         int percentage = _device!.InputReport.Battery.DisplayPercentage;
         if (percentage < 0)
         {
             _log.Warning("Battery level unknown; battery special action skipped");
-            return;
+            return null;
         }
 
         int level = Math.Min(percentage / 10, 9);
         BatteryLevelColor color = effect.GetBatteryColor(level);
         _log.Debug($"Showing battery level {level} ({percentage}%) with color {color.Red},{color.Green},{color.Blue}");
         SendLightbarColor(color.Red, color.Green, color.Blue);
+        return (color.Red, color.Green, color.Blue);
     }
 
     /// <summary>
@@ -845,6 +961,49 @@ public sealed class SpecialActionEngine : IDisposable
     }
 
     /// <summary>
+    /// Drops a light action's held output fields when the action ends (released, timed
+    /// out, or the configuration changed), keeping the most recently fired remaining
+    /// action per field.
+    /// </summary>
+    private void EndOutputOverride(Guid actionId)
+    {
+        if (_outputOverrides.Remove(actionId))
+        {
+            RecomputeOutputOverride();
+        }
+    }
+
+    /// <summary>
+    /// Recomputes the lock-free override codes from the active light actions: the most
+    /// recently fired action wins per field. Caller must hold <see cref="_lock"/>.
+    /// </summary>
+    private void RecomputeOutputOverride()
+    {
+        long bestColor = -1;
+        (byte Red, byte Green, byte Blue) bestColorEntry = default;
+        long bestLeds = -1;
+        byte bestLedsEntry = 0;
+
+        foreach ((OutputStateOverride Applied, long Sequence) entry in _outputOverrides.Values)
+        {
+            if (entry.Applied.LightbarColor is { } color && entry.Sequence > bestColor)
+            {
+                bestColor = entry.Sequence;
+                bestColorEntry = color;
+            }
+
+            if (entry.Applied.PlayerLeds is { } leds && entry.Sequence > bestLeds)
+            {
+                bestLeds = entry.Sequence;
+                bestLedsEntry = leds;
+            }
+        }
+
+        _lightbarOverrideCode = bestColor < 0 ? -1 : (bestColorEntry.Red << 16) | (bestColorEntry.Green << 8) | bestColorEntry.Blue;
+        _playerLedOverrideCode = bestLeds < 0 ? -1 : bestLedsEntry;
+    }
+
+    /// <summary>
     /// Unsubscribes from the attached controller and resets all matching state. Callers
     /// must hold <see cref="_lock"/>.
     /// </summary>
@@ -864,6 +1023,9 @@ public sealed class SpecialActionEngine : IDisposable
         _pending.Clear();
         _sustainedActive.Clear();
         _timedActive.Clear();
+        _outputOverrides.Clear();
+        _lightbarOverrideCode = -1;
+        _playerLedOverrideCode = -1;
         _touchStart = null;
         _lastGesture = null;
 

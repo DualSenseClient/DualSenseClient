@@ -44,7 +44,7 @@ public sealed class SpecialActionCoordinator : IDisposable
     /// <summary>
     /// The engine that matches combinations and executes actions.
     /// </summary>
-    private readonly SpecialActionEngine _engine = new SpecialActionEngine();
+    private readonly SpecialActionEngine _engine;
 
     /// <summary>
     /// Creates the coordinator, attaches the engine to the current active controller, and
@@ -55,13 +55,15 @@ public sealed class SpecialActionCoordinator : IDisposable
     /// <param name="controllerService">Resolves the profile bound to each controller.</param>
     /// <param name="profileService">Stores the controller profiles.</param>
     /// <param name="audioEngine">The shared audio engine used to decode sound files.</param>
-    public SpecialActionCoordinator(IControllerTracker tracker, SpecialActionService service, ControllerInfoService controllerService, ProfileService profileService, AudioEngine audioEngine)
+    /// <param name="engine">The shared special-actions engine, also used by the emulation output path.</param>
+    public SpecialActionCoordinator(IControllerTracker tracker, SpecialActionService service, ControllerInfoService controllerService, ProfileService profileService, AudioEngine audioEngine, SpecialActionEngine engine)
     {
         _tracker = tracker;
         _service = service;
         _controllerService = controllerService;
         _profileService = profileService;
         _audioEngine = audioEngine;
+        _engine = engine;
         _tracker.ActiveControllerChanged += OnActiveControllerChanged;
         _service.SpecialActionsChanged += OnSpecialActionsChanged;
 

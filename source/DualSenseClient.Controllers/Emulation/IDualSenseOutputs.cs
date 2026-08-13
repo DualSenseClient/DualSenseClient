@@ -1,5 +1,6 @@
-using DualSenseClient.Controllers.DualSense.Output;
+﻿using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Devices;
+using DualSenseClient.Controllers.SpecialActions;
 using DualSenseClient.Hid;
 using DualSenseClient.Logging;
 
@@ -91,9 +92,19 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
     private readonly DualSenseDevice _device;
 
     /// <summary>
+    /// The special-actions engine whose active light actions override the forwarded
+    /// lightbar color.
+    /// </summary>
+    private readonly SpecialActionEngine _specialActions;
+
+    /// <summary>
     /// Creates a new adapter around the given physical controller.
     /// </summary>
-    public DualSenseDeviceOutputs(DualSenseDevice device) => _device = device;
+    public DualSenseDeviceOutputs(DualSenseDevice device, SpecialActionEngine specialActions)
+    {
+        _device = device;
+        _specialActions = specialActions;
+    }
 
     /// <inheritdoc/>
     public ConnectionType ConnectionType => _device.ConnectionType;
@@ -114,7 +125,7 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
         {
             try
             {
-                _device.SendOutputState(payload);
+                _device.SendOutputState(ApplyOutputOverride(payload));
             }
             catch (HidException ex)
             {
@@ -124,6 +135,36 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
                 _log.Error($"Failed to send output state to the physical controller: {ex.Message}");
             }
         }
+    }
+
+    /// <summary>
+    /// Merges the fields held by the active special actions (lightbar color, player LEDs)
+    /// over the payload, so the game's output cannot overwrite an active action's output
+    /// for as long as the action is active. Fields no action holds pass through unchanged.
+    /// Returns the payload unchanged when no field is held.
+    /// </summary>
+    private SetStateData ApplyOutputOverride(SetStateData payload)
+    {
+        OutputStateOverride overrideState = _specialActions.OutputOverride;
+        (byte Red, byte Green, byte Blue)? color = overrideState.LightbarColor;
+        byte? leds = overrideState.PlayerLeds;
+        if (color is null && leds is null)
+        {
+            return payload;
+        }
+
+        // Clone first: SetStateData shares its backing buffer through 'with',
+        // so writing via the copy would mutate the caller's payload in place.
+        byte[] raw = new byte[SetStateData.PayloadSize];
+        payload.CopyTo(raw, 0);
+        SetStateData copy = new SetStateData(raw, 0);
+        return copy with
+        {
+            LedRed = color?.Red ?? payload.LedRed,
+            LedGreen = color?.Green ?? payload.LedGreen,
+            LedBlue = color?.Blue ?? payload.LedBlue,
+            PlayerLeds = leds is { } mask ? (PlayerLedMask)mask : payload.PlayerLeds
+        };
     }
 
     /// <inheritdoc/>
@@ -140,7 +181,7 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
     {
         lock (_writeLock)
         {
-            _device.SendBluetoothAudioPrime(state);
+            _device.SendBluetoothAudioPrime(ApplyOutputOverride(state));
         }
     }
 
@@ -149,7 +190,7 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
     {
         lock (_writeLock)
         {
-            _device.SendBluetoothAudioAndHaptics(state, opusFrame, hapticsPcm, route);
+            _device.SendBluetoothAudioAndHaptics(ApplyOutputOverride(state), opusFrame, hapticsPcm, route);
         }
     }
 
