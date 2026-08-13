@@ -155,28 +155,20 @@ public sealed class DualSenseUsbAudioTarget : IDisposable
                 return false;
             }
 
-            try
+            if (!TryOpen(endpoint.Value, QuadFormat, CreateExclusiveQuadConfig(), true)
+                && !TryOpen(endpoint.Value, QuadFormat, null, true))
             {
-                TryOpen(endpoint.Value, QuadFormat, CreateExclusiveQuadConfig(), true);
-                if (_player is null)
-                {
-                    TryOpen(endpoint.Value, QuadFormat, null, true);
-                }
-                if (_player is null)
-                {
-                    _log.Info("Shared quadraphonic stream unavailable; falling back to shared stereo — haptics are dropped");
-                    TryOpen(endpoint.Value, StereoFormat, null, false);
-                }
-            }
-            catch (Exception ex)
-            {
-                _log.LogExceptionDetails(ex);
-                StopLocked();
+                _log.Info("Shared quadraphonic stream unavailable; falling back to shared stereo — haptics are dropped");
+                TryOpen(endpoint.Value, StereoFormat, null, false);
             }
 
             if (_player is not null)
             {
                 _log.Info($"USB audio forwarding started ({(_fourChannel ? "quadraphonic" : "stereo")})");
+            }
+            else
+            {
+                _log.Info("DualSense render endpoint could not be opened; USB audio forwarding unavailable");
             }
             return _player is not null;
         }
@@ -241,22 +233,37 @@ public sealed class DualSenseUsbAudioTarget : IDisposable
 
     /// <summary>
     /// Initializes a render device, its queue, and its player with the SoundFlow
-    /// unity-gain setup.
+    /// unity-gain setup. Returns <c>false</c> and logs a warning when the endpoint
+    /// refuses the stream (e.g. exclusive mode is not supported), so callers can
+    /// fall back to another configuration.
     /// </summary>
-    private void TryOpen(DeviceInfo endpoint, AudioFormat format, MiniAudioDeviceConfig? config, bool fourChannel)
+    private bool TryOpen(DeviceInfo endpoint, AudioFormat format, MiniAudioDeviceConfig? config, bool fourChannel)
     {
-        AudioPlaybackDevice device = _engine.InitializePlaybackDevice(endpoint, format, config);
-        QueueDataProvider queue = new QueueDataProvider(format, MaxQueueSamples(format), QueueFullBehavior.Drop);
-        SoundPlayer player = new SoundPlayer(_engine, format, queue);
-        device.MasterMixer.AddComponent(player);
-        device.MasterMixer.Volume = UnityGain;
-        player.Volume = UnityGain;
-        player.Play();
-        device.Start();
+        AudioPlaybackDevice? device = null;
+        SoundPlayer? player = null;
+        try
+        {
+            device = _engine.InitializePlaybackDevice(endpoint, format, config);
+            QueueDataProvider queue = new QueueDataProvider(format, MaxQueueSamples(format), QueueFullBehavior.Drop);
+            player = new SoundPlayer(_engine, format, queue);
+            device.MasterMixer.AddComponent(player);
+            device.MasterMixer.Volume = UnityGain;
+            player.Volume = UnityGain;
+            player.Play();
+            device.Start();
 
-        _player = player;
-        _queue = queue;
-        _fourChannel = fourChannel;
+            _player = player;
+            _queue = queue;
+            _fourChannel = fourChannel;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _log.Warning($"Could not open the DualSense render endpoint ({format.Channels}-channel, {(config is null ? "shared" : "exclusive")}): {ex.Message}");
+            player?.Dispose();
+            device?.Dispose();
+            return false;
+        }
     }
 
     /// <summary>
