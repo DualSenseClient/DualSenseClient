@@ -2,6 +2,7 @@ using System;
 using System.Collections.Specialized;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -11,6 +12,7 @@ using Avalonia.Threading;
 using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Events;
+using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.ViewModels;
 using DualSenseClient.GUI.Views;
@@ -68,6 +70,12 @@ public sealed class TrayIconService
     private readonly SettingsService _settingsService;
 
     /// <summary>
+    /// Emulation service used to recreate the virtual controller when its mode is
+    /// changed from the tray menu.
+    /// </summary>
+    private readonly IEmulationService _emulation;
+
+    /// <summary>
     /// The system tray icon.
     /// </summary>
     private readonly TrayIcon _trayIcon;
@@ -117,7 +125,7 @@ public sealed class TrayIconService
     /// <summary>
     /// Creates the tray icon and wires it to the application's controller state.
     /// </summary>
-    public TrayIconService(MainWindow mainWindow, MainViewModel mainViewModel, IControllerTracker tracker, ProfileService profileService, ControllerInfoService controllerInfoService, SettingsService settingsService)
+    public TrayIconService(MainWindow mainWindow, MainViewModel mainViewModel, IControllerTracker tracker, ProfileService profileService, ControllerInfoService controllerInfoService, SettingsService settingsService, IEmulationService emulation)
     {
         _mainWindow = mainWindow;
         _mainViewModel = mainViewModel;
@@ -125,6 +133,7 @@ public sealed class TrayIconService
         _profileService = profileService;
         _controllerInfoService = controllerInfoService;
         _settingsService = settingsService;
+        _emulation = emulation;
 
         _appIcon = LoadAppIcon();
         _trayIcon = new TrayIcon
@@ -144,6 +153,7 @@ public sealed class TrayIconService
         _tracker.ActiveControllerChanged += OnActiveControllerChanged;
         _profileService.ProfilesChanged += OnSettingsChanged;
         _controllerInfoService.ControllersChanged += OnSettingsChanged;
+        _emulation.StateChanged += OnEmulationStateChanged;
 
         _refreshTimer = new DispatcherTimer(TimeSpan.FromSeconds(10), DispatcherPriority.Background, (_, _) => UpdateTrayState());
 
@@ -210,7 +220,8 @@ public sealed class TrayIconService
 
     /// <summary>
     /// Builds the menu entry for one connected controller: its name and battery
-    /// percentage, with a submenu to select it and to change its bound profile.
+    /// percentage, with a submenu to select it, change its bound profile, and change
+    /// its virtual controller emulation mode.
     /// </summary>
     private NativeMenuItem BuildControllerItem(ControllerItem item)
     {
@@ -241,8 +252,84 @@ public sealed class TrayIconService
         };
         subMenu.Items.Add(profilesItem);
 
+        if (item.Device is DualSenseDevice)
+        {
+            NativeMenuItem emulationItem = new NativeMenuItem(LocalizationService.GetText("Tray.Emulation"))
+            {
+                Menu = BuildEmulationMenu(item),
+                IsEnabled = !_emulation.Status.IsCreating
+            };
+            subMenu.Items.Add(emulationItem);
+        }
+
         controllerItem.Menu = subMenu;
         return controllerItem;
+    }
+
+    /// <summary>
+    /// Builds the virtual controller emulation submenu for a controller. The mode the
+    /// controller's profile is currently using is checked; choosing a mode persists it
+    /// and recreates the virtual controller through <see cref="IEmulationService"/>.
+    /// </summary>
+    private NativeMenu BuildEmulationMenu(ControllerItem item)
+    {
+        NativeMenu menu = new NativeMenu();
+        EmulationMode current = GetUsedProfile(item)?.Emulation.Mode ?? EmulationMode.Off;
+
+        foreach (EmulationMode mode in Enum.GetValues<EmulationMode>())
+        {
+            NativeMenuItem modeItem = new NativeMenuItem(LocalizationService.GetText($"ProfilePage.Emulation.Mode.{mode}"))
+            {
+                ToggleType = MenuItemToggleType.Radio,
+                IsChecked = mode == current
+            };
+            modeItem.Click += (_, _) => ApplyEmulationMode(item, mode);
+            menu.Items.Add(modeItem);
+        }
+
+        return menu;
+    }
+
+    /// <summary>
+    /// Resolves the profile the controller is currently using (its bound profile, or
+    /// the default when unbound), matching the emulation service's resolution.
+    /// </summary>
+    private Profile? GetUsedProfile(ControllerItem item)
+    {
+        string? mac = (item.Device as DualSenseDevice)?.PairingInfo?.ClientMac;
+        string path = item.Device.Info.Path;
+        string? bound = _controllerInfoService.GetBoundProfileName(mac, path);
+        if (bound is not null)
+        {
+            Profile? profile = _profileService.GetProfile(bound);
+            if (profile is not null)
+            {
+                return profile;
+            }
+        }
+        return _profileService.GetProfile(ProfileService.DefaultProfileName)
+               ?? _profileService.Settings.Profiles.FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Sets the emulation mode on the profile the controller is using, persists it,
+    /// and recreates the virtual controller. The menu rebuilds via the profile save
+    /// notification so the checkmark moves.
+    /// </summary>
+    private void ApplyEmulationMode(ControllerItem item, EmulationMode mode)
+    {
+        if (item.Device is not DualSenseDevice || GetUsedProfile(item) is not { } profile)
+        {
+            return;
+        }
+        if (profile.Emulation.Mode == mode)
+        {
+            return;
+        }
+
+        profile.Emulation.Mode = mode;
+        _profileService.Save();
+        _emulation.Refresh();
     }
 
     /// <summary>
@@ -410,6 +497,16 @@ public sealed class TrayIconService
     private void OnActiveControllerChanged(object? sender, EventArgs e)
     {
         Dispatcher.UIThread.Post(UpdateBatterySource);
+    }
+
+    /// <summary>
+    /// Refreshes the tray state when virtual controller emulation changes, so the
+    /// emulation menu re-enables after a (re)creation finishes. May be raised on a
+    /// background thread, so it is marshaled to the UI thread.
+    /// </summary>
+    private void OnEmulationStateChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(UpdateTrayState);
     }
 
     /// <summary>

@@ -17,6 +17,7 @@
     <sys:String x:Key="Tray.Exit">Exit</sys:String>
     <sys:String x:Key="Tray.Select">Select</sys:String>
     <sys:String x:Key="Tray.Profiles">Profiles</sys:String>
+    <sys:String x:Key="Tray.Emulation">Virtual controller</sys:String>
     <sys:String x:Key="Tray.NoControllers">No controllers connected</sys:String>
 
     <!-- Splash Screen -->
