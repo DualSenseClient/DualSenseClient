@@ -376,7 +376,7 @@ public sealed class EmulationService : IEmulationService
     }
 
     /// <summary>
-    /// Prepares an entry for a (re)creation: resolves the profile's emulation mode,
+    /// Prepares an entry for a (re)creation: resolves the controller's emulation mode,
     /// surfaces the creating status, and reports whether a virtual controller should be
     /// created. Caller must hold <see cref="_sync"/>.
     /// </summary>
@@ -385,7 +385,7 @@ public sealed class EmulationService : IEmulationService
         EmulationMode mode = ResolveProfile(entry.Device)?.Emulation.Mode ?? EmulationMode.Off;
         if (mode == EmulationMode.Off)
         {
-            SetStatus(entry, new EmulationStatus(EmulationMode.Off, false, "Emulation is disabled for this profile", null));
+            SetStatus(entry, new EmulationStatus(EmulationMode.Off, false, "Emulation is disabled for this controller", null));
             return false;
         }
 
@@ -409,7 +409,7 @@ public sealed class EmulationService : IEmulationService
         EmulationMode mode = ResolveProfile(entry.Device)?.Emulation.Mode ?? EmulationMode.Off;
         if (mode == EmulationMode.Off)
         {
-            SetStatus(entry, new EmulationStatus(EmulationMode.Off, false, "Emulation is disabled for this profile", null));
+            SetStatus(entry, new EmulationStatus(EmulationMode.Off, false, "Emulation is disabled for this controller", null));
             return;
         }
 
@@ -451,9 +451,13 @@ public sealed class EmulationService : IEmulationService
                 specialActions = _specialActions.GetOrCreate(entry.Device);
             }
             DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(entry.Device, specialActions);
-            HashSet<string> before = _enumerator.Enumerate(vid, pid)
-                .Select(info => info.Path)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            // The virtual Xbox 360 exposes no HID interface (only vendor-specific
+            // 0xff/5d interfaces), so Windows never creates a HID node for it and
+            // HID enumeration can never find it; there is nothing to discover.
+            bool canDiscover = mode != EmulationMode.Xbox360;
+            HashSet<string> before = canDiscover
+                ? _enumerator.Enumerate(vid, pid).Select(info => info.Path).ToHashSet(StringComparer.OrdinalIgnoreCase)
+                : [];
 
             uint busId = 0;
             IVirtualController? virtualController = TryCreateOnFreshBus(serverHandle, mode, outputs, entry.Device.UsesVibrationV2, edge, ref busId);
@@ -475,8 +479,8 @@ public sealed class EmulationService : IEmulationService
                 return;
             }
 
-            string? path = await DiscoverVirtualPathAsync(vid, pid, entry.Device.Info.Path, before);
-            if (path is null)
+            string? path = canDiscover ? await DiscoverVirtualPathAsync(vid, pid, entry.Device.Info.Path, before) : null;
+            if (canDiscover && path is null)
             {
                 // The virtual device never appeared in HID enumeration (slow USBIP
                 // attach) or appeared alongside other new devices, e.g. another
@@ -491,8 +495,11 @@ public sealed class EmulationService : IEmulationService
                 return;
             }
 
-            virtualController.VirtualDevicePath = path;
-            _enumerator.ExcludeDevice(path);
+            if (path is not null)
+            {
+                virtualController.VirtualDevicePath = path;
+                _enumerator.ExcludeDevice(path);
+            }
 
             ViiperDualSenseAudioForwarder? forwarder = mode == EmulationMode.DualSense
                 ? CreateAudioForwarder(outputs, emulation)
@@ -812,7 +819,9 @@ public sealed class EmulationService : IEmulationService
     private static (ushort, ushort) GetDeviceIds(EmulationMode mode, bool edge) => mode switch
     {
         EmulationMode.Xbox360 => (0x045E, 0x028E),
-        EmulationMode.DualShock4 => (0x054C, 0x05C4),
+        // libVIIPER presents the DualShock 4 v1 ids (0x09CC), not the v2 ones (0x05C4).
+        // TODO: Add support between v1 and v2 DualShock 4
+        EmulationMode.DualShock4 => (0x054C, 0x09CC),
         EmulationMode.DualSense when edge => (0x054C, 0x0DF2),
         EmulationMode.DualSense => (0x054C, 0x0CE6),
         _ => (0, 0)
