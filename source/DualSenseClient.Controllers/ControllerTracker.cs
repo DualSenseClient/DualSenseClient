@@ -1,68 +1,85 @@
-﻿using DualSenseClient.Logging;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using DualSenseClient.Logging;
 
 namespace DualSenseClient.Controllers;
 
 /// <summary>
-/// Tracks the single controller currently in use by the application.
-/// Owns the lifecycle of the selected controller — disposes the previous one
-/// on reselection and auto-clears when the active controller is physically disconnected.
+/// Tracks all connected controllers and the single controller currently selected
+/// for the application UI. Devices themselves are owned by whoever opened them
+/// (the scanner / <c>MainViewModel</c>); this service only keeps references, so
+/// selecting a different controller never disposes the previous one.
 /// </summary>
 public interface IControllerTracker : IDisposable
 {
     /// <summary>
-    /// The controller currently in use, or <c>null</c> if none is selected.
+    /// The controller currently selected for the application UI, or <c>null</c> when none.
     /// </summary>
     IControllerDevice? ActiveController { get; }
 
     /// <summary>
-    /// Selects a new active controller. Any previously selected controller is disposed.
-    /// Pass <c>null</c> to clear the selection.
+    /// A snapshot of all tracked controllers.
+    /// </summary>
+    IReadOnlyCollection<IControllerDevice> Controllers { get; }
+
+    /// <summary>
+    /// Selects a new active controller. The previously selected controller is not
+    /// disposed. Pass <c>null</c> to clear the selection.
     /// </summary>
     void SelectController(IControllerDevice? controller);
 
     /// <summary>
+    /// Registers a connected controller, making it available to consumers that manage
+    /// per-controller state (emulation, special actions).
+    /// </summary>
+    void TrackController(IControllerDevice controller);
+
+    /// <summary>
+    /// Unregisters a disconnected controller, clearing the active selection when it
+    /// was the selected one. The device is not disposed.
+    /// </summary>
+    void UntrackController(IControllerDevice controller);
+
+    /// <summary>
     /// Raised when <see cref="ActiveController"/> changes (including when cleared).
-    /// May be raised on a background thread when triggered by a disconnect,
-    /// so UI subscribers should dispatch to the UI thread.
     /// </summary>
     event EventHandler? ActiveControllerChanged;
+
+    /// <summary>
+    /// Raised when a controller is tracked or untracked.
+    /// </summary>
+    event EventHandler? ControllersChanged;
 }
 
 /// <summary>
-/// Default implementation of <see cref="IControllerTracker"/>.
-/// Subscribes to <see cref="IControllerScanner.ControllerDisconnected"/> so that
-/// the active controller is automatically cleared when the physical device is removed.
-/// Controller state is guarded by a lock so that <see cref="SelectController"/> (UI thread)
-/// and the disconnect watcher (background thread) can run concurrently without racing.
+/// Default implementation of <see cref="IControllerTracker"/>. Holds the set of
+/// tracked controllers and the current selection; it never owns devices, so
+/// reselecting disposes nothing.
 /// </summary>
 public sealed class ControllerTracker : IControllerTracker
 {
     /// <summary>
-    /// Logger instance
+    /// Logger instance.
     /// </summary>
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("ControllerTracker");
 
     /// <summary>
-    /// Scanner used to watch for controller disconnections.
-    /// </summary>
-    private readonly IControllerScanner _scanner;
-
-    /// <summary>
-    /// Guards access to <see cref="_activeController"/> and <see cref="_disposed"/>.
+    /// Guards access to <see cref="_controllers"/> and <see cref="_activeController"/>.
     /// </summary>
     private readonly Lock _sync = new Lock();
 
     /// <summary>
-    /// The currently selected active controller, or <c>null</c> if none is selected.
+    /// All tracked controllers, in connection order.
+    /// Only access while holding <see cref="_sync"/>.
+    /// </summary>
+    private readonly List<IControllerDevice> _controllers = new List<IControllerDevice>();
+
+    /// <summary>
+    /// The currently selected controller, or <c>null</c> when none is selected.
     /// Only access while holding <see cref="_sync"/>.
     /// </summary>
     private IControllerDevice? _activeController;
-
-    /// <summary>
-    /// Whether the service has been disposed.
-    /// Only access while holding <see cref="_sync"/>.
-    /// </summary>
-    private bool _disposed;
 
     /// <inheritdoc/>
     public IControllerDevice? ActiveController
@@ -77,27 +94,28 @@ public sealed class ControllerTracker : IControllerTracker
     }
 
     /// <inheritdoc/>
+    public IReadOnlyCollection<IControllerDevice> Controllers
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _controllers.ToArray();
+            }
+        }
+    }
+
+    /// <inheritdoc/>
     public event EventHandler? ActiveControllerChanged;
 
-    /// <summary>
-    /// Creates a new <see cref="ControllerTracker"/> that watches for disconnections
-    /// via the provided <paramref name="scanner"/>.
-    /// </summary>
-    public ControllerTracker(IControllerScanner scanner)
-    {
-        _scanner = scanner;
-        _scanner.ControllerDisconnected += OnControllerDisconnected;
-    }
+    /// <inheritdoc/>
+    public event EventHandler? ControllersChanged;
 
     /// <inheritdoc/>
     public void SelectController(IControllerDevice? controller)
     {
-        IControllerDevice? toDispose;
-
         lock (_sync)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-
             if (ReferenceEquals(_activeController, controller))
             {
                 return;
@@ -105,61 +123,60 @@ public sealed class ControllerTracker : IControllerTracker
 
             string? oldName = _activeController?.Info.ProductName;
             string? newName = controller?.Info.ProductName;
-            _log.Debug($"Selecting controller: '{oldName ?? "none"}' -> '{newName ?? "none"}'");
-
-            toDispose = _activeController;
             _activeController = controller;
+
+            // The old controller stays tracked and keeps running; only the selection moves.
+            _log.Debug($"Selecting controller: '{oldName ?? "none"}' -> '{newName ?? "none"}'");
         }
 
-        toDispose?.Dispose();
         ActiveControllerChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>
-    /// Handles the scanner's <see cref="IControllerScanner.ControllerDisconnected"/> event.
-    /// Clears the active controller if it matches the disconnected device.
-    /// The path check and clear happen atomically so a concurrent
-    /// <see cref="SelectController"/> cannot clear a newly selected controller.
-    /// </summary>
-    private void OnControllerDisconnected(object? sender, ControllerConnectionEventArgs e)
+    /// <inheritdoc/>
+    public void TrackController(IControllerDevice controller)
     {
-        IControllerDevice? toDispose;
-
         lock (_sync)
         {
-            IControllerDevice? active = _activeController;
-            if (active is null || active.Info.Path != e.Info.Path)
+            if (_controllers.Any(c => ReferenceEquals(c, controller)))
             {
                 return;
             }
-
-            _log.Info($"Active controller '{active.Info.ProductName}' disconnected — clearing selection");
-            toDispose = active;
-            _activeController = null;
+            _controllers.Add(controller);
         }
 
-        toDispose?.Dispose();
-        ActiveControllerChanged?.Invoke(this, EventArgs.Empty);
+        ControllersChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <inheritdoc/>
+    public void UntrackController(IControllerDevice controller)
+    {
+        bool clearedActive;
+        bool removed;
+        lock (_sync)
+        {
+            clearedActive = ReferenceEquals(_activeController, controller);
+            if (clearedActive)
+            {
+                _activeController = null;
+            }
+            removed = _controllers.RemoveAll(c => ReferenceEquals(c, controller)) > 0;
+        }
+
+        if (!removed)
+        {
+            return;
+        }
+
+        if (clearedActive)
+        {
+            ActiveControllerChanged?.Invoke(this, EventArgs.Empty);
+        }
+        ControllersChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <inheritdoc/>
     public void Dispose()
     {
-        IControllerDevice? toDispose;
-
-        lock (_sync)
-        {
-            if (_disposed)
-            {
-                return;
-            }
-            _disposed = true;
-
-            _scanner.ControllerDisconnected -= OnControllerDisconnected;
-            toDispose = _activeController;
-            _activeController = null;
-        }
-
-        toDispose?.Dispose();
+        // Nothing is owned; devices are disposed by their owner.
     }
 }

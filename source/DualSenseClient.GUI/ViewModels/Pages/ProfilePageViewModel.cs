@@ -313,6 +313,12 @@ public partial class ProfilePageViewModel : ObservableObject
     }
 
     /// <summary>
+    /// The concrete DualSense device of the selected controller, or <c>null</c> for
+    /// non-DualSense devices.
+    /// </summary>
+    private DualSenseDevice? CurrentDualSenseDevice => CurrentDevice?.Controller.Device as DualSenseDevice;
+
+    /// <summary>
     /// The physical controller output (<see cref="EmulationAudioOutput"/> value) used
     /// when forwarding host audio. Setting it persists the change immediately and
     /// applies it to the active forwarder without recreating the virtual controller.
@@ -344,7 +350,10 @@ public partial class ProfilePageViewModel : ObservableObject
             profile.Emulation.ForwardAudioOutput = output;
             _profileService.Save();
             OnPropertyChanged(nameof(ForwardAudioOutputIndex));
-            _emulation.SetForwardingAudioOutput(output == EmulationAudioOutput.Headset);
+            if (CurrentDualSenseDevice is { } device)
+            {
+                _emulation.SetForwardingAudioOutput(device, output == EmulationAudioOutput.Headset);
+            }
         }
     }
 
@@ -376,7 +385,10 @@ public partial class ProfilePageViewModel : ObservableObject
             profile.Emulation.ForwardVolume = clamped;
             ScheduleProfileSave();
             OnPropertyChanged(nameof(ForwardVolume));
-            _emulation.SetForwardingAudioOptions((byte)clamped, profile.Emulation.ForwardHapticStrength / 100f);
+            if (CurrentDualSenseDevice is { } device)
+            {
+                _emulation.SetForwardingAudioOptions(device, (byte)clamped, profile.Emulation.ForwardHapticStrength / 100f);
+            }
         }
     }
 
@@ -408,24 +420,27 @@ public partial class ProfilePageViewModel : ObservableObject
             profile.Emulation.ForwardHapticStrength = clamped;
             ScheduleProfileSave();
             OnPropertyChanged(nameof(ForwardHapticStrength));
-            _emulation.SetForwardingAudioOptions((byte)profile.Emulation.ForwardVolume, clamped / 100f);
+            if (CurrentDualSenseDevice is { } device)
+            {
+                _emulation.SetForwardingAudioOptions(device, (byte)profile.Emulation.ForwardVolume, clamped / 100f);
+            }
         }
     }
 
     /// <summary>
-    /// Human-readable description of the current virtual controller emulation state,
-    /// reflecting <see cref="IEmulationService.Status"/>.
+    /// Human-readable description of the selected controller's virtual controller
+    /// emulation state, reflecting <see cref="IEmulationService.GetStatus"/>.
     /// </summary>
     public string EmulationStatusText
     {
         get
         {
-            if (!HasDevice)
+            if (CurrentDualSenseDevice is not { } device)
             {
                 return string.Empty;
             }
 
-            EmulationStatus status = _emulation.Status;
+            EmulationStatus status = _emulation.GetStatus(device);
             if (status.IsCreating)
             {
                 return LocalizationService.GetText("ProfilePage.Emulation.Status.Creating");
@@ -446,11 +461,12 @@ public partial class ProfilePageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Whether the emulation mode and DualSense variant dropdowns may be changed.
-    /// False while a virtual controller is being (re)created: switching mid-creation
-    /// races the removal/creation cycle and can leave multiple virtual devices behind.
+    /// Whether the emulation mode and DualSense variant dropdowns may be changed for the
+    /// selected controller. False while its virtual controller is being (re)created:
+    /// switching mid-creation races the removal/creation cycle and can leave multiple
+    /// virtual devices behind.
     /// </summary>
-    public bool CanChangeEmulation => !_emulation.Status.IsCreating;
+    public bool CanChangeEmulation => CurrentDualSenseDevice is not { } device || !_emulation.GetStatus(device).IsCreating;
 
     /// <summary>
     /// Gets or sets the selected entry in <see cref="AssignedProfileOptions"/>. Setting it

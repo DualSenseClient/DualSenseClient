@@ -96,6 +96,14 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     private List<IHidDeviceInfo>? _previousSnapshot;
 
     /// <summary>
+    /// Devices seen on a poll but not yet reported as connected, keyed by path.
+    /// A device is only reported after it is observed on a second consecutive poll,
+    /// so devices the application itself created and then excluded (virtual
+    /// controllers) are never surfaced as phantom connections.
+    /// </summary>
+    private readonly Dictionary<string, IHidDeviceInfo> _pendingConnected = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Synchronizes access to the device watcher state.
     /// </summary>
     private readonly Lock _watchLock = new Lock();
@@ -175,6 +183,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
             _watcher.Dispose();
             _watcher = null;
             _previousSnapshot = null;
+            _pendingConnected.Clear();
         }
     }
 
@@ -182,7 +191,10 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     /// Timer callback. Re-enumerates active devices and fires <see cref="DeviceConnected"/>
     /// or <see cref="DeviceDisconnected"/> when the set of reachable devices changes.
     /// USB devices are trusted at face value; Bluetooth devices are probed in parallel
-    /// to confirm they are still responding.
+    /// to confirm they are still responding. Newly seen devices are only reported as
+    /// connected once they have been observed on two consecutive polls, so devices the
+    /// app itself created and excluded (virtual controllers) never fire
+    /// <see cref="DeviceConnected"/>.
     /// </summary>
     private void WatchTick(object? state)
     {
@@ -199,12 +211,20 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
             HashSet<string> prevPaths = new HashSet<string>(_previousSnapshot.Select(d => d.Path));
             HashSet<string> currPaths = new HashSet<string>(current.Select(d => d.Path));
 
-            foreach (IHidDeviceInfo device in current.Where(device => !prevPaths.Contains(device.Path)))
+            // Confirm devices pending from the previous poll that are still present;
+            // devices that vanished are left for the disconnect pass below.
+            foreach (KeyValuePair<string, IHidDeviceInfo> pair in _pendingConnected.ToList())
             {
-                _log.Info($"Device connected: {device.ProductName} (VID=0x{device.VendorId:X4}, PID=0x{device.ProductId:X4})");
+                if (!currPaths.Contains(pair.Key))
+                {
+                    continue;
+                }
+
+                _pendingConnected.Remove(pair.Key);
+                _log.Info($"Device connected: {pair.Value.ProductName} (VID=0x{pair.Value.VendorId:X4}, PID=0x{pair.Value.ProductId:X4})");
                 try
                 {
-                    DeviceConnected?.Invoke(this, new DeviceConnectionEventArgs(DeviceChangeType.Connected, device));
+                    DeviceConnected?.Invoke(this, new DeviceConnectionEventArgs(DeviceChangeType.Connected, pair.Value));
                 }
                 catch (Exception ex)
                 {
@@ -212,8 +232,22 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                 }
             }
 
+            // First observation of a device: remember it, but only report it after it
+            // is seen again on the next poll, so devices the app itself created and
+            // then excluded (virtual controllers) never surface as connections.
+            foreach (IHidDeviceInfo device in current.Where(device => !prevPaths.Contains(device.Path)))
+            {
+                _log.Debug($"Device connected (awaiting confirmation): {device.ProductName} (VID=0x{device.VendorId:X4}, PID=0x{device.ProductId:X4}, path={device.Path})");
+                _pendingConnected[device.Path] = device;
+            }
+
             foreach (IHidDeviceInfo device in _previousSnapshot.Where(device => !currPaths.Contains(device.Path)))
             {
+                if (_pendingConnected.Remove(device.Path))
+                {
+                    // Never confirmed, so no connection event was raised for it.
+                    continue;
+                }
                 _log.Info($"Device disconnected: {device.ProductName} (VID=0x{device.VendorId:X4}, PID=0x{device.ProductId:X4})");
                 try
                 {

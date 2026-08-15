@@ -19,6 +19,21 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 /// Not the transport used over Bluetooth — a BT-paired pad is driven directly with
 /// HID reports (<c>0x35</c>), see <see cref="DualSenseClient.Controllers.Devices.DualSenseDevice"/>.
 /// </para>
+/// <para>
+/// TODO(audio-endpoints): The name-based match is ambiguous once virtual DualSense
+/// devices exist (libVIIPER's virtual controller also presents "DualSense Wireless
+/// Controller"), so this can pick the app's own virtual render endpoint — the
+/// forwarded audio then loops back into the capture and howls. With several USB pads
+/// connected it can also target the wrong pad's speaker. The correct fix is OS-level
+/// correlation between the pad's HID path and its UAC endpoint: on Windows walk the
+/// SetupAPI parent chain from the HID device to the USB device and match endpoints
+/// whose device-instance parent is that USB device (virtual endpoints belong to the
+/// usbip bus, so they are excluded naturally); on Linux match the pad's USB serial
+/// against the ALSA/Pulse/PipeWire device names and the /proc/asound/cards sysfs
+/// parent. SoundFlow's <see cref="DeviceInfo.Id"/> is an opaque miniaudio device id
+/// (friendly name on WASAPI, device name on ALSA, sink/node name on Pulse/PipeWire)
+/// and cannot disambiguate on its own.
+/// </para>
 /// </remarks>
 public sealed class DualSenseAudioEndpointFinder
 {

@@ -62,7 +62,7 @@ public abstract class ServiceConfigurator
         services.AddSingleton<IControllerTracker, ControllerTracker>();
         services.AddSingleton<IVirtualControllerFactory, VirtualControllerFactory>();
         services.AddSingleton<IEmulationService, EmulationService>();
-        services.AddSingleton<SpecialActionEngine>();
+        services.AddSingleton<SpecialActionEngineRegistry>();
 
         // ViewModels
         services.AddSingleton<MainWindowViewModel>();

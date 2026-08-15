@@ -13,51 +13,51 @@ using SoundFlow.Abstracts;
 namespace DualSenseClient.Controllers.Emulation;
 
 /// <summary>
-/// Creates a virtual controller for the active DualSense when its profile enables
-/// emulation. Owns the libVIIPER USB server, the virtual device lifecycle, the
-/// HID exclusion that keeps the virtual device out of the app's own enumeration,
-/// and — for DualSense emulation — the host-audio forwarder that plays host audio
-/// through the physical controller.
+/// Creates a virtual controller for every tracked DualSense whose profile enables
+/// emulation. Owns the libVIIPER USB server, the per-controller virtual device
+/// lifecycles, the HID exclusion that keeps the virtual devices out of the app's own
+/// enumeration, and — for DualSense emulation — the host-audio forwarders that play
+/// host audio through the physical controllers.
 /// </summary>
 public interface IEmulationService : IDisposable
 {
     /// <summary>
-    /// The current emulation state, surfaced for the UI.
+    /// The current emulation state of the given controller, surfaced for the UI.
     /// </summary>
-    EmulationStatus Status { get; }
+    EmulationStatus GetStatus(DualSenseDevice device);
 
     /// <summary>
-    /// Raised whenever <see cref="Status"/> changes. May be raised on a background
-    /// thread, so UI subscribers should dispatch to the UI thread.
+    /// Raised whenever any controller's <see cref="EmulationStatus"/> changes. May be
+    /// raised on a background thread, so UI subscribers should dispatch to the UI thread.
     /// </summary>
     event EventHandler? StateChanged;
 
     /// <summary>
-    /// Starts watching the active controller and creating virtual controllers
-    /// according to the bound profile.
+    /// Starts watching the tracked controllers and creating virtual controllers
+    /// according to each one's bound profile.
     /// </summary>
     void Start();
 
     /// <summary>
-    /// Re-evaluates the active controller against the profile it currently uses,
-    /// recreating the virtual controller when the emulation mode changed. Used when
-    /// the user edits the emulation mode of the applied profile.
+    /// Re-evaluates every tracked controller against the profile it currently uses,
+    /// recreating the virtual controllers whose emulation mode changed. Used when the
+    /// user edits the emulation mode of an applied profile.
     /// </summary>
     void Refresh();
 
     /// <summary>
-    /// Applies the forwarding volume and haptic strength to the active host-audio
-    /// forwarder without recreating the virtual controller. No-op when DualSense
-    /// emulation is not active.
+    /// Applies the forwarding volume and haptic strength to the given controller's
+    /// active host-audio forwarder without recreating the virtual controller. No-op
+    /// when DualSense emulation is not active for that controller.
     /// </summary>
-    void SetForwardingAudioOptions(byte speakerVolume, float hapticStrength);
+    void SetForwardingAudioOptions(DualSenseDevice device, byte speakerVolume, float hapticStrength);
 
     /// <summary>
-    /// Routes forwarded host audio to the physical controller's headset jack instead
+    /// Routes the given controller's forwarded host audio to its headset jack instead
     /// of its internal speaker without recreating the virtual controller. No-op when
-    /// DualSense emulation is not active.
+    /// DualSense emulation is not active for that controller.
     /// </summary>
-    void SetForwardingAudioOutput(bool headset);
+    void SetForwardingAudioOutput(DualSenseDevice device, bool headset);
 }
 
 /// <summary>
@@ -103,37 +103,33 @@ public sealed class EmulationService : IEmulationService
     private readonly ProfileService _profiles;
     private readonly ControllerInfoService _controllerInfo;
     private readonly IVirtualControllerFactory _factory;
+    private readonly SpecialActionEngineRegistry _specialActions;
     private readonly AudioEngine _audioEngine;
-    private readonly SpecialActionEngine _specialActions;
 
     /// <summary>
-    /// Guards the active controller/virtual controller pair and the server handles.
+    /// Guards the per-controller entries and the server handle.
     /// </summary>
     private readonly Lock _sync = new Lock();
 
-    private DualSenseDevice? _device;
-    private IVirtualController? _virtual;
+    /// <summary>
+    /// The virtual controller state per tracked controller.
+    /// </summary>
+    private readonly Dictionary<DualSenseDevice, VirtualControllerEntry> _entries = new();
 
     /// <summary>
-    /// Forwards host audio to the physical controller while DualSense emulation is
-    /// active, or <c>null</c> in other modes. Lives and dies with <see cref="_virtual"/>.
+    /// The USB bus owned by <see cref="_serverHandle"/>, shared by all virtual controllers.
     /// </summary>
-    private ViiperDualSenseAudioForwarder? _forwarder;
-
-    /// <summary>
-    /// Captures the audio the host renders to the virtual DualSense and feeds it to
-    /// <see cref="_forwarder"/>, or <c>null</c> when not forwarding. Lives and dies
-    /// with <see cref="_virtual"/>; must be disposed before the virtual device is
-    /// removed.
-    /// </summary>
-    private ViiperDualSenseAudioCapture? _capture;
-
     private nuint? _serverHandle;
 
     /// <summary>
-    /// The USB bus owned by <see cref="_virtual"/>, removed together with it.
+    /// Serializes virtual device creation: only one create+discover cycle runs at a time.
+    /// Concurrent creations (two controllers tracked at the same scan, or one connecting
+    /// while another is still being created) would each see the other's new device during
+    /// path discovery and abandon it, leaving a virtual controller visible to the app's own
+    /// scanner — which then tracks it as a phantom controller. With serialization, every
+    /// discovery sees exactly one new device.
     /// </summary>
-    private uint _busId;
+    private readonly SemaphoreSlim _creationGate = new SemaphoreSlim(1, 1);
 
     private bool _disposed;
 
@@ -141,15 +137,6 @@ public sealed class EmulationService : IEmulationService
     /// Keeps the native log callback delegate alive for the lifetime of the process.
     /// </summary>
     private readonly VIIPERLogCallback _nativeLogCallback = OnNativeLog;
-
-    /// <summary>
-    /// Incremented on every rebuild so stale background creations are discarded
-    /// when the active controller or profile changes while one is in flight.
-    /// </summary>
-    private int _generation;
-
-    /// <inheritdoc/>
-    public EmulationStatus Status { get; private set; } = new EmulationStatus(EmulationMode.Off, false, null, null);
 
     /// <inheritdoc/>
     public event EventHandler? StateChanged;
@@ -159,7 +146,7 @@ public sealed class EmulationService : IEmulationService
     /// </summary>
     public EmulationService(IControllerTracker tracker, IHidDeviceEnumerator enumerator,
         ProfileService profiles, ControllerInfoService controllerInfo, IVirtualControllerFactory factory,
-        AudioEngine audioEngine, SpecialActionEngine specialActions)
+        AudioEngine audioEngine, SpecialActionEngineRegistry specialActions)
     {
         _tracker = tracker;
         _enumerator = enumerator;
@@ -173,8 +160,8 @@ public sealed class EmulationService : IEmulationService
     /// <inheritdoc/>
     public void Start()
     {
-        _tracker.ActiveControllerChanged += OnActiveControllerChanged;
-        OnActiveControllerChanged(this, EventArgs.Empty);
+        _tracker.ControllersChanged += OnControllersChanged;
+        Reconcile();
     }
 
     /// <inheritdoc/>
@@ -186,110 +173,261 @@ public sealed class EmulationService : IEmulationService
         }
         _disposed = true;
 
-        _tracker.ActiveControllerChanged -= OnActiveControllerChanged;
+        _tracker.ControllersChanged -= OnControllersChanged;
+
+        // Wait for the in-flight creation (if any) to finish before closing the
+        // server, so no task is still using the native handle. Queued creations
+        // observe _disposed once they acquire the gate and return without touching
+        // the server. Blocks at most one create+discover cycle (~6 s).
+        _creationGate.Wait();
+        try
+        {
+            lock (_sync)
+            {
+                foreach (KeyValuePair<DualSenseDevice, VirtualControllerEntry> pair in _entries.ToList())
+                {
+                    DeviceDisposeUnsubscribe(pair.Key);
+                    DisposeEntryLocked(pair.Value);
+                }
+                _entries.Clear();
+                if (_serverHandle is { } serverHandle)
+                {
+                    LibVIIPER.CloseUSBServer(serverHandle);
+                    _serverHandle = null;
+                }
+            }
+        }
+        finally
+        {
+            _creationGate.Release();
+        }
+    }
+
+    /// <inheritdoc/>
+    public void Refresh()
+    {
+        List<(VirtualControllerEntry Entry, bool Settle)> toRecreate = new();
         lock (_sync)
         {
-            DeviceDisposeUnsubscribe();
-            DisposeVirtualLocked();
-            if (_serverHandle is { } serverHandle)
+            foreach (VirtualControllerEntry entry in _entries.Values)
             {
-                LibVIIPER.CloseUSBServer(serverHandle);
-                _serverHandle = null;
+                // Only rebuild entries whose profile actually changed: with several
+                // controllers, recreating every virtual device on every change would
+                // briefly detach the other controllers' virtual devices for no reason.
+                // A running entry that still matches its profile is left untouched;
+                // entries without a virtual device (failed or in-flight creations)
+                // are always rebuilt so a change also retries them.
+                EmulationSettings? emulation = ResolveProfile(entry.Device)?.Emulation;
+                EmulationMode mode = emulation?.Mode ?? EmulationMode.Off;
+                DualSenseVariant? variant = mode == EmulationMode.DualSense
+                    ? emulation?.DeviceType ?? DualSenseVariant.Standard
+                    : null;
+                if (entry.Virtual is not null && entry.Status.Mode == mode && entry.Status.Variant == variant)
+                {
+                    continue;
+                }
+
+                entry.Generation++;
+                bool hadVirtual = DisposeEntryLocked(entry);
+                if (StartCreationLocked(entry))
+                {
+                    toRecreate.Add((entry, hadVirtual));
+                }
+            }
+        }
+
+        foreach ((VirtualControllerEntry entry, bool settle) in toRecreate)
+        {
+            _ = CreateVirtualControllerAsync(entry, settle);
+        }
+    }
+
+    /// <inheritdoc/>
+    public EmulationStatus GetStatus(DualSenseDevice device)
+    {
+        lock (_sync)
+        {
+            return _entries.TryGetValue(device, out VirtualControllerEntry? entry)
+                ? entry.Status
+                : new EmulationStatus(EmulationMode.Off, false, null, null);
+        }
+    }
+
+    /// <inheritdoc/>
+    public void SetForwardingAudioOptions(DualSenseDevice device, byte speakerVolume, float hapticStrength)
+    {
+        lock (_sync)
+        {
+            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Forwarder is { } forwarder)
+            {
+                forwarder.SpeakerVolume = speakerVolume;
+                forwarder.HapticStrength = Math.Clamp(hapticStrength, 0f, 2f);
             }
         }
     }
 
     /// <inheritdoc/>
-    public void Refresh() => RebuildVirtualController();
-
-    /// <inheritdoc/>
-    public void SetForwardingAudioOptions(byte speakerVolume, float hapticStrength)
+    public void SetForwardingAudioOutput(DualSenseDevice device, bool headset)
     {
         lock (_sync)
         {
-            if (_forwarder is null)
+            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Forwarder is { } forwarder)
             {
-                return;
+                forwarder.PlayToHeadset = headset;
             }
-            _forwarder.SpeakerVolume = speakerVolume;
-            _forwarder.HapticStrength = Math.Clamp(hapticStrength, 0f, 2f);
-        }
-    }
-
-    /// <inheritdoc/>
-    public void SetForwardingAudioOutput(bool headset)
-    {
-        lock (_sync)
-        {
-            if (_forwarder is null)
-            {
-                return;
-            }
-            _forwarder.PlayToHeadset = headset;
         }
     }
 
     /// <summary>
-    /// (Re)builds the virtual controller whenever the active controller changes.
+    /// Per-controller virtual device lifecycle: the physical controller, the virtual
+    /// device, its USB bus, and the host-audio forwarder/capture pair (DualSense mode).
     /// </summary>
-    private void OnActiveControllerChanged(object? sender, EventArgs e) => RebuildVirtualController();
+    private sealed class VirtualControllerEntry
+    {
+        /// <summary>
+        /// The physical controller being mirrored.
+        /// </summary>
+        public required DualSenseDevice Device { get; init; }
+
+        /// <summary>
+        /// The current emulation state, surfaced for the UI.
+        /// </summary>
+        public EmulationStatus Status { get; set; } = new EmulationStatus(EmulationMode.Off, false, null, null);
+
+        /// <summary>
+        /// Incremented on every rebuild so stale background creations are discarded
+        /// when the controller or its profile changes while one is in flight.
+        /// </summary>
+        public int Generation;
+
+        /// <summary>
+        /// The virtual controller, or <c>null</c> while not emulating.
+        /// </summary>
+        public IVirtualController? Virtual;
+
+        /// <summary>
+        /// Forwards host audio to the physical controller while DualSense emulation is
+        /// active, or <c>null</c> in other modes. Lives and dies with <see cref="Virtual"/>.
+        /// </summary>
+        public ViiperDualSenseAudioForwarder? Forwarder;
+
+        /// <summary>
+        /// Captures the audio the host renders to the virtual DualSense and feeds it to
+        /// <see cref="Forwarder"/>, or <c>null</c> when not forwarding. Lives and dies
+        /// with <see cref="Virtual"/>; must be disposed before the virtual device is removed.
+        /// </summary>
+        public ViiperDualSenseAudioCapture? Capture;
+
+        /// <summary>
+        /// The USB bus owned by <see cref="Virtual"/>, removed together with it.
+        /// </summary>
+        public uint BusId;
+    }
 
     /// <summary>
-    /// Re-evaluates the active controller against the profile it currently uses:
-    /// disposes the current virtual controller and (re)creates one for the new
-    /// profile's emulation mode, unless the mode is off or no controller is active.
+    /// (Re)builds the per-controller entries whenever the tracked controller set changes:
+    /// disposes the entries of untracked controllers and creates entries (and virtual
+    /// controllers) for newly tracked ones.
     /// </summary>
-    private void RebuildVirtualController()
+    private void OnControllersChanged(object? sender, EventArgs e) => Reconcile();
+
+    /// <summary>
+    /// Diffs the tracked controllers against the current entries, adding and removing
+    /// virtual controller state as needed.
+    /// </summary>
+    private void Reconcile()
     {
-        DualSenseDevice? device;
-        bool removedDevice;
-        int generation;
+        List<VirtualControllerEntry> toCreate = new();
         lock (_sync)
         {
-            generation = ++_generation;
-            removedDevice = DisposeVirtualLocked();
-            DeviceDisposeUnsubscribe();
-            device = _device = _tracker.ActiveController as DualSenseDevice;
+            HashSet<DualSenseDevice> current = _tracker.Controllers.OfType<DualSenseDevice>().ToHashSet();
+
+            foreach (KeyValuePair<DualSenseDevice, VirtualControllerEntry> pair in _entries.ToList())
+            {
+                if (current.Contains(pair.Key))
+                {
+                    continue;
+                }
+                _entries.Remove(pair.Key);
+                DeviceDisposeUnsubscribe(pair.Key);
+                DisposeEntryLocked(pair.Value);
+            }
+
+            foreach (DualSenseDevice device in current)
+            {
+                if (_entries.ContainsKey(device))
+                {
+                    continue;
+                }
+                VirtualControllerEntry entry = new VirtualControllerEntry { Device = device };
+                _entries.Add(device, entry);
+                DeviceSubscribe(device);
+                if (StartCreationLocked(entry))
+                {
+                    toCreate.Add(entry);
+                }
+            }
         }
 
-        if (device is null)
+        foreach (VirtualControllerEntry entry in toCreate)
         {
-            SetStatus(new EmulationStatus(EmulationMode.Off, false, "No active controller", null));
-            return;
+            _ = CreateVirtualControllerAsync(entry, settleAfterRemoval: false);
         }
+    }
 
-        Profile? profile = ResolveProfile(device);
-        EmulationMode mode = profile?.Emulation?.Mode ?? EmulationMode.Off;
+    /// <summary>
+    /// Prepares an entry for a (re)creation: resolves the profile's emulation mode,
+    /// surfaces the creating status, and reports whether a virtual controller should be
+    /// created. Caller must hold <see cref="_sync"/>.
+    /// </summary>
+    private bool StartCreationLocked(VirtualControllerEntry entry)
+    {
+        EmulationMode mode = ResolveProfile(entry.Device)?.Emulation.Mode ?? EmulationMode.Off;
         if (mode == EmulationMode.Off)
         {
-            SetStatus(new EmulationStatus(EmulationMode.Off, false, "Emulation is disabled for this profile", null));
-            return;
+            SetStatus(entry, new EmulationStatus(EmulationMode.Off, false, "Emulation is disabled for this profile", null));
+            return false;
         }
 
-        SetStatus(new EmulationStatus(mode, false, null, null, IsCreating: true));
-        _ = CreateVirtualControllerAsync(device, mode, generation, removedDevice);
+        SetStatus(entry, new EmulationStatus(mode, false, null, null, IsCreating: true));
+        return true;
     }
 
     /// <summary>
-    /// Runs the device creation + path discovery on a background thread so the
-    /// tracker callback does not block on enumeration polling. A fresh USB bus is
-    /// created for the virtual controller (and removed again when it is disposed),
-    /// because libVIIPER auto-removes empty buses after the server's cleanup timeout,
-    /// which would make a reused bus id invalid. When
-    /// <paramref name="settleAfterRemoval"/> is set, a short delay is applied first so
-    /// the USBIP client finishes detaching the previous device. Creation is retried
-    /// once after <see cref="CreateRetryDelay"/> on failure.
+    /// Runs the device creation + path discovery on a background thread so the tracker
+    /// callback does not block on enumeration polling. The whole cycle is serialized
+    /// through <see cref="_creationGate"/> (see there for why). A fresh USB bus is created
+    /// for the virtual controller (and removed again when it is disposed), because libVIIPER
+    /// auto-removes empty buses after the server's cleanup timeout, which would make a
+    /// reused bus id invalid. When <paramref name="settleAfterRemoval"/> is set, a short
+    /// delay is applied first so the USBIP client finishes detaching the previous device.
+    /// Creation is retried once after <see cref="CreateRetryDelay"/> on failure.
     /// </summary>
-    private async Task CreateVirtualControllerAsync(DualSenseDevice device, EmulationMode mode, int generation, bool settleAfterRemoval)
+    private async Task CreateVirtualControllerAsync(VirtualControllerEntry entry, bool settleAfterRemoval)
     {
+        int generation = entry.Generation;
+        EmulationMode mode = ResolveProfile(entry.Device)?.Emulation.Mode ?? EmulationMode.Off;
+        if (mode == EmulationMode.Off)
+        {
+            SetStatus(entry, new EmulationStatus(EmulationMode.Off, false, "Emulation is disabled for this profile", null));
+            return;
+        }
+
+        await _creationGate.WaitAsync();
         try
         {
             nuint serverHandle;
             lock (_sync)
             {
+                if (_disposed)
+                {
+                    // The service was disposed while this creation was queued: the
+                    // server is gone, so do not recreate it.
+                    return;
+                }
                 if (!EnsureServerLocked())
                 {
-                    SetStatus(new EmulationStatus(mode, false, "Could not start the libVIIPER USB server", null));
+                    SetStatus(entry, new EmulationStatus(mode, false, "Could not start the libVIIPER USB server", null));
                     return;
                 }
                 serverHandle = _serverHandle!.Value;
@@ -300,38 +438,44 @@ public sealed class EmulationService : IEmulationService
                 await Task.Delay(RecreationSettleDelay);
             }
 
-            EmulationSettings? emulation = ResolveProfile(device)?.Emulation;
+            EmulationSettings? emulation = ResolveProfile(entry.Device)?.Emulation;
             bool edge = emulation?.DeviceType == DualSenseVariant.Edge;
             (ushort vid, ushort pid) = GetDeviceIds(mode, edge);
-            DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, _specialActions);
+            SpecialActionEngine specialActions;
+            lock (_sync)
+            {
+                if (IsStale(entry, generation))
+                {
+                    return;
+                }
+                specialActions = _specialActions.GetOrCreate(entry.Device);
+            }
+            DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(entry.Device, specialActions);
             HashSet<string> before = _enumerator.Enumerate(vid, pid)
                 .Select(info => info.Path)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             uint busId = 0;
-            IVirtualController? virtualController = TryCreateOnFreshBus(serverHandle, mode, outputs, device.UsesVibrationV2, edge, ref busId);
+            IVirtualController? virtualController = TryCreateOnFreshBus(serverHandle, mode, outputs, entry.Device.UsesVibrationV2, edge, ref busId);
             if (virtualController is null)
             {
-                _log.Warning($"Failed to create the virtual {mode} device; retrying in {(int)CreateRetryDelay.TotalMilliseconds} ms");
+                _log.Warning($"Failed to create the virtual {mode} device for {entry.Device.Info.ProductName}; retrying in {(int)CreateRetryDelay.TotalMilliseconds} ms");
                 await Task.Delay(CreateRetryDelay);
 
-                lock (_sync)
+                if (IsStale(entry, generation))
                 {
-                    if (_disposed || !ReferenceEquals(_device, device) || generation != _generation)
-                    {
-                        return;
-                    }
+                    return;
                 }
-                virtualController = TryCreateOnFreshBus(serverHandle, mode, outputs, device.UsesVibrationV2, edge, ref busId);
+                virtualController = TryCreateOnFreshBus(serverHandle, mode, outputs, entry.Device.UsesVibrationV2, edge, ref busId);
             }
 
             if (virtualController is null)
             {
-                SetStatus(new EmulationStatus(mode, false, "The native library could not create the virtual device. Check the VIIPER logs; the usbip-win2 driver must be installed (with Test Signing enabled) for auto-attachment", null));
+                SetStatus(entry, new EmulationStatus(mode, false, "The native library could not create the virtual device. Check the VIIPER logs; the usbip-win2 driver must be installed (with Test Signing enabled) for auto-attachment", null));
                 return;
             }
 
-            string? path = await DiscoverVirtualPathAsync(vid, pid, device.Info.Path, before);
+            string? path = await DiscoverVirtualPathAsync(vid, pid, entry.Device.Info.Path, before);
             if (path is null)
             {
                 _log.Warning("Could not find the virtual device in HID enumeration; it will not be excluded");
@@ -362,7 +506,7 @@ public sealed class EmulationService : IEmulationService
 
             lock (_sync)
             {
-                if (_disposed || !ReferenceEquals(_device, device) || generation != _generation)
+                if (IsStale(entry, generation))
                 {
                     if (virtualController.VirtualDevicePath is { } stalePath)
                     {
@@ -374,20 +518,36 @@ public sealed class EmulationService : IEmulationService
                     LibVIIPER.RemoveUSBBus(serverHandle, busId);
                     return;
                 }
-                _busId = busId;
-                _virtual = virtualController;
-                _forwarder = forwarder;
-                _capture = capture;
-                DeviceSubscribe();
+                entry.BusId = busId;
+                entry.Virtual = virtualController;
+                entry.Forwarder = forwarder;
+                entry.Capture = capture;
             }
 
-            SetStatus(new EmulationStatus(mode, true, null, virtualController.VirtualDevicePath,
+            SetStatus(entry, new EmulationStatus(mode, true, null, virtualController.VirtualDevicePath,
                 Variant: mode == EmulationMode.DualSense ? (edge ? DualSenseVariant.Edge : DualSenseVariant.Standard) : null));
         }
         catch (Exception ex)
         {
             _log.LogExceptionDetails(ex);
-            SetStatus(new EmulationStatus(mode, false, ex.Message, null));
+            SetStatus(entry, new EmulationStatus(mode, false, ex.Message, null));
+        }
+        finally
+        {
+            _creationGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Whether the given creation is still wanted: the service is not disposed, the
+    /// entry is still tracked, and its generation was not bumped by a newer rebuild.
+    /// </summary>
+    private bool IsStale(VirtualControllerEntry entry, int generation)
+    {
+        lock (_sync)
+        {
+            return _disposed || !_entries.TryGetValue(entry.Device, out VirtualControllerEntry? current)
+                   || !ReferenceEquals(current, entry) || entry.Generation != generation;
         }
     }
 
@@ -521,122 +681,120 @@ public sealed class EmulationService : IEmulationService
     }
 
     /// <summary>
-    /// Removes the current virtual device and its USB bus. Caller must hold
+    /// Removes the entry's virtual device and its USB bus. Caller must hold
     /// <see cref="_sync"/>.
     /// </summary>
     /// <returns><c>true</c> when a virtual device was removed.</returns>
-    private bool DisposeVirtualLocked()
+    private bool DisposeEntryLocked(VirtualControllerEntry entry)
     {
-        if (_virtual is null)
+        if (entry.Virtual is null)
         {
             return false;
         }
-        IVirtualController virtualController = _virtual;
-        _virtual = null;
+        IVirtualController virtualController = entry.Virtual;
+        entry.Virtual = null;
 
-        if (virtualController is VirtualDualSenseController dualSense && _forwarder is { } forwarder)
+        if (virtualController is VirtualDualSenseController dualSense && entry.Forwarder is { } forwarder)
         {
             dualSense.OutputStateReceived -= forwarder.UpdateGameOutputState;
             dualSense.RealtimeHapticsReceived -= forwarder.UpdateGameHaptics;
         }
 
-        _capture?.Dispose();
-        _capture = null;
+        entry.Capture?.Dispose();
+        entry.Capture = null;
 
-        _forwarder?.Dispose();
-        _forwarder = null;
+        entry.Forwarder?.Dispose();
+        entry.Forwarder = null;
 
         if (virtualController.VirtualDevicePath is { } path)
         {
             _enumerator.RemoveExcludedDevice(path);
         }
         virtualController.Dispose();
-        if (_serverHandle is { } serverHandle && _busId != 0)
+        if (_serverHandle is { } serverHandle && entry.BusId != 0)
         {
-            LibVIIPER.RemoveUSBBus(serverHandle, _busId);
-            _busId = 0;
+            LibVIIPER.RemoveUSBBus(serverHandle, entry.BusId);
+            entry.BusId = 0;
         }
         return true;
     }
 
     /// <summary>
-    /// Subscribes to the physical device events that drive the virtual controller.
-    /// Caller must hold <see cref="_sync"/>.
+    /// Subscribes to the physical device events that drive its virtual controller.
     /// </summary>
-    private void DeviceSubscribe()
+    private void DeviceSubscribe(DualSenseDevice device)
     {
-        if (_device is null)
-        {
-            return;
-        }
-        _device.InputStateChanged += OnInputReportChanged;
-        _device.MotionChanged += OnInputReportChanged;
-        _device.TouchpadChanged += OnInputReportChanged;
-        _device.BatteryStateChanged += OnBatteryChanged;
-        _device.ConnectionStatusChanged += OnConnectionStatusChanged;
+        device.InputStateChanged += OnInputReportChanged;
+        device.MotionChanged += OnInputReportChanged;
+        device.TouchpadChanged += OnInputReportChanged;
+        device.BatteryStateChanged += OnBatteryChanged;
+        device.ConnectionStatusChanged += OnConnectionStatusChanged;
     }
 
     /// <summary>
     /// Unsubscribes from the physical device events.
-    /// Caller must hold <see cref="_sync"/>.
     /// </summary>
-    private void DeviceDisposeUnsubscribe()
+    private void DeviceDisposeUnsubscribe(DualSenseDevice device)
     {
-        if (_device is null)
-        {
-            return;
-        }
-        _device.InputStateChanged -= OnInputReportChanged;
-        _device.MotionChanged -= OnInputReportChanged;
-        _device.TouchpadChanged -= OnInputReportChanged;
-        _device.BatteryStateChanged -= OnBatteryChanged;
-        _device.ConnectionStatusChanged -= OnConnectionStatusChanged;
-        _device = null;
+        device.InputStateChanged -= OnInputReportChanged;
+        device.MotionChanged -= OnInputReportChanged;
+        device.TouchpadChanged -= OnInputReportChanged;
+        device.BatteryStateChanged -= OnBatteryChanged;
+        device.ConnectionStatusChanged -= OnConnectionStatusChanged;
     }
 
     /// <summary>
-    /// Forwards the latest input report to the virtual controller.
+    /// Forwards the latest input report to the device's virtual controller.
     /// </summary>
     private void OnInputReportChanged(object? sender, EventArgs e)
     {
+        if (sender is not DualSenseDevice device)
+        {
+            return;
+        }
         lock (_sync)
         {
-            if (_device is null || _virtual is null)
+            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Virtual is not null)
             {
-                return;
+                entry.Virtual.PushInput(device.InputReport);
             }
-            _virtual.PushInput(_device.InputReport);
         }
     }
 
     /// <summary>
-    /// Forwards battery changes to the virtual controller.
+    /// Forwards battery changes to the device's virtual controller.
     /// </summary>
     private void OnBatteryChanged(object? sender, BatteryStateEventArgs e)
     {
+        if (sender is not DualSenseDevice device)
+        {
+            return;
+        }
         lock (_sync)
         {
-            if (_device is null || _virtual is null)
+            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Virtual is not null)
             {
-                return;
+                entry.Virtual.PushInput(device.InputReport);
+                entry.Virtual.PushBattery(e.CurrentState);
             }
-            _virtual.PushInput(_device.InputReport);
-            _virtual.PushBattery(e.CurrentState);
         }
     }
 
     /// <summary>
-    /// Forwards connection status changes to the virtual controller.
+    /// Forwards connection status changes to the device's virtual controller.
     /// </summary>
     private void OnConnectionStatusChanged(object? sender, ConnectionStatusEventArgs e)
     {
+        if (sender is not DualSenseDevice device)
+        {
+            return;
+        }
         lock (_sync)
         {
-            if (_device is null || _virtual is null)
+            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Virtual is not null)
             {
-                return;
+                entry.Virtual.PushConnectionStatus(e.CurrentStatus);
             }
-            _virtual.PushConnectionStatus(e.CurrentStatus);
         }
     }
 
@@ -676,13 +834,13 @@ public sealed class EmulationService : IEmulationService
     }
 
     /// <summary>
-    /// Updates <see cref="Status"/> and raises <see cref="StateChanged"/>.
+    /// Updates an entry's <see cref="EmulationStatus"/> and raises <see cref="StateChanged"/>.
     /// </summary>
-    private void SetStatus(EmulationStatus status)
+    private void SetStatus(VirtualControllerEntry entry, EmulationStatus status)
     {
-        Status = status;
+        entry.Status = status;
         string detail = status.IsCreating ? "creating" : status.Detail ?? status.VirtualDevicePath ?? "ok";
-        _log.Info($"Emulation status: {status.Mode} running={status.Running} ({detail})");
+        _log.Info($"Emulation status: {entry.Device.Info.ProductName} {status.Mode} running={status.Running} ({detail})");
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
 }

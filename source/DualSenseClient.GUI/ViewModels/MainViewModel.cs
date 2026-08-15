@@ -56,12 +56,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly ControllerInfoService _controllerService;
 
     /// <summary>
-    /// Devices opened by this ViewModel that are not currently owned by the tracker.
-    /// Devices are removed from this list when they are handed to the tracker as the active controller.
-    /// </summary>
-    private readonly List<IControllerDevice> _ownedDevices = new List<IControllerDevice>();
-
-    /// <summary>
     /// Controllers discovered while scanning, shown in the title bar combobox.
     /// </summary>
     public ObservableCollection<ControllerItem> Controllers { get; } = new ObservableCollection<ControllerItem>();
@@ -228,7 +222,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Stops watching, disposes the owned controllers, and clears the selection.
+    /// Stops watching, disposes the tracked controllers, and clears the selection.
     /// </summary>
     private void StopScanning()
     {
@@ -236,11 +230,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         _scanner.StopWatching();
 
-        foreach (IControllerDevice device in _ownedDevices)
+        foreach (ControllerItem item in Controllers)
         {
-            device.Dispose();
+            _tracker.UntrackController(item.Device);
+            item.Device.Dispose();
         }
-        _ownedDevices.Clear();
         Controllers.Clear();
 
         _tracker.SelectController(null);
@@ -250,7 +244,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// <summary>
     /// Registers a connected controller with the controller info service (so it can be
     /// renamed and assigned a profile), adds it to the list under its stored display name,
-    /// and applies its bound profile. Called from the UI thread.
+    /// tracks it with the tracker, and applies its bound profile. Called from the UI thread.
     /// </summary>
     /// <param name="controller">The controller that just connected.</param>
     private void AddController(IControllerDevice controller)
@@ -261,7 +255,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         string displayName = _controllerService.GetDisplayName(mac, path, controller.Info.ProductName);
 
         Controllers.Add(new ControllerItem(controller, displayName));
-        _ownedDevices.Add(controller);
+        _tracker.TrackController(controller);
         ApplyBoundProfile(controller);
     }
 
@@ -292,8 +286,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Forwards a combobox selection change to the tracker.
-    /// Ownership of the selected device transfers to the tracker, which disposes it on reselection.
+    /// Forwards a combobox selection change to the tracker. The previously selected
+    /// device stays tracked; only the selection moves.
     /// </summary>
     /// <param name="value">The newly selected controller item, or <c>null</c>.</param>
     partial void OnSelectedItemChanged(ControllerItem? value)
@@ -304,15 +298,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
 
         _isUpdatingSelected = true;
-        if (value is not null)
-        {
-            _ownedDevices.Remove(value.Device);
-            _tracker.SelectController(value.Device);
-        }
-        else
-        {
-            _tracker.SelectController(null);
-        }
+        _tracker.SelectController(value?.Device);
         _isUpdatingSelected = false;
     }
 
@@ -399,10 +385,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 if (Controllers[i].Device.Info.Path == e.Info.Path)
                 {
                     IControllerDevice device = Controllers[i].Device;
-                    if (_ownedDevices.Remove(device))
-                    {
-                        device.Dispose();
-                    }
+                    _tracker.UntrackController(device);
+                    device.Dispose();
                     Controllers.RemoveAt(i);
                     _notifications.ShowWarning($"{e.Info.BusType} controller disconnected: {e.Info.ProductName}", 3);
                     _log.Info($"Controller disconnected: {e.Info.ProductName}");
@@ -427,7 +411,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Unsubscribes from events and disposes the owned controllers.
+    /// Unsubscribes from events, untracks and disposes the owned controllers, and
+    /// clears the selection.
     /// </summary>
     public void Dispose()
     {
@@ -441,10 +426,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _scanner.ControllerDisconnected -= OnControllerDisconnected;
         _controllerService.ControllersChanged -= OnControllersChanged;
 
-        foreach (IControllerDevice device in _ownedDevices)
+        foreach (ControllerItem item in Controllers)
         {
-            device.Dispose();
+            _tracker.UntrackController(item.Device);
+            item.Device.Dispose();
         }
-        _ownedDevices.Clear();
+        Controllers.Clear();
+
+        _tracker.SelectController(null);
     }
 }

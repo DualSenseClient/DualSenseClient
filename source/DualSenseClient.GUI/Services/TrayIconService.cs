@@ -252,12 +252,12 @@ public sealed class TrayIconService
         };
         subMenu.Items.Add(profilesItem);
 
-        if (item.Device is DualSenseDevice)
+        if (item.Device is DualSenseDevice emulationDevice)
         {
             NativeMenuItem emulationItem = new NativeMenuItem(LocalizationService.GetText("Tray.Emulation"))
             {
                 Menu = BuildEmulationMenu(item),
-                IsEnabled = !_emulation.Status.IsCreating
+                IsEnabled = !_emulation.GetStatus(emulationDevice).IsCreating
             };
             subMenu.Items.Add(emulationItem);
         }

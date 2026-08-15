@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.SpecialActions;
@@ -9,15 +11,15 @@ using SoundFlow.Abstracts;
 namespace DualSenseClient.GUI.Services;
 
 /// <summary>
-/// Wires the special actions engine to the application lifecycle: attaches it to the
-/// tracker's active controller and keeps its configuration in sync with
+/// Wires the special actions engine to the application lifecycle: attaches an engine to
+/// every tracked controller and keeps the engines' configuration in sync with
 /// <see cref="SpecialActionService"/>. Resolved eagerly at startup (see
 /// <see cref="App.OnFrameworkInitializationCompleted"/>) so it runs for the app's lifetime.
 /// </summary>
 public sealed class SpecialActionCoordinator : IDisposable
 {
     /// <summary>
-    /// Tracks the currently active controller.
+    /// Tracks the connected controllers.
     /// </summary>
     private readonly IControllerTracker _tracker;
 
@@ -42,67 +44,79 @@ public sealed class SpecialActionCoordinator : IDisposable
     private readonly AudioEngine _audioEngine;
 
     /// <summary>
-    /// The engine that matches combinations and executes actions.
+    /// Owns the per-controller special action engines, shared with the emulation output path.
     /// </summary>
-    private readonly SpecialActionEngine _engine;
+    private readonly SpecialActionEngineRegistry _engines;
 
     /// <summary>
-    /// Creates the coordinator, attaches the engine to the current active controller, and
+    /// The controllers currently attached to an engine.
+    /// </summary>
+    private readonly HashSet<DualSenseDevice> _attached = new HashSet<DualSenseDevice>();
+
+    /// <summary>
+    /// Creates the coordinator, attaches the engine to every tracked controller, and
     /// loads the current configuration.
     /// </summary>
-    /// <param name="tracker">The controller tracker providing the active controller.</param>
+    /// <param name="tracker">The controller tracker providing the connected controllers.</param>
     /// <param name="service">The special action settings service.</param>
     /// <param name="controllerService">Resolves the profile bound to each controller.</param>
     /// <param name="profileService">Stores the controller profiles.</param>
     /// <param name="audioEngine">The shared audio engine used to decode sound files.</param>
-    /// <param name="engine">The shared special-actions engine, also used by the emulation output path.</param>
-    public SpecialActionCoordinator(IControllerTracker tracker, SpecialActionService service, ControllerInfoService controllerService, ProfileService profileService, AudioEngine audioEngine, SpecialActionEngine engine)
+    /// <param name="engines">The per-controller engine registry, also used by the emulation output path.</param>
+    public SpecialActionCoordinator(IControllerTracker tracker, SpecialActionService service, ControllerInfoService controllerService, ProfileService profileService, AudioEngine audioEngine, SpecialActionEngineRegistry engines)
     {
         _tracker = tracker;
         _service = service;
         _controllerService = controllerService;
         _profileService = profileService;
         _audioEngine = audioEngine;
-        _engine = engine;
-        _tracker.ActiveControllerChanged += OnActiveControllerChanged;
+        _engines = engines;
+        _tracker.ControllersChanged += OnControllersChanged;
         _service.SpecialActionsChanged += OnSpecialActionsChanged;
 
-        _engine.ProfileProvider = ResolveProfile;
-        _engine.SoundPlayerFactory = device => new DualSenseSpecialActionSoundPlayer(device, _audioEngine);
-        _engine.UpdateActions(_service.Settings.Actions);
-        AttachCurrentController();
+        _engines.ProfileProvider = ResolveProfile;
+        _engines.SoundPlayerFactory = device => new DualSenseSpecialActionSoundPlayer(device, _audioEngine);
+        _engines.UpdateActions(_service.Settings.Actions);
+        ReconcileControllers();
     }
 
     /// <summary>
-    /// (Re-)attaches the engine to the tracker's active controller when it changes.
-    /// May fire on a background thread (tracker disconnect events); attaching only
-    /// subscribes to device events and resets local state, so no UI marshaling is needed.
+    /// Attaches an engine to every tracked controller and removes the engines of
+    /// controllers that were untracked. Raised on the UI thread (tracker events).
     /// </summary>
-    private void OnActiveControllerChanged(object? sender, EventArgs e)
+    private void OnControllersChanged(object? sender, EventArgs e)
     {
-        AttachCurrentController();
+        ReconcileControllers();
     }
 
     /// <summary>
-    /// Pushes the latest configuration into the engine when the user edits special actions.
+    /// Pushes the latest configuration into every engine when the user edits special actions.
     /// </summary>
     private void OnSpecialActionsChanged(object? sender, EventArgs e)
     {
-        _engine.UpdateActions(_service.Settings.Actions);
+        _engines.UpdateActions(_service.Settings.Actions);
     }
 
     /// <summary>
-    /// Attaches the engine to the tracker's active controller, or detaches when none.
+    /// Diffs the tracked controllers against the attached set, creating and removing
+    /// engines as needed.
     /// </summary>
-    private void AttachCurrentController()
+    private void ReconcileControllers()
     {
-        if (_tracker.ActiveController is DualSenseDevice device)
+        HashSet<DualSenseDevice> current = _tracker.Controllers.OfType<DualSenseDevice>().ToHashSet();
+
+        foreach (DualSenseDevice device in current)
         {
-            _engine.Attach(device);
+            if (_attached.Add(device))
+            {
+                _engines.GetOrCreate(device).Attach(device);
+            }
         }
-        else
+
+        foreach (DualSenseDevice device in _attached.Where(device => !current.Contains(device)).ToList())
         {
-            _engine.Detach();
+            _attached.Remove(device);
+            _engines.Remove(device);
         }
     }
 
@@ -120,12 +134,12 @@ public sealed class SpecialActionCoordinator : IDisposable
     }
 
     /// <summary>
-    /// Unsubscribes and detaches the engine.
+    /// Unsubscribes and disposes the per-controller engines.
     /// </summary>
     public void Dispose()
     {
-        _tracker.ActiveControllerChanged -= OnActiveControllerChanged;
+        _tracker.ControllersChanged -= OnControllersChanged;
         _service.SpecialActionsChanged -= OnSpecialActionsChanged;
-        _engine.Dispose();
+        _engines.Dispose();
     }
 }

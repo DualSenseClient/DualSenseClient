@@ -109,12 +109,12 @@ public partial class App : Application
             // Tray icon (created for its side effects: icon, menu, and subscriptions).
             _ = Services.GetRequiredService<TrayIconService>();
 
-            // Special action coordinator (created for its side effects: it attaches the
-            // special actions engine to the active controller).
+            // Special action coordinator (created for its side effects: it attaches a
+            // special actions engine to every tracked controller).
             _ = Services.GetRequiredService<SpecialActionCoordinator>();
 
             // Emulation service (started for its side effects: it creates a virtual
-            // controller for the active controller when the bound profile enables it).
+            // controller for every tracked controller whose bound profile enables it).
             Services.GetRequiredService<IEmulationService>().Start();
         }
 
