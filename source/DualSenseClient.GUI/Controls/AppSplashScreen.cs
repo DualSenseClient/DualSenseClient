@@ -3,8 +3,10 @@ using System.Threading.Tasks;
 using Avalonia.Media;
 using FluentAvalonia.UI.Windowing;
 using Microsoft.Extensions.DependencyInjection;
+using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.GUI.ViewModels;
+using DualSenseClient.HidHide;
 using DualSenseClient.Settings;
 
 namespace DualSenseClient.GUI.Controls;
@@ -59,9 +61,25 @@ internal class AppSplashScreen : IFAApplicationSplashScreen
     /// <returns>A task that represents the asynchronous operation.</returns>
     public async Task RunTasks(CancellationToken token)
     {
+        // Required delay so the window properly shows
+        await Task.Delay(10, token);
         _splashScreen.UpdateStatusMessage(LocalizationService.GetText("SplashScreen.LoadingProfiles"));
         App.Services.GetRequiredService<ProfileService>().Load();
         App.Services.GetRequiredService<ControllerInfoService>().Load();
+
+        _splashScreen.UpdateStatusMessage(LocalizationService.GetText("SplashScreen.StartingServices"));
+
+        // Special action coordinator (created for its side effects: it attaches a
+        // special actions engine to every tracked controller).
+        _ = App.Services.GetRequiredService<SpecialActionCoordinator>();
+
+        // Emulation service (started for its side effects: it creates a virtual
+        // controller for every tracked controller whose bound profile enables it).
+        App.Services.GetRequiredService<IEmulationService>().Start();
+
+        // Controller hiding: ensure this app stays able to see hidden
+        // controllers, e.g. via the HidHide driver whitelist on Windows.
+        App.Services.GetRequiredService<IControllerHidingService>().EnsureSelfVisible();
 
         MainViewModel mainViewModel = App.Services.GetRequiredService<MainViewModel>();
         _splashScreen.UpdateStatusMessage(LocalizationService.GetText("SplashScreen.ScanningControllers"));

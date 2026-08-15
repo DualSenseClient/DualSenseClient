@@ -5,9 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
-using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Core.Utilities;
-using DualSenseClient.HidHide;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.GUI.Views;
@@ -109,18 +107,6 @@ public partial class App : Application
 
             // Tray icon (created for its side effects: icon, menu, and subscriptions).
             _ = Services.GetRequiredService<TrayIconService>();
-
-            // Special action coordinator (created for its side effects: it attaches a
-            // special actions engine to every tracked controller).
-            _ = Services.GetRequiredService<SpecialActionCoordinator>();
-
-            // Emulation service (started for its side effects: it creates a virtual
-            // controller for every tracked controller whose bound profile enables it).
-            Services.GetRequiredService<IEmulationService>().Start();
-
-            // Controller hiding: ensure this app stays able to see hidden
-            // controllers, e.g. via the HidHide driver whitelist on Windows.
-            Services.GetRequiredService<IControllerHidingService>().EnsureSelfVisible();
         }
 
         base.OnFrameworkInitializationCompleted();
