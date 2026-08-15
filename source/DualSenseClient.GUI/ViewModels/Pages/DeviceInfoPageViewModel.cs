@@ -10,6 +10,7 @@ using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Services;
+using DualSenseClient.HidHide;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
 using DualSenseClient.Settings.Sections;
@@ -440,6 +441,91 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// </summary>
     public bool CanChangeEmulation => CurrentDualSenseDevice is not { } device || !_emulation.GetStatus(device).IsCreating;
 
+    // ── Controller hiding ───────────────────────────────────────
+
+    /// <summary>
+    /// Platform backend for hiding physical controllers from other applications
+    /// (HidHide driver on Windows, other backends on other platforms).
+    /// </summary>
+    private readonly IControllerHidingService _hiding;
+
+    /// <summary>
+    /// Whether the hiding backend is installed and operational on this system.
+    /// </summary>
+    public bool HidingAvailable { get; private set; }
+
+    /// <summary>
+    /// Whether the selected controller is hidden from other applications. Setting it
+    /// hides or unhides the controller, managing the backend's global hiding state.
+    /// </summary>
+    public bool IsControllerHidden
+    {
+        get
+        {
+            if (!HidingAvailable || !TryGetCurrentInstanceId(out string instanceId))
+            {
+                return false;
+            }
+
+            return _hiding.IsControllerHidden(instanceId);
+        }
+        set
+        {
+            if (!HidingAvailable || !TryGetCurrentInstanceId(out string instanceId))
+            {
+                return;
+            }
+
+            _hiding.SetControllerHidden(instanceId, value);
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>
+    /// Whether controller hiding is offered at all, i.e. the platform supports it.
+    /// </summary>
+    public bool IsHidingVisible => OperatingSystem.IsWindows();
+
+    /// <summary>
+    /// Card description for the hide toggle; replaced with an explanation when the
+    /// hiding backend is missing on a supported platform.
+    /// </summary>
+    public string HidingDescription
+    {
+        get
+        {
+            if (!HidingAvailable)
+            {
+                return LocalizationService.GetText("DeviceInfoPage.Hiding.Description.NotInstalled");
+            }
+
+            return LocalizationService.GetText("DeviceInfoPage.Hiding.HideController.Description");
+        }
+    }
+
+    /// <summary>
+    /// Whether the selected controller can be hidden, i.e. the driver is available and
+    /// its HID path can be resolved to a device instance ID.
+    /// </summary>
+    public bool CanHideController => HidingAvailable && TryGetCurrentInstanceId(out _);
+
+    /// <summary>
+    /// Tries to resolve the selected controller's HID device path to the device
+    /// instance ID used by HidHide.
+    /// </summary>
+    private bool TryGetCurrentInstanceId(out string instanceId)
+    {
+        instanceId = string.Empty;
+        if (CurrentDevice is null || !_hiding.TryGetInstanceId(CurrentDevicePath, out string id))
+        {
+            _log.Debug($"Could not resolve instance ID from device path '{CurrentDevicePath}'");
+            return false;
+        }
+
+        instanceId = id;
+        return true;
+    }
+
     /// <summary>
     /// Creates the page ViewModel and subscribes to the shell's controller selection.
     /// </summary>
@@ -448,6 +534,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         _mainViewModel = App.Services.GetRequiredService<MainViewModel>();
         _controllerService = App.Services.GetRequiredService<ControllerInfoService>();
         _emulation = App.Services.GetRequiredService<IEmulationService>();
+        _hiding = App.Services.GetRequiredService<IControllerHidingService>();
         _emulation.StateChanged += OnEmulationStateChanged;
         _emulationSaveTimer = new DispatcherTimer { Interval = EmulationSaveDebounce };
         _emulationSaveTimer.Tick += (_, _) => SaveEmulationDebounced();
@@ -524,6 +611,13 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         OnPropertyChanged(nameof(ForwardHapticStrength));
         OnPropertyChanged(nameof(EmulationStatusText));
         OnPropertyChanged(nameof(CanChangeEmulation));
+
+        HidingAvailable = _hiding.IsAvailable;
+        OnPropertyChanged(nameof(HidingAvailable));
+        OnPropertyChanged(nameof(IsControllerHidden));
+        OnPropertyChanged(nameof(CanHideController));
+        OnPropertyChanged(nameof(HidingDescription));
+        OnPropertyChanged(nameof(IsHidingVisible));
     }
 
     /// <summary>

@@ -60,6 +60,13 @@
                         </Grid>
                     </cards:CustomCard>
 
+                    <!-- Hide this controller -->
+                    <cards:ToggleSwitchCard Title="{DynamicResource DeviceInfoPage.Hiding.Title}"
+                                            Description="{Binding HidingDescription}"
+                                            IsChecked="{Binding IsControllerHidden}"
+                                            IsEnabled="{Binding CanHideController}"
+                                            IsVisible="{Binding IsHidingVisible}" />
+
                     <!-- Virtual controller emulation -->
                     <Expander IsExpanded="True">
                         <Expander.Header>

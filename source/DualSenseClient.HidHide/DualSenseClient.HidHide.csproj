@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Nefarius.Drivers.HidHide" Version="3.4.0" />
+    </ItemGroup>
+
+<ItemGroup>
+      <ProjectReference Include="..\DualSenseClient.Logging\DualSenseClient.Logging.csproj" />
+    </ItemGroup>
+
+</Project>

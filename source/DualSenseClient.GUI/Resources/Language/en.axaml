@@ -233,6 +233,9 @@
     <sys:String x:Key="DeviceInfoPage.Emulation.Status.Running">Virtual controller active: {mode}</sys:String>
     <sys:String x:Key="DeviceInfoPage.Emulation.Status.RunningEdge">Virtual controller active: DualSense Edge</sys:String>
     <sys:String x:Key="DeviceInfoPage.Emulation.Status.Creating">Creating virtual controller…</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Hiding.Title">Hide this controller</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Hiding.HideController.Description">Blocks other applications from seeing this physical controller.</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Hiding.Description.NotInstalled">The HidHide driver is not installed. Install it to hide controllers.</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.Title">Special Actions</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.Description">Button combinations that execute actions (disconnect, lights)</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.New">Create a new special action</sys:String>

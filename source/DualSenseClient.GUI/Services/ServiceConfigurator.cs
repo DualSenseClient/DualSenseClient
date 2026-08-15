@@ -8,6 +8,7 @@ using DualSenseClient.GUI.ViewModels;
 using DualSenseClient.GUI.ViewModels.Pages;
 using DualSenseClient.GUI.Views;
 using DualSenseClient.Hid;
+using DualSenseClient.HidHide;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
 using SoundFlow.Abstracts;
@@ -63,6 +64,7 @@ public abstract class ServiceConfigurator
         services.AddSingleton<IVirtualControllerFactory, VirtualControllerFactory>();
         services.AddSingleton<IEmulationService, EmulationService>();
         services.AddSingleton<SpecialActionEngineRegistry>();
+        services.AddSingleton<IControllerHidingService, HidHideService>();
 
         // ViewModels
         services.AddSingleton<MainWindowViewModel>();

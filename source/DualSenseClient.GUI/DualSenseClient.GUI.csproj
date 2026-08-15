@@ -33,6 +33,7 @@
         <ProjectReference Include="..\DualSenseClient.Controllers\DualSenseClient.Controllers.csproj"/>
         <ProjectReference Include="..\DualSenseClient.Hid\DualSenseClient.Hid.csproj"/>
         <ProjectReference Include="..\DualSenseClient.Bluetooth\DualSenseClient.Bluetooth.csproj"/>
+        <ProjectReference Include="..\DualSenseClient.HidHide\DualSenseClient.HidHide.csproj"/>
     </ItemGroup>
 
     <ItemGroup>

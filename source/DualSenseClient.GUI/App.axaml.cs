@@ -7,6 +7,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Core.Utilities;
+using DualSenseClient.HidHide;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.GUI.Views;
@@ -116,6 +117,10 @@ public partial class App : Application
             // Emulation service (started for its side effects: it creates a virtual
             // controller for every tracked controller whose bound profile enables it).
             Services.GetRequiredService<IEmulationService>().Start();
+
+            // Controller hiding: ensure this app stays able to see hidden
+            // controllers, e.g. via the HidHide driver whitelist on Windows.
+            Services.GetRequiredService<IControllerHidingService>().EnsureSelfVisible();
         }
 
         base.OnFrameworkInitializationCompleted();
