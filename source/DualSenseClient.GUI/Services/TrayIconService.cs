@@ -267,18 +267,19 @@ public sealed class TrayIconService
     }
 
     /// <summary>
-    /// Builds the virtual controller emulation submenu for a controller. The mode the
-    /// controller's profile is currently using is checked; choosing a mode persists it
-    /// and recreates the virtual controller through <see cref="IEmulationService"/>.
+    /// Builds the virtual controller emulation submenu for a controller. The mode stored
+    /// in the controller's own emulation settings is checked; choosing a mode persists
+    /// it and recreates the virtual controller through <see cref="IEmulationService"/>.
     /// </summary>
     private NativeMenu BuildEmulationMenu(ControllerItem item)
     {
         NativeMenu menu = new NativeMenu();
-        EmulationMode current = GetUsedProfile(item)?.Emulation.Mode ?? EmulationMode.Off;
+        EmulationSettings settings = GetEmulationSettings(item);
+        EmulationMode current = settings.Mode;
 
         foreach (EmulationMode mode in Enum.GetValues<EmulationMode>())
         {
-            NativeMenuItem modeItem = new NativeMenuItem(LocalizationService.GetText($"ProfilePage.Emulation.Mode.{mode}"))
+            NativeMenuItem modeItem = new NativeMenuItem(LocalizationService.GetText($"DeviceInfoPage.Emulation.Mode.{mode}"))
             {
                 ToggleType = MenuItemToggleType.Radio,
                 IsChecked = mode == current
@@ -291,44 +292,34 @@ public sealed class TrayIconService
     }
 
     /// <summary>
-    /// Resolves the profile the controller is currently using (its bound profile, or
-    /// the default when unbound), matching the emulation service's resolution.
+    /// Gets the emulation settings stored for a controller, defaulting to emulation off,
+    /// matching the emulation service's resolution.
     /// </summary>
-    private Profile? GetUsedProfile(ControllerItem item)
+    private EmulationSettings GetEmulationSettings(ControllerItem item)
     {
         string? mac = (item.Device as DualSenseDevice)?.PairingInfo?.ClientMac;
-        string path = item.Device.Info.Path;
-        string? bound = _controllerInfoService.GetBoundProfileName(mac, path);
-        if (bound is not null)
-        {
-            Profile? profile = _profileService.GetProfile(bound);
-            if (profile is not null)
-            {
-                return profile;
-            }
-        }
-        return _profileService.GetProfile(ProfileService.DefaultProfileName)
-               ?? _profileService.Settings.Profiles.FirstOrDefault();
+        return _controllerInfoService.GetEmulationSettings(mac, item.Device.Info.Path);
     }
 
     /// <summary>
-    /// Sets the emulation mode on the profile the controller is using, persists it,
-    /// and recreates the virtual controller. The menu rebuilds via the profile save
-    /// notification so the checkmark moves.
+    /// Sets the emulation mode on the controller's own emulation settings, persists it,
+    /// and recreates the virtual controller. The menu rebuilds via the controller info
+    /// save notification so the checkmark moves.
     /// </summary>
     private void ApplyEmulationMode(ControllerItem item, EmulationMode mode)
     {
-        if (item.Device is not DualSenseDevice || GetUsedProfile(item) is not { } profile)
+        if (item.Device is not DualSenseDevice device)
         {
             return;
         }
-        if (profile.Emulation.Mode == mode)
+        EmulationSettings settings = GetEmulationSettings(item);
+        if (settings.Mode == mode)
         {
             return;
         }
 
-        profile.Emulation.Mode = mode;
-        _profileService.Save();
+        settings.Mode = mode;
+        _controllerInfoService.SaveEmulationSettings(device.PairingInfo?.ClientMac, device.Info.Path, settings);
         _emulation.Refresh();
     }
 

@@ -36,4 +36,12 @@ public class ControllerInfo
     /// </summary>
     [JsonPropertyName("profile_name")]
     public string ProfileName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the virtual controller emulation settings stored for this
+    /// controller (the emulation section of the device info page). Defaults to
+    /// emulation off.
+    /// </summary>
+    [JsonPropertyName("emulation")]
+    public EmulationSettings Emulation { get; set; } = new EmulationSettings();
 }

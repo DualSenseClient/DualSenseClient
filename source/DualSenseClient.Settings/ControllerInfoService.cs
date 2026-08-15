@@ -234,6 +234,49 @@ public sealed class ControllerInfoService
     }
 
     /// <summary>
+    /// Gets the virtual controller emulation settings stored for a controller, or the
+    /// defaults (emulation off) when the controller has no entry or no stored settings.
+    /// The returned instance is the live stored object; persist changes with
+    /// <see cref="SaveEmulationSettings"/>.
+    /// </summary>
+    /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>
+    /// <param name="devicePath">The controller's HID device path, or <c>null</c>/empty when unavailable.</param>
+    public EmulationSettings GetEmulationSettings(string? mac, string? devicePath)
+    {
+        ControllerInfo? info = FindController(NormalizeMac(mac), NormalizePath(devicePath));
+        return info?.Emulation ?? new EmulationSettings();
+    }
+
+    /// <summary>
+    /// Stores the virtual controller emulation settings for a controller and persists
+    /// the change. The controller's entry is created if not registered yet.
+    /// </summary>
+    /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>
+    /// <param name="devicePath">The controller's HID device path, or <c>null</c>/empty when unavailable.</param>
+    /// <param name="emulation">The emulation settings to store.</param>
+    public void SaveEmulationSettings(string? mac, string? devicePath, EmulationSettings emulation)
+    {
+        string normalizedMac = NormalizeMac(mac);
+        string normalizedPath = NormalizePath(devicePath);
+        if (string.IsNullOrEmpty(normalizedMac) && string.IsNullOrEmpty(normalizedPath))
+        {
+            return;
+        }
+
+        ControllerInfo? info = FindController(normalizedMac, normalizedPath);
+        if (info is null)
+        {
+            info = new ControllerInfo();
+            Settings.Controllers.Add(info);
+        }
+
+        info.MacAddress = normalizedMac;
+        info.DevicePath = normalizedPath;
+        info.Emulation = emulation;
+        Save();
+    }
+
+    /// <summary>
     /// Renames a controller (its stored display name) and persists the change.
     /// </summary>
     /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>

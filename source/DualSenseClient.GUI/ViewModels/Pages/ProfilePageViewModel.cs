@@ -3,12 +3,10 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
-using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.Controllers.Devices;
-using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.Logging;
@@ -50,12 +48,6 @@ public partial class ProfilePageViewModel : ObservableObject
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("ProfilePage");
 
     /// <summary>
-    /// Delay between the last slider change and the profile save, so dragging a slider
-    /// coalesces into a single disk write instead of one save per value change.
-    /// </summary>
-    private static readonly TimeSpan ProfileSaveDebounce = TimeSpan.FromMilliseconds(500);
-
-    /// <summary>
     /// The shell ViewModel owning the controller selection.
     /// </summary>
     private readonly MainViewModel _mainViewModel;
@@ -76,20 +68,9 @@ public partial class ProfilePageViewModel : ObservableObject
     private readonly SpecialActionService _specialActionService;
 
     /// <summary>
-    /// Service creating virtual controllers for the active controller.
-    /// </summary>
-    private readonly IEmulationService _emulation;
-
-    /// <summary>
     /// Service used for delete confirmations.
     /// </summary>
     private readonly IMessageBoxService _messageBox;
-
-    /// <summary>
-    /// Debounced profile save timer: each slider change restarts it and the save happens
-    /// only after changes stop, avoiding overlapping writes while dragging.
-    /// </summary>
-    private readonly DispatcherTimer _profileSaveTimer;
 
     /// <summary>
     /// Tracks the previous lights item so its subscriptions are released on replacement.
@@ -185,289 +166,7 @@ public partial class ProfilePageViewModel : ObservableObject
     ];
 
     /// <summary>
-    /// Virtual controller emulation mode options for the dropdown, in
-    /// <see cref="EmulationMode"/> order (off, Xbox 360, DualShock 4, DualSense).
-    /// </summary>
-    public ObservableCollection<string> EmulationModes { get; } =
-    [
-        LocalizationService.GetText("ProfilePage.Emulation.Mode.Off"),
-        LocalizationService.GetText("ProfilePage.Emulation.Mode.Xbox360"),
-        LocalizationService.GetText("ProfilePage.Emulation.Mode.DualShock4"),
-        LocalizationService.GetText("ProfilePage.Emulation.Mode.DualSense")
-    ];
-
-    /// <summary>
-    /// DualSense hardware variant options for the dropdown, in
-    /// <see cref="DualSenseVariant"/> order (standard, Edge).
-    /// </summary>
-    public ObservableCollection<string> DualSenseVariants { get; } =
-    [
-        LocalizationService.GetText("ProfilePage.Emulation.DeviceType.Standard"),
-        LocalizationService.GetText("ProfilePage.Emulation.DeviceType.Edge")
-    ];
-
-    /// <summary>
-    /// Forwarded audio output options for the dropdown, in
-    /// <see cref="EmulationAudioOutput"/> order (speaker, headset).
-    /// </summary>
-    public ObservableCollection<string> EmulationAudioOutputs { get; } =
-    [
-        LocalizationService.GetText("ProfilePage.Emulation.AudioOutput.Speaker"),
-        LocalizationService.GetText("ProfilePage.Emulation.AudioOutput.Headset")
-    ];
-
-    /// <summary>
-    /// The profile whose virtual controller emulation the emulation section edits:
-    /// the profile the selected controller is currently using (bound profile, or the
-    /// default when unbound).
-    /// </summary>
-    public string EmulationProfileName
-    {
-        get
-        {
-            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
-            {
-                return string.Empty;
-            }
-            return profile.Name;
-        }
-    }
-
-    /// <summary>
-    /// The virtual controller emulation mode (<see cref="EmulationMode"/> value) of the
-    /// profile the selected controller is currently using. Setting it persists the change
-    /// immediately and recreates the virtual controller through <see cref="IEmulationService"/>.
-    /// </summary>
-    public int EmulationModeIndex
-    {
-        get
-        {
-            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
-            {
-                return 0;
-            }
-            return (int)profile.Emulation.Mode;
-        }
-        set
-        {
-            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
-            {
-                return;
-            }
-
-            EmulationMode mode = (EmulationMode)Math.Clamp(value, 0, (int)EmulationMode.DualSense);
-            if (profile.Emulation.Mode == mode)
-            {
-                return;
-            }
-
-            _log.Info($"Setting emulation mode of profile '{profile.Name}' to {mode}");
-            profile.Emulation.Mode = mode;
-            _profileService.Save();
-            OnPropertyChanged(nameof(EmulationModeIndex));
-            OnPropertyChanged(nameof(IsDualSenseEmulation));
-            _emulation.Refresh();
-        }
-    }
-
-    /// <summary>
-    /// Whether the profile's emulation mode is DualSense, the only mode with an
-    /// audio forwarding lane.
-    /// </summary>
-    public bool IsDualSenseEmulation => EmulationModeIndex == (int)EmulationMode.DualSense;
-
-    /// <summary>
-    /// The DualSense hardware variant (<see cref="DualSenseVariant"/> value) of the
-    /// profile's virtual device. Setting it persists the change immediately and
-    /// recreates the virtual controller through <see cref="IEmulationService"/>.
-    /// </summary>
-    public int DualSenseVariantIndex
-    {
-        get
-        {
-            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
-            {
-                return 0;
-            }
-            return (int)profile.Emulation.DeviceType;
-        }
-        set
-        {
-            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
-            {
-                return;
-            }
-
-            DualSenseVariant variant = (DualSenseVariant)Math.Clamp(value, 0, (int)DualSenseVariant.Edge);
-            if (profile.Emulation.DeviceType == variant)
-            {
-                return;
-            }
-
-            _log.Info($"Setting DualSense variant of profile '{profile.Name}' to {variant}");
-            profile.Emulation.DeviceType = variant;
-            _profileService.Save();
-            OnPropertyChanged(nameof(DualSenseVariantIndex));
-            _emulation.Refresh();
-        }
-    }
-
-    /// <summary>
-    /// The concrete DualSense device of the selected controller, or <c>null</c> for
-    /// non-DualSense devices.
-    /// </summary>
-    private DualSenseDevice? CurrentDualSenseDevice => CurrentDevice?.Controller.Device as DualSenseDevice;
-
-    /// <summary>
-    /// The physical controller output (<see cref="EmulationAudioOutput"/> value) used
-    /// when forwarding host audio. Setting it persists the change immediately and
-    /// applies it to the active forwarder without recreating the virtual controller.
-    /// </summary>
-    public int ForwardAudioOutputIndex
-    {
-        get
-        {
-            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
-            {
-                return 0;
-            }
-            return (int)profile.Emulation.ForwardAudioOutput;
-        }
-        set
-        {
-            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
-            {
-                return;
-            }
-
-            EmulationAudioOutput output = (EmulationAudioOutput)Math.Clamp(value, 0, (int)EmulationAudioOutput.Headset);
-            if (profile.Emulation.ForwardAudioOutput == output)
-            {
-                return;
-            }
-
-            _log.Info($"Setting forwarded audio output of profile '{profile.Name}' to {output}");
-            profile.Emulation.ForwardAudioOutput = output;
-            _profileService.Save();
-            OnPropertyChanged(nameof(ForwardAudioOutputIndex));
-            if (CurrentDualSenseDevice is { } device)
-            {
-                _emulation.SetForwardingAudioOutput(device, output == EmulationAudioOutput.Headset);
-            }
-        }
-    }
-
-    /// <summary>
-    /// The speaker volume applied to the physical controller when forwarding host
-    /// audio (0-255, two-way, persisted). Mirrors the audio player tester's range.
-    /// </summary>
-    public int ForwardVolume
-    {
-        get
-        {
-            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
-            {
-                return 0;
-            }
-            return profile.Emulation.ForwardVolume;
-        }
-        set
-        {
-            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
-            {
-                return;
-            }
-            int clamped = Math.Clamp(value, 0, 255);
-            if (profile.Emulation.ForwardVolume == clamped)
-            {
-                return;
-            }
-            profile.Emulation.ForwardVolume = clamped;
-            ScheduleProfileSave();
-            OnPropertyChanged(nameof(ForwardVolume));
-            if (CurrentDualSenseDevice is { } device)
-            {
-                _emulation.SetForwardingAudioOptions(device, (byte)clamped, profile.Emulation.ForwardHapticStrength / 100f);
-            }
-        }
-    }
-
-    /// <summary>
-    /// The haptic vibration strength when forwarding host audio, as a percentage
-    /// (0-200, two-way, persisted). Mirrors the audio player tester's range.
-    /// </summary>
-    public int ForwardHapticStrength
-    {
-        get
-        {
-            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
-            {
-                return 0;
-            }
-            return profile.Emulation.ForwardHapticStrength;
-        }
-        set
-        {
-            if (!HasDevice || GetCurrentControllerProfile() is not { } profile)
-            {
-                return;
-            }
-            int clamped = Math.Clamp(value, 0, 200);
-            if (profile.Emulation.ForwardHapticStrength == clamped)
-            {
-                return;
-            }
-            profile.Emulation.ForwardHapticStrength = clamped;
-            ScheduleProfileSave();
-            OnPropertyChanged(nameof(ForwardHapticStrength));
-            if (CurrentDualSenseDevice is { } device)
-            {
-                _emulation.SetForwardingAudioOptions(device, (byte)profile.Emulation.ForwardVolume, clamped / 100f);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Human-readable description of the selected controller's virtual controller
-    /// emulation state, reflecting <see cref="IEmulationService.GetStatus"/>.
-    /// </summary>
-    public string EmulationStatusText
-    {
-        get
-        {
-            if (CurrentDualSenseDevice is not { } device)
-            {
-                return string.Empty;
-            }
-
-            EmulationStatus status = _emulation.GetStatus(device);
-            if (status.IsCreating)
-            {
-                return LocalizationService.GetText("ProfilePage.Emulation.Status.Creating");
-            }
-            if (!status.Running)
-            {
-                return status.Detail ?? LocalizationService.GetText("ProfilePage.Emulation.Status.Idle");
-            }
-
-            if (status.Variant == DualSenseVariant.Edge)
-            {
-                return LocalizationService.GetText("ProfilePage.Emulation.Status.RunningEdge");
-            }
-
-            string mode = EmulationModes[Math.Clamp((int)status.Mode, 0, EmulationModes.Count - 1)];
-            return LocalizationService.GetText("ProfilePage.Emulation.Status.Running").Replace("{mode}", mode);
-        }
-    }
-
-    /// <summary>
-    /// Whether the emulation mode and DualSense variant dropdowns may be changed for the
-    /// selected controller. False while its virtual controller is being (re)created:
-    /// switching mid-creation races the removal/creation cycle and can leave multiple
-    /// virtual devices behind.
-    /// </summary>
-    public bool CanChangeEmulation => CurrentDualSenseDevice is not { } device || !_emulation.GetStatus(device).IsCreating;
-
+    /// Gets or sets the selected entry in <see cref="AssignedProfileOptions"/>. Setting it
     /// <summary>
     /// Gets or sets the selected entry in <see cref="AssignedProfileOptions"/>. Setting it
     /// binds the current controller (by MAC, with a device path fallback) to the chosen
@@ -527,11 +226,7 @@ public partial class ProfilePageViewModel : ObservableObject
         _controllerService = App.Services.GetRequiredService<ControllerInfoService>();
         _specialActionService = App.Services.GetRequiredService<SpecialActionService>();
         _messageBox = App.Services.GetRequiredService<IMessageBoxService>();
-        _emulation = App.Services.GetRequiredService<IEmulationService>();
-        _emulation.StateChanged += OnEmulationStateChanged;
         _mainViewModel.PropertyChanged += OnMainViewModelPropertyChanged;
-        _profileSaveTimer = new DispatcherTimer { Interval = ProfileSaveDebounce };
-        _profileSaveTimer.Tick += (_, _) => SaveProfileDebounced();
         Refresh();
     }
 
@@ -736,17 +431,6 @@ public partial class ProfilePageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Refreshes the emulation status line when the emulation service state changes.
-    /// May be raised on a background thread; notifying the UI from it is safe here
-    /// because Avalonia marshals property changes for bindings.
-    /// </summary>
-    private void OnEmulationStateChanged(object? sender, EventArgs e)
-    {
-        OnPropertyChanged(nameof(EmulationStatusText));
-        OnPropertyChanged(nameof(CanChangeEmulation));
-    }
-
-    /// <summary>
     /// Rebuilds <see cref="CurrentDevice"/> from the shell's selected controller and syncs
     /// the preview color to the profile the controller is using.
     /// Releases the previous item's subscriptions before replacing it.
@@ -773,15 +457,6 @@ public partial class ProfilePageViewModel : ObservableObject
         OnPropertyChanged(nameof(CurrentMac));
         OnPropertyChanged(nameof(CurrentDevicePath));
         OnPropertyChanged(nameof(SelectedAssignedProfileIndex));
-        OnPropertyChanged(nameof(EmulationProfileName));
-        OnPropertyChanged(nameof(EmulationModeIndex));
-        OnPropertyChanged(nameof(IsDualSenseEmulation));
-        OnPropertyChanged(nameof(DualSenseVariantIndex));
-        OnPropertyChanged(nameof(ForwardAudioOutputIndex));
-        OnPropertyChanged(nameof(ForwardVolume));
-        OnPropertyChanged(nameof(ForwardHapticStrength));
-        OnPropertyChanged(nameof(EmulationStatusText));
-        OnPropertyChanged(nameof(CanChangeEmulation));
         RebuildSpecialActions();
     }
 
@@ -923,8 +598,8 @@ public partial class ProfilePageViewModel : ObservableObject
     /// <summary>
     /// Applies the profile currently used by the selected controller (bound profile, or the
     /// default when unbound), so an assignment change takes effect immediately. Only the
-    /// controller-side light settings are reapplied; virtual controller emulation is left
-    /// untouched (it is rebuilt only when the profile's emulation settings are edited).
+    /// controller-side light settings are reapplied; virtual controller emulation is
+    /// configured per controller (see the device info page) and is left untouched here.
     /// </summary>
     private void ApplyBoundProfileToController()
     {
@@ -963,25 +638,5 @@ public partial class ProfilePageViewModel : ObservableObject
         _log.Info($"Applying profile '{profile.Name}' to {CurrentMac}");
         device.ApplyProfile(profile);
         CurrentDevice.SetPreview(profile.Lightbar.Red, profile.Lightbar.Green, profile.Lightbar.Blue);
-    }
-
-    /// <summary>
-    /// Restarts the debounce timer so the pending profile save is delayed until slider
-    /// changes stop. Mirrors <see cref="DualSenseClient.GUI.Models.Items.ProfileEditorItem"/>'s
-    /// commit pattern for the emulation sliders, which otherwise persist on every drag step.
-    /// </summary>
-    private void ScheduleProfileSave()
-    {
-        _profileSaveTimer.Stop();
-        _profileSaveTimer.Start();
-    }
-
-    /// <summary>
-    /// Flushes the debounced profile save to disk once the debounce period elapses.
-    /// </summary>
-    private void SaveProfileDebounced()
-    {
-        _profileSaveTimer.Stop();
-        _profileService.Save();
     }
 }

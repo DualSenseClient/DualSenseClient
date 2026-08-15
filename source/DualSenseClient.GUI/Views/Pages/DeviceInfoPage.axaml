@@ -59,6 +59,49 @@
                                        VerticalAlignment="Center" />
                         </Grid>
                     </cards:CustomCard>
+
+                    <!-- Virtual controller emulation -->
+                    <Expander IsExpanded="True">
+                        <Expander.Header>
+                            <cards:CardHeader Title="{DynamicResource DeviceInfoPage.Emulation.Title}"
+                                              Description="{DynamicResource DeviceInfoPage.Emulation.Mode.Description}"
+                                              Icon="{x:Static fic:Symbol.XboxController}"
+                                              MinHeight="56" />
+                        </Expander.Header>
+                        <StackPanel Spacing="8">
+                            <cards:ComboBoxCard Title="{DynamicResource DeviceInfoPage.Emulation.Mode}"
+                                                ItemsSource="{Binding EmulationModes}"
+                                                SelectedIndex="{Binding EmulationModeIndex}"
+                                                IsEnabled="{Binding CanChangeEmulation}" />
+                            <cards:ComboBoxCard Title="{DynamicResource DeviceInfoPage.Emulation.DeviceType}"
+                                                Description="{DynamicResource DeviceInfoPage.Emulation.DeviceType.Description}"
+                                                ItemsSource="{Binding DualSenseVariants}"
+                                                SelectedIndex="{Binding DualSenseVariantIndex}"
+                                                IsVisible="{Binding IsDualSenseEmulation}"
+                                                IsEnabled="{Binding CanChangeEmulation}" />
+                            <cards:ComboBoxCard Title="{DynamicResource DeviceInfoPage.Emulation.AudioOutput}"
+                                                Description="{DynamicResource DeviceInfoPage.Emulation.AudioOutput.Description}"
+                                                ItemsSource="{Binding EmulationAudioOutputs}"
+                                                SelectedIndex="{Binding ForwardAudioOutputIndex}"
+                                                IsVisible="{Binding IsDualSenseEmulation}" />
+                            <cards:SliderCard Minimum="0"
+                                              Maximum="255"
+                                              TickFrequency="1"
+                                              Title="{DynamicResource DeviceInfoPage.Emulation.ForwardVolume}"
+                                              Value="{Binding ForwardVolume}"
+                                              IsVisible="{Binding IsDualSenseEmulation}" />
+                            <cards:SliderCard Minimum="0"
+                                              Maximum="200"
+                                              TickFrequency="1"
+                                              Title="{DynamicResource DeviceInfoPage.Emulation.ForwardHaptics}"
+                                              Value="{Binding ForwardHapticStrength}"
+                                              IsVisible="{Binding IsDualSenseEmulation}" />
+                            <TextBlock Text="{Binding EmulationStatusText}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Expander>
                 </StackPanel>
             </Expander>
 
@@ -110,7 +153,7 @@
 
             <!-- Connection Status -->
             <Expander IsVisible="{Binding HasDevice}"
-                      IsExpanded="True">
+                      IsExpanded="False">
                 <Expander.Header>
                     <cards:CardHeader Title="{DynamicResource DeviceInfoPage.Connection.Title}"
                                       Description="{DynamicResource DeviceInfoPage.Connection.Description}"
@@ -173,7 +216,7 @@
 
             <!-- Firmware -->
             <Expander IsVisible="{Binding HasDevice}"
-                      IsExpanded="True">
+                      IsExpanded="False">
                 <Expander.Header>
                     <cards:CardHeader Title="{DynamicResource DeviceInfoPage.Firmware.Title}"
                                       Description="{DynamicResource DeviceInfoPage.Firmware.Description}"

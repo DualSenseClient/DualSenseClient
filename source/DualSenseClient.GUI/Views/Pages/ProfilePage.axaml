@@ -206,59 +206,6 @@
                 </StackPanel>
             </Expander>
 
-            <!-- Virtual controller emulation -->
-            <Expander IsVisible="{Binding HasDevice}"
-                      IsExpanded="False">
-                <Expander.Header>
-                    <cards:CardHeader Title="{DynamicResource ProfilePage.Emulation.Title}"
-                                      Description="{DynamicResource ProfilePage.Emulation.Mode.Description}"
-                                      Icon="{x:Static fic:Symbol.XboxController}"
-                                      MinHeight="64" />
-                </Expander.Header>
-                <StackPanel Spacing="8">
-                    <cards:CustomCard>
-                        <StackPanel Spacing="2">
-                            <TextBlock Text="{DynamicResource ProfilePage.Emulation.Profile}"
-                                       FontSize="12"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                            <TextBlock Text="{Binding EmulationProfileName}"
-                                       FontWeight="SemiBold" />
-                        </StackPanel>
-                    </cards:CustomCard>
-<cards:ComboBoxCard Title="{DynamicResource ProfilePage.Emulation.Mode}"
-                                         ItemsSource="{Binding EmulationModes}"
-                                         SelectedIndex="{Binding EmulationModeIndex}"
-                                         IsEnabled="{Binding CanChangeEmulation}" />
-                    <cards:ComboBoxCard Title="{DynamicResource ProfilePage.Emulation.DeviceType}"
-                                        Description="{DynamicResource ProfilePage.Emulation.DeviceType.Description}"
-                                        ItemsSource="{Binding DualSenseVariants}"
-                                        SelectedIndex="{Binding DualSenseVariantIndex}"
-                                        IsVisible="{Binding IsDualSenseEmulation}"
-                                        IsEnabled="{Binding CanChangeEmulation}" />
-                    <cards:ComboBoxCard Title="{DynamicResource ProfilePage.Emulation.AudioOutput}"
-                                        Description="{DynamicResource ProfilePage.Emulation.AudioOutput.Description}"
-                                        ItemsSource="{Binding EmulationAudioOutputs}"
-                                        SelectedIndex="{Binding ForwardAudioOutputIndex}"
-                                        IsVisible="{Binding IsDualSenseEmulation}" />
-                    <cards:SliderCard Minimum="0"
-                                      Maximum="255"
-                                      TickFrequency="1"
-                                      Title="{DynamicResource ProfilePage.Emulation.ForwardVolume}"
-                                      Value="{Binding ForwardVolume}"
-                                      IsVisible="{Binding IsDualSenseEmulation}" />
-                    <cards:SliderCard Minimum="0"
-                                      Maximum="200"
-                                      TickFrequency="1"
-                                      Title="{DynamicResource ProfilePage.Emulation.ForwardHaptics}"
-                                      Value="{Binding ForwardHapticStrength}"
-                                      IsVisible="{Binding IsDualSenseEmulation}" />
-                    <TextBlock Text="{Binding EmulationStatusText}"
-                               FontSize="12"
-                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                               TextWrapping="Wrap" />
-                </StackPanel>
-            </Expander>
-
             <!-- Special actions -->
             <Expander IsVisible="{Binding HasDevice}"
                       IsExpanded="False">

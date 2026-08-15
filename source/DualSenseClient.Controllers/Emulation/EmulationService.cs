@@ -13,11 +13,11 @@ using SoundFlow.Abstracts;
 namespace DualSenseClient.Controllers.Emulation;
 
 /// <summary>
-/// Creates a virtual controller for every tracked DualSense whose profile enables
-/// emulation. Owns the libVIIPER USB server, the per-controller virtual device
-/// lifecycles, the HID exclusion that keeps the virtual devices out of the app's own
-/// enumeration, and — for DualSense emulation — the host-audio forwarders that play
-/// host audio through the physical controllers.
+/// Creates a virtual controller for every tracked DualSense whose controller-level
+/// emulation settings enable it. Owns the libVIIPER USB server, the per-controller
+/// virtual device lifecycles, the HID exclusion that keeps the virtual devices out of
+/// the app's own enumeration, and — for DualSense emulation — the host-audio
+/// forwarders that play host audio through the physical controllers.
 /// </summary>
 public interface IEmulationService : IDisposable
 {
@@ -34,14 +34,14 @@ public interface IEmulationService : IDisposable
 
     /// <summary>
     /// Starts watching the tracked controllers and creating virtual controllers
-    /// according to each one's bound profile.
+    /// according to each one's stored emulation settings.
     /// </summary>
     void Start();
 
     /// <summary>
-    /// Re-evaluates every tracked controller against the profile it currently uses,
+    /// Re-evaluates every tracked controller against its stored emulation settings,
     /// recreating the virtual controllers whose emulation mode changed. Used when the
-    /// user edits the emulation mode of an applied profile.
+    /// user edits the emulation settings of a controller (device info page or tray).
     /// </summary>
     void Refresh();
 
@@ -100,7 +100,6 @@ public sealed class EmulationService : IEmulationService
 
     private readonly IControllerTracker _tracker;
     private readonly IHidDeviceEnumerator _enumerator;
-    private readonly ProfileService _profiles;
     private readonly ControllerInfoService _controllerInfo;
     private readonly IVirtualControllerFactory _factory;
     private readonly SpecialActionEngineRegistry _specialActions;
@@ -145,12 +144,11 @@ public sealed class EmulationService : IEmulationService
     /// Creates a new <see cref="EmulationService"/>.
     /// </summary>
     public EmulationService(IControllerTracker tracker, IHidDeviceEnumerator enumerator,
-        ProfileService profiles, ControllerInfoService controllerInfo, IVirtualControllerFactory factory,
+        ControllerInfoService controllerInfo, IVirtualControllerFactory factory,
         AudioEngine audioEngine, SpecialActionEngineRegistry specialActions)
     {
         _tracker = tracker;
         _enumerator = enumerator;
-        _profiles = profiles;
         _controllerInfo = controllerInfo;
         _factory = factory;
         _audioEngine = audioEngine;
@@ -211,13 +209,13 @@ public sealed class EmulationService : IEmulationService
         {
             foreach (VirtualControllerEntry entry in _entries.Values)
             {
-                // Only rebuild entries whose profile actually changed: with several
-                // controllers, recreating every virtual device on every change would
-                // briefly detach the other controllers' virtual devices for no reason.
-                // A running entry that still matches its profile is left untouched;
-                // entries without a virtual device (failed or in-flight creations)
-                // are always rebuilt so a change also retries them.
-                EmulationSettings? emulation = ResolveProfile(entry.Device)?.Emulation;
+                // Only rebuild entries whose controller settings actually changed: with
+                // several controllers, recreating every virtual device on every change
+                // would briefly detach the other controllers' virtual devices for no
+                // reason. A running entry that still matches its settings is left
+                // untouched; entries without a virtual device (failed or in-flight
+                // creations) are always rebuilt so a change also retries them.
+                EmulationSettings emulation = GetEmulationSettings(entry.Device);
                 EmulationMode mode = emulation?.Mode ?? EmulationMode.Off;
                 DualSenseVariant? variant = mode == EmulationMode.DualSense
                     ? emulation?.DeviceType ?? DualSenseVariant.Standard
@@ -382,7 +380,7 @@ public sealed class EmulationService : IEmulationService
     /// </summary>
     private bool StartCreationLocked(VirtualControllerEntry entry)
     {
-        EmulationMode mode = ResolveProfile(entry.Device)?.Emulation.Mode ?? EmulationMode.Off;
+        EmulationMode mode = GetEmulationSettings(entry.Device).Mode;
         if (mode == EmulationMode.Off)
         {
             SetStatus(entry, new EmulationStatus(EmulationMode.Off, false, "Emulation is disabled for this controller", null));
@@ -406,7 +404,7 @@ public sealed class EmulationService : IEmulationService
     private async Task CreateVirtualControllerAsync(VirtualControllerEntry entry, bool settleAfterRemoval)
     {
         int generation = entry.Generation;
-        EmulationMode mode = ResolveProfile(entry.Device)?.Emulation.Mode ?? EmulationMode.Off;
+        EmulationMode mode = GetEmulationSettings(entry.Device).Mode;
         if (mode == EmulationMode.Off)
         {
             SetStatus(entry, new EmulationStatus(EmulationMode.Off, false, "Emulation is disabled for this controller", null));
@@ -438,7 +436,7 @@ public sealed class EmulationService : IEmulationService
                 await Task.Delay(RecreationSettleDelay);
             }
 
-            EmulationSettings? emulation = ResolveProfile(entry.Device)?.Emulation;
+            EmulationSettings emulation = GetEmulationSettings(entry.Device);
             bool edge = emulation?.DeviceType == DualSenseVariant.Edge;
             (ushort vid, ushort pid) = GetDeviceIds(mode, edge);
             SpecialActionEngine specialActions;
@@ -596,29 +594,17 @@ public sealed class EmulationService : IEmulationService
     }
 
     /// <summary>
-    /// Resolves the profile bound to the given controller, falling back to the
-    /// default profile.
+    /// Gets the emulation settings stored for a controller (the emulation section of
+    /// the device info page), defaulting to emulation off.
     /// </summary>
-    private Profile? ResolveProfile(DualSenseDevice device)
-    {
-        string? bound = _controllerInfo.GetBoundProfileName(device.PairingInfo?.ClientMac, device.Info.Path);
-        if (!string.IsNullOrEmpty(bound))
-        {
-            Profile? profile = _profiles.GetProfile(bound);
-            if (profile is not null)
-            {
-                return profile;
-            }
-        }
-        return _profiles.GetProfile(ProfileService.DefaultProfileName)
-               ?? _profiles.Settings.Profiles.FirstOrDefault();
-    }
+    private EmulationSettings GetEmulationSettings(DualSenseDevice device)
+        => _controllerInfo.GetEmulationSettings(device.PairingInfo?.ClientMac, device.Info.Path);
 
     /// <summary>
     /// Creates the host-audio forwarder for the virtual DualSense: Bluetooth audio
     /// reports to the physical controller over the same outputs lane, and the USB
     /// UAC render endpoint for wired playback (when the pad exposes one). The
-    /// profile's forwarding volume, haptic strength and speaker/headset route are
+    /// controller's forwarding volume, haptic strength and speaker/headset route are
     /// applied on creation.
     /// </summary>
     private ViiperDualSenseAudioForwarder CreateAudioForwarder(DualSenseDeviceOutputs outputs, EmulationSettings? emulation)
