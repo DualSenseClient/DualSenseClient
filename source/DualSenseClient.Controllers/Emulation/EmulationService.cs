@@ -478,13 +478,21 @@ public sealed class EmulationService : IEmulationService
             string? path = await DiscoverVirtualPathAsync(vid, pid, entry.Device.Info.Path, before);
             if (path is null)
             {
-                _log.Warning("Could not find the virtual device in HID enumeration; it will not be excluded");
+                // The virtual device never appeared in HID enumeration (slow USBIP
+                // attach) or appeared alongside other new devices, e.g. another
+                // controller connecting mid-creation or a previous virtual still
+                // detaching during a mode switch. Leaving it attached and unexcluded
+                // would make the watcher report it as a phantom controller, so the
+                // device and its bus are removed instead.
+                _log.Warning("Could not discover the virtual device in HID enumeration; removing it again");
+                virtualController.Dispose();
+                LibVIIPER.RemoveUSBBus(serverHandle, busId);
+                SetStatus(entry, new EmulationStatus(mode, false, "The virtual device did not appear in HID enumeration. Check the VIIPER logs; the usbip-win2 driver must be installed (with Test Signing enabled) for auto-attachment", null));
+                return;
             }
-            else
-            {
-                virtualController.VirtualDevicePath = path;
-                _enumerator.ExcludeDevice(path);
-            }
+
+            virtualController.VirtualDevicePath = path;
+            _enumerator.ExcludeDevice(path);
 
             ViiperDualSenseAudioForwarder? forwarder = mode == EmulationMode.DualSense
                 ? CreateAudioForwarder(outputs, emulation)
@@ -547,7 +555,7 @@ public sealed class EmulationService : IEmulationService
         lock (_sync)
         {
             return _disposed || !_entries.TryGetValue(entry.Device, out VirtualControllerEntry? current)
-                   || !ReferenceEquals(current, entry) || entry.Generation != generation;
+                             || !ReferenceEquals(current, entry) || entry.Generation != generation;
         }
     }
 
