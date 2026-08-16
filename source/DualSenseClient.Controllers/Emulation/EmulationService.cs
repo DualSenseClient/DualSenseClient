@@ -473,7 +473,7 @@ public sealed class EmulationService : IEmulationService
 
             if (virtualController is null)
             {
-                SetStatus(entry, new EmulationStatus(mode, false, "The native library could not create the virtual device. Check the VIIPER logs; the usbip-win2 driver must be installed (with Test Signing enabled) for auto-attachment", null));
+                SetStatus(entry, new EmulationStatus(mode, false, "The native library could not create the virtual device. Check the VIIPER logs; USB/IP must be installed for auto-attachment", null));
                 return;
             }
 
@@ -489,7 +489,7 @@ public sealed class EmulationService : IEmulationService
                 _log.Warning("Could not discover the virtual device in HID enumeration; removing it again");
                 virtualController.Dispose();
                 LibVIIPER.RemoveUSBBus(serverHandle, busId);
-                SetStatus(entry, new EmulationStatus(mode, false, "The virtual device did not appear in HID enumeration. Check the VIIPER logs; the usbip-win2 driver must be installed (with Test Signing enabled) for auto-attachment", null));
+                SetStatus(entry, new EmulationStatus(mode, false, "The virtual device did not appear in HID enumeration. Check the VIIPER logs; USB/IP must be installed for auto-attachment", null));
                 return;
             }
 
@@ -672,7 +672,7 @@ public sealed class EmulationService : IEmulationService
         };
         if (!LibVIIPER.NewUSBServer(ref config, out nuint serverHandle, _nativeLogCallback))
         {
-            _log.Error("Failed to create the libVIIPER USB server. The USBIP driver (usbip-win2) must be installed for server/device attachment to work");
+            _log.Error("Failed to create the libVIIPER USB server. USB/IP must be installed for server/device attachment to work");
             return false;
         }
 
