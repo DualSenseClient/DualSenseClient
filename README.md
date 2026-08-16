@@ -24,7 +24,7 @@ DualSense Client
 
 ## Overview
 
-**DualSense Client** is an open-source management tool for the **PlayStation 5 DualSense Controller** on Windows and Linux. It provides lightbar and LED control, profile management, real-time input monitoring, rumble and adaptive trigger output, and audio playback to the controller's speaker and haptics. Built with .NET 10 and Avalonia, it connects over USB or Bluetooth through SDL3 HID with no drivers required.
+**DualSense Client** is an open-source management tool for the **PlayStation 5 DualSense Controller** on Windows and Linux. It provides lightbar and LED control, profile management, real-time input monitoring, rumble and adaptive trigger output, and audio playback to the controller's speaker and haptics. It can also create virtual controllers (Xbox 360, DualShock 4, or DualSense) through the embedded libVIIPER backend, and hide physical controllers from other applications via HidHide. Built with .NET 10 and Avalonia, it connects over USB or Bluetooth through HIDAPI (Provided by SDL3) with no drivers required.
 
 ## Supported Controllers
 
@@ -78,6 +78,19 @@ DualSense Client
 - Language selection (English currently; additional languages supported by the localization framework)
 - Configurable logging level with console and date-rotated file logging
 
+### Virtual Controller Emulation
+
+- Create a virtual **Xbox 360**, **DualShock 4**, or **DualSense** (Standard or Edge) controller that mirrors the physical controller's input, with rumble, lightbar, and trigger feedback forwarded back
+- Per-controller emulation settings applied on connection, adjustable from the device page or the tray menu
+- DualSense output exposes haptics, adaptive triggers, and audio interfaces to the host; host audio can be forwarded to the physical controller's speaker or headset with volume and haptic-strength controls
+- Powered by the bundled **libVIIPER** backend, which only requires the USBIP driver on the host system
+
+### Controller Hiding
+
+- Hide a physical controller from other applications with a per-controller toggle, preventing double input in games
+- The app whitelists itself so it continues to see the hidden controller
+- Requires the **HidHide** driver on Windows
+
 ## Getting Started
 
 ### Prerequisites
@@ -85,6 +98,10 @@ DualSense Client
 - **Windows 10 or later** with the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) installed (the Windows build is framework-dependent)
 - **Linux** — no .NET installation required (self-contained build)
 - **PlayStation 5 DualSense controller** (wired USB or Bluetooth connection)
+- **HidHide** (optional, Windows only) — driver for hiding physical controllers from other applications; see [nefarius/HidHide](https://github.com/nefarius/HidHide)
+- **USB/IP** (optional, virtual controller emulation only) — libVIIPER is bundled with the app; it only needs the USB/IP driver to attach virtual devices:
+  - Windows: [usbip-win2](https://github.com/vadimgrn/usbip-win2)
+  - Linux: install `usbip` (Arch: `sudo pacman -S usbip`; Ubuntu/Debian: `sudo apt install linux-tools-generic`)
 
 ### Installation
 
@@ -130,6 +147,8 @@ Requires the .NET 10 SDK. Releases are produced automatically by CI for Windows 
 - **Controller not detected on Linux**: Check that the udev rule is installed (see the [hidapi udev rules](https://github.com/libusb/hidapi/blob/master/udev/69-hid.rules) reference above), or run the application with elevated privileges
 - **Bluetooth connection issues**: Restart the Bluetooth service or pair the controller again through your system settings
 - **Missing .NET runtime on Windows**: Install the required .NET 10 Desktop Runtime from Microsoft's website
+- **Virtual controller does not appear**: Install the USB/IP driver (Windows: [usbip-win2](https://github.com/vadimgrn/usbip-win2); Linux: `sudo pacman -S usbip` or `sudo apt install linux-tools-generic`) and restart the app
+- **A game receives double input**: Install the HidHide driver and enable the hide toggle for the physical controller on its device page
 
 ## Credits
 
@@ -144,6 +163,8 @@ Requires the .NET 10 SDK. Releases are produced automatically by CI for Windows 
 - [SoundFlow](https://github.com/LSXPrime/SoundFlow) — Audio playback with FFmpeg codec support
 - [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet) — MVVM framework with source generators
 - [Microsoft.Extensions.DependencyInjection](https://github.com/dotnet/runtime) — Dependency injection container
+- [Nefarius.Drivers.HidHide](https://github.com/nefarius/Nefarius.Drivers.HidHide) — .NET bindings for the HidHide driver
+- [libVIIPER](https://github.com/DualSenseClient/VIIPER) — Virtual controller emulation backend, stream protocol, and haptics
 
 ### Research
 
@@ -152,7 +173,8 @@ The DualSense protocol, audio, and haptics implementations were developed using 
 - [Linux kernel hid-playstation driver](https://github.com/torvalds/linux/blob/master/drivers/hid/hid-playstation.c) — Protocol reference, report layouts, calibration, and battery logic
 - [dualsense-tester](https://github.com/daidr/dualsense-tester) — Input/output report field maps and trigger effect logic
 - [vds](https://github.com/hurryman2212/vds) — Output report structs and Bluetooth audio/haptics implementation
-- [VIIPER](https://github.com/hbashton/VIIPER) — Virtual DualSense emulation, stream protocol, and haptics
+- [HidHide](https://github.com/nefarius/HidHide) — Driver for hiding physical controllers from other applications
+- [VIIPER](https://github.com/hbashton/VIIPER) — Virtual DualSense emulation, stream protocol, and haptics (base for libVIIPER)
 - [SAxense](https://github.com/egormanga/SAxense) — Bluetooth audio/haptics packet framing
 - [DS5Dongle](https://github.com/awalol/DS5Dongle) — Bluetooth audio reports, feature reports, and firmware info
 - [dualsense-bt-haptics](https://github.com/awalol/dualsense-bt-haptics) — Bluetooth haptics and speaker playback in C#
