@@ -233,15 +233,22 @@ public partial class DeviceInfoPageViewModel : ObservableObject
             _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
             OnPropertyChanged(nameof(EmulationModeIndex));
             OnPropertyChanged(nameof(IsDualSenseEmulation));
+            OnPropertyChanged(nameof(IsAudioEmulation));
             _emulation.Refresh();
         }
     }
 
     /// <summary>
     /// Whether the selected controller's emulation mode is DualSense, the only mode
-    /// with an audio forwarding lane.
+    /// with a DualSense hardware variant.
     /// </summary>
     public bool IsDualSenseEmulation => EmulationModeIndex == (int)EmulationMode.DualSense;
+
+    /// <summary>
+    /// Whether the selected controller's emulation mode forwards host audio to the
+    /// physical controller (DualSense or DualShock 4).
+    /// </summary>
+    public bool IsAudioEmulation => EmulationModeIndex is (int)EmulationMode.DualSense or (int)EmulationMode.DualShock4;
 
     /// <summary>
     /// The DualSense hardware variant (<see cref="DualSenseVariant"/> value) of the
@@ -605,6 +612,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         OnPropertyChanged(nameof(ControllerName));
         OnPropertyChanged(nameof(EmulationModeIndex));
         OnPropertyChanged(nameof(IsDualSenseEmulation));
+        OnPropertyChanged(nameof(IsAudioEmulation));
         OnPropertyChanged(nameof(DualSenseVariantIndex));
         OnPropertyChanged(nameof(ForwardAudioOutputIndex));
         OnPropertyChanged(nameof(ForwardVolume));

@@ -16,8 +16,8 @@ namespace DualSenseClient.Controllers.Emulation;
 /// Creates a virtual controller for every tracked DualSense whose controller-level
 /// emulation settings enable it. Owns the libVIIPER USB server, the per-controller
 /// virtual device lifecycles, the HID exclusion that keeps the virtual devices out of
-/// the app's own enumeration, and — for DualSense emulation — the host-audio
-/// forwarders that play host audio through the physical controllers.
+/// the app's own enumeration, and — for DualSense and DualShock 4 emulation — the
+/// host-audio forwarders that play host audio through the physical controllers.
 /// </summary>
 public interface IEmulationService : IDisposable
 {
@@ -48,14 +48,14 @@ public interface IEmulationService : IDisposable
     /// <summary>
     /// Applies the forwarding volume and haptic strength to the given controller's
     /// active host-audio forwarder without recreating the virtual controller. No-op
-    /// when DualSense emulation is not active for that controller.
+    /// when audio forwarding is not active for that controller.
     /// </summary>
     void SetForwardingAudioOptions(DualSenseDevice device, byte speakerVolume, float hapticStrength);
 
     /// <summary>
     /// Routes the given controller's forwarded host audio to its headset jack instead
     /// of its internal speaker without recreating the virtual controller. No-op when
-    /// DualSense emulation is not active for that controller.
+    /// audio forwarding is not active for that controller.
     /// </summary>
     void SetForwardingAudioOutput(DualSenseDevice device, bool headset);
 }
@@ -304,17 +304,19 @@ public sealed class EmulationService : IEmulationService
         public IVirtualController? Virtual;
 
         /// <summary>
-        /// Forwards host audio to the physical controller while DualSense emulation is
-        /// active, or <c>null</c> in other modes. Lives and dies with <see cref="Virtual"/>.
+        /// Forwards host audio to the physical controller while DualSense or
+        /// DualShock 4 emulation is active, or <c>null</c> in other modes. Lives and
+        /// dies with <see cref="Virtual"/>.
         /// </summary>
         public ViiperDualSenseAudioForwarder? Forwarder;
 
         /// <summary>
-        /// Captures the audio the host renders to the virtual DualSense and feeds it to
-        /// <see cref="Forwarder"/>, or <c>null</c> when not forwarding. Lives and dies
-        /// with <see cref="Virtual"/>; must be disposed before the virtual device is removed.
+        /// Captures the audio the host renders to the virtual controller (DualSense or
+        /// DualShock 4) and feeds it to <see cref="Forwarder"/>, or <c>null</c> when
+        /// not forwarding. Lives and dies with <see cref="Virtual"/>; must be disposed
+        /// before the virtual device is removed.
         /// </summary>
-        public ViiperDualSenseAudioCapture? Capture;
+        public IDisposable? Capture;
 
         /// <summary>
         /// The USB bus owned by <see cref="Virtual"/>, removed together with it.
@@ -499,10 +501,11 @@ public sealed class EmulationService : IEmulationService
                 _enumerator.ExcludeDevice(path);
             }
 
-            ViiperDualSenseAudioForwarder? forwarder = mode == EmulationMode.DualSense
+            bool forwardFeatures = mode is EmulationMode.DualSense or EmulationMode.DualShock4;
+            ViiperDualSenseAudioForwarder? forwarder = forwardFeatures
                 ? CreateAudioForwarder(outputs, emulation)
                 : null;
-            ViiperDualSenseAudioCapture? capture = null;
+            IDisposable? capture = null;
             if (forwarder is not null && virtualController is VirtualDualSenseController dualSense)
             {
                 dualSense.OutputStateReceived += forwarder.UpdateGameOutputState;
@@ -512,9 +515,17 @@ public sealed class EmulationService : IEmulationService
                     capture = new ViiperDualSenseAudioCapture(deviceHandle, forwarder);
                 }
             }
+            else if (forwarder is not null && virtualController is VirtualDualShock4Controller dualShock4)
+            {
+                dualShock4.OutputStateReceived += forwarder.UpdateGameOutputState;
+                if (dualShock4.DeviceHandle is { } deviceHandle)
+                {
+                    capture = new ViiperDualShock4AudioCapture(deviceHandle, forwarder);
+                }
+            }
             if (forwarder is not null)
             {
-                _log.Info($"Host audio forwarding {(forwarder.Start() ? "started" : "unavailable")} for the virtual DualSense");
+                _log.Info($"Host audio forwarding {(forwarder.Start() ? "started" : "unavailable")} for the virtual {mode}");
             }
 
             lock (_sync)
@@ -601,10 +612,10 @@ public sealed class EmulationService : IEmulationService
         => _controllerInfo.GetEmulationSettings(device.PairingInfo?.ClientMac, device.Info.Path);
 
     /// <summary>
-    /// Creates the host-audio forwarder for the virtual DualSense: Bluetooth audio
-    /// reports to the physical controller over the same outputs lane, and the USB
-    /// UAC render endpoint for wired playback (when the pad exposes one). The
-    /// controller's forwarding volume, haptic strength and speaker/headset route are
+    /// Creates the host-audio forwarder: Bluetooth audio reports to the physical
+    /// controller over the same outputs lane, and the USB UAC render endpoint for
+    /// wired playback (when the pad exposes one). The controller's forwarding
+    /// volume, haptic strength, haptics/audio toggles and speaker/headset route are
     /// applied on creation.
     /// </summary>
     private ViiperDualSenseAudioForwarder CreateAudioForwarder(DualSenseDeviceOutputs outputs, EmulationSettings? emulation)
@@ -695,10 +706,17 @@ public sealed class EmulationService : IEmulationService
         IVirtualController virtualController = entry.Virtual;
         entry.Virtual = null;
 
-        if (virtualController is VirtualDualSenseController dualSense && entry.Forwarder is { } forwarder)
+        if (entry.Forwarder is { } forwarder)
         {
-            dualSense.OutputStateReceived -= forwarder.UpdateGameOutputState;
-            dualSense.RealtimeHapticsReceived -= forwarder.UpdateGameHaptics;
+            if (virtualController is VirtualDualSenseController dualSense)
+            {
+                dualSense.OutputStateReceived -= forwarder.UpdateGameOutputState;
+                dualSense.RealtimeHapticsReceived -= forwarder.UpdateGameHaptics;
+            }
+            else if (virtualController is VirtualDualShock4Controller dualShock4)
+            {
+                dualShock4.OutputStateReceived -= forwarder.UpdateGameOutputState;
+            }
         }
 
         entry.Capture?.Dispose();

@@ -26,6 +26,13 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
     private readonly DS4OutputCallback _outputCallback;
 
     /// <summary>
+    /// Raised on the libVIIPER callback thread after the host's output state (rumble,
+    /// lightbar, player LEDs) was forwarded to the physical controller. Subscribers
+    /// must not block.
+    /// </summary>
+    public event Action<SetStateData>? OutputStateReceived;
+
+    /// <summary>
     /// Creates and attaches a virtual DualShock 4 device on the given USB bus.
     /// </summary>
     /// <param name="serverHandle">The USB server hosting the device.</param>
@@ -102,8 +109,14 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
     {
         Outputs.SetVibration(rumbleLarge, rumbleSmall);
 
+        // The rumble bytes ride the payload too: while the Bluetooth audio lane is
+        // open the pad ignores standalone output reports, and the audio forwarder
+        // embeds this state into the combined reports (synthesizing the rumble into
+        // the haptics PCM) instead.
         SetStateData payload = new SetStateData
         {
+            RumbleLeft = rumbleLarge,
+            RumbleRight = rumbleSmall,
             ValidFlag1 = ValidFlags.AllowLedColor | ValidFlags.AllowPlayerIndicators,
             ValidFlag2 = ValidFlags.AllowColorFadeAnim,
             LightFadeAnimation = 0x02,
@@ -112,6 +125,7 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
             LedBlue = ledBlue
         };
         Outputs.SendOutputState(payload);
+        OutputStateReceived?.Invoke(payload);
     }
 
     /// <inheritdoc/>
