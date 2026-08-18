@@ -192,7 +192,8 @@ The DualSense protocol, audio, and haptics implementations were developed using 
 
 ### Assets
 
-- [DualSense Controller Mockup](https://www.titanui.com/106136-ps5-dualsense-controller-vector-illustration-figma) — Mockup design used for the controller illustration
+- [Gamepad Asset Pack](https://github.com/AL2009man/Gamepad-Asset-Pack) — DualSense controller artwork used on the device info page
+- [Gamepad Prompt Asset Pack](https://github.com/AL2009man/Gamepad-Prompt-Asset-Pack) — PlayStation button prompt icons used in the input monitor
 
 ## Disclaimer
 

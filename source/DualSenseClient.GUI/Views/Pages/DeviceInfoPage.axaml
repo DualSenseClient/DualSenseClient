@@ -31,11 +31,15 @@
                 </Expander.Header>
                 <StackPanel Spacing="8">
                     <cards:CustomCard>
-                        <Image Source="/Assets/Controller Illustration/With Buttons.png"
+                        <Image Source="{Binding ControllerImage}"
                                Width="280"
                                HorizontalAlignment="Center"
                                RenderOptions.BitmapInterpolationMode="HighQuality" />
                     </cards:CustomCard>
+                    <cards:ComboBoxCard Title="{DynamicResource DeviceInfoPage.Device.Skin}"
+                                        Description="{DynamicResource DeviceInfoPage.Device.Skin.Description}"
+                                        ItemsSource="{Binding Skins}"
+                                        SelectedIndex="{Binding SkinIndex}" />
                     <cards:TextBoxCard Title="{DynamicResource DeviceInfoPage.Device.Name}"
                                        Text="{Binding ControllerName}"
                                        MaxLength="{x:Static settings:ControllerInfoService.MaxNameLength}" />

@@ -206,6 +206,61 @@ public class ControllerInfoServiceTests
     }
 
     [Test]
+    public void GetSkin_ReturnsNull_WhenNoneStored()
+    {
+        ControllerInfoService service = CreateService();
+        Assert.That(service.GetSkin("AA:BB:CC:DD:EE:FF", string.Empty), Is.Null);
+    }
+
+    [Test]
+    public void SetSkin_StoresAndPersistsSkin()
+    {
+        ControllerInfoService service = CreateService();
+        service.SetSkin("AA:BB:CC:DD:EE:FF", @"\\?\HID#VID_054C#1", "Cosmic Red");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.GetSkin("AA:BB:CC:DD:EE:FF", string.Empty), Is.EqualTo("Cosmic Red"));
+            Assert.That(service.GetSkin(string.Empty, @"\\?\HID#VID_054C#1"), Is.EqualTo("Cosmic Red"));
+        });
+
+        ControllerInfoService reloaded = CreateService();
+        Assert.That(reloaded.GetSkin("AA:BB:CC:DD:EE:FF", string.Empty), Is.EqualTo("Cosmic Red"));
+    }
+
+    [Test]
+    public void SetSkin_ReplacesSkin_OnSameController()
+    {
+        ControllerInfoService service = CreateService();
+        service.SetSkin("AA:BB:CC:DD:EE:FF", string.Empty, "Cosmic Red");
+        service.SetSkin("AA:BB:CC:DD:EE:FF", string.Empty, "White");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.GetSkin("AA:BB:CC:DD:EE:FF", string.Empty), Is.EqualTo("White"));
+            Assert.That(service.Settings.Controllers, Has.Count.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void SetSkin_ClearsSkin_WhenNull()
+    {
+        ControllerInfoService service = CreateService();
+        service.SetSkin("AA:BB:CC:DD:EE:FF", string.Empty, "Cosmic Red");
+        service.SetSkin("AA:BB:CC:DD:EE:FF", string.Empty, null);
+
+        Assert.That(service.GetSkin("AA:BB:CC:DD:EE:FF", string.Empty), Is.Null);
+    }
+
+    [Test]
+    public void SetSkin_EmptyIdentifiers_IsIgnored()
+    {
+        ControllerInfoService service = CreateService();
+        service.SetSkin(string.Empty, string.Empty, "Cosmic Red");
+        Assert.That(service.Settings.Controllers, Is.Empty);
+    }
+
+    [Test]
     public void RenameController_RenamesAndPersists()
     {
         ControllerInfoService service = CreateService();

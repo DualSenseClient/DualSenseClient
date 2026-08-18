@@ -304,6 +304,47 @@ public sealed class ControllerInfoService
     }
 
     /// <summary>
+    /// Gets the illustration skin stored for a controller, or <c>null</c> when the
+    /// controller has no entry or no stored skin (use the default skin in that case).
+    /// </summary>
+    /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>
+    /// <param name="devicePath">The controller's HID device path, or <c>null</c>/empty when unavailable.</param>
+    public string? GetSkin(string? mac, string? devicePath)
+    {
+        ControllerInfo? info = FindController(NormalizeMac(mac), NormalizePath(devicePath));
+        return info is null || string.IsNullOrEmpty(info.Skin) ? null : info.Skin;
+    }
+
+    /// <summary>
+    /// Sets (or clears) the illustration skin stored for a controller and persists the
+    /// change. The controller's entry is created if not registered yet.
+    /// </summary>
+    /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>
+    /// <param name="devicePath">The controller's HID device path, or <c>null</c>/empty when unavailable.</param>
+    /// <param name="skin">The skin name to store, or <c>null</c>/empty to clear it.</param>
+    public void SetSkin(string? mac, string? devicePath, string? skin)
+    {
+        string normalizedMac = NormalizeMac(mac);
+        string normalizedPath = NormalizePath(devicePath);
+        if (string.IsNullOrEmpty(normalizedMac) && string.IsNullOrEmpty(normalizedPath))
+        {
+            return;
+        }
+
+        ControllerInfo? info = FindController(normalizedMac, normalizedPath);
+        if (info is null)
+        {
+            info = new ControllerInfo();
+            Settings.Controllers.Add(info);
+        }
+
+        info.MacAddress = normalizedMac;
+        info.DevicePath = normalizedPath;
+        info.Skin = skin ?? string.Empty;
+        Save();
+    }
+
+    /// <summary>
     /// Updates the stored profile name on every controller entry after a profile is renamed,
     /// so controllers keep their assignment. Persists only when something changed.
     /// </summary>

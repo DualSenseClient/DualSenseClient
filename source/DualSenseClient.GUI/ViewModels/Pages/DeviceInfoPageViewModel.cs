@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -52,6 +53,11 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// display name of the selected controller.
     /// </summary>
     private readonly ControllerInfoService _controllerService;
+
+    /// <summary>
+    /// Service providing the embedded controller illustration skins and their bitmaps.
+    /// </summary>
+    private readonly ControllerIllustrationService _illustrationService;
 
     /// <summary>
     /// Service creating the selected controller's virtual controller and applying
@@ -153,6 +159,58 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// </summary>
     [RelayCommand]
     private void ToggleBatteryDisplay() => ShowBatteryPercentage = !ShowBatteryPercentage;
+
+    // ── Controller illustration ────────────────────────────────
+
+    /// <summary>
+    /// The available controller illustration skins, in display order.
+    /// </summary>
+    public ObservableCollection<string> Skins { get; } = [];
+
+    /// <summary>
+    /// The illustration bitmap of the selected controller's skin, or <c>null</c> when no
+    /// skin is available.
+    /// </summary>
+    public Bitmap? ControllerImage { get; private set; }
+
+    /// <summary>
+    /// The index of the selected controller's illustration skin in <see cref="Skins"/>.
+    /// Setting it stores the skin per controller in <see cref="ControllerInfoService"/>
+    /// and refreshes the illustration.
+    /// </summary>
+    public int SkinIndex
+    {
+        get => _skinIndex;
+        set
+        {
+            if (value < 0 || value >= Skins.Count || value == _skinIndex)
+            {
+                return;
+            }
+
+            string skin = Skins[value];
+            _log.Info($"Setting illustration skin of {CurrentMac} to '{skin}'");
+            _skinIndex = value;
+            _controllerService.SetSkin(CurrentMac, CurrentDevicePath, skin);
+            OnPropertyChanged();
+            ReloadControllerImage();
+        }
+    }
+
+    /// <summary>
+    /// Backing field for <see cref="SkinIndex"/>.
+    /// </summary>
+    private int _skinIndex;
+
+    /// <summary>
+    /// Reloads <see cref="ControllerImage"/> from the currently selected skin.
+    /// </summary>
+    private void ReloadControllerImage()
+    {
+        string skin = Skins.Count > 0 ? Skins[Math.Clamp(_skinIndex, 0, Skins.Count - 1)] : string.Empty;
+        ControllerImage = _illustrationService.GetSkinImage(skin);
+        OnPropertyChanged(nameof(ControllerImage));
+    }
 
     /// <summary>
     /// Whether a controller is selected and its info can be displayed.
@@ -540,8 +598,13 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     {
         _mainViewModel = App.Services.GetRequiredService<MainViewModel>();
         _controllerService = App.Services.GetRequiredService<ControllerInfoService>();
+        _illustrationService = App.Services.GetRequiredService<ControllerIllustrationService>();
         _emulation = App.Services.GetRequiredService<IEmulationService>();
         _hiding = App.Services.GetRequiredService<IControllerHidingService>();
+        foreach (string skin in _illustrationService.GetSkins())
+        {
+            Skins.Add(skin);
+        }
         _emulation.StateChanged += OnEmulationStateChanged;
         _emulationSaveTimer = new DispatcherTimer { Interval = EmulationSaveDebounce };
         _emulationSaveTimer.Tick += (_, _) => SaveEmulationDebounced();
@@ -607,9 +670,15 @@ public partial class DeviceInfoPageViewModel : ObservableObject
             ? string.Empty
             : _controllerService.GetDisplayName(CurrentMac, CurrentDevicePath, selected.DisplayName);
 
+        string storedSkin = selected is null ? string.Empty : _controllerService.GetSkin(CurrentMac, CurrentDevicePath) ?? string.Empty;
+        int storedIndex = Skins.IndexOf(storedSkin);
+        _skinIndex = storedIndex >= 0 ? storedIndex : 0;
+        ReloadControllerImage();
+
         OnPropertyChanged(nameof(CurrentDevice));
         OnPropertyChanged(nameof(HasDevice));
         OnPropertyChanged(nameof(ControllerName));
+        OnPropertyChanged(nameof(SkinIndex));
         OnPropertyChanged(nameof(EmulationModeIndex));
         OnPropertyChanged(nameof(IsDualSenseEmulation));
         OnPropertyChanged(nameof(IsAudioEmulation));
