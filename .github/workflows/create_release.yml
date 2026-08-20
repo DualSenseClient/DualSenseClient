@@ -142,13 +142,13 @@ jobs:
           $versionPrefix = "v$version-"
           $maxN = 0
           foreach ($t in (git tag --list "$versionPrefix*")) {
-            $m = [regex]::Match($t, "^" + [regex]::Escape($versionPrefix) + "[0-9a-f]{7}\.(\d+)$")
+            $m = [regex]::Match($t, "^" + [regex]::Escape($versionPrefix) + "(\d+)\.([0-9a-f]{7})$")
             if ($m.Success) {
               $n = [int]$m.Groups[1].Value
               if ($n -gt $maxN) { $maxN = $n }
             }
           }
-          $tag = "$versionPrefix$shaShort.$($maxN + 1)"
+          $tag = "$versionPrefix$($maxN + 1).$shaShort"
 
           Write-Host "Creating pre-release $tag ..."
           gh release create $tag DualSenseClient.zip DualSenseClient-linux.zip .\publish\appimage\DualSenseClient.AppImage --prerelease --title "DualSenseClient ($tag)" --notes "$notes" --target $branch
