@@ -30,7 +30,7 @@
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                Margin="1,0,0,0" />
                     <StackPanel Orientation="Horizontal">
-                        <HyperlinkButton NavigateUri="https://github.com/shazzaam7/DualSenseClient"
+                        <HyperlinkButton NavigateUri="https://github.com/DualSenseClient/DualSenseClient"
                                          Content="{DynamicResource SettingsPage.Header.Github}"
                                          FontSize="12"
                                          Margin="-10,0,0,0" />
