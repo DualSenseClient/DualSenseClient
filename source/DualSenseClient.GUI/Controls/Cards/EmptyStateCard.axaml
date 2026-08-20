@@ -17,7 +17,8 @@
                                    FontWeight="SemiBold" />
                         <TextBlock Text="{TemplateBinding Description}"
                                    FontSize="12"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
             </ControlTemplate>

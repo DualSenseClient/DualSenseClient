@@ -29,6 +29,7 @@
                         <TextBlock FontSize="12"
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                    Text="{TemplateBinding Description}"
+                                   TextWrapping="Wrap"
                                    IsVisible="{TemplateBinding Description, Converter={StaticResource NotNullConverter}}" />
                     </StackPanel>
 
