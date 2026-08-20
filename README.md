@@ -17,7 +17,7 @@ DualSense Client
 
 <p align="center">
   <a href="https://github.com/DualSenseClient/DualSenseClient/releases/latest"><img src="https://img.shields.io/github/v/release/DualSenseClient/DualSenseClient?label=Latest%20Release" alt="Latest Release"></a>
-  <a href="https://github.com/DualSenseClient/DualSenseClient/releases/tag/nightly"><img src="https://img.shields.io/github/v/release/DualSenseClient/DualSenseClient?include_prereleases&label=Pre-Release&color=orange" alt="Pre-Release"></a>
+  <a href="https://github.com/DualSenseClient/DualSenseClient/releases"><img src="https://img.shields.io/github/v/release/DualSenseClient/DualSenseClient?include_prereleases&label=Pre-Release&color=orange" alt="Pre-Release"></a>
 </p>
 
 ---

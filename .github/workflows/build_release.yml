@@ -22,8 +22,6 @@ on:
         required: false
         type: boolean
         default: true
-  pull_request:
-    types: [closed]
   push:
     paths:
       - "source/**"
@@ -75,7 +73,7 @@ jobs:
     needs: build
     if: |
       always() &&
-      (github.event_name == 'workflow_dispatch' || github.event_name == 'push') &&
+      github.event_name == 'workflow_dispatch' &&
       needs.build.result == 'success' &&
       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
     uses: ./.github/workflows/create_release.yml
