@@ -888,8 +888,9 @@ public class SpecialActionEngineTests
         FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
         Assert.That(engine.OutputOverride.LightbarColor, Is.EqualTo(((byte)0xAA, (byte)0xBB, (byte)0xCC)));
 
-        Assert.That(WaitUntil(() => engine.OutputOverride.LightbarColor is null), Is.True, "Override was not cleared after the duration");
+        Assert.That(WaitUntil(() => hid.Writes.Count == 2), Is.True, "Timed light action did not restore the profile after its duration");
         Assert.That(hid.Writes, Has.Count.EqualTo(2));
+        Assert.That(engine.OutputOverride.LightbarColor, Is.Null);
 
         engine.Dispose();
         device.Dispose();

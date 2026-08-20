@@ -422,6 +422,12 @@ public sealed class SpecialActionService
                 Save();
             }
         }
+        catch (JsonException)
+        {
+            // The store already fell back to defaults for an invalid file; there is
+            // nothing to migrate from malformed legacy data.
+            _log.Debug("Legacy special actions file is not valid JSON; nothing to migrate");
+        }
         catch (Exception ex)
         {
             _log.Warning("Failed to migrate legacy special actions");
