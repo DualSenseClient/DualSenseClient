@@ -158,6 +158,7 @@
                         <!-- Asset-based controller visualization -->
                         <controls:DualSenseControllerView State="{Binding CurrentDevice}"
                                                           SkinName="{Binding SkinName}"
+                                                          ShowStats="{Binding ShowStats}"
                                                           HorizontalAlignment="Center" />
 
                         <!-- Edge function and back paddle buttons (DualSense Edge only) -->
@@ -182,189 +183,168 @@
                                 <TextBlock Text="{DynamicResource InputMonitorPage.Button.FnR}" />
                             </Border>
                         </StackPanel>
+
+                        <!-- Visualization display options -->
+                        <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.TextNumberFormat}"
+                                                Title="{DynamicResource InputMonitorPage.Display.Stats.Title}"
+                                                IsChecked="{Binding ShowStats}" />
+
+                        <!-- Motion (shown only while stats are enabled) -->
+                        <StackPanel Spacing="8"
+                                    IsVisible="{Binding ShowStats}">
+                            <cards:CustomCard>
+                                <StackPanel Spacing="8">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="{DynamicResource InputMonitorPage.Motion.GyroX}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding CurrentDevice.GyroX}"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="{DynamicResource InputMonitorPage.Motion.GyroY}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding CurrentDevice.GyroY}"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="{DynamicResource InputMonitorPage.Motion.GyroZ}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding CurrentDevice.GyroZ}"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" />
+                                    </Grid>
+                                    <cards:CustomCard>
+                                        <StackPanel Spacing="8">
+                                            <controls:MotionGraph x:Name="GyroGraph"
+                                                                  Height="120"
+                                                                  Axis="Gyro"
+                                                                  SeriesXBrush="{DynamicResource MotionGraphXBrush}"
+                                                                  SeriesYBrush="{DynamicResource MotionGraphYBrush}"
+                                                                  SeriesZBrush="{DynamicResource MotionGraphZBrush}" />
+                                            <StackPanel Orientation="Horizontal"
+                                                        Spacing="16"
+                                                        HorizontalAlignment="Center">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <Border Width="12"
+                                                            Height="12"
+                                                            CornerRadius="3"
+                                                            Background="{DynamicResource MotionGraphXBrush}"
+                                                            VerticalAlignment="Center" />
+                                                    <TextBlock Text="X"
+                                                               FontSize="12"
+                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                               VerticalAlignment="Center" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <Border Width="12"
+                                                            Height="12"
+                                                            CornerRadius="3"
+                                                            Background="{DynamicResource MotionGraphYBrush}"
+                                                            VerticalAlignment="Center" />
+                                                    <TextBlock Text="Y"
+                                                               FontSize="12"
+                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                               VerticalAlignment="Center" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <Border Width="12"
+                                                            Height="12"
+                                                            CornerRadius="3"
+                                                            Background="{DynamicResource MotionGraphZBrush}"
+                                                            VerticalAlignment="Center" />
+                                                    <TextBlock Text="Z"
+                                                               FontSize="12"
+                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                               VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </cards:CustomCard>
+                                </StackPanel>
+                            </cards:CustomCard>
+                            <cards:CustomCard>
+                                <StackPanel Spacing="8">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="{DynamicResource InputMonitorPage.Motion.AccelX}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding CurrentDevice.AccelX}"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="{DynamicResource InputMonitorPage.Motion.AccelY}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding CurrentDevice.AccelY}"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="{DynamicResource InputMonitorPage.Motion.AccelZ}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding CurrentDevice.AccelZ}"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" />
+                                    </Grid>
+                                    <cards:CustomCard>
+                                        <StackPanel Spacing="8">
+                                            <controls:MotionGraph x:Name="AccelGraph"
+                                                                  Height="120"
+                                                                  Axis="Accel"
+                                                                  SeriesXBrush="{DynamicResource MotionGraphXBrush}"
+                                                                  SeriesYBrush="{DynamicResource MotionGraphYBrush}"
+                                                                  SeriesZBrush="{DynamicResource MotionGraphZBrush}" />
+                                            <StackPanel Orientation="Horizontal"
+                                                        Spacing="16"
+                                                        HorizontalAlignment="Center">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <Border Width="12"
+                                                            Height="12"
+                                                            CornerRadius="3"
+                                                            Background="{DynamicResource MotionGraphXBrush}"
+                                                            VerticalAlignment="Center" />
+                                                    <TextBlock Text="X"
+                                                               FontSize="12"
+                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                               VerticalAlignment="Center" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <Border Width="12"
+                                                            Height="12"
+                                                            CornerRadius="3"
+                                                            Background="{DynamicResource MotionGraphYBrush}"
+                                                            VerticalAlignment="Center" />
+                                                    <TextBlock Text="Y"
+                                                               FontSize="12"
+                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                               VerticalAlignment="Center" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <Border Width="12"
+                                                            Height="12"
+                                                            CornerRadius="3"
+                                                            Background="{DynamicResource MotionGraphZBrush}"
+                                                            VerticalAlignment="Center" />
+                                                    <TextBlock Text="Z"
+                                                               FontSize="12"
+                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                               VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </cards:CustomCard>
+                                </StackPanel>
+                            </cards:CustomCard>
+                        </StackPanel>
                     </StackPanel>
                 </cards:CustomCard>
-            </Expander>
-
-            <!-- Motion -->
-            <Expander IsVisible="{Binding HasDevice}"
-                      IsExpanded="True">
-                <Expander.Header>
-                    <cards:CardHeader Title="{DynamicResource InputMonitorPage.Motion.Title}"
-                                      Description="{DynamicResource InputMonitorPage.Motion.Description}"
-                                      Icon="{x:Static fic:Symbol.Gauge}"
-                                      MinHeight="64" />
-                </Expander.Header>
-                <StackPanel Spacing="8">
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource InputMonitorPage.Motion.GyroX}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.GyroX}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource InputMonitorPage.Motion.GyroY}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.GyroY}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource InputMonitorPage.Motion.GyroZ}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.GyroZ}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <Expander IsExpanded="False">
-                        <Expander.Header>
-                            <cards:CardHeader Title="{DynamicResource InputMonitorPage.Motion.GyroGraph.Title}"
-                                              Icon="{x:Static fic:Symbol.Gauge}"
-                                              MinHeight="56" />
-                        </Expander.Header>
-                        <StackPanel Spacing="8">
-                            <cards:CustomCard>
-                                <controls:MotionGraph x:Name="GyroGraph"
-                                                      Height="120"
-                                                      Axis="Gyro"
-                                                      SeriesXBrush="{DynamicResource MotionGraphXBrush}"
-                                                      SeriesYBrush="{DynamicResource MotionGraphYBrush}"
-                                                      SeriesZBrush="{DynamicResource MotionGraphZBrush}" />
-                            </cards:CustomCard>
-                            <StackPanel Orientation="Horizontal"
-                                        Spacing="16"
-                                        HorizontalAlignment="Center">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <Border Width="12"
-                                            Height="12"
-                                            CornerRadius="3"
-                                            Background="{DynamicResource MotionGraphXBrush}"
-                                            VerticalAlignment="Center" />
-                                    <TextBlock Text="X"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                               VerticalAlignment="Center" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <Border Width="12"
-                                            Height="12"
-                                            CornerRadius="3"
-                                            Background="{DynamicResource MotionGraphYBrush}"
-                                            VerticalAlignment="Center" />
-                                    <TextBlock Text="Y"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                               VerticalAlignment="Center" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <Border Width="12"
-                                            Height="12"
-                                            CornerRadius="3"
-                                            Background="{DynamicResource MotionGraphZBrush}"
-                                            VerticalAlignment="Center" />
-                                    <TextBlock Text="Z"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                               VerticalAlignment="Center" />
-                                </StackPanel>
-                            </StackPanel>
-                        </StackPanel>
-                    </Expander>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource InputMonitorPage.Motion.AccelX}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.AccelX}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource InputMonitorPage.Motion.AccelY}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.AccelY}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource InputMonitorPage.Motion.AccelZ}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.AccelZ}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <Expander IsExpanded="False">
-                        <Expander.Header>
-                            <cards:CardHeader Title="{DynamicResource InputMonitorPage.Motion.AccelGraph.Title}"
-                                              Icon="{x:Static fic:Symbol.Gauge}"
-                                              MinHeight="56" />
-                        </Expander.Header>
-                        <StackPanel Spacing="8">
-                            <cards:CustomCard>
-                                <controls:MotionGraph x:Name="AccelGraph"
-                                                      Height="120"
-                                                      Axis="Accel"
-                                                      SeriesXBrush="{DynamicResource MotionGraphXBrush}"
-                                                      SeriesYBrush="{DynamicResource MotionGraphYBrush}"
-                                                      SeriesZBrush="{DynamicResource MotionGraphZBrush}" />
-                            </cards:CustomCard>
-                            <StackPanel Orientation="Horizontal"
-                                        Spacing="16"
-                                        HorizontalAlignment="Center">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <Border Width="12"
-                                            Height="12"
-                                            CornerRadius="3"
-                                            Background="{DynamicResource MotionGraphXBrush}"
-                                            VerticalAlignment="Center" />
-                                    <TextBlock Text="X"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                               VerticalAlignment="Center" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <Border Width="12"
-                                            Height="12"
-                                            CornerRadius="3"
-                                            Background="{DynamicResource MotionGraphYBrush}"
-                                            VerticalAlignment="Center" />
-                                    <TextBlock Text="Y"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                               VerticalAlignment="Center" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <Border Width="12"
-                                            Height="12"
-                                            CornerRadius="3"
-                                            Background="{DynamicResource MotionGraphZBrush}"
-                                            VerticalAlignment="Center" />
-                                    <TextBlock Text="Z"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                               VerticalAlignment="Center" />
-                                </StackPanel>
-                            </StackPanel>
-                        </StackPanel>
-                    </Expander>
-                </StackPanel>
             </Expander>
 
             <!-- Output Test: vibration and adaptive trigger testing -->

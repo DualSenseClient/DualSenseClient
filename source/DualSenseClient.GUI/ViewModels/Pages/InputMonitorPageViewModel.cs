@@ -68,6 +68,12 @@ public partial class InputMonitorPageViewModel : ObservableObject
     private InputMonitorItem? _previousItem;
 
     /// <summary>
+    /// Whether the value/coordinate tag labels are shown.
+    /// </summary>
+    [ObservableProperty]
+    private bool _showStats;
+
+    /// <summary>
     /// Whether a controller is selected and its input state can be displayed.
     /// </summary>
     public bool HasDevice => CurrentDevice is not null;

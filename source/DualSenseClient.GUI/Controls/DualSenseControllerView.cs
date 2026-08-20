@@ -20,7 +20,7 @@ namespace DualSenseClient.GUI.Controls;
 /// <remarks>
 /// <para>
 /// The layout is sprite-based: positions are given as offsets from the base image center in
-/// 1467x816 asset pixels, scaled down by <see cref="Scale"/> (0.5 by default). The triggers
+/// 1467x816 asset pixels, scaled down by <see cref="Scale"/> (0.45 by default). The triggers
 /// sit behind the base (visible through its holes), everything else on top.
 /// </para>
 /// <para>
@@ -35,7 +35,7 @@ public sealed class DualSenseControllerView : Canvas
     /// <summary>
     /// Default display scale applied to the 1467x816 asset-space layout.
     /// </summary>
-    private const double DefaultScale = 0.5;
+    private const double DefaultScale = 0.45;
 
     /// <summary>
     /// Asset-space width of the base controller image.
@@ -116,6 +116,7 @@ public sealed class DualSenseControllerView : Canvas
     /// Center offsets of the stick value tags, below the left and right sticks.
     /// </summary>
     private const double L3LabelCenterOffsetX = -240.7;
+
     private const double L3LabelCenterOffsetY = 360;
     private const double R3LabelCenterOffsetX = 242.0;
     private const double R3LabelCenterOffsetY = 360;
@@ -206,6 +207,30 @@ public sealed class DualSenseControllerView : Canvas
         AvaloniaProperty.Register<DualSenseControllerView, double>(nameof(Scale), DefaultScale);
 
     /// <summary>
+    /// Whether stick, trigger, and touch movement is shown on the visualization.
+    /// </summary>
+    public static readonly StyledProperty<bool> ShowMovementProperty =
+        AvaloniaProperty.Register<DualSenseControllerView, bool>(nameof(ShowMovement), true);
+
+    /// <summary>
+    /// Whether pressed button states are shown on the visualization.
+    /// </summary>
+    public static readonly StyledProperty<bool> ShowButtonPressesProperty =
+        AvaloniaProperty.Register<DualSenseControllerView, bool>(nameof(ShowButtonPresses), true);
+
+    /// <summary>
+    /// Whether the lightbar color, player LEDs, and microphone LED are shown.
+    /// </summary>
+    public static readonly StyledProperty<bool> ShowLightbarLedsProperty =
+        AvaloniaProperty.Register<DualSenseControllerView, bool>(nameof(ShowLightbarLeds), true);
+
+    /// <summary>
+    /// Whether the value/coordinate tag labels are shown.
+    /// </summary>
+    public static readonly StyledProperty<bool> ShowStatsProperty =
+        AvaloniaProperty.Register<DualSenseControllerView, bool>(nameof(ShowStats), true);
+
+    /// <summary>
     /// The controller state displayed by this view.
     /// </summary>
     public IControllerMonitorState? State
@@ -230,6 +255,42 @@ public sealed class DualSenseControllerView : Canvas
     {
         get => GetValue(ScaleProperty);
         set => SetValue(ScaleProperty, value);
+    }
+
+    /// <summary>
+    /// Whether stick, trigger, and touch movement is shown on the visualization.
+    /// </summary>
+    public bool ShowMovement
+    {
+        get => GetValue(ShowMovementProperty);
+        set => SetValue(ShowMovementProperty, value);
+    }
+
+    /// <summary>
+    /// Whether pressed button states are shown on the visualization.
+    /// </summary>
+    public bool ShowButtonPresses
+    {
+        get => GetValue(ShowButtonPressesProperty);
+        set => SetValue(ShowButtonPressesProperty, value);
+    }
+
+    /// <summary>
+    /// Whether the lightbar color, player LEDs, and microphone LED are shown.
+    /// </summary>
+    public bool ShowLightbarLeds
+    {
+        get => GetValue(ShowLightbarLedsProperty);
+        set => SetValue(ShowLightbarLedsProperty, value);
+    }
+
+    /// <summary>
+    /// Whether the value/coordinate tag labels are shown.
+    /// </summary>
+    public bool ShowStats
+    {
+        get => GetValue(ShowStatsProperty);
+        set => SetValue(ShowStatsProperty, value);
     }
 
     /// <summary>
@@ -367,6 +428,10 @@ public sealed class DualSenseControllerView : Canvas
         StateProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.Rebuild());
         SkinNameProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.Rebuild());
         ScaleProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.Rebuild());
+        ShowMovementProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.OnDisplayOptionsChanged());
+        ShowButtonPressesProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.OnDisplayOptionsChanged());
+        ShowLightbarLedsProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.OnDisplayOptionsChanged());
+        ShowStatsProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.OnDisplayOptionsChanged());
     }
 
     /// <summary>
@@ -470,7 +535,7 @@ public sealed class DualSenseControllerView : Canvas
 
         if (_baseImage is { } baseImage)
         {
-            (byte red, byte green, byte blue, byte leds) color = BaseState(state);
+            (byte red, byte green, byte blue, byte leds) color = ShowLightbarLeds ? BaseState(state) : ((byte)0, (byte)0, (byte)0, (byte)0);
             if (_baseState is not { } current || current != color)
             {
                 _baseState = color;
@@ -478,90 +543,127 @@ public sealed class DualSenseControllerView : Canvas
             }
         }
 
-        if (_micLed is { } micLed && state.MuteLedMode != _micLedMode)
+        if (_micLed is { } micLed)
         {
-            _micLedMode = state.MuteLedMode;
-            if (state.MuteLedMode == MicLedModeOn)
+            if (ShowLightbarLeds && state.MuteLedMode != _micLedMode)
             {
-                StopMicLedPulse();
-                micLed.Opacity = 1;
+                _micLedMode = state.MuteLedMode;
+                if (state.MuteLedMode == MicLedModeOn)
+                {
+                    StopMicLedPulse();
+                    micLed.Opacity = 1;
+                }
+                else if (state.MuteLedMode == MicLedModePulse)
+                {
+                    StartMicLedPulse(micLed);
+                }
+                else
+                {
+                    StopMicLedPulse();
+                    micLed.Opacity = 0;
+                }
             }
-            else if (state.MuteLedMode == MicLedModePulse)
-            {
-                StartMicLedPulse(micLed);
-            }
-            else
+            else if (!ShowLightbarLeds && _micLedMode != -1)
             {
                 StopMicLedPulse();
                 micLed.Opacity = 0;
+                _micLedMode = -1;
             }
         }
 
         foreach (OverlaySprite overlay in _overlays)
         {
-            overlay.Image.IsVisible = overlay.Pressed(state);
+            overlay.Image.IsVisible = ShowButtonPresses && overlay.Pressed(state);
         }
 
-        if (_leftStick is { } leftStick)
+        if (_leftStick is { } leftStick && ShowMovement)
         {
             Canvas.SetLeft(leftStick, CenteredX(-240.7, 173, StickOffset(state.LeftStickX), scale));
             Canvas.SetTop(leftStick, CenteredY(227.2, 147, StickOffset(state.LeftStickY), scale));
         }
 
-        if (_rightStick is { } rightStick)
+        if (_rightStick is { } rightStick && ShowMovement)
         {
             Canvas.SetLeft(rightStick, CenteredX(242.0, 175, StickOffset(state.RightStickX), scale));
             Canvas.SetTop(rightStick, CenteredY(228.6, 148, StickOffset(state.RightStickY), scale));
         }
 
-        if (_leftTrigger is { } leftTrigger)
+        if (_leftTrigger is { } leftTrigger && ShowMovement)
         {
             double top = CenteredY(-330.1, 152, 0, scale) + (state.L2 / 255.0) * TriggerTravel * scale;
             Canvas.SetTop(leftTrigger, top);
             if (_leftTriggerActive is { } leftTriggerActive)
             {
                 Canvas.SetTop(leftTriggerActive, top);
-                leftTriggerActive.IsVisible = state.L2Click;
+                leftTriggerActive.IsVisible = ShowButtonPresses && state.L2Click;
             }
         }
 
-        if (_rightTrigger is { } rightTrigger)
+        if (_rightTrigger is { } rightTrigger && ShowMovement)
         {
             double top = CenteredY(-333.1, 149, 0, scale) + (state.R2 / 255.0) * TriggerTravel * scale;
             Canvas.SetTop(rightTrigger, top);
             if (_rightTriggerActive is { } rightTriggerActive)
             {
                 Canvas.SetTop(rightTriggerActive, top);
-                rightTriggerActive.IsVisible = state.R2Click;
+                rightTriggerActive.IsVisible = ShowButtonPresses && state.R2Click;
             }
         }
 
         if (_l2Label is { } l2Label)
         {
-            l2Label.Text = $"L2: {state.L2}";
-            PositionTagLabel(l2Label, L2LabelCenterOffsetX, L2LabelCenterOffsetY, scale);
+            l2Label.IsVisible = ShowStats;
+            if (ShowStats)
+            {
+                l2Label.Text = $"L2: {state.L2}";
+                PositionTagLabel(l2Label, L2LabelCenterOffsetX, L2LabelCenterOffsetY, scale);
+            }
         }
 
         if (_r2Label is { } r2Label)
         {
-            r2Label.Text = $"R2: {state.R2}";
-            PositionTagLabel(r2Label, R2LabelCenterOffsetX, R2LabelCenterOffsetY, scale);
+            r2Label.IsVisible = ShowStats;
+            if (ShowStats)
+            {
+                r2Label.Text = $"R2: {state.R2}";
+                PositionTagLabel(r2Label, R2LabelCenterOffsetX, R2LabelCenterOffsetY, scale);
+            }
         }
 
         if (_l3Label is { } l3Label)
         {
-            l3Label.Text = $"L3  X: {state.LeftStickX}  Y: {state.LeftStickY}";
-            PositionTagLabel(l3Label, L3LabelCenterOffsetX, L3LabelCenterOffsetY, scale);
+            l3Label.IsVisible = ShowStats;
+            if (ShowStats)
+            {
+                l3Label.Text = $"L3  X: {state.LeftStickX}  Y: {state.LeftStickY}";
+                PositionTagLabel(l3Label, L3LabelCenterOffsetX, L3LabelCenterOffsetY, scale);
+            }
         }
 
         if (_r3Label is { } r3Label)
         {
-            r3Label.Text = $"R3  X: {state.RightStickX}  Y: {state.RightStickY}";
-            PositionTagLabel(r3Label, R3LabelCenterOffsetX, R3LabelCenterOffsetY, scale);
+            r3Label.IsVisible = ShowStats;
+            if (ShowStats)
+            {
+                r3Label.Text = $"R3  X: {state.RightStickX}  Y: {state.RightStickY}";
+                PositionTagLabel(r3Label, R3LabelCenterOffsetX, R3LabelCenterOffsetY, scale);
+            }
         }
 
-        PositionTouchDot(_touch1, _touch1Label, 1, state.Touch1Active, state.Touch1X, state.Touch1Y, scale);
-        PositionTouchDot(_touch2, _touch2Label, 2, state.Touch2Active, state.Touch2X, state.Touch2Y, scale);
+        PositionTouchDot(_touch1, _touch1Label, 1, ShowMovement && state.Touch1Active, state.Touch1X, state.Touch1Y, scale);
+        PositionTouchDot(_touch2, _touch2Label, 2, ShowMovement && state.Touch2Active, state.Touch2X, state.Touch2Y, scale);
+    }
+
+    /// <summary>
+    /// Re-applies the display options (movement, button presses, lights, stats) to the
+    /// current visuals without rebuilding them.
+    /// </summary>
+    private void OnDisplayOptionsChanged()
+    {
+        if (_state is not null)
+        {
+            UpdatePositions();
+        }
     }
 
     /// <summary>
@@ -628,8 +730,13 @@ public sealed class DualSenseControllerView : Canvas
             return;
         }
 
+        label.IsVisible = ShowStats;
+        if (!ShowStats)
+        {
+            return;
+        }
+
         label.Text = $"Touch {index}: {x}, {y}";
-        label.IsVisible = true;
         label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         double labelWidth = label.DesiredSize.Width;
         double left = Math.Clamp(centerX * scale - labelWidth / 2, 0, Math.Max(0, (BaseWidth - TouchLabelMargin) * scale - labelWidth));
