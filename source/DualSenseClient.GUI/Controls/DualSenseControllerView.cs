@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using DualSenseClient.GUI.Models.Items;
@@ -85,6 +86,39 @@ public sealed class DualSenseControllerView : Canvas
     /// Size of the touch indicator dot sprite (asset px).
     /// </summary>
     private const double TouchDotSize = 67;
+
+    /// <summary>
+    /// Font size of the touch coordinate labels.
+    /// </summary>
+    private const double TouchLabelFontSize = 12;
+
+    /// <summary>
+    /// Gap between the touch dot and its coordinate label (asset px).
+    /// </summary>
+    private const double TouchLabelOffsetY = 4;
+
+    /// <summary>
+    /// Minimum distance kept between a tag label and the canvas edges (asset px).
+    /// </summary>
+    private const double TouchLabelMargin = 8;
+
+    /// <summary>
+    /// Center offsets of the trigger value tags: to the left of L2 and to the right of R2,
+    /// vertically aligned with the triggers.
+    /// </summary>
+    private const double L2LabelCenterOffsetX = -600;
+
+    private const double L2LabelCenterOffsetY = -330.1;
+    private const double R2LabelCenterOffsetX = 626.5;
+    private const double R2LabelCenterOffsetY = -333.1;
+
+    /// <summary>
+    /// Center offsets of the stick value tags, below the left and right sticks.
+    /// </summary>
+    private const double L3LabelCenterOffsetX = -240.7;
+    private const double L3LabelCenterOffsetY = 360;
+    private const double R3LabelCenterOffsetX = 242.0;
+    private const double R3LabelCenterOffsetY = 360;
 
     /// <summary>
     /// Left edge of the touchpad surface on the base image (asset px).
@@ -285,6 +319,36 @@ public sealed class DualSenseControllerView : Canvas
     private Image? _touch2;
 
     /// <summary>
+    /// Coordinate label shown under touch point 1 while it is active.
+    /// </summary>
+    private TextBlock? _touch1Label;
+
+    /// <summary>
+    /// Coordinate label shown under touch point 2 while it is active.
+    /// </summary>
+    private TextBlock? _touch2Label;
+
+    /// <summary>
+    /// Value tag shown below the left trigger.
+    /// </summary>
+    private TextBlock? _l2Label;
+
+    /// <summary>
+    /// Value tag shown below the right trigger.
+    /// </summary>
+    private TextBlock? _r2Label;
+
+    /// <summary>
+    /// Value tag shown below the left stick.
+    /// </summary>
+    private TextBlock? _l3Label;
+
+    /// <summary>
+    /// Value tag shown below the right stick.
+    /// </summary>
+    private TextBlock? _r3Label;
+
+    /// <summary>
     /// All static overlay sprites (pressed-driven visibility).
     /// </summary>
     private readonly List<OverlaySprite> _overlays = new();
@@ -375,6 +439,16 @@ public sealed class DualSenseControllerView : Canvas
         AddOverlay(skin, "Touchpad-Click", 0, TouchpadCenterOffsetY, 617, 317, s => s.TouchPad);
         AddSprite(skin, "Touchpad_Touch", 0, 0, TouchDotSize, TouchDotSize, out _touch1);
         AddSprite(skin, "Touchpad_Touch", 0, 0, TouchDotSize, TouchDotSize, out _touch2);
+        _touch1Label = CreateTagLabel();
+        _touch2Label = CreateTagLabel();
+        _l2Label = CreateTagLabel();
+        _r2Label = CreateTagLabel();
+        _l3Label = CreateTagLabel();
+        _r3Label = CreateTagLabel();
+        _l2Label.IsVisible = true;
+        _r2Label.IsVisible = true;
+        _l3Label.IsVisible = true;
+        _r3Label.IsVisible = true;
 
         _state = state;
         state.PropertyChanged += OnStatePropertyChanged;
@@ -462,15 +536,70 @@ public sealed class DualSenseControllerView : Canvas
             }
         }
 
-        PositionTouchDot(_touch1, state.Touch1Active, state.Touch1X, state.Touch1Y, scale);
-        PositionTouchDot(_touch2, state.Touch2Active, state.Touch2X, state.Touch2Y, scale);
+        if (_l2Label is { } l2Label)
+        {
+            l2Label.Text = $"L2: {state.L2}";
+            PositionTagLabel(l2Label, L2LabelCenterOffsetX, L2LabelCenterOffsetY, scale);
+        }
+
+        if (_r2Label is { } r2Label)
+        {
+            r2Label.Text = $"R2: {state.R2}";
+            PositionTagLabel(r2Label, R2LabelCenterOffsetX, R2LabelCenterOffsetY, scale);
+        }
+
+        if (_l3Label is { } l3Label)
+        {
+            l3Label.Text = $"L3  X: {state.LeftStickX}  Y: {state.LeftStickY}";
+            PositionTagLabel(l3Label, L3LabelCenterOffsetX, L3LabelCenterOffsetY, scale);
+        }
+
+        if (_r3Label is { } r3Label)
+        {
+            r3Label.Text = $"R3  X: {state.RightStickX}  Y: {state.RightStickY}";
+            PositionTagLabel(r3Label, R3LabelCenterOffsetX, R3LabelCenterOffsetY, scale);
+        }
+
+        PositionTouchDot(_touch1, _touch1Label, 1, state.Touch1Active, state.Touch1X, state.Touch1Y, scale);
+        PositionTouchDot(_touch2, _touch2Label, 2, state.Touch2Active, state.Touch2X, state.Touch2Y, scale);
+    }
+
+    /// <summary>
+    /// Creates a small tag label (white text on a semi-transparent dark pill).
+    /// </summary>
+    private TextBlock CreateTagLabel()
+    {
+        var label = new TextBlock
+        {
+            FontSize = TouchLabelFontSize,
+            Foreground = Brushes.White,
+            Background = new SolidColorBrush(Color.FromArgb(150, 0, 0, 0)),
+            Padding = new Thickness(4, 1),
+            IsHitTestVisible = false,
+            IsVisible = false
+        };
+        Children.Add(label);
+        return label;
+    }
+
+    /// <summary>
+    /// Centers a tag label on the given asset-space offset, keeping it inside the canvas.
+    /// </summary>
+    private void PositionTagLabel(TextBlock label, double centerOffsetX, double centerOffsetY, double scale)
+    {
+        label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        double width = label.DesiredSize.Width;
+        double height = label.DesiredSize.Height;
+        double left = Math.Clamp((BaseCenterX + centerOffsetX) * scale - width / 2, 0, Math.Max(0, (BaseWidth - TouchLabelMargin) * scale - width));
+        Canvas.SetLeft(label, left);
+        Canvas.SetTop(label, (BaseCenterY + centerOffsetY) * scale - height / 2);
     }
 
     /// <summary>
     /// Positions a touch indicator sprite at the mapped touch coordinates, clamped inside
-    /// the touchpad surface.
+    /// the touchpad surface, and shows its coordinate label just below the dot.
     /// </summary>
-    private void PositionTouchDot(Image? dot, bool active, int x, int y, double scale)
+    private void PositionTouchDot(Image? dot, TextBlock? label, int index, bool active, int x, int y, double scale)
     {
         if (dot is null)
         {
@@ -480,6 +609,11 @@ public sealed class DualSenseControllerView : Canvas
         dot.IsVisible = active;
         if (!active)
         {
+            if (label is not null)
+            {
+                label.IsVisible = false;
+            }
+
             return;
         }
 
@@ -488,6 +622,19 @@ public sealed class DualSenseControllerView : Canvas
         double centerY = Math.Clamp(TouchSurfaceTop + (y / 1079.0) * TouchSurfaceHeight, TouchSurfaceTop + half, TouchSurfaceBottom - half);
         Canvas.SetLeft(dot, (centerX - half) * scale);
         Canvas.SetTop(dot, (centerY - half) * scale);
+
+        if (label is null)
+        {
+            return;
+        }
+
+        label.Text = $"Touch {index}: {x}, {y}";
+        label.IsVisible = true;
+        label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        double labelWidth = label.DesiredSize.Width;
+        double left = Math.Clamp(centerX * scale - labelWidth / 2, 0, Math.Max(0, (BaseWidth - TouchLabelMargin) * scale - labelWidth));
+        Canvas.SetLeft(label, left);
+        Canvas.SetTop(label, (centerY + half + TouchLabelOffsetY) * scale);
     }
 
     /// <summary>
