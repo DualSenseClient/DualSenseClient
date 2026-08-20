@@ -588,24 +588,40 @@ public sealed class DualSenseControllerView : Canvas
             Canvas.SetTop(rightStick, CenteredY(228.6, 148, StickOffset(state.RightStickY), scale));
         }
 
-        if (_leftTrigger is { } leftTrigger && ShowMovement)
+        if (_leftTrigger is { } leftTrigger)
         {
             double top = CenteredY(-330.1, 152, 0, scale) + (state.L2 / 255.0) * TriggerTravel * scale;
-            Canvas.SetTop(leftTrigger, top);
+            if (ShowMovement)
+            {
+                Canvas.SetTop(leftTrigger, top);
+            }
+
             if (_leftTriggerActive is { } leftTriggerActive)
             {
-                Canvas.SetTop(leftTriggerActive, top);
+                if (ShowMovement)
+                {
+                    Canvas.SetTop(leftTriggerActive, top);
+                }
+
                 leftTriggerActive.IsVisible = ShowButtonPresses && state.L2Click;
             }
         }
 
-        if (_rightTrigger is { } rightTrigger && ShowMovement)
+        if (_rightTrigger is { } rightTrigger)
         {
             double top = CenteredY(-333.1, 149, 0, scale) + (state.R2 / 255.0) * TriggerTravel * scale;
-            Canvas.SetTop(rightTrigger, top);
+            if (ShowMovement)
+            {
+                Canvas.SetTop(rightTrigger, top);
+            }
+
             if (_rightTriggerActive is { } rightTriggerActive)
             {
-                Canvas.SetTop(rightTriggerActive, top);
+                if (ShowMovement)
+                {
+                    Canvas.SetTop(rightTriggerActive, top);
+                }
+
                 rightTriggerActive.IsVisible = ShowButtonPresses && state.R2Click;
             }
         }
