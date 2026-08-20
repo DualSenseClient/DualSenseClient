@@ -739,7 +739,9 @@ public sealed class ControllerIllustrationService
             return cached;
         }
 
-        Bitmap? bitmap = TryLoadSprite(dev ? $"DualSense_Dev_{name}.png" : $"DualSense_{name}.png");
+        Bitmap? bitmap = dev
+            ? TryLoadSprite($"DualSense_Dev_{name}.png", logOnFailure: false)
+            : TryLoadSprite($"DualSense_{name}.png");
         bitmap ??= dev ? TryLoadSprite($"DualSense_{name}.png") : null;
 
         if (bitmap is not null)
@@ -753,7 +755,12 @@ public sealed class ControllerIllustrationService
     /// <summary>
     /// Loads a sprite bitmap from the theme assets folder, or <c>null</c> on failure.
     /// </summary>
-    private static Bitmap? TryLoadSprite(string fileName)
+    /// <param name="fileName">The asset file name without the folder prefix.</param>
+    /// <param name="logOnFailure">
+    /// Whether a failed load is logged as a warning. Pass <c>false</c> for the expected
+    /// Dev Mode variant lookup, whose fallback attempt still logs when it also fails.
+    /// </param>
+    private static Bitmap? TryLoadSprite(string fileName, bool logOnFailure = true)
     {
         try
         {
@@ -763,7 +770,10 @@ public sealed class ControllerIllustrationService
         }
         catch (Exception ex)
         {
-            _log.Warning($"Could not load overlay sprite '{fileName}': {ex.Message}");
+            if (logOnFailure)
+            {
+                _log.Warning($"Could not load overlay sprite '{fileName}': {ex.Message}");
+            }
             return null;
         }
     }
