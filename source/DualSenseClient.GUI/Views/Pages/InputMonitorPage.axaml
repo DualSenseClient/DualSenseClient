@@ -159,6 +159,7 @@
                         <controls:DualSenseControllerView State="{Binding CurrentDevice}"
                                                           SkinName="{Binding SkinName}"
                                                           ShowStats="{Binding ShowStats}"
+                                                          ShowLightbarLeds="{Binding ShowLightbarLeds}"
                                                           HorizontalAlignment="Center" />
 
                         <!-- Edge function and back paddle buttons (DualSense Edge only) -->
@@ -185,9 +186,14 @@
                         </StackPanel>
 
                         <!-- Visualization display options -->
-                        <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.TextNumberFormat}"
-                                                Title="{DynamicResource InputMonitorPage.Display.Stats.Title}"
-                                                IsChecked="{Binding ShowStats}" />
+                        <StackPanel Spacing="10">
+                            <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.Globe}"
+                                                    Title="{DynamicResource InputMonitorPage.Display.Lights.Title}"
+                                                    IsChecked="{Binding ShowLightbarLeds}" />
+                            <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.TextNumberFormat}"
+                                                    Title="{DynamicResource InputMonitorPage.Display.Stats.Title}"
+                                                    IsChecked="{Binding ShowStats}" />
+                        </StackPanel>
 
                         <!-- Motion (shown only while stats are enabled) -->
                         <StackPanel Spacing="8"

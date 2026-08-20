@@ -74,6 +74,12 @@ public partial class InputMonitorPageViewModel : ObservableObject
     private bool _showStats;
 
     /// <summary>
+    /// Whether the lightbar, player, and mute LEDs are shown.
+    /// </summary>
+    [ObservableProperty]
+    private bool _showLightbarLeds = true;
+
+    /// <summary>
     /// Whether a controller is selected and its input state can be displayed.
     /// </summary>
     public bool HasDevice => CurrentDevice is not null;
