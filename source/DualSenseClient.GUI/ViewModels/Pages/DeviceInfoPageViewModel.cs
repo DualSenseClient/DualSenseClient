@@ -267,7 +267,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     {
         get
         {
-            if (!HasDevice)
+            if (!HasDevice || !EmulationService.IsSupported)
             {
                 return 0;
             }
@@ -275,7 +275,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         }
         set
         {
-            if (!HasDevice)
+            if (!HasDevice || !EmulationService.IsSupported)
             {
                 return;
             }
@@ -503,9 +503,11 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// Whether the emulation mode and DualSense variant dropdowns may be changed for the
     /// selected controller. False while its virtual controller is being (re)created:
     /// switching mid-creation races the removal/creation cycle and can leave multiple
-    /// virtual devices behind.
+    /// virtual devices behind. Always false on platforms without emulation support.
     /// </summary>
-    public bool CanChangeEmulation => CurrentDualSenseDevice is not { } device || !_emulation.GetStatus(device).IsCreating;
+    public bool CanChangeEmulation
+        => EmulationService.IsSupported
+           && (CurrentDualSenseDevice is not { } device || !_emulation.GetStatus(device).IsCreating);
 
     // ── Controller hiding ───────────────────────────────────────
 

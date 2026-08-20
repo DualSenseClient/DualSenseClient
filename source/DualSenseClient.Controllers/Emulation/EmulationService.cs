@@ -94,6 +94,12 @@ public sealed class EmulationService : IEmulationService
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("EmulationService");
 
     /// <summary>
+    /// Whether virtual controller emulation is available on this platform. Disabled on
+    /// Linux for now.
+    /// </summary>
+    public static bool IsSupported => !OperatingSystem.IsLinux();
+
+    /// <summary>
     /// Logger receiving the libVIIPER USB server's own log messages.
     /// </summary>
     private static readonly DualSenseClientLogger _nativeLog = DualSenseClientLogger.For("VIIPER");
@@ -382,6 +388,12 @@ public sealed class EmulationService : IEmulationService
     /// </summary>
     private bool StartCreationLocked(VirtualControllerEntry entry)
     {
+        if (!IsSupported)
+        {
+            SetStatus(entry, new EmulationStatus(EmulationMode.Off, false, "Emulation is not available on this platform", null));
+            return false;
+        }
+
         EmulationMode mode = GetEmulationSettings(entry.Device).Mode;
         if (mode == EmulationMode.Off)
         {
@@ -406,6 +418,12 @@ public sealed class EmulationService : IEmulationService
     private async Task CreateVirtualControllerAsync(VirtualControllerEntry entry, bool settleAfterRemoval)
     {
         int generation = entry.Generation;
+        if (!IsSupported)
+        {
+            SetStatus(entry, new EmulationStatus(EmulationMode.Off, false, "Emulation is not available on this platform", null));
+            return;
+        }
+
         EmulationMode mode = GetEmulationSettings(entry.Device).Mode;
         if (mode == EmulationMode.Off)
         {

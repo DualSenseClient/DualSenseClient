@@ -276,13 +276,15 @@ public sealed class TrayIconService
         NativeMenu menu = new NativeMenu();
         EmulationSettings settings = GetEmulationSettings(item);
         EmulationMode current = settings.Mode;
+        bool supported = EmulationService.IsSupported;
 
         foreach (EmulationMode mode in Enum.GetValues<EmulationMode>())
         {
             NativeMenuItem modeItem = new NativeMenuItem(LocalizationService.GetText($"DeviceInfoPage.Emulation.Mode.{mode}"))
             {
                 ToggleType = MenuItemToggleType.Radio,
-                IsChecked = mode == current
+                IsChecked = mode == current,
+                IsEnabled = supported
             };
             modeItem.Click += (_, _) => ApplyEmulationMode(item, mode);
             menu.Items.Add(modeItem);
@@ -308,7 +310,7 @@ public sealed class TrayIconService
     /// </summary>
     private void ApplyEmulationMode(ControllerItem item, EmulationMode mode)
     {
-        if (item.Device is not DualSenseDevice device)
+        if (!EmulationService.IsSupported || item.Device is not DualSenseDevice device)
         {
             return;
         }
