@@ -60,6 +60,12 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
     private static readonly TimeSpan SaveDebounce = TimeSpan.FromMilliseconds(500);
 
     /// <summary>
+    /// Player LED preset masks, mirror-symmetric layouts used by PS5 (unconfirmed):
+    /// Player 1 0x04, Player 2 0x06, Player 3 0x15, Player 4 0x1B, Player 5 0x1F.
+    /// </summary>
+    private static readonly byte[] PlayerPresetMasks = [0x04, 0x06, 0x15, 0x1B, 0x1F];
+
+    /// <summary>
     /// The profile service backing persistence for this item.
     /// </summary>
     private readonly ProfileService _profileService;
@@ -74,6 +80,12 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
     /// between <see cref="LightbarColor"/> and the channel properties.
     /// </summary>
     private bool _syncingColor;
+
+    /// <summary>
+    /// Tracks whether a player LED preset sync is in progress, so preset and individual
+    /// LED changes applied together do not trigger persistence for each intermediate state.
+    /// </summary>
+    private bool _syncingPreset;
 
     /// <summary>
     /// Tracks whether the item has been disposed.
@@ -185,6 +197,31 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
     [ObservableProperty] private bool _playerLed5;
 
     /// <summary>
+    /// Whether the Player 1 preset (mirror-symmetric mask 0x04) is selected.
+    /// </summary>
+    [ObservableProperty] private bool _playerPreset1;
+
+    /// <summary>
+    /// Whether the Player 2 preset (mirror-symmetric mask 0x06) is selected.
+    /// </summary>
+    [ObservableProperty] private bool _playerPreset2;
+
+    /// <summary>
+    /// Whether the Player 3 preset (mirror-symmetric mask 0x15) is selected.
+    /// </summary>
+    [ObservableProperty] private bool _playerPreset3;
+
+    /// <summary>
+    /// Whether the Player 4 preset (mirror-symmetric mask 0x1B) is selected.
+    /// </summary>
+    [ObservableProperty] private bool _playerPreset4;
+
+    /// <summary>
+    /// Whether the Player 5 preset (mirror-symmetric mask 0x1F) is selected.
+    /// </summary>
+    [ObservableProperty] private bool _playerPreset5;
+
+    /// <summary>
     /// Brush for the lightbar color preview swatch.
     /// </summary>
     public IBrush LightbarBrush => new SolidColorBrush(Color.FromRgb(Channel(LedRed), Channel(LedGreen), Channel(LedBlue)));
@@ -243,6 +280,11 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
         _playerLed3 = (profile.PlayerLeds.Mask & 0x04) != 0;
         _playerLed4 = (profile.PlayerLeds.Mask & 0x08) != 0;
         _playerLed5 = (profile.PlayerLeds.Mask & 0x10) != 0;
+        _playerPreset1 = profile.PlayerLeds.Mask == PlayerPresetMasks[0];
+        _playerPreset2 = profile.PlayerLeds.Mask == PlayerPresetMasks[1];
+        _playerPreset3 = profile.PlayerLeds.Mask == PlayerPresetMasks[2];
+        _playerPreset4 = profile.PlayerLeds.Mask == PlayerPresetMasks[3];
+        _playerPreset5 = profile.PlayerLeds.Mask == PlayerPresetMasks[4];
 
         _saveTimer = new DispatcherTimer { Interval = SaveDebounce };
         _saveTimer.Tick += (_, _) => CommitPendingChanges();
@@ -271,27 +313,128 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
     /// <summary>
     /// Persists the new player LED layout.
     /// </summary>
-    partial void OnPlayerLed1Changed(bool value) => Persist();
+    partial void OnPlayerLed1Changed(bool value) => OnPlayerLedChanged();
 
     /// <summary>
     /// Persists the new player LED layout.
     /// </summary>
-    partial void OnPlayerLed2Changed(bool value) => Persist();
+    partial void OnPlayerLed2Changed(bool value) => OnPlayerLedChanged();
 
     /// <summary>
     /// Persists the new player LED layout.
     /// </summary>
-    partial void OnPlayerLed3Changed(bool value) => Persist();
+    partial void OnPlayerLed3Changed(bool value) => OnPlayerLedChanged();
 
     /// <summary>
     /// Persists the new player LED layout.
     /// </summary>
-    partial void OnPlayerLed4Changed(bool value) => Persist();
+    partial void OnPlayerLed4Changed(bool value) => OnPlayerLedChanged();
 
     /// <summary>
     /// Persists the new player LED layout.
     /// </summary>
-    partial void OnPlayerLed5Changed(bool value) => Persist();
+    partial void OnPlayerLed5Changed(bool value) => OnPlayerLedChanged();
+
+    /// <summary>
+    /// Applies the Player 1 preset (mask 0x04).
+    /// </summary>
+    partial void OnPlayerPreset1Changed(bool value) => ApplyPlayerPreset(0, value);
+
+    /// <summary>
+    /// Applies the Player 2 preset (mask 0x06).
+    /// </summary>
+    partial void OnPlayerPreset2Changed(bool value) => ApplyPlayerPreset(1, value);
+
+    /// <summary>
+    /// Applies the Player 3 preset (mask 0x15).
+    /// </summary>
+    partial void OnPlayerPreset3Changed(bool value) => ApplyPlayerPreset(2, value);
+
+    /// <summary>
+    /// Applies the Player 4 preset (mask 0x1B).
+    /// </summary>
+    partial void OnPlayerPreset4Changed(bool value) => ApplyPlayerPreset(3, value);
+
+    /// <summary>
+    /// Applies the Player 5 preset (mask 0x1F).
+    /// </summary>
+    partial void OnPlayerPreset5Changed(bool value) => ApplyPlayerPreset(4, value);
+
+    /// <summary>
+    /// Handles an individual LED toggle: persists the layout and re-syncs the preset
+    /// checked state (a mask matching a preset checks it, any other mask clears them).
+    /// Skipped while a preset sync is applying the individual LEDs.
+    /// </summary>
+    private void OnPlayerLedChanged()
+    {
+        if (_syncingPreset)
+        {
+            return;
+        }
+
+        Persist();
+        SyncPlayerPresetCheckedState();
+    }
+
+    /// <summary>
+    /// Applies a player LED preset by setting the mirror-symmetric mask. Unchecking a
+    /// preset turns those player LEDs off. Preset changes made programmatically during
+    /// a sync are ignored.
+    /// </summary>
+    private void ApplyPlayerPreset(int preset, bool value)
+    {
+        if (_syncingPreset)
+        {
+            return;
+        }
+
+        SetPlayerLedMask(value ? PlayerPresetMasks[preset] : (byte)0);
+    }
+
+    /// <summary>
+    /// Sets the player LED mask, updating the individual LED toggles, persisting the
+    /// layout, and re-syncing the preset checked state.
+    /// </summary>
+    private void SetPlayerLedMask(byte mask)
+    {
+        _syncingPreset = true;
+        try
+        {
+            PlayerLed1 = (mask & 0x01) != 0;
+            PlayerLed2 = (mask & 0x02) != 0;
+            PlayerLed3 = (mask & 0x04) != 0;
+            PlayerLed4 = (mask & 0x08) != 0;
+            PlayerLed5 = (mask & 0x10) != 0;
+        }
+        finally
+        {
+            _syncingPreset = false;
+        }
+
+        Persist();
+        SyncPlayerPresetCheckedState();
+    }
+
+    /// <summary>
+    /// Checks the preset whose mask matches the current LED layout and clears the others.
+    /// </summary>
+    private void SyncPlayerPresetCheckedState()
+    {
+        byte mask = ComputePlayerLedMask();
+        _syncingPreset = true;
+        try
+        {
+            PlayerPreset1 = mask == PlayerPresetMasks[0];
+            PlayerPreset2 = mask == PlayerPresetMasks[1];
+            PlayerPreset3 = mask == PlayerPresetMasks[2];
+            PlayerPreset4 = mask == PlayerPresetMasks[3];
+            PlayerPreset5 = mask == PlayerPresetMasks[4];
+        }
+        finally
+        {
+            _syncingPreset = false;
+        }
+    }
 
     /// <summary>
     /// Re-raises the derived color properties and persists the new color.

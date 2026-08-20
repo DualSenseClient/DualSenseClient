@@ -88,6 +88,14 @@ public partial class ProfilePageViewModel : ObservableObject
     public bool HasDevice => CurrentDevice is not null;
 
     /// <summary>
+    /// Whether the selected controller's hardware supports full player-LED functionality.
+    /// Generation 0x04 and above is restricted to Mirrored Only, in which case only the
+    /// mirrored player presets are offered and the individual LED toggles are hidden.
+    /// </summary>
+    public bool HasFullPlayerLedSupport => CurrentDevice?.Controller.FirmwareInfo?.IsValid == true
+                                           && CurrentDevice.Controller.FirmwareInfo.Value.HasFullPlayerLedSupport;
+
+    /// <summary>
     /// The Bluetooth MAC address of the selected controller, or empty when unavailable.
     /// </summary>
     public string CurrentMac => CurrentDevice?.Controller.PairingInfo?.ClientMac ?? string.Empty;
@@ -454,6 +462,7 @@ public partial class ProfilePageViewModel : ObservableObject
 
         OnPropertyChanged(nameof(CurrentDevice));
         OnPropertyChanged(nameof(HasDevice));
+        OnPropertyChanged(nameof(HasFullPlayerLedSupport));
         OnPropertyChanged(nameof(CurrentMac));
         OnPropertyChanged(nameof(CurrentDevicePath));
         OnPropertyChanged(nameof(SelectedAssignedProfileIndex));
@@ -494,7 +503,8 @@ public partial class ProfilePageViewModel : ObservableObject
         SpecialActionItem item = new SpecialActionItem(
             action,
             _specialActionService,
-            controllerId ?? SpecialActionService.GetControllerId(CurrentMac, CurrentDevicePath));
+            controllerId ?? SpecialActionService.GetControllerId(CurrentMac, CurrentDevicePath),
+            HasFullPlayerLedSupport);
         item.DeleteRequested += OnSpecialActionDeleteRequested;
         return item;
     }

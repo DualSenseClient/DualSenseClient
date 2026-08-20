@@ -199,6 +199,11 @@
     <sys:String x:Key="ProfilePage.MicLed.Mode.On">On</sys:String>
     <sys:String x:Key="ProfilePage.MicLed.Mode.Pulse">Pulse</sys:String>
     <sys:String x:Key="ProfilePage.PlayerLeds.Title">Player LEDs</sys:String>
+    <sys:String x:Key="ProfilePage.PlayerLeds.Player1">Player 1</sys:String>
+    <sys:String x:Key="ProfilePage.PlayerLeds.Player2">Player 2</sys:String>
+    <sys:String x:Key="ProfilePage.PlayerLeds.Player3">Player 3</sys:String>
+    <sys:String x:Key="ProfilePage.PlayerLeds.Player4">Player 4</sys:String>
+    <sys:String x:Key="ProfilePage.PlayerLeds.Player5">Player 5</sys:String>
     <sys:String x:Key="ProfilePage.PlayerLeds.Led1">LED 1</sys:String>
     <sys:String x:Key="ProfilePage.PlayerLeds.Led2">LED 2</sys:String>
     <sys:String x:Key="ProfilePage.PlayerLeds.Led3">LED 3</sys:String>

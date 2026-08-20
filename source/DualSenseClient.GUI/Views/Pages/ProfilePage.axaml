@@ -184,23 +184,43 @@
                                    FontWeight="SemiBold"
                                    Margin="0,12,0,0" />
                         <cards:CustomCard>
-                            <UniformGrid Rows="1">
-                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led1}"
-                                              IsChecked="{Binding SelectedProfile.PlayerLed1}"
-                                              HorizontalAlignment="Center" />
-                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led2}"
-                                              IsChecked="{Binding SelectedProfile.PlayerLed2}"
-                                              HorizontalAlignment="Center" />
-                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led3}"
-                                              IsChecked="{Binding SelectedProfile.PlayerLed3}"
-                                              HorizontalAlignment="Center" />
-                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led4}"
-                                              IsChecked="{Binding SelectedProfile.PlayerLed4}"
-                                              HorizontalAlignment="Center" />
-                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led5}"
-                                              IsChecked="{Binding SelectedProfile.PlayerLed5}"
-                                              HorizontalAlignment="Center" />
-                            </UniformGrid>
+                            <StackPanel Spacing="8">
+                                <UniformGrid Rows="1">
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player1}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerPreset1}"
+                                                  HorizontalAlignment="Center" />
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player2}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerPreset2}"
+                                                  HorizontalAlignment="Center" />
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player3}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerPreset3}"
+                                                  HorizontalAlignment="Center" />
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player4}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerPreset4}"
+                                                  HorizontalAlignment="Center" />
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player5}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerPreset5}"
+                                                  HorizontalAlignment="Center" />
+                                </UniformGrid>
+                                <UniformGrid Rows="1"
+                                             IsVisible="{Binding HasFullPlayerLedSupport}">
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led1}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerLed1}"
+                                                  HorizontalAlignment="Center" />
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led2}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerLed2}"
+                                                  HorizontalAlignment="Center" />
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led3}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerLed3}"
+                                                  HorizontalAlignment="Center" />
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led4}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerLed4}"
+                                                  HorizontalAlignment="Center" />
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led5}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerLed5}"
+                                                  HorizontalAlignment="Center" />
+                                </UniformGrid>
+                            </StackPanel>
                         </cards:CustomCard>
                     </StackPanel>
                 </StackPanel>
@@ -413,6 +433,24 @@
                                                        FontWeight="SemiBold"
                                                        Margin="0,4,0,0" />
                                             <UniformGrid Rows="1">
+                                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player1}"
+                                                              IsChecked="{Binding PlayerPreset1}"
+                                                              HorizontalAlignment="Center" />
+                                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player2}"
+                                                              IsChecked="{Binding PlayerPreset2}"
+                                                              HorizontalAlignment="Center" />
+                                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player3}"
+                                                              IsChecked="{Binding PlayerPreset3}"
+                                                              HorizontalAlignment="Center" />
+                                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player4}"
+                                                              IsChecked="{Binding PlayerPreset4}"
+                                                              HorizontalAlignment="Center" />
+                                                <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player5}"
+                                                              IsChecked="{Binding PlayerPreset5}"
+                                                              HorizontalAlignment="Center" />
+                                            </UniformGrid>
+                                            <UniformGrid Rows="1"
+                                                         IsVisible="{Binding HasFullPlayerLedSupport}">
                                                 <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led1}"
                                                               IsChecked="{Binding PlayerLed1}"
                                                               HorizontalAlignment="Center" />
