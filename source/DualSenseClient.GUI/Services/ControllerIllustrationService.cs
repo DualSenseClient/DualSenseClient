@@ -94,12 +94,12 @@ public sealed class ControllerIllustrationService
     private readonly Dictionary<string, Bitmap> _spriteCache = new Dictionary<string, Bitmap>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Pixel positions of the lightbar (the U-shape around the touchpad), extracted once
-    /// from the default skin's monitor base and shared by every skin because the lightbar
-    /// geometry is identical across renders. Its bottom segment (right below the touchpad)
-    /// is where the five player LEDs are drawn.
+    /// Pixel positions of the lightbar (the U-shape around the touchpad) with the luminance
+    /// of the default skin's render, extracted once from the default skin's monitor base and
+    /// shared by every skin because the lightbar geometry is identical across renders. Its
+    /// bottom segment (right below the touchpad) is where the five player LEDs are drawn.
     /// </summary>
-    private static List<(int X, int Y)>? _lightbarMask;
+    private static List<(int X, int Y, byte Luminance)>? _lightbarMask;
 
     /// <summary>
     /// Synchronizes lazy extraction of <see cref="_lightbarMask"/>.
@@ -134,6 +134,7 @@ public sealed class ControllerIllustrationService
     /// mute button) and the brightness threshold separating it from the dark body.
     /// </summary>
     private const int MicLedBandXStart = 715;
+
     private const int MicLedBandXEnd = 760;
     private const int MicLedBandYStart = 645;
     private const int MicLedBandYEnd = 658;
@@ -143,6 +144,7 @@ public sealed class ControllerIllustrationService
     /// Body color used to darken the baked microphone LED dot.
     /// </summary>
     private const byte MicLedOffRed = 23;
+
     private const byte MicLedOffGreen = 25;
     private const byte MicLedOffBlue = 30;
 
@@ -150,6 +152,7 @@ public sealed class ControllerIllustrationService
     /// Core color of the microphone LED sprite (warm orange, like the physical mute LED).
     /// </summary>
     private const byte MicLedCoreRed = 255;
+
     private const byte MicLedCoreGreen = 153;
     private const byte MicLedCoreBlue = 0;
 
@@ -158,6 +161,7 @@ public sealed class ControllerIllustrationService
     /// light bleeds softly around the button.
     /// </summary>
     private const int MicLedPillWidth = 75;
+
     private const int MicLedPillHeight = 16;
     private const int MicLedGlowMargin = 6;
 
@@ -316,7 +320,8 @@ public sealed class ControllerIllustrationService
         }
 
         Bitmap? original = GetMonitorBase(skin ?? string.Empty);
-        Bitmap? tinted = original is null ? null : TintLightbar(original, red, green, blue, playerLeds);
+        bool dev = string.Equals(skin, DevModeSkin, StringComparison.OrdinalIgnoreCase);
+        Bitmap? tinted = original is null ? null : TintLightbar(original, red, green, blue, playerLeds, dev);
         if (tinted is not null)
         {
             _monitorBaseTintCache[key] = tinted;
@@ -329,11 +334,12 @@ public sealed class ControllerIllustrationService
     /// Returns a copy of <paramref name="source"/> whose lightbar pixels are recolored to
     /// the given RGB (preserving luminance and alpha) and whose lit player LEDs are drawn
     /// as bright dots on the lightbar segment below the touchpad, or <c>null</c> when the
-    /// mask or the pixel format are unavailable.
+    /// mask or the pixel format are unavailable. Dev Mode bases render the lightbar in
+    /// black, so they are recolored from the default render's luminance instead.
     /// </summary>
-    private static Bitmap? TintLightbar(Bitmap source, byte red, byte green, byte blue, byte playerLeds)
+    private static Bitmap? TintLightbar(Bitmap source, byte red, byte green, byte blue, byte playerLeds, bool useSharedLuminance)
     {
-        List<(int X, int Y)> mask = GetLightbarMask();
+        List<(int X, int Y, byte Luminance)> mask = GetLightbarMask();
         if (mask.Count == 0 || source.Format != PixelFormat.Bgra8888)
         {
             return null;
@@ -344,15 +350,20 @@ public sealed class ControllerIllustrationService
         int rowBytes = width * 4;
         byte[] buffer = ReadPixels(source, width, height, rowBytes);
 
-        foreach ((int x, int y) in mask)
+        for (int i = 0; i < mask.Count; i++)
         {
+            (int x, int y, byte luminance) = mask[i];
             if ((uint)x >= (uint)width || (uint)y >= (uint)height)
             {
                 continue;
             }
 
             int offset = y * rowBytes + x * 4;
-            int luminance = (buffer[offset] + buffer[offset + 1] + buffer[offset + 2]) / 3;
+            if (!useSharedLuminance)
+            {
+                luminance = (byte)((buffer[offset] + buffer[offset + 1] + buffer[offset + 2]) / 3);
+            }
+
             buffer[offset] = (byte)(luminance * blue / 255);
             buffer[offset + 1] = (byte)(luminance * green / 255);
             buffer[offset + 2] = (byte)(luminance * red / 255);
@@ -392,7 +403,7 @@ public sealed class ControllerIllustrationService
     /// line. The segment's geometry is derived from the lightbar mask; the inner LEDs sit
     /// 28px apart and the outer ones 42px from their neighbors, all centered on the line.
     /// </summary>
-    private static void DrawPlayerLeds(byte[] buffer, int width, int height, int rowBytes, List<(int X, int Y)> mask, byte playerLeds)
+    private static void DrawPlayerLeds(byte[] buffer, int width, int height, int rowBytes, List<(int X, int Y, byte Luminance)> mask, byte playerLeds)
     {
         int maxY = 0;
         int minX = int.MaxValue;
@@ -401,7 +412,7 @@ public sealed class ControllerIllustrationService
         int count = 0;
         int lineYStart = mask.Max(p => p.Y) - PlayerLedLineHeight + 1;
 
-        foreach ((int x, int y) in mask)
+        foreach ((int x, int y, _) in mask)
         {
             if (y < lineYStart)
             {
@@ -481,13 +492,14 @@ public sealed class ControllerIllustrationService
     }
 
     /// <summary>
-    /// Gets the shared lightbar pixel mask, extracting it lazily from the default skin's
-    /// monitor base: within the touchpad band, pixels whose blue channel dominates the
-    /// surrounding body and touchpad surface (which are gray).
+    /// Gets the shared lightbar pixel mask with the default render's luminance, extracting
+    /// it lazily from the default skin's monitor base: within the touchpad band, pixels
+    /// whose blue channel dominates the surrounding body and touchpad surface (which are
+    /// gray).
     /// </summary>
-    private static List<(int X, int Y)> GetLightbarMask()
+    private static List<(int X, int Y, byte Luminance)> GetLightbarMask()
     {
-        List<(int X, int Y)>? mask = _lightbarMask;
+        List<(int X, int Y, byte Luminance)>? mask = _lightbarMask;
         if (mask is not null)
         {
             return mask;
@@ -509,7 +521,7 @@ public sealed class ControllerIllustrationService
     /// Scans the given base for the lightbar U-shape around the touchpad, or returns
     /// <c>null</c> when the bitmap or its pixel format is unavailable.
     /// </summary>
-    private static List<(int X, int Y)>? ExtractLightbarMask(Bitmap? baseImage)
+    private static List<(int X, int Y, byte Luminance)>? ExtractLightbarMask(Bitmap? baseImage)
     {
         if (baseImage is null || baseImage.Format != PixelFormat.Bgra8888)
         {
@@ -521,7 +533,7 @@ public sealed class ControllerIllustrationService
         int rowBytes = width * 4;
         byte[] buffer = ReadPixels(baseImage, width, height, rowBytes);
 
-        var pixels = new List<(int X, int Y)>();
+        var pixels = new List<(int X, int Y, byte Luminance)>();
         int xStart = Math.Min(300, width);
         int xEnd = Math.Min(1160, width);
         int yStart = Math.Min(140, height);
@@ -535,7 +547,8 @@ public sealed class ControllerIllustrationService
                 int offset = row + x * 4;
                 if (buffer[offset] > 90 && buffer[offset] > buffer[offset + 2] + 10)
                 {
-                    pixels.Add((x, y));
+                    byte luminance = (byte)((buffer[offset] + buffer[offset + 1] + buffer[offset + 2]) / 3);
+                    pixels.Add((x, y, luminance));
                 }
             }
         }
