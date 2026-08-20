@@ -155,467 +155,110 @@
                 </Expander.Header>
                 <cards:CustomCard>
                     <StackPanel Spacing="16">
-                        <!-- Triggers, shoulders, and touchpad -->
-                        <Grid ColumnDefinitions="Auto,*,Auto">
-                            <!-- Left: L2 trigger and L1 shoulder -->
-                            <Grid ColumnDefinitions="Auto,Auto"
-                                  RowDefinitions="Auto,Auto,Auto"
-                                  VerticalAlignment="Center">
-                                <ProgressBar Orientation="Vertical"
-                                             Width="26"
-                                             Height="110"
-                                             Minimum="0"
-                                             Maximum="255"
-                                             Value="{Binding CurrentDevice.L2}"
-                                             Grid.Row="0"
-                                             Grid.Column="0"
-                                             HorizontalAlignment="Center" />
-                                <Border Classes="button-pill"
-                                        Classes.pressed="{Binding CurrentDevice.L2Click}"
-                                        Grid.Row="1"
-                                        Grid.Column="0"
-                                        HorizontalAlignment="Center">
-                                    <TextBlock Text="{DynamicResource InputMonitorPage.Button.L2}" />
-                                </Border>
-                                <Border Classes="button-pill"
-                                        Classes.pressed="{Binding CurrentDevice.L1}"
-                                        Grid.Row="1"
-                                        Grid.Column="1"
-                                        Margin="16,0,0,0"
-                                        HorizontalAlignment="Center">
-                                    <TextBlock Text="{DynamicResource InputMonitorPage.Button.L1}" />
-                                </Border>
-                                <TextBlock Grid.Row="2"
-                                           Grid.Column="0"
-                                           Text="{Binding CurrentDevice.L2}"
-                                           FontWeight="SemiBold"
-                                           HorizontalAlignment="Center" />
-                            </Grid>
+                        <!-- Asset-based controller visualization -->
+                        <controls:DualSenseControllerView State="{Binding CurrentDevice}"
+                                                          SkinName="{Binding SkinName}"
+                                                          HorizontalAlignment="Center" />
 
-                            <!-- Center: touchpad between the trigger groups, with Create/Options beside it -->
-                            <StackPanel Grid.Column="1"
-                                        Spacing="8"
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal"
-                                            Spacing="10"
-                                            HorizontalAlignment="Center">
-                                    <!-- Create: left of the touchpad surface -->
-                                    <Border Classes="button-pill"
-                                            Classes.pressed="{Binding CurrentDevice.Create}"
-                                            ToolTip.Tip="{DynamicResource InputMonitorPage.Button.Create}"
-                                            VerticalAlignment="Top"
-                                            Padding="5,6">
-                                        <ic:FluentIcon Icon="WeatherSunnyLow"
-                                                       IconVariant="Regular"
-                                                       IconSize="Size20"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center" />
-                                    </Border>
-                                    <Border Classes="touchpad-surface"
-                                            Classes.pressed="{Binding CurrentDevice.TouchPad}"
-                                            ToolTip.Tip="{DynamicResource InputMonitorPage.Button.TouchPad}"
-                                            Width="320"
-                                            Height="180"
-                                            CornerRadius="10"
-                                            HorizontalAlignment="Center"
-                                            Background="{DynamicResource LayerFillColorDefaultBrush}"
-                                            BorderThickness="2">
-                                        <Grid Width="320" Height="180">
-                                            <!-- Touch point 1: dot with a following label -->
-                                            <Grid x:Name="Touch1DotGroup"
-                                                  Width="64"
-                                                  HorizontalAlignment="Left"
-                                                  VerticalAlignment="Top">
-                                                <StackPanel HorizontalAlignment="Center"
-                                                            Spacing="3">
-                                                    <Ellipse Width="16"
-                                                             Height="16"
-                                                             Fill="{DynamicResource AccentFillColorDefaultBrush}" />
-                                                    <Border CornerRadius="8"
-                                                            Padding="6,2"
-                                                            Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
-                                                            BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                                                            BorderThickness="1">
-                                                        <TextBlock Text="{DynamicResource InputMonitorPage.Touchpad.Touch1}"
-                                                                   FontSize="10" />
-                                                    </Border>
-                                                </StackPanel>
-                                            </Grid>
-                                            <!-- Touch point 2: dot with a following label -->
-                                            <Grid x:Name="Touch2DotGroup"
-                                                  Width="64"
-                                                  HorizontalAlignment="Left"
-                                                  VerticalAlignment="Top">
-                                                <StackPanel HorizontalAlignment="Center"
-                                                            Spacing="3">
-                                                    <Ellipse Width="16"
-                                                             Height="16"
-                                                             Fill="{DynamicResource TextFillColorSecondaryBrush}"
-                                                             Stroke="{DynamicResource AccentFillColorDefaultBrush}"
-                                                             StrokeThickness="2" />
-                                                    <Border CornerRadius="8"
-                                                            Padding="6,2"
-                                                            Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
-                                                            BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                                                            BorderThickness="1">
-                                                        <TextBlock Text="{DynamicResource InputMonitorPage.Touchpad.Touch2}"
-                                                                   FontSize="10" />
-                                                    </Border>
-                                                </StackPanel>
-                                            </Grid>
-                                        </Grid>
-                                    </Border>
-                                    <!-- Options: right of the touchpad surface -->
-                                    <Border Classes="button-pill"
-                                            Classes.pressed="{Binding CurrentDevice.Options}"
-                                            ToolTip.Tip="{DynamicResource InputMonitorPage.Button.Options}"
-                                            VerticalAlignment="Top"
-                                            Padding="5,6">
-                                        <ic:FluentIcon Icon="LineHorizontal3"
-                                                       IconVariant="Regular"
-                                                       IconSize="Size20"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center" />
-                                    </Border>
+                        <!-- Trigger and stick readouts -->
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                            <cards:CustomCard>
+                                <StackPanel Spacing="8">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="{DynamicResource InputMonitorPage.Button.L2}"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding CurrentDevice.L2}"
+                                                   FontWeight="SemiBold" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="{DynamicResource InputMonitorPage.Button.L3}"
+                                                   FontWeight="SemiBold" />
+                                        <StackPanel Grid.Column="1"
+                                                    Orientation="Horizontal"
+                                                    Spacing="6">
+                                            <TextBlock Text="{DynamicResource InputMonitorPage.Sticks.X}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock Text="{Binding CurrentDevice.LeftStickX}"
+                                                       FontWeight="SemiBold" />
+                                            <TextBlock Text="·"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock Text="{DynamicResource InputMonitorPage.Sticks.Y}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock Text="{Binding CurrentDevice.LeftStickY}"
+                                                       FontWeight="SemiBold" />
+                                        </StackPanel>
+                                    </Grid>
                                 </StackPanel>
-                                <Grid ColumnDefinitions="*,*" ColumnSpacing="8" Width="320">
-                                    <cards:CustomCard>
-                                        <StackPanel Spacing="4">
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <TextBlock Text="{DynamicResource InputMonitorPage.Touchpad.Touch1}"
-                                                           FontWeight="SemiBold" />
-                                                <TextBlock Text="{Binding CurrentDevice.Touch1State}"
-                                                           FontSize="12"
-                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                           VerticalAlignment="Center" />
-                                            </StackPanel>
-                                            <TextBlock Text="{Binding CurrentDevice.Touch1Position}"
+                            </cards:CustomCard>
+                            <cards:CustomCard Grid.Column="1">
+                                <StackPanel Spacing="8">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="{DynamicResource InputMonitorPage.Button.R2}"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding CurrentDevice.R2}"
+                                                   FontWeight="SemiBold" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="{DynamicResource InputMonitorPage.Button.R3}"
+                                                   FontWeight="SemiBold" />
+                                        <StackPanel Grid.Column="1"
+                                                    Orientation="Horizontal"
+                                                    Spacing="6">
+                                            <TextBlock Text="{DynamicResource InputMonitorPage.Sticks.X}"
                                                        FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                                        </StackPanel>
-                                    </cards:CustomCard>
-                                    <cards:CustomCard Grid.Column="1">
-                                        <StackPanel Spacing="4">
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <TextBlock Text="{DynamicResource InputMonitorPage.Touchpad.Touch2}"
-                                                           FontWeight="SemiBold" />
-                                                <TextBlock Text="{Binding CurrentDevice.Touch2State}"
-                                                           FontSize="12"
-                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                           VerticalAlignment="Center" />
-                                            </StackPanel>
-                                            <TextBlock Text="{Binding CurrentDevice.Touch2Position}"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock Text="{Binding CurrentDevice.RightStickX}"
+                                                       FontWeight="SemiBold" />
+                                            <TextBlock Text="·"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock Text="{DynamicResource InputMonitorPage.Sticks.Y}"
                                                        FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock Text="{Binding CurrentDevice.RightStickY}"
+                                                       FontWeight="SemiBold" />
                                         </StackPanel>
-                                    </cards:CustomCard>
-                                </Grid>
-                            </StackPanel>
-
-                            <!-- Right: R1 shoulder and R2 trigger -->
-                            <Grid Grid.Column="2"
-                                  ColumnDefinitions="Auto,Auto"
-                                  RowDefinitions="Auto,Auto,Auto"
-                                  HorizontalAlignment="Right"
-                                  VerticalAlignment="Center">
-                                <ProgressBar Orientation="Vertical"
-                                             Width="26"
-                                             Height="110"
-                                             Minimum="0"
-                                             Maximum="255"
-                                             Value="{Binding CurrentDevice.R2}"
-                                             Grid.Row="0"
-                                             Grid.Column="1"
-                                             HorizontalAlignment="Center" />
-                                <Border Classes="button-pill"
-                                        Classes.pressed="{Binding CurrentDevice.R1}"
-                                        Grid.Row="1"
-                                        Grid.Column="0"
-                                        Margin="0,0,16,0"
-                                        HorizontalAlignment="Center">
-                                    <TextBlock Text="{DynamicResource InputMonitorPage.Button.R1}" />
-                                </Border>
-                                <Border Classes="button-pill"
-                                        Classes.pressed="{Binding CurrentDevice.R2Click}"
-                                        Grid.Row="1"
-                                        Grid.Column="1"
-                                        HorizontalAlignment="Center">
-                                    <TextBlock Text="{DynamicResource InputMonitorPage.Button.R2}" />
-                                </Border>
-                                <TextBlock Grid.Row="2"
-                                           Grid.Column="1"
-                                           Text="{Binding CurrentDevice.R2}"
-                                           FontWeight="SemiBold"
-                                           HorizontalAlignment="Center" />
-                            </Grid>
+                                    </Grid>
+                                </StackPanel>
+                            </cards:CustomCard>
                         </Grid>
 
-                        <!-- D-pad, sticks, and face buttons arranged like the controller -->
-                        <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*,Auto">
-                            <!-- Row 0: D-pad, center, and face buttons -->
-                            <!-- Left side: D-pad -->
-                            <Grid Grid.Row="0"
-                                  Grid.Column="0"
-                                  ColumnDefinitions="Auto,Auto,Auto"
-                                  RowDefinitions="Auto,Auto,Auto">
-                                <Border Grid.Row="0"
-                                        Grid.Column="1"
-                                        Classes="button-pill pad"
-                                        Classes.pressed="{Binding CurrentDevice.DPadUp}"
-                                        ToolTip.Tip="{DynamicResource InputMonitorPage.Button.DPadUp}">
-                                    <ic:FluentIcon Icon="ChevronUp"
-                                                   IconVariant="Regular"
-                                                   IconSize="Size20"
-                                                   HorizontalAlignment="Center"
+                        <!-- Touch info cards -->
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                            <cards:CustomCard>
+                                <StackPanel Spacing="4">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{DynamicResource InputMonitorPage.Touchpad.Touch1}"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding CurrentDevice.Touch1State}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                    VerticalAlignment="Center" />
-                                </Border>
-                                <Border Grid.Row="1"
-                                        Grid.Column="0"
-                                        Classes="button-pill pad"
-                                        Classes.pressed="{Binding CurrentDevice.DPadLeft}"
-                                        ToolTip.Tip="{DynamicResource InputMonitorPage.Button.DPadLeft}">
-                                    <ic:FluentIcon Icon="ChevronLeft"
-                                                   IconVariant="Regular"
-                                                   IconSize="Size20"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center" />
-                                </Border>
-                                <Border Grid.Row="1"
-                                        Grid.Column="2"
-                                        Classes="button-pill pad"
-                                        Classes.pressed="{Binding CurrentDevice.DPadRight}"
-                                        ToolTip.Tip="{DynamicResource InputMonitorPage.Button.DPadRight}">
-                                    <ic:FluentIcon Icon="ChevronRight"
-                                                   IconVariant="Regular"
-                                                   IconSize="Size20"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center" />
-                                </Border>
-                                <Border Grid.Row="2"
-                                        Grid.Column="1"
-                                        Classes="button-pill pad"
-                                        Classes.pressed="{Binding CurrentDevice.DPadDown}"
-                                        ToolTip.Tip="{DynamicResource InputMonitorPage.Button.DPadDown}">
-                                    <ic:FluentIcon Icon="ChevronDown"
-                                                   IconVariant="Regular"
-                                                   IconSize="Size20"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center" />
-                                </Border>
-                            </Grid>
-
-                            <!-- Right side: face buttons -->
-                            <Grid Grid.Row="0"
-                                  Grid.Column="2"
-                                  ColumnDefinitions="Auto,Auto,Auto"
-                                  RowDefinitions="Auto,Auto,Auto">
-                                <Border Grid.Row="0"
-                                        Grid.Column="1"
-                                        Classes="button-pill pad"
-                                        Classes.pressed="{Binding CurrentDevice.Triangle}"
-                                        ToolTip.Tip="{DynamicResource InputMonitorPage.Button.Triangle}">
-                                    <ic:FluentIcon Icon="TriangleUp"
-                                                   IconVariant="Regular"
-                                                   IconSize="Size20"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center" />
-                                </Border>
-                                <Border Grid.Row="1"
-                                        Grid.Column="0"
-                                        Classes="button-pill pad"
-                                        Classes.pressed="{Binding CurrentDevice.Square}"
-                                        ToolTip.Tip="{DynamicResource InputMonitorPage.Button.Square}">
-                                    <ic:FluentIcon Icon="Square"
-                                                   IconVariant="Regular"
-                                                   IconSize="Size20"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center" />
-                                </Border>
-                                <Border Grid.Row="1"
-                                        Grid.Column="2"
-                                        Classes="button-pill pad"
-                                        Classes.pressed="{Binding CurrentDevice.Circle}"
-                                        ToolTip.Tip="{DynamicResource InputMonitorPage.Button.Circle}">
-                                    <ic:FluentIcon Icon="Circle"
-                                                   IconVariant="Regular"
-                                                   IconSize="Size20"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center" />
-                                </Border>
-                                <Border Grid.Row="2"
-                                        Grid.Column="1"
-                                        Classes="button-pill pad"
-                                        Classes.pressed="{Binding CurrentDevice.Cross}"
-                                        ToolTip.Tip="{DynamicResource InputMonitorPage.Button.Cross}">
-                                    <ic:FluentIcon Icon="Dismiss"
-                                                   IconVariant="Regular"
-                                                   IconSize="Size20"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center" />
-                                </Border>
-                            </Grid>
-
-                            <!-- Row 1: sticks, each centered over two columns
-                                 (left over columns 0-1, right over columns 1-2) -->
-                            <StackPanel Grid.Row="1"
-                                        Grid.Column="0"
-                                        Grid.ColumnSpan="2"
-                                        Margin="0,16,24,0"
-                                        Spacing="8"
-                                        HorizontalAlignment="Center">
-                                <Border Width="120"
-                                        Height="120"
-                                        CornerRadius="60"
-                                        HorizontalAlignment="Center"
-                                        Background="{DynamicResource LayerFillColorDefaultBrush}"
-                                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                                        BorderThickness="2">
-                                    <Grid Width="120" Height="120">
-                                        <Rectangle Height="2"
-                                                   VerticalAlignment="Center"
-                                                   Fill="{DynamicResource ControlStrokeColorDefaultBrush}" />
-                                        <Rectangle Width="2"
-                                                   HorizontalAlignment="Center"
-                                                   Fill="{DynamicResource ControlStrokeColorDefaultBrush}" />
-                                        <Ellipse Width="6"
-                                                 Height="6"
-                                                 HorizontalAlignment="Center"
-                                                 VerticalAlignment="Center"
-                                                 Fill="{DynamicResource TextFillColorSecondaryBrush}" />
-                                        <Ellipse x:Name="LeftStickDot"
-                                                 Width="12"
-                                                 Height="12"
-                                                 HorizontalAlignment="Left"
-                                                 VerticalAlignment="Top"
-                                                 Fill="{DynamicResource AccentFillColorDefaultBrush}" />
-                                    </Grid>
-                                </Border>
-                                <StackPanel Orientation="Horizontal"
-                                            HorizontalAlignment="Center"
-                                            Spacing="6">
-                                    <TextBlock Text="{DynamicResource InputMonitorPage.Sticks.X}"
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding CurrentDevice.Touch1Position}"
                                                FontSize="12"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding CurrentDevice.LeftStickX}"
-                                               FontWeight="SemiBold"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock Text="·"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock Text="{DynamicResource InputMonitorPage.Sticks.Y}"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding CurrentDevice.LeftStickY}"
-                                               FontWeight="SemiBold"
-                                               VerticalAlignment="Center" />
+                                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                 </StackPanel>
-                                <Border Classes="button-pill"
-                                        Classes.pressed="{Binding CurrentDevice.L3}"
-                                        HorizontalAlignment="Center">
-                                    <TextBlock Text="{DynamicResource InputMonitorPage.Button.L3}" />
-                                </Border>
-                            </StackPanel>
-
-                            <!-- PS and Mute centered between the sticks -->
-                            <StackPanel Grid.Row="1"
-                                        Grid.Column="1"
-                                        Spacing="10"
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center"
-                                        Margin="0,0,0,5">
-                                <Border Classes="button-pill"
-                                        Classes.pressed="{Binding CurrentDevice.PS}"
-                                        ToolTip.Tip="{DynamicResource InputMonitorPage.Button.PS}"
-                                        Width="36"
-                                        Height="36"
-                                        CornerRadius="18"
-                                        Padding="0">
-                                    <TextBlock Text="{DynamicResource InputMonitorPage.Button.PS}"
-                                               FontSize="10"
-                                               FontWeight="SemiBold"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center" />
-                                </Border>
-                                <Border Classes="button-pill"
-                                        Classes.pressed="{Binding CurrentDevice.Mute}"
-                                        ToolTip.Tip="{DynamicResource InputMonitorPage.Button.Mute}"
-                                        Width="36"
-                                        Height="36"
-                                        CornerRadius="18"
-                                        Padding="0">
-                                    <ic:FluentIcon Icon="MicOff"
-                                                   IconVariant="Regular"
-                                                   IconSize="Size20"
-                                                   HorizontalAlignment="Center"
+                            </cards:CustomCard>
+                            <cards:CustomCard Grid.Column="1">
+                                <StackPanel Spacing="4">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{DynamicResource InputMonitorPage.Touchpad.Touch2}"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding CurrentDevice.Touch2State}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                    VerticalAlignment="Center" />
-                                </Border>
-                            </StackPanel>
-
-                            <StackPanel Grid.Row="1"
-                                        Grid.Column="1"
-                                        Grid.ColumnSpan="2"
-                                        Margin="24,16,0,0"
-                                        Spacing="8"
-                                        HorizontalAlignment="Center">
-                                <Border Width="120"
-                                        Height="120"
-                                        CornerRadius="60"
-                                        HorizontalAlignment="Center"
-                                        Background="{DynamicResource LayerFillColorDefaultBrush}"
-                                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                                        BorderThickness="2">
-                                    <Grid Width="120" Height="120">
-                                        <Rectangle Height="2"
-                                                   VerticalAlignment="Center"
-                                                   Fill="{DynamicResource ControlStrokeColorDefaultBrush}" />
-                                        <Rectangle Width="2"
-                                                   HorizontalAlignment="Center"
-                                                   Fill="{DynamicResource ControlStrokeColorDefaultBrush}" />
-                                        <Ellipse Width="6"
-                                                 Height="6"
-                                                 HorizontalAlignment="Center"
-                                                 VerticalAlignment="Center"
-                                                 Fill="{DynamicResource TextFillColorSecondaryBrush}" />
-                                        <Ellipse x:Name="RightStickDot"
-                                                 Width="12"
-                                                 Height="12"
-                                                 HorizontalAlignment="Left"
-                                                 VerticalAlignment="Top"
-                                                 Fill="{DynamicResource AccentFillColorDefaultBrush}" />
-                                    </Grid>
-                                </Border>
-                                <StackPanel Orientation="Horizontal"
-                                            HorizontalAlignment="Center"
-                                            Spacing="6">
-                                    <TextBlock Text="{DynamicResource InputMonitorPage.Sticks.X}"
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding CurrentDevice.Touch2Position}"
                                                FontSize="12"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding CurrentDevice.RightStickX}"
-                                               FontWeight="SemiBold"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock Text="·"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock Text="{DynamicResource InputMonitorPage.Sticks.Y}"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding CurrentDevice.RightStickY}"
-                                               FontWeight="SemiBold"
-                                               VerticalAlignment="Center" />
+                                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                 </StackPanel>
-                                <Border Classes="button-pill"
-                                        Classes.pressed="{Binding CurrentDevice.R3}"
-                                        HorizontalAlignment="Center">
-                                    <TextBlock Text="{DynamicResource InputMonitorPage.Button.R3}" />
-                                </Border>
-                            </StackPanel>
+                            </cards:CustomCard>
                         </Grid>
-
                         <!-- Edge function and back paddle buttons (DualSense Edge only) -->
                         <StackPanel Orientation="Horizontal"
                                     Spacing="10"

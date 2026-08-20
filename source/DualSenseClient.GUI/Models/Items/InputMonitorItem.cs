@@ -31,7 +31,7 @@ namespace DualSenseClient.GUI.Models.Items;
 /// never floods the dispatcher.
 /// </para>
 /// </remarks>
-public sealed partial class InputMonitorItem : ObservableObject, IDisposable
+public sealed partial class InputMonitorItem : ObservableObject, IControllerMonitorState, IDisposable
 {
     /// <summary>
     /// Placeholder rendered when a value is missing or unreadable.
@@ -39,34 +39,12 @@ public sealed partial class InputMonitorItem : ObservableObject, IDisposable
     private const string Unavailable = "-";
 
     /// <summary>
-    /// Size of the stick visual track in the view (must match the AXAML).
+    /// Default PS-blue lightbar color shown before the controller has received any
+    /// color output report.
     /// </summary>
-    private const double StickTrackSize = 120;
-
-    /// <summary>
-    /// Diameter of the stick indicator dot in the view.
-    /// </summary>
-    private const double StickDotSize = 12;
-
-    /// <summary>
-    /// Width of the touchpad surface visual in the view (must match the AXAML).
-    /// </summary>
-    private const double TouchSurfaceWidth = 320;
-
-    /// <summary>
-    /// Height of the touchpad surface visual in the view (must match the AXAML).
-    /// </summary>
-    private const double TouchSurfaceHeight = 180;
-
-    /// <summary>
-    /// Diameter of the touch indicator dots in the view.
-    /// </summary>
-    private const double TouchDotSize = 16;
-
-    /// <summary>
-    /// Space between the touch indicator dots and the surface edge.
-    /// </summary>
-    private const double TouchDotMargin = 8;
+    private const int DefaultLightbarRed = 0;
+    private const int DefaultLightbarGreen = 87;
+    private const int DefaultLightbarBlue = 255;
 
     /// <summary>
     /// All property names re-raised on each live update.
@@ -81,14 +59,18 @@ public sealed partial class InputMonitorItem : ObservableObject, IDisposable
         nameof(L3), nameof(R3), nameof(Create), nameof(Options),
         nameof(PS), nameof(TouchPad), nameof(Mute),
         nameof(FnL), nameof(FnR), nameof(L4), nameof(R4),
-        nameof(LeftStickX), nameof(LeftStickY), nameof(LeftStickDotX), nameof(LeftStickDotY),
-        nameof(RightStickX), nameof(RightStickY), nameof(RightStickDotX), nameof(RightStickDotY),
+        nameof(LeftStickX), nameof(LeftStickY),
+        nameof(RightStickX), nameof(RightStickY),
         nameof(L2), nameof(R2),
         nameof(GyroX), nameof(GyroY), nameof(GyroZ),
         nameof(AccelX), nameof(AccelY), nameof(AccelZ),
         nameof(MotionSamples),
-        nameof(Touch1Active), nameof(Touch1State), nameof(Touch1Position), nameof(Touch1DotX), nameof(Touch1DotY),
-        nameof(Touch2Active), nameof(Touch2State), nameof(Touch2Position), nameof(Touch2DotX), nameof(Touch2DotY)
+        nameof(Touch1Active), nameof(Touch1State), nameof(Touch1Position),
+        nameof(Touch1X), nameof(Touch1Y),
+        nameof(Touch2Active), nameof(Touch2State), nameof(Touch2Position),
+        nameof(Touch2X), nameof(Touch2Y),
+        nameof(LightbarRed), nameof(LightbarGreen), nameof(LightbarBlue),
+        nameof(PlayerLeds), nameof(MuteLedMode)
     ];
 
     /// <summary>
@@ -673,16 +655,6 @@ public sealed partial class InputMonitorItem : ObservableObject, IDisposable
     public int LeftStickY => _input?.LeftStickY ?? 128;
 
     /// <summary>
-    /// Horizontal pixel position of the left stick indicator dot on the visual track.
-    /// </summary>
-    public double LeftStickDotX => _input is { } input ? StickDotPosition(input.LeftStickX) : StickCenterPosition;
-
-    /// <summary>
-    /// Vertical pixel position of the left stick indicator dot on the visual track.
-    /// </summary>
-    public double LeftStickDotY => _input is { } input ? StickDotPosition(input.LeftStickY) : StickCenterPosition;
-
-    /// <summary>
     /// Right stick horizontal position (0-255, center is 128).
     /// </summary>
     public int RightStickX => _input?.RightStickX ?? 128;
@@ -691,16 +663,6 @@ public sealed partial class InputMonitorItem : ObservableObject, IDisposable
     /// Right stick vertical position (0-255, center is 128, 0 is up).
     /// </summary>
     public int RightStickY => _input?.RightStickY ?? 128;
-
-    /// <summary>
-    /// Horizontal pixel position of the right stick indicator dot on the visual track.
-    /// </summary>
-    public double RightStickDotX => _input is { } input ? StickDotPosition(input.RightStickX) : StickCenterPosition;
-
-    /// <summary>
-    /// Vertical pixel position of the right stick indicator dot on the visual track.
-    /// </summary>
-    public double RightStickDotY => _input is { } input ? StickDotPosition(input.RightStickY) : StickCenterPosition;
 
     // ── Triggers ──────────────────────────────────────────────
 
@@ -759,6 +721,16 @@ public sealed partial class InputMonitorItem : ObservableObject, IDisposable
     public bool Touch1Active => _touchpad?.Touch1.IsActive ?? false;
 
     /// <summary>
+    /// Touch point 1 horizontal position (0-1919), or 0 when no finger is detected.
+    /// </summary>
+    public int Touch1X => _touchpad?.Touch1 is { } p && p.IsActive ? p.X : 0;
+
+    /// <summary>
+    /// Touch point 1 vertical position (0-1079), or 0 when no finger is detected.
+    /// </summary>
+    public int Touch1Y => _touchpad?.Touch1 is { } p && p.IsActive ? p.Y : 0;
+
+    /// <summary>
     /// Localized active/inactive text for touch point 1.
     /// </summary>
     public string Touch1State => ActiveText(Touch1Active);
@@ -769,19 +741,19 @@ public sealed partial class InputMonitorItem : ObservableObject, IDisposable
     public string Touch1Position => TouchPosition(_touchpad?.Touch1);
 
     /// <summary>
-    /// Horizontal pixel position of touch point 1 on the surface visual.
-    /// </summary>
-    public double Touch1DotX => TouchDotX(_touchpad?.Touch1);
-
-    /// <summary>
-    /// Vertical pixel position of touch point 1 on the surface visual.
-    /// </summary>
-    public double Touch1DotY => TouchDotY(_touchpad?.Touch1);
-
-    /// <summary>
     /// Whether a finger is currently detected at touch point 2.
     /// </summary>
     public bool Touch2Active => _touchpad?.Touch2.IsActive ?? false;
+
+    /// <summary>
+    /// Touch point 2 horizontal position (0-1919), or 0 when no finger is detected.
+    /// </summary>
+    public int Touch2X => _touchpad?.Touch2 is { } p && p.IsActive ? p.X : 0;
+
+    /// <summary>
+    /// Touch point 2 vertical position (0-1079), or 0 when no finger is detected.
+    /// </summary>
+    public int Touch2Y => _touchpad?.Touch2 is { } p && p.IsActive ? p.Y : 0;
 
     /// <summary>
     /// Localized active/inactive text for touch point 2.
@@ -793,15 +765,37 @@ public sealed partial class InputMonitorItem : ObservableObject, IDisposable
     /// </summary>
     public string Touch2Position => TouchPosition(_touchpad?.Touch2);
 
-    /// <summary>
-    /// Horizontal pixel position of touch point 2 on the surface visual.
-    /// </summary>
-    public double Touch2DotX => TouchDotX(_touchpad?.Touch2);
+    // ── Lightbar ──────────────────────────────────────────────
 
     /// <summary>
-    /// Vertical pixel position of touch point 2 on the surface visual.
+    /// Current lightbar red channel (0-255), or the default PS blue when no
+    /// DualSense device is present.
     /// </summary>
-    public double Touch2DotY => TouchDotY(_touchpad?.Touch2);
+    public int LightbarRed => _device?.CurrentLightbarColor.Red ?? DefaultLightbarRed;
+
+    /// <summary>
+    /// Current lightbar green channel (0-255), or the default PS blue when no
+    /// DualSense device is present.
+    /// </summary>
+    public int LightbarGreen => _device?.CurrentLightbarColor.Green ?? DefaultLightbarGreen;
+
+    /// <summary>
+    /// Current lightbar blue channel (0-255), or the default PS blue when no
+    /// DualSense device is present.
+    /// </summary>
+    public int LightbarBlue => _device?.CurrentLightbarColor.Blue ?? DefaultLightbarBlue;
+
+    /// <summary>
+    /// Current player LED layout as a bitmask (bit 0 = LED 1, leftmost), or 0 when no
+    /// DualSense device is present.
+    /// </summary>
+    public int PlayerLeds => _device?.CurrentPlayerLeds ?? 0;
+
+    /// <summary>
+    /// Current mute LED mode (0 = off, 1 = on, 2 = pulse), or 0 when no DualSense device
+    /// is present.
+    /// </summary>
+    public int MuteLedMode => _device?.CurrentMuteLedMode ?? 0;
 
     // ── Report ────────────────────────────────────────────────
 
@@ -848,6 +842,9 @@ public sealed partial class InputMonitorItem : ObservableObject, IDisposable
             _device.InputStateChanged += OnInputStateChanged;
             _device.MotionChanged += OnMotionChanged;
             _device.TouchpadChanged += OnTouchpadChanged;
+            _device.LightbarColorChanged += OnLightbarColorChanged;
+            _device.PlayerLedsChanged += OnLightbarColorChanged;
+            _device.MuteLedModeChanged += OnLightbarColorChanged;
         }
     }
 
@@ -870,6 +867,9 @@ public sealed partial class InputMonitorItem : ObservableObject, IDisposable
             _device.InputStateChanged -= OnInputStateChanged;
             _device.MotionChanged -= OnMotionChanged;
             _device.TouchpadChanged -= OnTouchpadChanged;
+            _device.LightbarColorChanged -= OnLightbarColorChanged;
+            _device.PlayerLedsChanged -= OnLightbarColorChanged;
+            _device.MuteLedModeChanged -= OnLightbarColorChanged;
         }
     }
 
@@ -1070,6 +1070,15 @@ public sealed partial class InputMonitorItem : ObservableObject, IDisposable
     }
 
     /// <summary>
+    /// Queues a UI-thread update so the lightbar color properties re-read the
+    /// device's latest color.
+    /// </summary>
+    private void OnLightbarColorChanged(object? sender, EventArgs e)
+    {
+        QueueUpdate();
+    }
+
+    /// <summary>
     /// Queues a single coalesced UI-thread update that refreshes every bound property
     /// from the latest cached snapshots.
     /// </summary>
@@ -1106,37 +1115,9 @@ public sealed partial class InputMonitorItem : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Maps an 8-bit stick axis value to the pixel position of the indicator dot's
-    /// leading edge on the track, so the dot travels edge to edge across the full
-    /// track diameter without any unused space at the extremes.
-    /// </summary>
-    private static double StickDotPosition(byte value) => (value / 255.0) * (StickTrackSize - StickDotSize);
-
-    /// <summary>
-    /// Pixel position of a stick indicator dot when centered on the track.
-    /// </summary>
-    private static double StickCenterPosition => (StickTrackSize - StickDotSize) / 2;
-
-    /// <summary>
     /// Formats a touch point as "x, y", or "-" when no finger is detected.
     /// </summary>
     private static string TouchPosition(TouchPoint? point) => point is { } p && p.IsActive ? $"{p.X}, {p.Y}" : Unavailable;
-
-    /// <summary>
-    /// Maps a touch point's horizontal coordinate to the pixel position of the
-    /// indicator dot's leading edge on the surface visual.
-    /// </summary>
-    private static double TouchDotX(TouchPoint? point) => point is { } p && p.IsActive
-        ? TouchDotMargin + (p.X / 1919.0) * (TouchSurfaceWidth - (TouchDotMargin * 2) - TouchDotSize)
-        : (TouchSurfaceWidth - TouchDotSize) / 2;
-
-    /// <summary>
-    /// Maps a touch point's vertical coordinate to the pixel position of the
-    /// indicator dot's leading edge on the surface visual.
-    /// </summary>
-    private static double TouchDotY(TouchPoint? point) => point is { } p && p.IsActive
-        ? TouchDotMargin + (p.Y / 1079.0) * (TouchSurfaceHeight - (TouchDotMargin * 2) - TouchDotSize)
-        : (TouchSurfaceHeight - TouchDotSize) / 2;
 
     /// <summary>
     /// Localized "Active"/"Inactive" text for a touch point.

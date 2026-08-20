@@ -156,6 +156,42 @@ public class DualSenseDevice : ControllerDevice
     public event EventHandler<TouchpadEventArgs>? TouchpadChanged;
 
     /// <summary>
+    /// Raised when the lightbar color is (re)sent to the controller via an output
+    /// report carrying the LED color flag. Fires on the sender's thread.
+    /// </summary>
+    public event EventHandler? LightbarColorChanged;
+
+    /// <summary>
+    /// Raised when the player LED layout is (re)sent to the controller via an output
+    /// report carrying the player indicator flag. Fires on the sender's thread.
+    /// </summary>
+    public event EventHandler? PlayerLedsChanged;
+
+    /// <summary>
+    /// Raised when the mute LED mode is (re)sent to the controller via an output report
+    /// carrying the mute light flag. Fires on the sender's thread.
+    /// </summary>
+    public event EventHandler? MuteLedModeChanged;
+
+    /// <summary>
+    /// The last lightbar color sent to the controller, or the controller's default
+    /// PS-blue (0, 87, 255) before any color output report has been sent.
+    /// </summary>
+    public (byte Red, byte Green, byte Blue) CurrentLightbarColor { get; private set; } = (0, 87, 255);
+
+    /// <summary>
+    /// The last player LED layout sent to the controller (bits 0-4, LED 1 = leftmost),
+    /// or 0 before any player indicator output report has been sent.
+    /// </summary>
+    public byte CurrentPlayerLeds { get; private set; }
+
+    /// <summary>
+    /// The last mute LED mode sent to the controller (0 = off, 1 = on, 2 = pulse),
+    /// or 0 before any mute light output report has been sent.
+    /// </summary>
+    public byte CurrentMuteLedMode { get; private set; }
+
+    /// <summary>
     /// Creates a new DualSense controller wrapper around an already-opened HID device.
     /// Profiles are not applied here; the owning application applies a profile later via
     /// <see cref="ApplyProfile"/> once the device is connected.
@@ -274,6 +310,33 @@ public class DualSenseDevice : ControllerDevice
     /// <param name="payload">The output state to send.</param>
     public void SendOutputState(SetStateData payload)
     {
+        if ((payload.ValidFlag1 & ValidFlags.AllowLedColor) != 0
+            && (payload.LedRed, payload.LedGreen, payload.LedBlue) != CurrentLightbarColor)
+        {
+            CurrentLightbarColor = (payload.LedRed, payload.LedGreen, payload.LedBlue);
+            LightbarColorChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        if ((payload.ValidFlag1 & ValidFlags.AllowPlayerIndicators) != 0)
+        {
+            byte leds = (byte)((byte)payload.PlayerLeds & (byte)PlayerLedMask.All);
+            if (leds != CurrentPlayerLeds)
+            {
+                CurrentPlayerLeds = leds;
+                PlayerLedsChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        if ((payload.ValidFlag1 & ValidFlags.AllowMuteLight) != 0)
+        {
+            byte mode = (byte)(payload.MuteLedMode & 0x03);
+            if (mode != CurrentMuteLedMode)
+            {
+                CurrentMuteLedMode = mode;
+                MuteLedModeChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
         OutputReport report = ConnectionType == ConnectionType.Bluetooth
             ? OutputReport.ForBluetooth(payload, (byte)(_outputSequence & 0x0F))
             : OutputReport.ForUsb(payload);

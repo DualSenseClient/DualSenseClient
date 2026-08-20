@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
@@ -26,10 +24,9 @@ namespace DualSenseClient.GUI.Views.Pages;
 /// on each navigation.
 /// </para>
 /// <para>
-/// The indicator dots for the sticks and touchpad are driven directly from the monitor item's
-/// <see cref="INotifyPropertyChanged"/> notifications instead of XAML bindings, because the
-/// dots must track high-frequency updates that some binding paths do not reliably propagate.
-/// The monitor item already coalesces and marshals its notifications to the UI thread.
+/// The controller visualization is the reusable <see cref="Controls.DualSenseControllerView"/>,
+/// which updates itself from the monitor item's notifications; this code-behind only drives
+/// the motion graphs, which must be re-pointed at the item's sample buffer on each update.
 /// </para>
 /// </remarks>
 public partial class InputMonitorPage : UserControl
@@ -45,21 +42,6 @@ public partial class InputMonitorPage : UserControl
     private InputMonitorItem? _item;
 
     /// <summary>
-    /// Touchpad surface size (must match the AXAML).
-    /// </summary>
-    private const double TouchSurfaceWidth = 320;
-
-    private const double TouchSurfaceHeight = 180;
-
-    /// <summary>
-    /// Touch indicator dot and its label group (must match the AXAML).
-    /// </summary>
-    private const double TouchDotSize = 16;
-
-    private const double TouchDotGroupWidth = 64;
-    private const double TouchDotGroupHeight = 36;
-
-    /// <summary>
     /// Initializes the input monitor page, resolving the ViewModel from DI.
     /// </summary>
     public InputMonitorPage()
@@ -70,7 +52,6 @@ public partial class InputMonitorPage : UserControl
 
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
         SubscribeItem(_viewModel.CurrentDevice);
-        UpdateDots();
         UpdateGraphs();
     }
 
@@ -121,14 +102,13 @@ public partial class InputMonitorPage : UserControl
     }
 
     /// <summary>
-    /// Tracks the shell's controller selection and updates the indicator dots.
+    /// Tracks the shell's controller selection and re-points the motion graphs.
     /// </summary>
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(InputMonitorPageViewModel.CurrentDevice))
         {
             SubscribeItem(_viewModel.CurrentDevice);
-            UpdateDots();
             UpdateGraphs();
         }
     }
@@ -152,64 +132,18 @@ public partial class InputMonitorPage : UserControl
     }
 
     /// <summary>
-    /// Repositions the indicator dots and motion graphs whenever the live item reports an update.
+    /// Re-points the motion graphs whenever the live item reports an update.
     /// </summary>
     private void OnItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (Dispatcher.UIThread.CheckAccess())
         {
-            UpdateDots();
             UpdateGraphs();
         }
         else
         {
-            Dispatcher.UIThread.Post(() =>
-            {
-                UpdateDots();
-                UpdateGraphs();
-            });
+            Dispatcher.UIThread.Post(UpdateGraphs);
         }
-    }
-
-    /// <summary>
-    /// Moves the stick and touchpad indicator dots to the monitor item's current positions.
-    /// </summary>
-    private void UpdateDots()
-    {
-        InputMonitorItem? item = _item;
-        if (item is null)
-        {
-            LeftStickDot.IsVisible = false;
-            RightStickDot.IsVisible = false;
-            Touch1DotGroup.IsVisible = false;
-            Touch2DotGroup.IsVisible = false;
-            return;
-        }
-
-        LeftStickDot.IsVisible = true;
-        LeftStickDot.Margin = new Thickness(item.LeftStickDotX, item.LeftStickDotY, 0, 0);
-        RightStickDot.IsVisible = true;
-        RightStickDot.Margin = new Thickness(item.RightStickDotX, item.RightStickDotY, 0, 0);
-
-        PositionTouchDotGroup(Touch1DotGroup, item.Touch1Active, item.Touch1DotX, item.Touch1DotY);
-        PositionTouchDotGroup(Touch2DotGroup, item.Touch2Active, item.Touch2DotX, item.Touch2DotY);
-    }
-
-    /// <summary>
-    /// Places a touch indicator group (dot plus its label) at the touch point, keeping
-    /// the label centered under the dot and clamped inside the surface.
-    /// </summary>
-    private static void PositionTouchDotGroup(Grid group, bool active, double dotX, double dotY)
-    {
-        group.IsVisible = active;
-        if (!active)
-        {
-            return;
-        }
-
-        double left = Math.Clamp(dotX - (TouchDotGroupWidth - TouchDotSize) / 2, 0, TouchSurfaceWidth - TouchDotGroupWidth);
-        double top = Math.Min(dotY, TouchSurfaceHeight - TouchDotGroupHeight);
-        group.Margin = new Thickness(left, top, 0, 0);
     }
 
     /// <summary>

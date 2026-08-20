@@ -189,6 +189,7 @@ The DualSense protocol, audio, and haptics implementations were developed using 
 
 - [SharpEmu](https://github.com/sharpemu/sharpemu/) — The custom logging infrastructure was inspired by SharpEmu's logger
 - [Lenovo Legion Toolkit](https://github.com/LenovoLegionToolkit-Team/LenovoLegionToolkit) — The settings persistence library was inspired by Lenovo Legion Toolkit's settings system
+- [VSCView](https://github.com/Nielk1/VSCView) — The live controller visualization was inspired by VSCView's controller themes
 
 ### Assets
 
