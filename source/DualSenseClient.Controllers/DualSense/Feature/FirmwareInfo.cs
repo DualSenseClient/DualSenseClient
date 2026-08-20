@@ -1,4 +1,5 @@
 using System.Text;
+using DualSenseClient.Controllers.DualSense.Enum;
 
 namespace DualSenseClient.Controllers.DualSense.Feature;
 
@@ -56,6 +57,21 @@ public readonly struct FirmwareInfo
     /// Model revision number (low 16 bits of <see cref="HardwareInfo"/>).
     /// </summary>
     public ushort ModelRevision => (ushort)(HardwareInfo & 0xFFFF);
+
+    /// <summary>
+    /// Hardware generation (bits 8-15 of <see cref="HardwareInfo"/>). Generation 0x03
+    /// controllers have full player-LED support while 0x04 is restricted to Mirrored Only.
+    /// </summary>
+    public DualSenseHardwareGeneration HardwareGeneration => IsValid
+        ? (DualSenseHardwareGeneration)((HardwareInfo >> 8) & 0xFF)
+        : DualSenseHardwareGeneration.Unknown;
+
+    /// <summary>
+    /// Whether the hardware generation supports full player-LED functionality. Generations
+    /// below 0x04 do; generation 0x04 and above are restricted to Mirrored Only.
+    /// </summary>
+    public bool HasFullPlayerLedSupport =>
+        HardwareGeneration is (DualSenseHardwareGeneration.Generation2 or DualSenseHardwareGeneration.Generation3);
 
     /// <summary>
     /// Main firmware version (bytes 28-31, uint32 LE) as major.minor.patch.

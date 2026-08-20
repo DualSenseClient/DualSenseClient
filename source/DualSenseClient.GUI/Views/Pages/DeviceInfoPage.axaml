@@ -288,6 +288,26 @@
                     </cards:CustomCard>
                     <cards:CustomCard>
                         <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.HardwareVersion}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.HardwareVersion}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.HardwareGeneration}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.HardwareGeneration}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.BuildDate}"
                                        VerticalAlignment="Center" />
                             <TextBlock Grid.Column="1"

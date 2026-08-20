@@ -48,6 +48,8 @@
     <sys:String x:Key="DeviceInfoPage.Firmware.DspVersion">DSP Firmware</sys:String>
     <sys:String x:Key="DeviceInfoPage.Firmware.McuDspVersion">MCU/Spider DSP</sys:String>
     <sys:String x:Key="DeviceInfoPage.Firmware.ModelRevision">Model Revision</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.HardwareVersion">Hardware Version</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.HardwareGeneration">Hardware Generation</sys:String>
     <sys:String x:Key="DeviceInfoPage.Firmware.BuildDate">Build Date</sys:String>
     <sys:String x:Key="DeviceInfoPage.Firmware.BuildTime">Build Time</sys:String>
 

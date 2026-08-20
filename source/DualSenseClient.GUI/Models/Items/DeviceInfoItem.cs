@@ -117,6 +117,25 @@ public sealed partial class DeviceInfoItem : ObservableObject, IDisposable
     public string ModelRevision => HasFirmwareInfo ? Controller.FirmwareInfo!.Value.ModelRevision.ToString() : Unavailable;
 
     /// <summary>
+    /// Raw hardware info value (bytes 24-27) rendered as hex, or "-" when unavailable.
+    /// </summary>
+    public string HardwareVersion => HasFirmwareInfo ? $"0x{Controller.FirmwareInfo!.Value.HardwareInfo:X8}" : Unavailable;
+
+    /// <summary>
+    /// Hardware generation (bits 8-15 of the hardware info value), or "-" when unavailable.
+    /// </summary>
+    public string HardwareGeneration => HasFirmwareInfo
+        ? FormatHardwareGeneration(Controller.FirmwareInfo!.Value.HardwareGeneration)
+        : Unavailable;
+
+    /// <summary>
+    /// Formats a hardware generation as a friendly name with the raw value in brackets,
+    /// e.g. "Generation 4 (0x04)".
+    /// </summary>
+    private static string FormatHardwareGeneration(DualSenseHardwareGeneration generation) =>
+        $"{generation.ToString().Replace("Generation", "Generation ")} (0x{(byte)generation:X2})";
+
+    /// <summary>
     /// Firmware build date.
     /// </summary>
     public string BuildDate => Controller.FirmwareInfo?.BuildDate ?? Unavailable;
