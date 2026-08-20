@@ -43,6 +43,7 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// color output report.
     /// </summary>
     private const int DefaultLightbarRed = 0;
+
     private const int DefaultLightbarGreen = 87;
     private const int DefaultLightbarBlue = 255;
 
@@ -228,10 +229,11 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     public ControllerItem Controller { get; }
 
     /// <summary>
-    /// The audio player for the wrapped controller, or a desktop-only player when no
-    /// DualSense is present. Always available while a controller is selected.
+    /// The audio player for the wrapped controller, created when an audio engine is
+    /// available; <c>null</c> for hosts that only display live state (e.g. the device
+    /// info page).
     /// </summary>
-    public AudioPlayerItem Audio { get; }
+    public AudioPlayerItem? Audio { get; }
 
     /// <summary>
     /// The adaptive trigger modes offered by the effect pickers (index 0 is Off).
@@ -811,10 +813,29 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// <param name="controller">The controller item to display.</param>
     /// <param name="engine">The shared audio engine used by the audio player.</param>
     public InputMonitorItem(ControllerItem controller, AudioEngine engine)
+        : this(controller, new AudioPlayerItem(controller.Device as DualSenseDevice, engine))
+    {
+    }
+
+    /// <summary>
+    /// Creates a new input monitor item for the given controller without an audio player,
+    /// for hosts that only display live state (e.g. the device info page).
+    /// </summary>
+    /// <param name="controller">The controller item to display.</param>
+    public InputMonitorItem(ControllerItem controller)
+        : this(controller, (AudioPlayerItem?)null)
+    {
+    }
+
+    /// <summary>
+    /// Creates a new input monitor item for the given controller, optionally with an
+    /// audio player, and subscribes to its input events.
+    /// </summary>
+    private InputMonitorItem(ControllerItem controller, AudioPlayerItem? audio)
     {
         Controller = controller;
         _device = controller.Device as DualSenseDevice;
-        Audio = new AudioPlayerItem(_device, engine);
+        Audio = audio;
 
         TriggerEffectModes =
         [
@@ -861,7 +882,7 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
         _disposed = true;
         StopOutputDebounce();
         ResetTestOutputs();
-        Audio.Dispose();
+        Audio?.Dispose();
         if (_device is not null)
         {
             _device.InputStateChanged -= OnInputStateChanged;

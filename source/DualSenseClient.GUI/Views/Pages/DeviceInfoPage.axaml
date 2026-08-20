@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:DualSenseClient.GUI.ViewModels.Pages"
              xmlns:cards="clr-namespace:DualSenseClient.GUI.Controls.Cards"
+             xmlns:controls="clr-namespace:DualSenseClient.GUI.Controls"
              xmlns:settings="using:DualSenseClient.Settings"
              xmlns:fic="using:FluentIcons.Common"
              xmlns:ic="using:FluentIcons.Avalonia.Fluent"
@@ -31,10 +32,12 @@
                 </Expander.Header>
                 <StackPanel Spacing="8">
                     <cards:CustomCard>
-                        <Image Source="{Binding ControllerImage}"
-                               Width="280"
-                               HorizontalAlignment="Center"
-                               RenderOptions.BitmapInterpolationMode="HighQuality" />
+                        <controls:DualSenseControllerView State="{Binding MonitorState}"
+                                                          SkinName="{Binding SkinName}"
+                                                          ShowMovement="False"
+                                                          ShowButtonPresses="False"
+                                                          ShowStats="False"
+                                                          HorizontalAlignment="Center" />
                     </cards:CustomCard>
                     <cards:ComboBoxCard Title="{DynamicResource DeviceInfoPage.Device.Skin}"
                                         Description="{DynamicResource DeviceInfoPage.Device.Skin.Description}"

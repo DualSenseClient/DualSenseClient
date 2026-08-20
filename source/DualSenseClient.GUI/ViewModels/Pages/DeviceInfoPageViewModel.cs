@@ -1,7 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -81,6 +80,18 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// The controller currently shown on this page, or <c>null</c> when none is selected.
     /// </summary>
     public DeviceInfoItem? CurrentDevice { get; private set; }
+
+    /// <summary>
+    /// Live controller state driving the reusable controller visualization, or <c>null</c>
+    /// when no controller is selected.
+    /// </summary>
+    public InputMonitorItem? MonitorState { get; private set; }
+
+    /// <summary>
+    /// Tracks the previous monitor state so its event subscriptions are released on
+    /// replacement.
+    /// </summary>
+    private InputMonitorItem? _previousMonitorState;
 
     /// <summary>
     /// The user-visible controller name (custom name, or product name when none was set).
@@ -168,10 +179,15 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     public ObservableCollection<string> Skins { get; } = [];
 
     /// <summary>
-    /// The illustration bitmap of the selected controller's skin, or <c>null</c> when no
-    /// skin is available.
+    /// The illustration skin rendered by the controller visualization, or empty when no
+    /// controller is selected.
     /// </summary>
-    public Bitmap? ControllerImage { get; private set; }
+    public string SkinName => Skins.Count > 0 ? Skins[Math.Clamp(_skinIndex, 0, Skins.Count - 1)] : string.Empty;
+
+    /// <summary>
+    /// Backing field for <see cref="SkinIndex"/>.
+    /// </summary>
+    private int _skinIndex;
 
     /// <summary>
     /// The index of the selected controller's illustration skin in <see cref="Skins"/>.
@@ -193,23 +209,8 @@ public partial class DeviceInfoPageViewModel : ObservableObject
             _skinIndex = value;
             _controllerService.SetSkin(CurrentMac, CurrentDevicePath, skin);
             OnPropertyChanged();
-            ReloadControllerImage();
+            OnPropertyChanged(nameof(SkinName));
         }
-    }
-
-    /// <summary>
-    /// Backing field for <see cref="SkinIndex"/>.
-    /// </summary>
-    private int _skinIndex;
-
-    /// <summary>
-    /// Reloads <see cref="ControllerImage"/> from the currently selected skin.
-    /// </summary>
-    private void ReloadControllerImage()
-    {
-        string skin = Skins.Count > 0 ? Skins[Math.Clamp(_skinIndex, 0, Skins.Count - 1)] : string.Empty;
-        ControllerImage = _illustrationService.GetSkinImage(skin);
-        OnPropertyChanged(nameof(ControllerImage));
     }
 
     /// <summary>
@@ -662,10 +663,13 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     private void UpdateDevice()
     {
         _previousItem?.Dispose();
+        _previousMonitorState?.Dispose();
 
         ControllerItem? selected = _mainViewModel.SelectedItem;
         CurrentDevice = selected is not null ? new DeviceInfoItem(selected) : null;
         _previousItem = CurrentDevice;
+        MonitorState = selected is not null ? new InputMonitorItem(selected) : null;
+        _previousMonitorState = MonitorState;
         _controllerName = selected is null
             ? string.Empty
             : _controllerService.GetDisplayName(CurrentMac, CurrentDevicePath, selected.DisplayName);
@@ -673,12 +677,13 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         string storedSkin = selected is null ? string.Empty : _controllerService.GetSkin(CurrentMac, CurrentDevicePath) ?? string.Empty;
         int storedIndex = Skins.IndexOf(storedSkin);
         _skinIndex = storedIndex >= 0 ? storedIndex : 0;
-        ReloadControllerImage();
 
         OnPropertyChanged(nameof(CurrentDevice));
+        OnPropertyChanged(nameof(MonitorState));
         OnPropertyChanged(nameof(HasDevice));
         OnPropertyChanged(nameof(ControllerName));
         OnPropertyChanged(nameof(SkinIndex));
+        OnPropertyChanged(nameof(SkinName));
         OnPropertyChanged(nameof(EmulationModeIndex));
         OnPropertyChanged(nameof(IsDualSenseEmulation));
         OnPropertyChanged(nameof(IsAudioEmulation));
