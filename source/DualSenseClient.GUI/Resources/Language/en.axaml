@@ -54,7 +54,7 @@
     <!-- Device Info Page: Battery -->
     <sys:String x:Key="DeviceInfoPage.Battery.Title">Battery</sys:String>
     <sys:String x:Key="DeviceInfoPage.Battery.Description">Power level and charging state</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Battery.Level">Level</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Battery.Level">Battery Level</sys:String>
     <sys:String x:Key="DeviceInfoPage.Battery.PowerState">Power State</sys:String>
 
     <!-- Device Info Page: Connection Status -->

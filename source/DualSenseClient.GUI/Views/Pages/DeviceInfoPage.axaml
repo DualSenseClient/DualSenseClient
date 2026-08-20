@@ -39,13 +39,14 @@
                                                           ShowStats="False"
                                                           HorizontalAlignment="Center" />
                     </cards:CustomCard>
+                    <cards:TextBoxCard Title="{DynamicResource DeviceInfoPage.Device.Name}"
+                                       Text="{Binding ControllerName}"
+                                       MaxLength="{x:Static settings:ControllerInfoService.MaxNameLength}"
+                                       TextBoxMaxWidth="300" />
                     <cards:ComboBoxCard Title="{DynamicResource DeviceInfoPage.Device.Skin}"
                                         Description="{DynamicResource DeviceInfoPage.Device.Skin.Description}"
                                         ItemsSource="{Binding Skins}"
                                         SelectedIndex="{Binding SkinIndex}" />
-                    <cards:TextBoxCard Title="{DynamicResource DeviceInfoPage.Device.Name}"
-                                       Text="{Binding ControllerName}"
-                                       MaxLength="{x:Static settings:ControllerInfoService.MaxNameLength}" />
                     <cards:CustomCard>
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Text="{DynamicResource DeviceInfoPage.Device.ConnectionType}"
@@ -64,6 +65,31 @@
                                        Text="{Binding CurrentDevice.ClientMac}"
                                        FontWeight="SemiBold"
                                        VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
+
+                    <!-- Battery -->
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Battery.Level}"
+                                       VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1"
+                                        Orientation="Horizontal"
+                                        Spacing="6"
+                                        VerticalAlignment="Center">
+                                <Button Command="{Binding ToggleBatteryDisplayCommand}"
+                                        IsVisible="{Binding ShowBatteryPercentage}"
+                                        ToolTip.Tip="{Binding CurrentDevice.BatteryPercentage}"
+                                        Padding="8,4">
+                                    <TextBlock Text="{Binding CurrentDevice.BatteryPercentage}" />
+                                </Button>
+                                <Button Command="{Binding ToggleBatteryDisplayCommand}"
+                                        IsVisible="{Binding ShowBatteryIcon}"
+                                        ToolTip.Tip="{Binding CurrentDevice.BatteryPercentage}"
+                                        Padding="8,4">
+                                    <ic:FluentIcon Icon="{Binding CurrentDevice.BatteryIcon}" />
+                                </Button>
+                            </StackPanel>
                         </Grid>
                     </cards:CustomCard>
 
@@ -119,52 +145,6 @@
                 </StackPanel>
             </Expander>
 
-            <!-- Battery -->
-            <Expander IsVisible="{Binding HasDevice}"
-                      IsExpanded="True">
-                <Expander.Header>
-                    <cards:CardHeader Title="{DynamicResource DeviceInfoPage.Battery.Title}"
-                                      Description="{DynamicResource DeviceInfoPage.Battery.Description}"
-                                      Icon="{x:Static fic:Symbol.BatteryCharge}"
-                                      MinHeight="64" />
-                </Expander.Header>
-                <StackPanel Spacing="8">
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Battery.Level}"
-                                       VerticalAlignment="Center" />
-                            <StackPanel Grid.Column="1"
-                                        Orientation="Horizontal"
-                                        Spacing="6"
-                                        VerticalAlignment="Center">
-                                <Button Command="{Binding ToggleBatteryDisplayCommand}"
-                                        IsVisible="{Binding ShowBatteryPercentage}"
-                                        ToolTip.Tip="{Binding CurrentDevice.BatteryPercentage}"
-                                        Padding="8,4">
-                                    <TextBlock Text="{Binding CurrentDevice.BatteryPercentage}" />
-                                </Button>
-                                <Button Command="{Binding ToggleBatteryDisplayCommand}"
-                                        IsVisible="{Binding ShowBatteryIcon}"
-                                        ToolTip.Tip="{Binding CurrentDevice.BatteryPercentage}"
-                                        Padding="8,4">
-                                    <ic:FluentIcon Icon="{Binding CurrentDevice.BatteryIcon}" />
-                                </Button>
-                            </StackPanel>
-                        </Grid>
-                    </cards:CustomCard>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Battery.PowerState}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.PowerState}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                </StackPanel>
-            </Expander>
-
             <!-- Connection Status -->
             <Expander IsVisible="{Binding HasDevice}"
                       IsExpanded="False">
@@ -175,6 +155,16 @@
                                       MinHeight="64" />
                 </Expander.Header>
                 <StackPanel Spacing="8">
+                    <cards:CustomCard>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Battery.PowerState}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentDevice.PowerState}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </cards:CustomCard>
                     <cards:CustomCard>
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Text="{DynamicResource DeviceInfoPage.Connection.Headphones}"
