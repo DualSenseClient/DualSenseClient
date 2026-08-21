@@ -28,11 +28,13 @@ DualSense Client
 
 ## Supported Controllers
 
-| Controller            | Supported | Notes                                            |
-| --------------------- | --------- | ------------------------------------------------ |
-| DualSense (USB)       | ✅        | Full support                                     |
-| DualSense (Bluetooth) | ✅        | Full support including speaker and haptics audio |
-| DualSense Edge        | ⏳        | Coming soon                                      |
+| Controller            | Supported | Notes                                                     |
+| --------------------- | --------- | --------------------------------------------------------- |
+| DualSense (USB)       | ✅        | Full support                                              |
+| DualSense (Bluetooth) | ✅        | Full support including speaker and haptics audio          |
+| DualSense Edge        | ✅        | Full support including Fn buttons and paddles<sup>1</sup> |
+
+<sup><i>1. Implemented but not yet verified on real hardware — no Edge device was available during development.</i></sup>
 
 ## Features
 

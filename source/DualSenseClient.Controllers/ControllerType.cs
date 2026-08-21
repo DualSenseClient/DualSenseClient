@@ -13,7 +13,12 @@ public enum ControllerType
     /// <summary>
     /// Sony DualSense (PS5) controller.
     /// </summary>
-    DualSense
+    DualSense,
+
+    /// <summary>
+    /// Sony DualSense Edge (PS5) controller.
+    /// </summary>
+    DualSenseEdge
 
     // add new controllers here
 }

@@ -20,7 +20,8 @@ public static class ControllerFactory
     /// </summary>
     private static readonly Dictionary<(ushort Vid, ushort Pid), ControllerType> KnownDevices = new Dictionary<(ushort Vid, ushort Pid), ControllerType>
     {
-        { (0x054C, 0x0CE6), ControllerType.DualSense }
+        { (0x054C, 0x0CE6), ControllerType.DualSense },
+        { (0x054C, 0x0DF2), ControllerType.DualSenseEdge }
     };
 
     /// <summary>
@@ -59,6 +60,7 @@ public static class ControllerFactory
             return type switch
             {
                 ControllerType.DualSense => new DualSenseDevice(device, info),
+                ControllerType.DualSenseEdge => new DualSenseEdgeDevice(device, info),
                 _ => null
             };
         }
