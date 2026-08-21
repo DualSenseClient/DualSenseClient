@@ -6,66 +6,74 @@
 public readonly struct MotionState : IEquatable<MotionState>
 {
     /// <summary>
-    /// Raw payload bytes 15-31 (gyro, accel, timestamp, temperature).
-    /// </summary>
-    private readonly byte[] _raw;
-
-    /// <summary>
-    /// Initializes a new motion state from bytes 15-31 of the data payload.
-    /// </summary>
-    public MotionState(byte[] raw, int offset)
-    {
-        _raw = raw[(offset + 15)..(offset + 32)];
-    }
-
-    // Bytes 0-5: Gyroscope (3 × int16 LE)
-    /// <summary>
     /// Gyroscope X-axis / pitch (angular velocity, 16.384 LSB/dps).
     /// </summary>
-    public short GyroX => BitConverter.ToInt16(_raw, 0);
+    public short GyroX { get; }
 
     /// <summary>
     /// Gyroscope Y-axis / yaw (angular velocity, 16.384 LSB/dps).
     /// </summary>
-    public short GyroY => BitConverter.ToInt16(_raw, 2);
+    public short GyroY { get; }
 
     /// <summary>
     /// Gyroscope Z-axis / roll (angular velocity, 16.384 LSB/dps).
     /// </summary>
-    public short GyroZ => BitConverter.ToInt16(_raw, 4);
+    public short GyroZ { get; }
 
-    // Bytes 6-11: Accelerometer (3 × int16 LE)
     /// <summary>
     /// Accelerometer X-axis (linear acceleration, 8192 LSB/g).
     /// </summary>
-    public short AccelX => BitConverter.ToInt16(_raw, 6);
+    public short AccelX { get; }
 
     /// <summary>
     /// Accelerometer Y-axis (linear acceleration, 8192 LSB/g).
     /// </summary>
-    public short AccelY => BitConverter.ToInt16(_raw, 8);
+    public short AccelY { get; }
 
     /// <summary>
     /// Accelerometer Z-axis (linear acceleration, 8192 LSB/g).
     /// </summary>
-    public short AccelZ => BitConverter.ToInt16(_raw, 10);
+    public short AccelZ { get; }
 
     // Bytes 12-15: Motion timestamp (uint32 LE)
     /// <summary>
     /// Motion timestamp.
     /// </summary>
-    public uint Timestamp => BitConverter.ToUInt32(_raw, 12);
+    public uint Timestamp { get; }
 
     // Byte 16: IMU temperature (int8)
     /// <summary>
     /// IMU temperature in degrees Celsius.
     /// </summary>
-    public sbyte Temperature => (sbyte)_raw[16];
+    public sbyte Temperature { get; }
 
     /// <summary>
-    /// Returns true if all 17 raw bytes are equal.
+    /// Initializes a new motion state from bytes 15-31 of the data payload.
     /// </summary>
-    public bool Equals(MotionState other) => _raw.AsSpan().SequenceEqual(other._raw);
+    public MotionState(byte[] buffer, int offset)
+    {
+        GyroX = BitConverter.ToInt16(buffer, offset + 15);
+        GyroY = BitConverter.ToInt16(buffer, offset + 17);
+        GyroZ = BitConverter.ToInt16(buffer, offset + 19);
+        AccelX = BitConverter.ToInt16(buffer, offset + 21);
+        AccelY = BitConverter.ToInt16(buffer, offset + 23);
+        AccelZ = BitConverter.ToInt16(buffer, offset + 25);
+        Timestamp = BitConverter.ToUInt32(buffer, offset + 27);
+        Temperature = (sbyte)buffer[offset + 31];
+    }
+
+    /// <summary>
+    /// Returns true if all parsed motion values are equal.
+    /// </summary>
+    public bool Equals(MotionState other)
+        => GyroX == other.GyroX
+           && GyroY == other.GyroY
+           && GyroZ == other.GyroZ
+           && AccelX == other.AccelX
+           && AccelY == other.AccelY
+           && AccelZ == other.AccelZ
+           && Timestamp == other.Timestamp
+           && Temperature == other.Temperature;
 
     /// <inheritdoc/>
     public override bool Equals(object? obj) => obj is MotionState other && Equals(other);
@@ -73,8 +81,15 @@ public readonly struct MotionState : IEquatable<MotionState>
     /// <inheritdoc/>
     public override int GetHashCode()
     {
-        var hash = new HashCode();
-        hash.AddBytes(_raw);
+        HashCode hash = new HashCode();
+        hash.Add(GyroX);
+        hash.Add(GyroY);
+        hash.Add(GyroZ);
+        hash.Add(AccelX);
+        hash.Add(AccelY);
+        hash.Add(AccelZ);
+        hash.Add(Timestamp);
+        hash.Add(Temperature);
         return hash.ToHashCode();
     }
 

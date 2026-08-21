@@ -6,61 +6,74 @@
 public readonly struct InputState : IEquatable<InputState>
 {
     /// <summary>
-    /// Raw payload bytes 0-9 (sticks, triggers, sequence number, buttons).
+    /// Payload bytes 0-7 (sticks, triggers, sequence number), little-endian.
     /// </summary>
-    private readonly byte[] _raw;
+    private readonly ulong _head;
+
+    /// <summary>
+    /// Payload bytes 8-9 (shoulder/system buttons), little-endian.
+    /// </summary>
+    private readonly ushort _tail;
 
     /// <summary>
     /// Initializes a new input state from bytes 0-9 of the data payload.
     /// </summary>
-    public InputState(byte[] raw, int offset)
+    public InputState(byte[] buffer, int offset)
     {
-        _raw = raw[offset..(offset + 10)];
+        _head = buffer[offset]
+                | (ulong)buffer[offset + 1] << 8
+                | (ulong)buffer[offset + 2] << 16
+                | (ulong)buffer[offset + 3] << 24
+                | (ulong)buffer[offset + 4] << 32
+                | (ulong)buffer[offset + 5] << 40
+                | (ulong)buffer[offset + 6] << 48
+                | (ulong)buffer[offset + 7] << 56;
+        _tail = (ushort)(buffer[offset + 8] | buffer[offset + 9] << 8);
     }
 
     // Bytes 0-3: Analog sticks
     /// <summary>
     /// Left stick horizontal position (0-255, center is 128).
     /// </summary>
-    public byte LeftStickX => _raw[0];
+    public byte LeftStickX => (byte)_head;
 
     /// <summary>
     /// Left stick vertical position (0-255, center is 128, 0 is up).
     /// </summary>
-    public byte LeftStickY => _raw[1];
+    public byte LeftStickY => (byte)(_head >> 8);
 
     /// <summary>
     /// Right stick horizontal position (0-255, center is 128).
     /// </summary>
-    public byte RightStickX => _raw[2];
+    public byte RightStickX => (byte)(_head >> 16);
 
     /// <summary>
     /// Right stick vertical position (0-255, center is 128, 0 is up).
     /// </summary>
-    public byte RightStickY => _raw[3];
+    public byte RightStickY => (byte)(_head >> 24);
 
     // Bytes 4-5: Analog triggers
     /// <summary>
     /// Left analog trigger value (0-255, released to fully pressed).
     /// </summary>
-    public byte L2 => _raw[4];
+    public byte L2 => (byte)(_head >> 32);
 
     /// <summary>
     /// Right analog trigger value (0-255, released to fully pressed).
     /// </summary>
-    public byte R2 => _raw[5];
+    public byte R2 => (byte)(_head >> 40);
 
     // Byte 6: Sequence number
     /// <summary>
     /// Incrementing report sequence counter. Use to detect dropped reports.
     /// </summary>
-    public byte SequenceNumber => _raw[6];
+    public byte SequenceNumber => (byte)(_head >> 48);
 
     // Byte 7: D-Pad (bits 0-3) + Face buttons (bits 4-7)
     /// <summary>
     /// Byte 7 of the payload (D-Pad + face buttons).
     /// </summary>
-    private byte Byte7 => _raw[7];
+    private byte Byte7 => (byte)(_head >> 56);
 
     /// <summary>
     /// Lower nibble of byte 7: D-Pad hat switch value (0x0-0x8).
@@ -116,7 +129,7 @@ public readonly struct InputState : IEquatable<InputState>
     /// <summary>
     /// Byte 8 of the payload (shoulder + system buttons).
     /// </summary>
-    private byte Byte8 => _raw[8];
+    private byte Byte8 => (byte)_tail;
 
     /// <summary>
     /// Left shoulder bumper (L1).
@@ -162,7 +175,7 @@ public readonly struct InputState : IEquatable<InputState>
     /// <summary>
     /// Byte 9 of the payload (system + Edge buttons).
     /// </summary>
-    private byte Byte9 => _raw[9];
+    private byte Byte9 => (byte)(_tail >> 8);
 
     /// <summary>
     /// PlayStation button (center).
@@ -202,7 +215,7 @@ public readonly struct InputState : IEquatable<InputState>
     /// <summary>
     /// Returns true if all 10 raw bytes are equal.
     /// </summary>
-    public bool Equals(InputState other) => _raw.AsSpan().SequenceEqual(other._raw);
+    public bool Equals(InputState other) => _head == other._head && _tail == other._tail;
 
     /// <inheritdoc/>
     public override bool Equals(object? obj) => obj is InputState other && Equals(other);
@@ -211,7 +224,8 @@ public readonly struct InputState : IEquatable<InputState>
     public override int GetHashCode()
     {
         HashCode hash = new HashCode();
-        hash.AddBytes(_raw);
+        hash.Add(_head);
+        hash.Add(_tail);
         return hash.ToHashCode();
     }
 

@@ -895,7 +895,13 @@ public sealed class SpecialActionEngine : IDisposable
     /// </summary>
     private (byte Red, byte Green, byte Blue)? ShowBatteryLevel(SpecialActionEffect effect)
     {
-        int percentage = _device!.InputReport.Battery.DisplayPercentage;
+        if (_device!.InputReport is not { } report)
+        {
+            _log.Warning("No input report received yet; battery special action skipped");
+            return null;
+        }
+
+        int percentage = report.Battery.DisplayPercentage;
         if (percentage < 0)
         {
             _log.Warning("Battery level unknown; battery special action skipped");

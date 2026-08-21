@@ -6,20 +6,15 @@ namespace DualSenseClient.Controllers.DualSense.Input;
 public readonly struct DeviceTimestamp
 {
     /// <summary>
-    /// Raw payload bytes 48-51 (device timestamp).
+    /// Device timestamp value.
     /// </summary>
-    private readonly byte[] _raw;
+    public uint Value { get; }
 
     /// <summary>
     /// Initializes a new device timestamp from bytes 48-51 of the data payload.
     /// </summary>
     public DeviceTimestamp(byte[] raw, int offset)
     {
-        _raw = raw[(offset + 48)..(offset + 52)];
+        Value = BitConverter.ToUInt32(raw, offset + 48);
     }
-
-    /// <summary>
-    /// Device timestamp value.
-    /// </summary>
-    public uint Value => BitConverter.ToUInt32(_raw, 0);
 }

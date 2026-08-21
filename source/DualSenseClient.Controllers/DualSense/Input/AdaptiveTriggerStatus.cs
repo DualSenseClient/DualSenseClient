@@ -6,35 +6,33 @@ namespace DualSenseClient.Controllers.DualSense.Input;
 public readonly struct AdaptiveTriggerStatus
 {
     /// <summary>
-    /// Raw payload bytes 41-47 (trigger statuses, host timestamp echo, status2).
+    /// Right trigger (R2) adaptive trigger status.
     /// </summary>
-    private readonly byte[] _raw;
+    public byte R2Status { get; }
+
+    /// <summary>
+    /// Left trigger (L2) adaptive trigger status.
+    /// </summary>
+    public byte L2Status { get; }
+
+    /// <summary>
+    /// Host timestamp echo (uint32 LE).
+    /// </summary>
+    public uint HostTimestamp { get; }
+
+    /// <summary>
+    /// Adaptive trigger status 2.
+    /// </summary>
+    public byte Status2 { get; }
 
     /// <summary>
     /// Initializes a new adaptive trigger status from bytes 41-47 of the data payload.
     /// </summary>
     public AdaptiveTriggerStatus(byte[] raw, int offset)
     {
-        _raw = raw[(offset + 41)..(offset + 48)];
+        R2Status = raw[offset + 41];
+        L2Status = raw[offset + 42];
+        HostTimestamp = BitConverter.ToUInt32(raw, offset + 43);
+        Status2 = raw[offset + 47];
     }
-
-    /// <summary>
-    /// Right trigger (R2) adaptive trigger status.
-    /// </summary>
-    public byte R2Status => _raw[0];
-
-    /// <summary>
-    /// Left trigger (L2) adaptive trigger status.
-    /// </summary>
-    public byte L2Status => _raw[1];
-
-    /// <summary>
-    /// Host timestamp echo (uint32 LE).
-    /// </summary>
-    public uint HostTimestamp => BitConverter.ToUInt32(_raw, 2);
-
-    /// <summary>
-    /// Adaptive trigger status 2.
-    /// </summary>
-    public byte Status2 => _raw[6];
 }

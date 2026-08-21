@@ -1,12 +1,10 @@
 namespace DualSenseClient.Controllers.DualSense.Input;
 
 /// <summary>
-/// Parsed DualSense input report. Wraps the raw payload and provides
-/// typed access to each input section (buttons, sticks, IMU, touchpad, etc.).
-/// All struct values are saved in the constructor so they remain
-/// valid even if the source buffer is reused.
+/// Parsed DualSense input report.
+/// Provides typed access to each input section (buttons, sticks, IMU, touchpad, etc.).
 /// </summary>
-public class InputReport
+public readonly struct InputReport
 {
     /// <summary>
     /// Button and stick state (bytes 0-9).
@@ -44,7 +42,7 @@ public class InputReport
     public ConnectionStatus Connection { get; }
 
     /// <summary>
-    /// Creates a new parsed input report. All struct values are saved
+    /// Creates a new parsed input report. All sub-state values are parsed
     /// from the buffer at construction time.
     /// </summary>
     /// <param name="buffer">The full HID input report buffer.</param>

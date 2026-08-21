@@ -107,9 +107,9 @@ public class DualSenseDevice : ControllerDevice
     protected override string? BluetoothMacAddress => PairingInfo?.ClientMac;
 
     /// <summary>
-    /// Current state of input
+    /// Current state of input, or null before the first report is received.
     /// </summary>
-    public InputReport InputReport { get; private set; } = null!;
+    public InputReport? InputReport { get; private set; }
 
     /// <summary>
     /// Raised when any input state field changes (sticks, triggers, or buttons).

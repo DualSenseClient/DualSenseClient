@@ -798,9 +798,11 @@ public sealed class EmulationService : IEmulationService
         }
         lock (_sync)
         {
-            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Virtual is not null)
+            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry)
+                && entry.Virtual is not null
+                && device.InputReport is { } report)
             {
-                entry.Virtual.PushInput(device.InputReport);
+                entry.Virtual.PushInput(report);
             }
         }
     }
@@ -816,9 +818,11 @@ public sealed class EmulationService : IEmulationService
         }
         lock (_sync)
         {
-            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Virtual is not null)
+            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry)
+                && entry.Virtual is not null
+                && device.InputReport is { } report)
             {
-                entry.Virtual.PushInput(device.InputReport);
+                entry.Virtual.PushInput(report);
                 entry.Virtual.PushBattery(e.CurrentState);
             }
         }
