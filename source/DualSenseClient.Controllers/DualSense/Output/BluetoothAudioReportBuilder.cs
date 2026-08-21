@@ -18,8 +18,11 @@ namespace DualSenseClient.Controllers.DualSense.Output;
 /// a free-running byte that increments once per report.
 /// </para>
 /// <para>
-/// Layouts follow the pinned community implementations (awalol/dualsense-bt-haptics and
-/// PadForge) documented in the wireless-audio guides. The builder is not thread-safe:
+/// Layouts follow the vDS/DS5Dongle reference implementation: each report opens with
+/// the sized packet-<c>0x11</c> session block (<c>0x91 0x07</c>, mic-disabled sections,
+/// five 0x40 buffer-length bytes, interval counter), followed by typed sub-blocks in
+/// vDS order — <see cref="BuildCombinedReport"/> carries state, then haptics, then the
+/// speaker/headset Opus lane. The builder is not thread-safe:
 /// drive it from a single report-writer thread and reset <see cref="Reset"/> when a
 /// stream starts.
 /// </para>
@@ -128,11 +131,16 @@ public sealed class BluetoothAudioReportBuilder
         report[1] = (byte)((_reportSequence & 0x0F) << 4);
         _reportSequence = (byte)((_reportSequence + 1) & 0x0F);
 
-        // Packet 0x11 session block (sized flag set).
+        // Packet 0x11 session block (sized flag set): mic-disabled sections and five
+        // 0x40 buffer-length bytes, per the vDS reference.
         report[2] = 0x91;
         report[3] = 0x07;
         report[4] = 0xFE;
-        report[9] = 0xFF;
+        report[5] = 0x40;
+        report[6] = 0x40;
+        report[7] = 0x40;
+        report[8] = 0x40;
+        report[9] = 0x40;
         report[10] = _packetCounter++;
 
         // Packet 0x12 haptics block (sized flag set).
@@ -163,11 +171,16 @@ public sealed class BluetoothAudioReportBuilder
         report[1] = (byte)((_reportSequence & 0x0F) << 4);
         _reportSequence = (byte)((_reportSequence + 1) & 0x0F);
 
-        // Packet 0x11 session block (sized flag set).
+        // Packet 0x11 session block (sized flag set): mic-disabled sections and five
+        // 0x40 buffer-length bytes, per the vDS reference.
         report[2] = 0x91;
         report[3] = 0x07;
         report[4] = 0xFE;
-        report[9] = 0xFF;
+        report[5] = 0x40;
+        report[6] = 0x40;
+        report[7] = 0x40;
+        report[8] = 0x40;
+        report[9] = 0x40;
         report[10] = _packetCounter++;
 
         // Packet 0x13/0x16 route block (sized flag set).
@@ -189,11 +202,11 @@ public sealed class BluetoothAudioReportBuilder
     /// per-report sequence and interval counters advance twice per tick).
     /// </summary>
     /// <remarks>
-    /// Layout follows [state][session][speaker][haptics]. The state sub-packet carries the same 47-byte
-    /// output state as the <c>0x32</c> init-prime with zeroed tail bytes; the leading
-    /// valid-flag byte is the caller's hardware-validated flag set rather than the
-    /// tester's route-specific <c>0x90</c>/<c>0xA0</c> values. The session body uses the
-    /// packet-<c>0x11</c> marker form (<c>0x91 0x07 0xFE 40 40 40 40 40 cnt</c>).
+    /// Layout follows the vDS reference: [session][state][haptics][speaker]. The session
+    /// body uses the packet-<c>0x11</c> marker form (<c>0x91 0x07 0xFE 40 40 40 40 40 cnt</c>);
+    /// the state sub-packet carries the same 47-byte output state as the <c>0x32</c>
+    /// init-prime with zeroed tail bytes; the haptics sub-packet precedes the speaker
+    /// lane so both audio blocks end before the trailing padding.
     /// </remarks>
     /// <param name="state">The 47-byte output state to embed.</param>
     /// <param name="opusFrame">A 200-byte Opus frame.</param>
@@ -217,31 +230,32 @@ public sealed class BluetoothAudioReportBuilder
         report[1] = (byte)((_reportSequence & 0x0F) << 4);
         _reportSequence = (byte)((_reportSequence + 1) & 0x0F);
 
+        // Packet 0x11 session block first, per the vDS reference (sized flag set):
+        // mic-disabled sections and five 0x40 buffer-length bytes.
+        report[2] = 0x91;
+        report[3] = 0x07;
+        report[4] = 0xFE;
+        report[5] = 0x40;
+        report[6] = 0x40;
+        report[7] = 0x40;
+        report[8] = 0x40;
+        report[9] = 0x40;
+        report[10] = _packetCounter++;
+
         // Packet 0x10 state block (63 bytes: 47-byte output state + zeroed tail).
-        report[2] = 0x90;
-        report[3] = 0x3F;
-        state.CopyTo(report, 4);
-
-        // Packet 0x11 session block (sized flag set).
-        report[67] = 0x91;
-        report[68] = 0x07;
-        report[69] = 0xFE;
-        report[70] = 0x40;
-        report[71] = 0x40;
-        report[72] = 0x40;
-        report[73] = 0x40;
-        report[74] = 0x40;
-        report[75] = _packetCounter++;
-
-        // Packet 0x13/0x16 route block (sized flag set).
-        report[76] = (byte)route;
-        report[77] = AudioPayloadSize;
-        opusFrame.CopyTo(report.AsSpan(78));
+        report[11] = 0x90;
+        report[12] = 0x3F;
+        state.CopyTo(report, 13);
 
         // Packet 0x12 haptics block (sized flag set).
-        report[278] = 0x92;
-        report[279] = HapticsPayloadSize;
-        hapticsPcm.CopyTo(report.AsSpan(280));
+        report[76] = 0x92;
+        report[77] = HapticsPayloadSize;
+        hapticsPcm.CopyTo(report.AsSpan(78));
+
+        // Packet 0x13/0x16 route block (sized flag set).
+        report[142] = (byte)route;
+        report[143] = AudioPayloadSize;
+        opusFrame.CopyTo(report.AsSpan(144));
 
         // Bytes 344-393 remain zero padding.
         WriteCrc(report);
