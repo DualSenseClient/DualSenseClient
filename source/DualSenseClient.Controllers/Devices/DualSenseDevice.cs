@@ -28,9 +28,11 @@ public class DualSenseDevice : ControllerDevice
     private readonly CancellationTokenSource _cts = new CancellationTokenSource();
 
     /// <summary>
-    /// The background task running the read loop.
+    /// The dedicated background thread running the read loop. A real thread (rather
+    /// than <c>Task.Run</c>) keeps per-read overhead off the ThreadPool: reads are
+    /// long-running blocking calls arriving 250-1000 times per second.
     /// </summary>
-    private readonly Task _readTask;
+    private readonly Thread _readThread;
 
     /// <summary>
     /// Previous input report snapshot for change detection. Null until the first
@@ -202,15 +204,22 @@ public class DualSenseDevice : ControllerDevice
     {
         FirmwareInfo = FeatureReader.ReadFirmwareInfo(this);
         PairingInfo = FeatureReader.ReadPairingInfo(this);
-        _readTask = Task.Run(() => ReadLoop(_cts.Token));
+        _readThread = new Thread(() => ReadLoop(_cts.Token))
+        {
+            IsBackground = true,
+            Name = "DualSense Input Reader",
+            Priority = ThreadPriority.AboveNormal
+        };
+        _readThread.Start();
     }
 
     /// <summary>
     /// Background loop that continuously reads HID input reports from the controller.
-    /// Runs on a background task for the lifetime of the controller connection.
+    /// Runs on a dedicated background thread for the lifetime of the controller
+    /// connection, blocking on each read instead of yielding to the ThreadPool.
     /// </summary>
     /// <param name="ct">Cancellation token to signal when the loop should stop.</param>
-    private async Task ReadLoop(CancellationToken ct)
+    private void ReadLoop(CancellationToken ct)
     {
         _log.Debug("Read Loop Start");
         byte[] buffer = new byte[MaxOutputReportLength];
@@ -218,7 +227,7 @@ public class DualSenseDevice : ControllerDevice
         {
             try
             {
-                int result = await ReadInputAsync(buffer, 0, buffer.Length, ct);
+                int result = ReadInput(buffer, 0, buffer.Length, -1);
 
                 // Result <= 0 means device is disconnected aka it's not sending anything.
                 if (result <= 0)
@@ -235,11 +244,6 @@ public class DualSenseDevice : ControllerDevice
                 // unplugged or the link dropping, so log it as a disconnect
                 // rather than an error.
                 _log.Warning($"Read failed, controller disconnected: {ex.Message}");
-                break;
-            }
-            catch (OperationCanceledException)
-            {
-                _log.Debug("Read Loop Cancelled");
                 break;
             }
             catch (Exception ex)
@@ -695,13 +699,9 @@ public class DualSenseDevice : ControllerDevice
         _cts.Cancel();
         base.Dispose();
 
-        try
+        if (!_readThread.Join(TimeSpan.FromSeconds(2)))
         {
-            _readTask.Wait(TimeSpan.FromSeconds(2));
-        }
-        catch (AggregateException ex)
-        {
-            _log.Warning($"Read loop did not stop cleanly on dispose: {ex.InnerException?.Message}");
+            _log.Warning("Read loop did not stop cleanly on dispose");
         }
 
         _cts.Dispose();

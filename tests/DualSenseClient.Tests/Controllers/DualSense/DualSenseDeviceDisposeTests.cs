@@ -139,12 +139,16 @@ public class DualSenseDeviceDisposeTests
         Assert.Throws<HidException>(() => device.GetProductName());
     }
 
-    private sealed class CancellableHidDevice : IHidDevice
+    private sealed class BlockingHidDevice : IHidDevice
     {
-        public readonly TaskCompletionSource<CancellationToken> ReadStarted =
-            new TaskCompletionSource<CancellationToken>(TaskCreationOptions.RunContinuationsAsynchronously);
+        /// <summary>
+        /// Completed once the read loop has entered <see cref="Read"/>.
+        /// </summary>
+        public readonly TaskCompletionSource ReadEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        private bool _disposed;
+        private readonly ManualResetEventSlim _disposeSignal = new ManualResetEventSlim();
+        private int _readReturned;
+        private volatile bool _disposed;
 
         public ushort VendorId => 0x054C;
 
@@ -157,15 +161,23 @@ public class DualSenseDeviceDisposeTests
         public int Read(byte[] buffer, int offset, int count, int timeoutMs)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
+            ReadEntered.TrySetResult();
+
+            // Simulate a real blocking read that only unblocks when the handle closes.
+            _disposeSignal.Wait();
+            Interlocked.Exchange(ref _readReturned, 1);
             return 0;
         }
 
-        public async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken ct)
+        /// <summary>
+        /// True once a blocked <see cref="Read"/> has been released by disposal.
+        /// </summary>
+        public bool ReadReturned => Volatile.Read(ref _readReturned) == 1;
+
+        public Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken ct)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            ReadStarted.TrySetResult(ct);
-            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
-            return 0;
+            return Task.FromResult(0);
         }
 
         public int Write(byte[] buffer, int offset, int count)
@@ -191,18 +203,22 @@ public class DualSenseDeviceDisposeTests
             return "Test";
         }
 
-        public void Dispose() => _disposed = true;
+        public void Dispose()
+        {
+            _disposed = true;
+            _disposeSignal.Set();
+        }
     }
 
     [Test]
-    public void Dispose_CancelsTheReadLoop()
+    public void Dispose_StopsTheReadLoop()
     {
-        CancellableHidDevice hid = new CancellableHidDevice();
-        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Usb));
+        BlockingHidDevice hid = new BlockingHidDevice();
+        DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Usb));
 
-        CancellationToken loopToken = hid.ReadStarted.Task.GetAwaiter().GetResult();
+        Assert.That(hid.ReadEntered.Task.Wait(TimeSpan.FromSeconds(2)), Is.True);
         device.Dispose();
 
-        Assert.That(loopToken.IsCancellationRequested, Is.True);
+        Assert.That(hid.ReadReturned, Is.True);
     }
 }
