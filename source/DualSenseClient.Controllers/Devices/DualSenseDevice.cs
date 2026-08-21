@@ -218,15 +218,9 @@ public class DualSenseDevice : ControllerDevice
         {
             try
             {
-                // Checked inside the try so a disposed device (which makes IsConnected
-                // throw ObjectDisposedException) ends the loop like any other read failure
-                // instead of escaping as a faulted background task.
-                if (!IsConnected)
-                {
-                    break;
-                }
-
                 int result = await ReadInputAsync(buffer, 0, buffer.Length, ct);
+
+                // Result <= 0 means device is disconnected aka it's not sending anything.
                 if (result <= 0)
                 {
                     _log.Warning($"Read returned {result} bytes, disconnecting");
