@@ -1,5 +1,6 @@
 using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.DualSense.Events;
+using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.SpecialActions;
 using DualSenseClient.Hid;
@@ -768,9 +769,7 @@ public sealed class EmulationService : IEmulationService
     /// </summary>
     private void DeviceSubscribe(DualSenseDevice device)
     {
-        device.InputStateChanged += OnInputReportChanged;
-        device.MotionChanged += OnInputReportChanged;
-        device.TouchpadChanged += OnInputReportChanged;
+        device.InputReportReceived += OnInputReportReceived;
         device.BatteryStateChanged += OnBatteryChanged;
         device.ConnectionStatusChanged += OnConnectionStatusChanged;
     }
@@ -780,9 +779,7 @@ public sealed class EmulationService : IEmulationService
     /// </summary>
     private void DeviceDisposeUnsubscribe(DualSenseDevice device)
     {
-        device.InputStateChanged -= OnInputReportChanged;
-        device.MotionChanged -= OnInputReportChanged;
-        device.TouchpadChanged -= OnInputReportChanged;
+        device.InputReportReceived -= OnInputReportReceived;
         device.BatteryStateChanged -= OnBatteryChanged;
         device.ConnectionStatusChanged -= OnConnectionStatusChanged;
     }
@@ -790,7 +787,7 @@ public sealed class EmulationService : IEmulationService
     /// <summary>
     /// Forwards the latest input report to the device's virtual controller.
     /// </summary>
-    private void OnInputReportChanged(object? sender, EventArgs e)
+    private void OnInputReportReceived(object? sender, InputReport report)
     {
         if (sender is not DualSenseDevice device)
         {
@@ -798,9 +795,7 @@ public sealed class EmulationService : IEmulationService
         }
         lock (_sync)
         {
-            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry)
-                && entry.Virtual is not null
-                && device.InputReport is { } report)
+            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Virtual is not null)
             {
                 entry.Virtual.PushInput(report);
             }

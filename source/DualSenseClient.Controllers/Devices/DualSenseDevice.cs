@@ -118,6 +118,14 @@ public class DualSenseDevice : ControllerDevice
     public event EventHandler<InputStateEventArgs>? InputStateChanged;
 
     /// <summary>
+    /// Raised once for every received input report, including the first one and
+    /// reports in which nothing changed. Carries the parsed report so consumers
+    /// always see the latest motion, touchpad, battery, and connection data even
+    /// when the button/stick bytes are unchanged. Fires on the read thread.
+    /// </summary>
+    public event EventHandler<InputReport>? InputReportReceived;
+
+    /// <summary>
     /// Raised when a button transitions from released to pressed.
     /// </summary>
     public event EventHandler<ButtonEventArgs>? ButtonPressed;
@@ -299,6 +307,7 @@ public class DualSenseDevice : ControllerDevice
         _previousInputReport = report;
         InputReport = report;
         TrackPollingRate();
+        InputReportReceived?.Invoke(this, report);
     }
 
     /// <summary>

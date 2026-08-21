@@ -2,6 +2,7 @@ using System.Reflection;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Enum;
 using DualSenseClient.Controllers.DualSense.Events;
+using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Hid;
 using DualSenseClient.Tests.Controllers.DualSense.Input;
 
@@ -220,6 +221,42 @@ public class DualSenseDeviceEventTests
         FeedReport(device, buf);
 
         Assert.That(args, Is.Not.Null);
+    }
+
+    [Test]
+    public void InputReportReceived_FiresOnFirstReport()
+    {
+        using DualSenseDevice device = new DualSenseDevice(new StubHidDevice(), new StubHidDeviceInfo());
+        InputReport? report = null;
+        int count = 0;
+        device.InputReportReceived += (_, r) =>
+        {
+            count++;
+            report = r;
+        };
+
+        FeedReport(device, CloneUsbReport());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(count, Is.EqualTo(1));
+            Assert.That(report.HasValue, Is.True);
+            Assert.That(report!.Value.Input.L2, Is.EqualTo(InputReportTestData.UsbReport[5]));
+        });
+    }
+
+    [Test]
+    public void InputReportReceived_FiresEvenWhenNoFieldsChanged()
+    {
+        using DualSenseDevice device = new DualSenseDevice(new StubHidDevice(), new StubHidDeviceInfo());
+        int count = 0;
+        device.InputReportReceived += (_, _) => count++;
+
+        byte[] buf = CloneUsbReport();
+        FeedReport(device, buf);
+        FeedReport(device, buf);
+
+        Assert.That(count, Is.EqualTo(2));
     }
 
     private static void SubscribeAll(DualSenseDevice device, Action<EventArgs> handler)
