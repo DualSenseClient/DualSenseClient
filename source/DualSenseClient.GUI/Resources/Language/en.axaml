@@ -338,6 +338,8 @@
     <sys:String x:Key="SettingsPage.Ui.Theme.Option.System">System</sys:String>
     <sys:String x:Key="SettingsPage.Ui.Theme.Option.Light">Light</sys:String>
     <sys:String x:Key="SettingsPage.Ui.Theme.Option.Dark">Dark</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Theme.Option.Amoled">AMOLED</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Theme.Option.Playstation">PlayStation</sys:String>
     <sys:String x:Key="SettingsPage.Debug.Title">Debug</sys:String>
     <sys:String x:Key="SettingsPage.Debug.Description">Logging and diagnostics</sys:String>
     <sys:String x:Key="SettingsPage.Debug.LogLevel.Title">Log Level</sys:String>

@@ -18,6 +18,18 @@ public enum Theme
     /// <summary>
     /// Dark theme with dark backgrounds and light text.
     /// </summary>
-    Dark
+    Dark,
+
+    /// <summary>
+    /// AMOLED theme with true-black backgrounds that switch off OLED pixels.
+    /// </summary>
+    Amoled,
+
+    /// <summary>
+    /// PlayStation theme with deep blue-tinted surfaces and a PlayStation blue accent,
+    /// in the style of the PS5 home screen.
+    /// </summary>
+    Playstation
+
     // Add new themes here
 }

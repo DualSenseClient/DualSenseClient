@@ -202,6 +202,8 @@ public class ThemeService
             {
                 Theme.System => "avares://DualSenseClient/Resources/Theme/System.axaml",
                 Theme.Dark => "avares://DualSenseClient/Resources/Theme/Dark.axaml",
+                Theme.Amoled => "avares://DualSenseClient/Resources/Theme/Amoled.axaml",
+                Theme.Playstation => "avares://DualSenseClient/Resources/Theme/Playstation.axaml",
                 _ => "avares://DualSenseClient/Resources/Theme/Light.axaml"
             };
 
