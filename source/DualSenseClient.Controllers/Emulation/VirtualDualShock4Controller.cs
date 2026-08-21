@@ -21,6 +21,21 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("VirtualDualShock4");
 
     /// <summary>
+    /// USB vendor ID presented by the virtual DualShock 4 device (Sony).
+    /// </summary>
+    public const ushort VendorId = 0x054C;
+
+    /// <summary>
+    /// USB product ID of the first-generation DualShock 4 (CUH-ZCT1W).
+    /// </summary>
+    public const ushort ProductIdV1 = 0x05C4;
+
+    /// <summary>
+    /// USB product ID of the second-generation DualShock 4 (CUH-ZCT2W), the libVIIPER default.
+    /// </summary>
+    public const ushort ProductIdV2 = 0x09CC;
+
+    /// <summary>
     /// Keeps the native output callback delegate alive for the lifetime of the device.
     /// </summary>
     private readonly DS4OutputCallback _outputCallback;
@@ -38,10 +53,13 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
     /// <param name="serverHandle">The USB server hosting the device.</param>
     /// <param name="busId">The bus to attach the device to.</param>
     /// <param name="outputs">The physical controller receiving host feedback.</param>
-    public VirtualDualShock4Controller(nuint serverHandle, uint busId, IDualSenseOutputs outputs) : base(outputs)
+    /// <param name="variant">The hardware generation the virtual device presents
+    /// (<see cref="DualShock4Variant.V2"/> by default).</param>
+    public VirtualDualShock4Controller(nuint serverHandle, uint busId, IDualSenseOutputs outputs, DualShock4Variant variant = DualShock4Variant.V2) : base(outputs)
     {
+        ushort productId = variant == DualShock4Variant.V1 ? ProductIdV1 : ProductIdV2;
         _outputCallback = OnOutput;
-        if (!LibVIIPER.CreateDS4Device(serverHandle, out nuint handle, busId, true, 0, 0, null))
+        if (!LibVIIPER.CreateDS4Device(serverHandle, out nuint handle, busId, true, VendorId, productId, null))
         {
             _log.Error("Failed to create the virtual DualShock 4 device");
             return;
@@ -49,7 +67,7 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
 
         DeviceHandle = handle;
         LibVIIPER.SetDS4OutputCallback(handle, _outputCallback);
-        _log.Info($"Virtual DualShock 4 created (handle=0x{handle:X})");
+        _log.Info($"Virtual DualShock 4 {variant} created (handle=0x{handle:X}, VID=0x{VendorId:X4}, PID=0x{productId:X4})");
     }
 
     /// <inheritdoc/>

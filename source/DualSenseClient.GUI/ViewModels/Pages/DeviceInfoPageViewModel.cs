@@ -241,6 +241,16 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     ];
 
     /// <summary>
+    /// DualShock 4 hardware generation options for the dropdown, in
+    /// <see cref="DualShock4Variant"/> order (V1, V2).
+    /// </summary>
+    public ObservableCollection<string> DualShock4Variants { get; } =
+    [
+        LocalizationService.GetText("DeviceInfoPage.Emulation.Ds4Variant.V1"),
+        LocalizationService.GetText("DeviceInfoPage.Emulation.Ds4Variant.V2")
+    ];
+
+    /// <summary>
     /// Forwarded audio output options for the dropdown, in
     /// <see cref="EmulationAudioOutput"/> order (speaker, headset).
     /// </summary>
@@ -292,16 +302,23 @@ public partial class DeviceInfoPageViewModel : ObservableObject
             _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
             OnPropertyChanged(nameof(EmulationModeIndex));
             OnPropertyChanged(nameof(IsDualSenseEmulation));
+            OnPropertyChanged(nameof(IsDualShock4Emulation));
             OnPropertyChanged(nameof(IsAudioEmulation));
             _emulation.Refresh();
         }
     }
 
     /// <summary>
-    /// Whether the selected controller's emulation mode is DualSense, the only mode
-    /// with a DualSense hardware variant.
+    /// Whether the selected controller's emulation mode is DualSense, the mode with a
+    /// DualSense hardware variant.
     /// </summary>
     public bool IsDualSenseEmulation => EmulationModeIndex == (int)EmulationMode.DualSense;
+
+    /// <summary>
+    /// Whether the selected controller's emulation mode is DualShock 4, the mode with a
+    /// DualShock 4 hardware generation variant.
+    /// </summary>
+    public bool IsDualShock4Emulation => EmulationModeIndex == (int)EmulationMode.DualShock4;
 
     /// <summary>
     /// Whether the selected controller's emulation mode forwards host audio to the
@@ -342,6 +359,43 @@ public partial class DeviceInfoPageViewModel : ObservableObject
             settings.DeviceType = variant;
             _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
             OnPropertyChanged(nameof(DualSenseVariantIndex));
+            _emulation.Refresh();
+        }
+    }
+
+    /// <summary>
+    /// The DualShock 4 hardware generation (<see cref="DualShock4Variant"/> value) of the
+    /// selected controller's virtual device. Setting it persists the change immediately
+    /// and recreates the virtual controller through <see cref="IEmulationService"/>.
+    /// </summary>
+    public int DualShock4VariantIndex
+    {
+        get
+        {
+            if (!HasDevice)
+            {
+                return 0;
+            }
+            return (int)GetEmulationSettings().Ds4Variant;
+        }
+        set
+        {
+            if (!HasDevice)
+            {
+                return;
+            }
+
+            DualShock4Variant variant = (DualShock4Variant)Math.Clamp(value, 0, (int)DualShock4Variant.V2);
+            EmulationSettings settings = GetEmulationSettings();
+            if (settings.Ds4Variant == variant)
+            {
+                return;
+            }
+
+            _log.Info($"Setting DualShock 4 variant of {CurrentMac} to {variant}");
+            settings.Ds4Variant = variant;
+            _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+            OnPropertyChanged(nameof(DualShock4VariantIndex));
             _emulation.Refresh();
         }
     }
@@ -688,8 +742,10 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         OnPropertyChanged(nameof(SkinName));
         OnPropertyChanged(nameof(EmulationModeIndex));
         OnPropertyChanged(nameof(IsDualSenseEmulation));
+        OnPropertyChanged(nameof(IsDualShock4Emulation));
         OnPropertyChanged(nameof(IsAudioEmulation));
         OnPropertyChanged(nameof(DualSenseVariantIndex));
+        OnPropertyChanged(nameof(DualShock4VariantIndex));
         OnPropertyChanged(nameof(ForwardAudioOutputIndex));
         OnPropertyChanged(nameof(ForwardVolume));
         OnPropertyChanged(nameof(ForwardHapticStrength));

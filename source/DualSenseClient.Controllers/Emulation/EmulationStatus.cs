@@ -11,4 +11,5 @@ public sealed record EmulationStatus(
     string? Detail,
     string? VirtualDevicePath,
     bool IsCreating = false,
-    DualSenseVariant? Variant = null);
+    DualSenseVariant? Variant = null,
+    DualShock4Variant? Ds4Variant = null);

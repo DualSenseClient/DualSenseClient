@@ -226,7 +226,11 @@ public sealed class EmulationService : IEmulationService
                 DualSenseVariant? variant = mode == EmulationMode.DualSense
                     ? emulation?.DeviceType ?? DualSenseVariant.Standard
                     : null;
-                if (entry.Virtual is not null && entry.Status.Mode == mode && entry.Status.Variant == variant)
+                DualShock4Variant? ds4Variant = mode == EmulationMode.DualShock4
+                    ? emulation?.Ds4Variant ?? DualShock4Variant.V2
+                    : null;
+                if (entry.Virtual is not null && entry.Status.Mode == mode
+                                              && entry.Status.Variant == variant && entry.Status.Ds4Variant == ds4Variant)
                 {
                     continue;
                 }
@@ -458,7 +462,8 @@ public sealed class EmulationService : IEmulationService
 
             EmulationSettings emulation = GetEmulationSettings(entry.Device);
             bool edge = emulation?.DeviceType == DualSenseVariant.Edge;
-            (ushort vid, ushort pid) = GetDeviceIds(mode, edge);
+            DualShock4Variant ds4Variant = emulation?.Ds4Variant ?? DualShock4Variant.V2;
+            (ushort vid, ushort pid) = GetDeviceIds(mode, edge, ds4Variant);
             SpecialActionEngine specialActions;
             lock (_sync)
             {
@@ -478,7 +483,7 @@ public sealed class EmulationService : IEmulationService
                 : [];
 
             uint busId = 0;
-            IVirtualController? virtualController = TryCreateOnFreshBus(serverHandle, mode, outputs, entry.Device.UsesVibrationV2, edge, ref busId);
+            IVirtualController? virtualController = TryCreateOnFreshBus(serverHandle, mode, outputs, entry.Device.UsesVibrationV2, edge, ds4Variant, ref busId);
             if (virtualController is null)
             {
                 _log.Warning($"Failed to create the virtual {mode} device for {entry.Device.Info.ProductName}; retrying in {(int)CreateRetryDelay.TotalMilliseconds} ms");
@@ -488,7 +493,7 @@ public sealed class EmulationService : IEmulationService
                 {
                     return;
                 }
-                virtualController = TryCreateOnFreshBus(serverHandle, mode, outputs, entry.Device.UsesVibrationV2, edge, ref busId);
+                virtualController = TryCreateOnFreshBus(serverHandle, mode, outputs, entry.Device.UsesVibrationV2, edge, ds4Variant, ref busId);
             }
 
             if (virtualController is null)
@@ -567,7 +572,8 @@ public sealed class EmulationService : IEmulationService
             }
 
             SetStatus(entry, new EmulationStatus(mode, true, null, virtualController.VirtualDevicePath,
-                Variant: mode == EmulationMode.DualSense ? (edge ? DualSenseVariant.Edge : DualSenseVariant.Standard) : null));
+                Variant: mode == EmulationMode.DualSense ? (edge ? DualSenseVariant.Edge : DualSenseVariant.Standard) : null,
+                Ds4Variant: mode == EmulationMode.DualShock4 ? ds4Variant : null));
         }
         catch (Exception ex)
         {
@@ -603,16 +609,17 @@ public sealed class EmulationService : IEmulationService
     /// <param name="outputs">The physical controller receiving host feedback.</param>
     /// <param name="vibrationV2">Whether the physical controller uses the V2 report format.</param>
     /// <param name="edge">Whether the virtual DualSense should be an Edge variant (DualSense mode only).</param>
+    /// <param name="ds4Variant">The DualShock 4 hardware generation to present (DualShock 4 mode only).</param>
     /// <param name="busId">Receives the id of the created bus, valid only on success.</param>
     /// <returns>The created virtual controller, or <c>null</c> when creation failed.</returns>
-    private IVirtualController? TryCreateOnFreshBus(nuint serverHandle, EmulationMode mode, DualSenseDeviceOutputs outputs, bool vibrationV2, bool edge, ref uint busId)
+    private IVirtualController? TryCreateOnFreshBus(nuint serverHandle, EmulationMode mode, DualSenseDeviceOutputs outputs, bool vibrationV2, bool edge, DualShock4Variant ds4Variant, ref uint busId)
     {
         if (!LibVIIPER.CreateUSBBus(serverHandle, ref busId))
         {
             return null;
         }
 
-        IVirtualController? virtualController = _factory.Create(mode, serverHandle, busId, outputs, vibrationV2, edge);
+        IVirtualController? virtualController = _factory.Create(mode, serverHandle, busId, outputs, vibrationV2, edge, ds4Variant);
         if (virtualController?.DeviceHandle is null)
         {
             virtualController?.Dispose();
@@ -836,14 +843,16 @@ public sealed class EmulationService : IEmulationService
     }
 
     /// <summary>
-    /// The host VID/PID pair of the virtual device, used for exclusion discovery.
+    /// The host VID/PID pair of the virtual device, used for exclusion discovery. Must
+    /// match the IDs the virtual device actually presents.
     /// </summary>
-    private static (ushort, ushort) GetDeviceIds(EmulationMode mode, bool edge) => mode switch
+    private static (ushort, ushort) GetDeviceIds(EmulationMode mode, bool edge, DualShock4Variant ds4Variant) => mode switch
     {
         EmulationMode.Xbox360 => (0x045E, 0x028E),
-        // libVIIPER presents the DualShock 4 v1 ids (0x09CC), not the v2 ones (0x05C4).
-        // TODO: Add support between v1 and v2 DualShock 4
-        EmulationMode.DualShock4 => (0x054C, 0x09CC),
+        EmulationMode.DualShock4 => (VirtualDualShock4Controller.VendorId,
+            ds4Variant == DualShock4Variant.V1
+                ? VirtualDualShock4Controller.ProductIdV1
+                : VirtualDualShock4Controller.ProductIdV2),
         EmulationMode.DualSense when edge => (0x054C, 0x0DF2),
         EmulationMode.DualSense => (0x054C, 0x0CE6),
         _ => (0, 0)

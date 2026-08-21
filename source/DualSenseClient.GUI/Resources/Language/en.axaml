@@ -220,6 +220,10 @@
     <sys:String x:Key="DeviceInfoPage.Emulation.DeviceType.Description">The hardware presentation of the virtual controller.</sys:String>
     <sys:String x:Key="DeviceInfoPage.Emulation.DeviceType.Standard">Standard</sys:String>
     <sys:String x:Key="DeviceInfoPage.Emulation.DeviceType.Edge">Edge</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Emulation.Ds4Variant">DualShock 4 Variant</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Emulation.Ds4Variant.Description">The hardware generation of the virtual controller.</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Emulation.Ds4Variant.V1">V1 (CUH-ZCT1)</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Emulation.Ds4Variant.V2">V2 (CUH-ZCT2)</sys:String>
     <sys:String x:Key="DeviceInfoPage.Emulation.AudioOutput">Forwarded Audio Output</sys:String>
     <sys:String x:Key="DeviceInfoPage.Emulation.AudioOutput.Description">Where host audio is played back on the physical controller.</sys:String>
     <sys:String x:Key="DeviceInfoPage.Emulation.AudioOutput.Speaker">Speaker</sys:String>

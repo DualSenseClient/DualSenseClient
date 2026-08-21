@@ -119,6 +119,12 @@
                                                 SelectedIndex="{Binding DualSenseVariantIndex}"
                                                 IsVisible="{Binding IsDualSenseEmulation}"
                                                 IsEnabled="{Binding CanChangeEmulation}" />
+                            <cards:ComboBoxCard Title="{DynamicResource DeviceInfoPage.Emulation.Ds4Variant}"
+                                                Description="{DynamicResource DeviceInfoPage.Emulation.Ds4Variant.Description}"
+                                                ItemsSource="{Binding DualShock4Variants}"
+                                                SelectedIndex="{Binding DualShock4VariantIndex}"
+                                                IsVisible="{Binding IsDualShock4Emulation}"
+                                                IsEnabled="{Binding CanChangeEmulation}" />
                             <cards:ComboBoxCard Title="{DynamicResource DeviceInfoPage.Emulation.AudioOutput}"
                                                 Description="{DynamicResource DeviceInfoPage.Emulation.AudioOutput.Description}"
                                                 ItemsSource="{Binding EmulationAudioOutputs}"

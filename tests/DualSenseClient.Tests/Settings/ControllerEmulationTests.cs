@@ -63,12 +63,35 @@ public sealed class ControllerEmulationTests
     }
 
     [Test]
+    public void ControllerInfo_Serialization_RoundTripsDualShock4Variant()
+    {
+        ControllerInfo info = new ControllerInfo
+        {
+            Emulation = { Mode = EmulationMode.DualShock4, Ds4Variant = DualShock4Variant.V1 }
+        };
+        string json = JsonSerializer.Serialize(info, Options);
+
+        Assert.That(json, Does.Contain("\"ds4_variant\":\"V1\""));
+
+        ControllerInfo? roundTripped = JsonSerializer.Deserialize<ControllerInfo>(json, Options);
+        Assert.That(roundTripped?.Emulation.Ds4Variant, Is.EqualTo(DualShock4Variant.V1));
+    }
+
+    [Test]
     public void ControllerInfo_Deserialization_WithoutDualSenseOptionsFallsBackToDefaults()
     {
         string legacyJson = """{"mac_address":"AA:BB:CC:DD:EE:FF","emulation":{"mode":"DualSense"}}""";
         ControllerInfo? info = JsonSerializer.Deserialize<ControllerInfo>(legacyJson, Options);
         Assert.That(info?.Emulation.DeviceType, Is.EqualTo(DualSenseVariant.Standard));
         Assert.That(info?.Emulation.ForwardAudioOutput, Is.EqualTo(EmulationAudioOutput.Speaker));
+    }
+
+    [Test]
+    public void ControllerInfo_Deserialization_WithoutDs4VariantFallsBackToV2()
+    {
+        string legacyJson = """{"mac_address":"AA:BB:CC:DD:EE:FF","emulation":{"mode":"DualShock4"}}""";
+        ControllerInfo? info = JsonSerializer.Deserialize<ControllerInfo>(legacyJson, Options);
+        Assert.That(info?.Emulation.Ds4Variant, Is.EqualTo(DualShock4Variant.V2));
     }
 
     [Test]
