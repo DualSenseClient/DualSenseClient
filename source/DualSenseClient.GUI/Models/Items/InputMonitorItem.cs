@@ -53,7 +53,7 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     private static readonly string[] _updateProperties =
     [
         nameof(HasReport),
-        nameof(SequenceNumber),
+        nameof(PollingRateHz),
         nameof(Cross), nameof(Circle), nameof(Square), nameof(Triangle),
         nameof(DPadUp), nameof(DPadDown), nameof(DPadLeft), nameof(DPadRight),
         nameof(L1), nameof(R1), nameof(L2Click), nameof(R2Click),
@@ -212,6 +212,17 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// Runs pending vibration/trigger updates after the slider debounce delay elapses.
     /// </summary>
     private readonly DispatcherTimer? _outputDebounceTimer;
+
+    /// <summary>
+    /// Interval at which the polling-rate display is refreshed. The rate settles on the
+    /// device side independently of input changes, so it cannot ride the change events.
+    /// </summary>
+    private static readonly TimeSpan PollingRateRefreshInterval = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// Periodically re-raises <see cref="PollingRateHz"/> while a device is attached.
+    /// </summary>
+    private readonly DispatcherTimer? _pollingRateTimer;
 
     /// <summary>
     /// Whether a debounced vibration update is waiting to be applied.
@@ -802,9 +813,9 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     // ── Report ────────────────────────────────────────────────
 
     /// <summary>
-    /// Incrementing report sequence counter, or 0 before the first report is received.
+    /// Measured controller polling rate in Hz, or 0 before it can be measured.
     /// </summary>
-    public int SequenceNumber => _input?.SequenceNumber ?? 0;
+    public int PollingRateHz => _device?.PollingRateHz ?? 0;
 
     /// <summary>
     /// Creates a new input monitor item for the given controller and subscribes to its
@@ -866,6 +877,10 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
             _device.LightbarColorChanged += OnLightbarColorChanged;
             _device.PlayerLedsChanged += OnLightbarColorChanged;
             _device.MuteLedModeChanged += OnLightbarColorChanged;
+
+            _pollingRateTimer = new DispatcherTimer(PollingRateRefreshInterval, DispatcherPriority.Background,
+                (_, _) => OnPropertyChanged(nameof(PollingRateHz)));
+            _pollingRateTimer.Start();
         }
     }
 
@@ -880,6 +895,7 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
         }
 
         _disposed = true;
+        _pollingRateTimer?.Stop();
         StopOutputDebounce();
         ResetTestOutputs();
         Audio?.Dispose();

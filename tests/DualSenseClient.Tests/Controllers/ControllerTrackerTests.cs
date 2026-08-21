@@ -15,6 +15,7 @@ public class ControllerTrackerTests
         public ControllerType ControllerType => ControllerType.DualSense;
         public bool IsConnected => true;
         public int MaxOutputReportLength => 64;
+        public int PollingRateHz => 0;
         public int ReadInput(byte[] buffer, int offset, int count, int timeoutMs) => 0;
         public void SendOutput(byte[] buffer, int offset, int count)
         {

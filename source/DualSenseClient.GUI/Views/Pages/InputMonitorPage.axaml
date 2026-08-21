@@ -95,10 +95,10 @@
                                 Orientation="Horizontal"
                                 Spacing="8"
                                 VerticalAlignment="Center">
-                        <TextBlock Text="{DynamicResource InputMonitorPage.Status.Report}"
+                        <TextBlock Text="{DynamicResource InputMonitorPage.Status.PollingRate}"
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                    VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding CurrentDevice.SequenceNumber}"
+                        <TextBlock Text="{Binding CurrentDevice.PollingRateHz, StringFormat={}{0} Hz}"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
                         <!-- Live badge; pulses while reports are flowing -->

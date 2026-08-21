@@ -1,4 +1,5 @@
-﻿using DualSenseClient.Bluetooth;
+﻿using System.Diagnostics;
+using DualSenseClient.Bluetooth;
 using DualSenseClient.Hid;
 using DualSenseClient.Logging;
 
@@ -34,6 +35,12 @@ public interface IControllerDevice : IDisposable
     /// Varies by connection type (USB vs Bluetooth) for some controllers.
     /// </summary>
     int MaxOutputReportLength { get; }
+
+    /// <summary>
+    /// The measured input polling rate in whole Hz (reports per second over the last
+    /// measurement window), or 0 until the first window has elapsed.
+    /// </summary>
+    int PollingRateHz { get; }
 
     /// <summary>
     /// Reads an input report from the controller.
@@ -96,6 +103,49 @@ public abstract class ControllerDevice(IHidDevice device, IHidDeviceInfo info) :
 
     /// <inheritdoc/>
     public abstract ControllerType ControllerType { get; }
+
+    /// <summary>
+    /// Length of the polling-rate measurement window.
+    /// </summary>
+    private const int PollingRateWindowMs = 500;
+
+    /// <summary>
+    /// Stopwatch timestamp at the start of the current polling-rate window.
+    /// </summary>
+    private long _pollingRateWindowStart = Stopwatch.GetTimestamp();
+
+    /// <summary>
+    /// Input reports counted in the current polling-rate window.
+    /// </summary>
+    private int _pollingRateWindowReports;
+
+    /// <summary>
+    /// Latest measured polling rate in whole Hz; written by the device's read thread only.
+    /// </summary>
+    private volatile int _pollingRateHz;
+
+    /// <inheritdoc/>
+    public int PollingRateHz => _pollingRateHz;
+
+    /// <summary>
+    /// Counts a received input report and recomputes the polling rate once per
+    /// measurement window. Derived classes call this from their read loop for each
+    /// parsed input report.
+    /// </summary>
+    protected void TrackPollingRate()
+    {
+        long now = Stopwatch.GetTimestamp();
+        _pollingRateWindowReports++;
+        double elapsedMs = (now - _pollingRateWindowStart) * 1000.0 / Stopwatch.Frequency;
+        if (elapsedMs < PollingRateWindowMs)
+        {
+            return;
+        }
+
+        _pollingRateHz = (int)Math.Round(_pollingRateWindowReports * 1000.0 / elapsedMs);
+        _pollingRateWindowReports = 0;
+        _pollingRateWindowStart = now;
+    }
 
     /// <inheritdoc/>
     public bool IsConnected

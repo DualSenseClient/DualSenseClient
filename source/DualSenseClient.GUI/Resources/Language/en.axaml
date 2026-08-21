@@ -87,7 +87,7 @@
     <sys:String x:Key="InputMonitorPage.NoDevice.Description">Select a controller from the title bar to monitor its live input state.</sys:String>
     <sys:String x:Key="InputMonitorPage.Status.Live">Live</sys:String>
     <sys:String x:Key="InputMonitorPage.Status.Waiting">Waiting for reports</sys:String>
-    <sys:String x:Key="InputMonitorPage.Status.Report">Report</sys:String>
+    <sys:String x:Key="InputMonitorPage.Status.PollingRate">Polling rate:</sys:String>
     <sys:String x:Key="InputMonitorPage.Controller.Title">Controller</sys:String>
     <sys:String x:Key="InputMonitorPage.Controller.Description">Buttons, sticks, triggers, and touchpad</sys:String>
     <sys:String x:Key="InputMonitorPage.Display.Lights.Title">Lights</sys:String>

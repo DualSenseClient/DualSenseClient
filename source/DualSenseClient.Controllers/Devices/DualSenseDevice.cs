@@ -298,6 +298,7 @@ public class DualSenseDevice : ControllerDevice
         }
         _previousInputReport = report;
         InputReport = report;
+        TrackPollingRate();
     }
 
     /// <summary>
