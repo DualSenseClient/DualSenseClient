@@ -7,13 +7,17 @@ permissions:
 on:
   workflow_dispatch:
     inputs:
-      create_stable_release:
-        description: "Create stable release (in addition to nightly)"
+      release_type:
+        description: "Release type"
         required: false
-        type: boolean
-        default: false
+        type: choice
+        default: Nightly
+        options:
+          - Nightly
+          - Stable
+          - Both
       experimental:
-        description: "Build with experimental features enabled"
+        description: "Build with experimental flag"
         required: false
         type: boolean
         default: false
@@ -46,12 +50,13 @@ jobs:
       !inputs.skip_translation_progress
     uses: ./.github/workflows/update_translation_progress.yml
 
-  build:
+  build_nightly:
     needs: [check_localization, update_translation_progress]
     if: |
       always() &&
       needs.check_localization.result == 'success' &&
-      (needs.update_translation_progress.result == 'success' || needs.update_translation_progress.result == 'skipped')
+      (needs.update_translation_progress.result == 'success' || needs.update_translation_progress.result == 'skipped') &&
+      (github.event_name == 'push' || inputs.release_type == 'Nightly' || inputs.release_type == 'Both')
     uses: ./.github/workflows/build_job.yml
     with:
       is_stable: false
@@ -62,19 +67,20 @@ jobs:
     if: |
       always() &&
       github.event_name == 'workflow_dispatch' &&
-      inputs.create_stable_release &&
+      (inputs.release_type == 'Stable' || inputs.release_type == 'Both') &&
       needs.check_localization.result == 'success' &&
       (needs.update_translation_progress.result == 'success' || needs.update_translation_progress.result == 'skipped')
     uses: ./.github/workflows/build_job.yml
     with:
       is_stable: true
 
-  create_release:
-    needs: build
+  create_nightly_release:
+    needs: build_nightly
     if: |
       always() &&
       github.event_name == 'workflow_dispatch' &&
-      needs.build.result == 'success' &&
+      (inputs.release_type == 'Nightly' || inputs.release_type == 'Both') &&
+      needs.build_nightly.result == 'success' &&
       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
     uses: ./.github/workflows/create_release.yml
     with:
@@ -86,7 +92,7 @@ jobs:
     if: |
       always() &&
       github.event_name == 'workflow_dispatch' &&
-      inputs.create_stable_release &&
+      (inputs.release_type == 'Stable' || inputs.release_type == 'Both') &&
       needs.build_stable.result == 'success' &&
       github.ref == 'refs/heads/main'
     uses: ./.github/workflows/create_release.yml
