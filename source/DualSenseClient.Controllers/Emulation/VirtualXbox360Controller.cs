@@ -96,12 +96,14 @@ public sealed class VirtualXbox360Controller : VirtualControllerBase
         {
             return;
         }
+
         _log.Info("Removing virtual Xbox 360 device");
         LibVIIPER.SetXbox360RumbleCallback(handle, null);
         if (!LibVIIPER.RemoveXbox360Device(handle))
         {
             _log.Error("The native library failed to remove the virtual Xbox 360 device");
         }
+
         DeviceHandle = null;
     }
 }

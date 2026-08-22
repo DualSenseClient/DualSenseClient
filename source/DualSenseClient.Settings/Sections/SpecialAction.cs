@@ -208,16 +208,66 @@ public class SpecialActionEffect
     /// </summary>
     public static readonly BatteryLevelColor[] DefaultBatteryColors =
     [
-        new BatteryLevelColor { Red = 255, Green = 60, Blue = 60 },
-        new BatteryLevelColor { Red = 255, Green = 90, Blue = 50 },
-        new BatteryLevelColor { Red = 255, Green = 120, Blue = 40 },
-        new BatteryLevelColor { Red = 255, Green = 160, Blue = 30 },
-        new BatteryLevelColor { Red = 255, Green = 200, Blue = 30 },
-        new BatteryLevelColor { Red = 255, Green = 230, Blue = 40 },
-        new BatteryLevelColor { Red = 180, Green = 235, Blue = 50 },
-        new BatteryLevelColor { Red = 110, Green = 220, Blue = 60 },
-        new BatteryLevelColor { Red = 60, Green = 200, Blue = 80 },
-        new BatteryLevelColor { Red = 40, Green = 180, Blue = 110 }
+        new BatteryLevelColor
+        {
+            Red = 255,
+            Green = 60,
+            Blue = 60
+        },
+        new BatteryLevelColor
+        {
+            Red = 255,
+            Green = 90,
+            Blue = 50
+        },
+        new BatteryLevelColor
+        {
+            Red = 255,
+            Green = 120,
+            Blue = 40
+        },
+        new BatteryLevelColor
+        {
+            Red = 255,
+            Green = 160,
+            Blue = 30
+        },
+        new BatteryLevelColor
+        {
+            Red = 255,
+            Green = 200,
+            Blue = 30
+        },
+        new BatteryLevelColor
+        {
+            Red = 255,
+            Green = 230,
+            Blue = 40
+        },
+        new BatteryLevelColor
+        {
+            Red = 180,
+            Green = 235,
+            Blue = 50
+        },
+        new BatteryLevelColor
+        {
+            Red = 110,
+            Green = 220,
+            Blue = 60
+        },
+        new BatteryLevelColor
+        {
+            Red = 60,
+            Green = 200,
+            Blue = 80
+        },
+        new BatteryLevelColor
+        {
+            Red = 40,
+            Green = 180,
+            Blue = 110
+        }
     ];
 
     /// <summary>

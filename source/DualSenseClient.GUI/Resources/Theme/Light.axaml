@@ -12,9 +12,13 @@
     <Color x:Key="MotionGraphZColor">#FFE6A23C</Color>
     <Color x:Key="MotionGraphZeroLineColor">#FF888888</Color>
 
-    <SolidColorBrush x:Key="MotionGraphXBrush" Color="{StaticResource MotionGraphXColor}" />
-    <SolidColorBrush x:Key="MotionGraphYBrush" Color="{StaticResource MotionGraphYColor}" />
-    <SolidColorBrush x:Key="MotionGraphZBrush" Color="{StaticResource MotionGraphZColor}" />
-    <SolidColorBrush x:Key="MotionGraphZeroLineBrush" Color="{StaticResource MotionGraphZeroLineColor}" />
+    <SolidColorBrush x:Key="MotionGraphXBrush"
+                     Color="{StaticResource MotionGraphXColor}" />
+    <SolidColorBrush x:Key="MotionGraphYBrush"
+                     Color="{StaticResource MotionGraphYColor}" />
+    <SolidColorBrush x:Key="MotionGraphZBrush"
+                     Color="{StaticResource MotionGraphZColor}" />
+    <SolidColorBrush x:Key="MotionGraphZeroLineBrush"
+                     Color="{StaticResource MotionGraphZeroLineColor}" />
 
 </ResourceDictionary>

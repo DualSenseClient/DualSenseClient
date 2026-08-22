@@ -13,7 +13,10 @@ public class CompositeLogSinkTests
     [Test]
     public void Constructor_ThrowsOnNullElement()
     {
-        Assert.Throws<ArgumentNullException>(() => new CompositeLogSink(new ILogSink[] { null! }));
+        Assert.Throws<ArgumentNullException>(() => new CompositeLogSink(new ILogSink[]
+        {
+            null!
+        }));
     }
 
     [Test]
@@ -127,6 +130,7 @@ public class CompositeLogSinkTests
         public int DisposeCount { get; private set; }
 
         public void Write(in LogEntry entry) => LastEntry = entry;
+
         public void Dispose()
         {
             Disposed = true;
@@ -144,6 +148,7 @@ public class CompositeLogSinkTests
         public void Write(in LogEntry entry)
         {
         }
+
         public void Dispose() => throw new InvalidOperationException("fail dispose");
     }
 }

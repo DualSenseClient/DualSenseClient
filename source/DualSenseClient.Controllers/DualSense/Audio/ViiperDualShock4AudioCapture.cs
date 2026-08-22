@@ -101,6 +101,7 @@ public sealed class ViiperDualShock4AudioCapture : IDisposable
         {
             _log.Error("Failed to register the virtual DualShock 4 speaker callback");
         }
+
         if (!LibVIIPER.SetDS4SpeakerResetCallback(deviceHandle, _resetCallback))
         {
             _log.Error("Failed to register the virtual DualShock 4 speaker-reset callback");
@@ -142,6 +143,7 @@ public sealed class ViiperDualShock4AudioCapture : IDisposable
             {
                 _rawScratch = new byte[byteCount];
             }
+
             Marshal.Copy(pcm, _rawScratch, 0, byteCount);
 
             int frames = byteCount / StereoBytesPerFrame;
@@ -149,12 +151,14 @@ public sealed class ViiperDualShock4AudioCapture : IDisposable
             {
                 _floatScratch = new float[frames * 2];
             }
+
             ConvertToStereoFloat(_rawScratch.AsSpan(0, byteCount), _floatScratch);
 
             if (_stereoScratch.Length < ((int)(frames * 1.5) + 2) * 2)
             {
                 _stereoScratch = new float[((int)(frames * 1.5) + 2) * 2];
             }
+
             int written = _upsampler.Process(_floatScratch.AsSpan(0, frames * 2), _stereoScratch);
 
             Span<float> stereo = _stereoScratch.AsSpan(0, written * 2);
@@ -166,6 +170,7 @@ public sealed class ViiperDualShock4AudioCapture : IDisposable
                     nonZero++;
                 }
             }
+
             _totalBytes += byteCount;
             _totalSamples += stereo.Length;
             _nonZeroSamples += nonZero;
@@ -275,6 +280,7 @@ public sealed class ViiperDualShock4AudioCapture : IDisposable
                 _prevLeft = input[(frames - 1) * 2];
                 _prevRight = input[(frames - 1) * 2 + 1];
             }
+
             return written;
         }
     }

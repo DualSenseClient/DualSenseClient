@@ -111,7 +111,10 @@ public class DualSenseDeviceOutputTests
         CapturingHidDevice hid = new CapturingHidDevice();
         using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Usb));
 
-        device.SendOutputState(new SetStateData { RumbleRight = 0x77 });
+        device.SendOutputState(new SetStateData
+        {
+            RumbleRight = 0x77
+        });
 
         Assert.Multiple(() =>
         {
@@ -128,8 +131,14 @@ public class DualSenseDeviceOutputTests
         CapturingHidDevice hid = new CapturingHidDevice();
         using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Bluetooth));
 
-        device.SendOutputState(new SetStateData { RumbleRight = 1 });
-        device.SendOutputState(new SetStateData { RumbleRight = 2 });
+        device.SendOutputState(new SetStateData
+        {
+            RumbleRight = 1
+        });
+        device.SendOutputState(new SetStateData
+        {
+            RumbleRight = 2
+        });
 
         uint expected = DualSenseCRC32.Compute(hid.LastWrite!, 0, 74);
         uint actual = (uint)(hid.LastWrite![74]

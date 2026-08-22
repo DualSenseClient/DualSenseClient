@@ -63,7 +63,8 @@ public sealed class SpecialActionCoordinator : IDisposable
     /// <param name="profileService">Stores the controller profiles.</param>
     /// <param name="audioEngine">The shared audio engine used to decode sound files.</param>
     /// <param name="engines">The per-controller engine registry, also used by the emulation output path.</param>
-    public SpecialActionCoordinator(IControllerTracker tracker, SpecialActionService service, ControllerInfoService controllerService, ProfileService profileService, AudioEngine audioEngine, SpecialActionEngineRegistry engines)
+    public SpecialActionCoordinator(IControllerTracker tracker, SpecialActionService service, ControllerInfoService controllerService,
+        ProfileService profileService, AudioEngine audioEngine, SpecialActionEngineRegistry engines)
     {
         _tracker = tracker;
         _service = service;

@@ -273,18 +273,22 @@ public sealed partial class LightsItem : ObservableObject, IDisposable
         {
             playerLeds |= PlayerLedMask.Led1;
         }
+
         if (PlayerLed2)
         {
             playerLeds |= PlayerLedMask.Led2;
         }
+
         if (PlayerLed3)
         {
             playerLeds |= PlayerLedMask.Led3;
         }
+
         if (PlayerLed4)
         {
             playerLeds |= PlayerLedMask.Led4;
         }
+
         if (PlayerLed5)
         {
             playerLeds |= PlayerLedMask.Led5;

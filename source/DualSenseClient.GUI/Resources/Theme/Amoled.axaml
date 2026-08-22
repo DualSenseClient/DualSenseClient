@@ -40,72 +40,110 @@
          ===================================================================== -->
 
     <!-- Primary Backgrounds -->
-    <SolidColorBrush x:Key="ApplicationPageBackgroundThemeBrush" Color="{StaticResource SolidBackgroundFillColorBase}" />
-    <SolidColorBrush x:Key="SolidBackgroundFillColorBaseBrush" Color="{StaticResource SolidBackgroundFillColorBase}" />
-    <SolidColorBrush x:Key="SolidBackgroundFillColorSecondaryBrush" Color="{StaticResource SolidBackgroundFillColorSecondary}" />
-    <SolidColorBrush x:Key="SolidBackgroundFillColorTertiaryBrush" Color="{StaticResource SolidBackgroundFillColorTertiary}" />
-    <SolidColorBrush x:Key="SolidBackgroundFillColorQuarternaryBrush" Color="{StaticResource SolidBackgroundFillColorQuarternary}" />
-    <SolidColorBrush x:Key="SolidBackgroundFillColorTransparentBrush" Color="{StaticResource SolidBackgroundFillColorTransparent}" />
+    <SolidColorBrush x:Key="ApplicationPageBackgroundThemeBrush"
+                     Color="{StaticResource SolidBackgroundFillColorBase}" />
+    <SolidColorBrush x:Key="SolidBackgroundFillColorBaseBrush"
+                     Color="{StaticResource SolidBackgroundFillColorBase}" />
+    <SolidColorBrush x:Key="SolidBackgroundFillColorSecondaryBrush"
+                     Color="{StaticResource SolidBackgroundFillColorSecondary}" />
+    <SolidColorBrush x:Key="SolidBackgroundFillColorTertiaryBrush"
+                     Color="{StaticResource SolidBackgroundFillColorTertiary}" />
+    <SolidColorBrush x:Key="SolidBackgroundFillColorQuarternaryBrush"
+                     Color="{StaticResource SolidBackgroundFillColorQuarternary}" />
+    <SolidColorBrush x:Key="SolidBackgroundFillColorTransparentBrush"
+                     Color="{StaticResource SolidBackgroundFillColorTransparent}" />
 
     <!-- Card Brushes -->
-    <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="{StaticResource CardBackgroundFillColorDefault}" />
-    <SolidColorBrush x:Key="CardBackgroundFillColorSecondaryBrush" Color="{StaticResource CardBackgroundFillColorSecondary}" />
-    <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="{StaticResource CardStrokeColorDefault}" />
-    <SolidColorBrush x:Key="CardStrokeColorDefaultSolidBrush" Color="{StaticResource CardStrokeColorDefaultSolid}" />
+    <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush"
+                     Color="{StaticResource CardBackgroundFillColorDefault}" />
+    <SolidColorBrush x:Key="CardBackgroundFillColorSecondaryBrush"
+                     Color="{StaticResource CardBackgroundFillColorSecondary}" />
+    <SolidColorBrush x:Key="CardStrokeColorDefaultBrush"
+                     Color="{StaticResource CardStrokeColorDefault}" />
+    <SolidColorBrush x:Key="CardStrokeColorDefaultSolidBrush"
+                     Color="{StaticResource CardStrokeColorDefaultSolid}" />
 
     <!-- Layer Brushes -->
-    <SolidColorBrush x:Key="LayerFillColorAltBrush" Color="{StaticResource LayerFillColorAlt}" />
+    <SolidColorBrush x:Key="LayerFillColorAltBrush"
+                     Color="{StaticResource LayerFillColorAlt}" />
 
     <!-- Acrylic Brushes -->
-    <SolidColorBrush x:Key="AcrylicBackgroundFillColorDefaultBrush" Color="{StaticResource AcrylicBackgroundFillColorDefault}" />
-    <SolidColorBrush x:Key="AcrylicInAppFillColorDefaultBrush" Color="{StaticResource AcrylicInAppFillColorDefault}" />
-    <SolidColorBrush x:Key="AcrylicBackgroundFillColorBaseBrush" Color="{StaticResource AcrylicBackgroundFillColorBase}" />
-    <SolidColorBrush x:Key="AcrylicInAppFillColorBaseBrush" Color="{StaticResource AcrylicInAppFillColorBase}" />
+    <SolidColorBrush x:Key="AcrylicBackgroundFillColorDefaultBrush"
+                     Color="{StaticResource AcrylicBackgroundFillColorDefault}" />
+    <SolidColorBrush x:Key="AcrylicInAppFillColorDefaultBrush"
+                     Color="{StaticResource AcrylicInAppFillColorDefault}" />
+    <SolidColorBrush x:Key="AcrylicBackgroundFillColorBaseBrush"
+                     Color="{StaticResource AcrylicBackgroundFillColorBase}" />
+    <SolidColorBrush x:Key="AcrylicInAppFillColorBaseBrush"
+                     Color="{StaticResource AcrylicInAppFillColorBase}" />
 
     <!-- Navigation View Brushes -->
-    <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{StaticResource SolidBackgroundFillColorBase}" />
-    <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{StaticResource SolidBackgroundFillColorBase}" />
-    <SolidColorBrush x:Key="NavigationViewContentBackground" Color="{StaticResource SolidBackgroundFillColorBase}" />
+    <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground"
+                     Color="{StaticResource SolidBackgroundFillColorBase}" />
+    <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground"
+                     Color="{StaticResource SolidBackgroundFillColorBase}" />
+    <SolidColorBrush x:Key="NavigationViewContentBackground"
+                     Color="{StaticResource SolidBackgroundFillColorBase}" />
 
     <!-- Flyout Brushes -->
-    <SolidColorBrush x:Key="FlyoutPresenterBackground" Color="{StaticResource SolidBackgroundFillColorBase}" />
-    <SolidColorBrush x:Key="MenuFlyoutPresenterBackground" Color="{StaticResource SolidBackgroundFillColorBase}" />
+    <SolidColorBrush x:Key="FlyoutPresenterBackground"
+                     Color="{StaticResource SolidBackgroundFillColorBase}" />
+    <SolidColorBrush x:Key="MenuFlyoutPresenterBackground"
+                     Color="{StaticResource SolidBackgroundFillColorBase}" />
 
     <!-- ContentDialog Brushes -->
-    <SolidColorBrush x:Key="ContentDialogBackground" Color="{StaticResource SolidBackgroundFillColorBase}" />
-    <SolidColorBrush x:Key="ContentDialogBackgroundBrush" Color="{StaticResource SolidBackgroundFillColorBase}" />
+    <SolidColorBrush x:Key="ContentDialogBackground"
+                     Color="{StaticResource SolidBackgroundFillColorBase}" />
+    <SolidColorBrush x:Key="ContentDialogBackgroundBrush"
+                     Color="{StaticResource SolidBackgroundFillColorBase}" />
 
     <!-- TabView Brushes -->
-    <SolidColorBrush x:Key="TabViewBackground" Color="{StaticResource SolidBackgroundFillColorBase}" />
+    <SolidColorBrush x:Key="TabViewBackground"
+                     Color="{StaticResource SolidBackgroundFillColorBase}" />
 
     <!-- ComboBox Dropdown Brushes -->
-    <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="{StaticResource SolidBackgroundFillColorBase}" />
-    <SolidColorBrush x:Key="ComboBoxDropDownBackgroundPointerOver" Color="{StaticResource SolidBackgroundFillColorTertiary}" />
-    <SolidColorBrush x:Key="ComboBoxDropDownBackgroundPressed" Color="{StaticResource SolidBackgroundFillColorQuarternary}" />
+    <SolidColorBrush x:Key="ComboBoxDropDownBackground"
+                     Color="{StaticResource SolidBackgroundFillColorBase}" />
+    <SolidColorBrush x:Key="ComboBoxDropDownBackgroundPointerOver"
+                     Color="{StaticResource SolidBackgroundFillColorTertiary}" />
+    <SolidColorBrush x:Key="ComboBoxDropDownBackgroundPressed"
+                     Color="{StaticResource SolidBackgroundFillColorQuarternary}" />
 
     <!-- TextBox Brushes -->
-    <SolidColorBrush x:Key="TextControlBackground" Color="{StaticResource SolidBackgroundFillColorBase}" />
-    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="{StaticResource SolidBackgroundFillColorTertiary}" />
-    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="{StaticResource SolidBackgroundFillColorBase}" />
+    <SolidColorBrush x:Key="TextControlBackground"
+                     Color="{StaticResource SolidBackgroundFillColorBase}" />
+    <SolidColorBrush x:Key="TextControlBackgroundPointerOver"
+                     Color="{StaticResource SolidBackgroundFillColorTertiary}" />
+    <SolidColorBrush x:Key="TextControlBackgroundFocused"
+                     Color="{StaticResource SolidBackgroundFillColorBase}" />
 
     <!-- Region Brush -->
-    <SolidColorBrush x:Key="RegionBrush" Color="{StaticResource SolidBackgroundFillColorBase}" />
+    <SolidColorBrush x:Key="RegionBrush"
+                     Color="{StaticResource SolidBackgroundFillColorBase}" />
 
     <!-- Gradient Border Brushes (white-alpha so hairlines stay visible on black) -->
-    <LinearGradientBrush x:Key="ControlElevationBorderBrush" StartPoint="0,0" EndPoint="0,3">
+    <LinearGradientBrush x:Key="ControlElevationBorderBrush"
+                         StartPoint="0,0"
+                         EndPoint="0,3">
         <LinearGradientBrush.Transform>
             <ScaleTransform ScaleY="-1" />
         </LinearGradientBrush.Transform>
         <LinearGradientBrush.GradientStops>
-            <GradientStop Offset="0.33" Color="#1AFFFFFF" />
-            <GradientStop Offset="1" Color="#0DFFFFFF" />
+            <GradientStop Offset="0.33"
+                          Color="#1AFFFFFF" />
+            <GradientStop Offset="1"
+                          Color="#0DFFFFFF" />
         </LinearGradientBrush.GradientStops>
     </LinearGradientBrush>
 
-    <LinearGradientBrush x:Key="CircleElevationBorderBrush" StartPoint="0,0" EndPoint="0,1">
+    <LinearGradientBrush x:Key="CircleElevationBorderBrush"
+                         StartPoint="0,0"
+                         EndPoint="0,1">
         <LinearGradientBrush.GradientStops>
-            <GradientStop Offset="0.50" Color="#0DFFFFFF" />
-            <GradientStop Offset="0.70" Color="#1AFFFFFF" />
+            <GradientStop Offset="0.50"
+                          Color="#0DFFFFFF" />
+            <GradientStop Offset="0.70"
+                          Color="#1AFFFFFF" />
         </LinearGradientBrush.GradientStops>
     </LinearGradientBrush>
 
@@ -119,9 +157,13 @@
     <Color x:Key="MotionGraphZColor">#FFE6A23C</Color>
     <Color x:Key="MotionGraphZeroLineColor">#FF888888</Color>
 
-    <SolidColorBrush x:Key="MotionGraphXBrush" Color="{StaticResource MotionGraphXColor}" />
-    <SolidColorBrush x:Key="MotionGraphYBrush" Color="{StaticResource MotionGraphYColor}" />
-    <SolidColorBrush x:Key="MotionGraphZBrush" Color="{StaticResource MotionGraphZColor}" />
-    <SolidColorBrush x:Key="MotionGraphZeroLineBrush" Color="{StaticResource MotionGraphZeroLineColor}" />
+    <SolidColorBrush x:Key="MotionGraphXBrush"
+                     Color="{StaticResource MotionGraphXColor}" />
+    <SolidColorBrush x:Key="MotionGraphYBrush"
+                     Color="{StaticResource MotionGraphYColor}" />
+    <SolidColorBrush x:Key="MotionGraphZBrush"
+                     Color="{StaticResource MotionGraphZColor}" />
+    <SolidColorBrush x:Key="MotionGraphZeroLineBrush"
+                     Color="{StaticResource MotionGraphZeroLineColor}" />
 
 </ResourceDictionary>

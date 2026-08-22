@@ -185,6 +185,7 @@ public static class TimerResolution
         }
 
         [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern bool SetProcessInformation(IntPtr hProcess, int processInformationClass, ref ProcessPowerThrottlingState processInformation, int size);
+        public static extern bool SetProcessInformation(IntPtr hProcess, int processInformationClass, ref ProcessPowerThrottlingState processInformation,
+            int size);
     }
 }

@@ -21,6 +21,7 @@ public class SpecialActionEngineTests
         public bool IsConnected => true;
         public int Read(byte[] buffer, int offset, int count, int timeoutMs) => 0;
         public Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken ct) => Task.FromResult(0);
+
         public int Write(byte[] buffer, int offset, int count)
         {
             byte[] copy = new byte[count];
@@ -30,11 +31,13 @@ public class SpecialActionEngineTests
         }
 
         public byte[] GetFeatureReport(byte reportId, int bufferSize = 64) => [];
+
         public void SendFeatureReport(byte[] buffer, int offset, int count)
         {
         }
 
         public string GetProductName() => "Test";
+
         public void Dispose()
         {
         }
@@ -180,8 +183,17 @@ public class SpecialActionEngineTests
     private static SpecialAction CreateAction(params ButtonType[] buttons) => new SpecialAction
     {
         Buttons = buttons.Select(b => b.ToString()).ToList(),
-        Effects = { new SpecialActionEffect { Type = SpecialActionTypes.Disconnect } },
-        EnabledControllers = { "test" }
+        Effects =
+        {
+            new SpecialActionEffect
+            {
+                Type = SpecialActionTypes.Disconnect
+            }
+        },
+        EnabledControllers =
+        {
+            "test"
+        }
     };
 
     /// <summary>
@@ -205,7 +217,11 @@ public class SpecialActionEngineTests
     private static SpecialAction CreateLightbarAction(byte red, byte green, byte blue, bool applyWhileHeld) =>
         new SpecialAction
         {
-            Buttons = { ButtonType.L1.ToString(), ButtonType.R1.ToString() },
+            Buttons =
+            {
+                ButtonType.L1.ToString(),
+                ButtonType.R1.ToString()
+            },
             Effects =
             {
                 new SpecialActionEffect
@@ -217,7 +233,10 @@ public class SpecialActionEngineTests
                 }
             },
             ApplyWhileHeld = applyWhileHeld,
-            EnabledControllers = { "test" }
+            EnabledControllers =
+            {
+                "test"
+            }
         };
 
     /// <summary>
@@ -226,7 +245,12 @@ public class SpecialActionEngineTests
     private static Profile CreateRestoreProfile() => new Profile
     {
         Name = "restore",
-        Lightbar = { Red = 1, Green = 2, Blue = 3 }
+        Lightbar =
+        {
+            Red = 1,
+            Green = 2,
+            Blue = 3
+        }
     };
 
     /// <summary>
@@ -261,7 +285,11 @@ public class SpecialActionEngineTests
     /// </summary>
     private static SpecialAction CreateSoundAction(string? path, bool applyWhileHeld) => new SpecialAction
     {
-        Buttons = { ButtonType.L1.ToString(), ButtonType.R1.ToString() },
+        Buttons =
+        {
+            ButtonType.L1.ToString(),
+            ButtonType.R1.ToString()
+        },
         Effects =
         {
             new SpecialActionEffect
@@ -271,7 +299,10 @@ public class SpecialActionEngineTests
             }
         },
         ApplyWhileHeld = applyWhileHeld,
-        EnabledControllers = { "test" }
+        EnabledControllers =
+        {
+            "test"
+        }
     };
 
     /// <summary>
@@ -279,10 +310,23 @@ public class SpecialActionEngineTests
     /// </summary>
     private static SpecialAction CreateBatteryAction(bool applyWhileHeld) => new SpecialAction
     {
-        Buttons = { ButtonType.L1.ToString(), ButtonType.R1.ToString() },
-        Effects = { new SpecialActionEffect { Type = SpecialActionTypes.ShowBatteryLevel } },
+        Buttons =
+        {
+            ButtonType.L1.ToString(),
+            ButtonType.R1.ToString()
+        },
+        Effects =
+        {
+            new SpecialActionEffect
+            {
+                Type = SpecialActionTypes.ShowBatteryLevel
+            }
+        },
         ApplyWhileHeld = applyWhileHeld,
-        EnabledControllers = { "test" }
+        EnabledControllers =
+        {
+            "test"
+        }
     };
 
     /// <summary>
@@ -291,8 +335,17 @@ public class SpecialActionEngineTests
     private static SpecialAction CreateGestureAction(string gesture) => new SpecialAction
     {
         TouchpadGesture = gesture,
-        Effects = { new SpecialActionEffect { Type = SpecialActionTypes.Disconnect } },
-        EnabledControllers = { "test" }
+        Effects =
+        {
+            new SpecialActionEffect
+            {
+                Type = SpecialActionTypes.Disconnect
+            }
+        },
+        EnabledControllers =
+        {
+            "test"
+        }
     };
 
     /// <summary>
@@ -314,7 +367,10 @@ public class SpecialActionEngineTests
                 }
             },
             ApplyWhileHeld = applyWhileHeld,
-            EnabledControllers = { "test" }
+            EnabledControllers =
+            {
+                "test"
+            }
         };
 
     /// <summary>
@@ -566,7 +622,11 @@ public class SpecialActionEngineTests
         action.Effects[0].Green = 0xBB;
         action.Effects[0].Blue = 0xCC;
         action.Effects[0].Enabled = false;
-        action.Effects.Add(new SpecialActionEffect { Type = SpecialActionTypes.SetPlayerLeds, PlayerLedMask = 0x05 });
+        action.Effects.Add(new SpecialActionEffect
+        {
+            Type = SpecialActionTypes.SetPlayerLeds,
+            PlayerLedMask = 0x05
+        });
         engine.UpdateActions([action]);
         int executions = 0;
         engine.ActionExecuted += (_, _) => executions++;
@@ -1091,7 +1151,10 @@ public class SpecialActionEngineTests
 
         FeedReport(device, CreateReport());
         FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
-        Assert.That(player.PlayedPaths, Is.EqualTo(new[] { @"C:\sounds\beep.mp3" }));
+        Assert.That(player.PlayedPaths, Is.EqualTo(new[]
+        {
+            @"C:\sounds\beep.mp3"
+        }));
 
         // A release does not stop a one-shot sound.
         FeedReport(device, CreateReport(ButtonType.L1));
@@ -1514,7 +1577,12 @@ public class SpecialActionEngineTests
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         SpecialAction action = CreateBatteryAction(applyWhileHeld: false);
         action.Effects[0].BatteryColors = Enumerable.Range(0, 10)
-            .Select(i => new BatteryLevelColor { Red = (byte)(i * 10), Green = (byte)i, Blue = (byte)(255 - i) })
+            .Select(i => new BatteryLevelColor
+            {
+                Red = (byte)(i * 10),
+                Green = (byte)i,
+                Blue = (byte)(255 - i)
+            })
             .ToList();
         engine.UpdateActions([action]);
 
@@ -1538,7 +1606,15 @@ public class SpecialActionEngineTests
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         SpecialAction action = CreateBatteryAction(applyWhileHeld: false);
-        action.Effects[0].BatteryColors = [new BatteryLevelColor { Red = 1, Green = 2, Blue = 3 }];
+        action.Effects[0].BatteryColors =
+        [
+            new BatteryLevelColor
+            {
+                Red = 1,
+                Green = 2,
+                Blue = 3
+            }
+        ];
         engine.UpdateActions([action]);
 
         // Level 4 has no custom color -> default (255, 200, 30).
@@ -1589,7 +1665,10 @@ public class SpecialActionEngineTests
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         SpecialAction action = CreateAction(ButtonType.L1, ButtonType.R1);
-        action.Effects.Add(new SpecialActionEffect { Type = SpecialActionTypes.ShowBatteryLevel });
+        action.Effects.Add(new SpecialActionEffect
+        {
+            Type = SpecialActionTypes.ShowBatteryLevel
+        });
         engine.UpdateActions([action]);
         int executions = 0;
         engine.ActionExecuted += (_, _) => executions++;

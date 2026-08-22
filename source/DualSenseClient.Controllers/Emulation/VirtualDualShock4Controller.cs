@@ -55,7 +55,8 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
     /// <param name="outputs">The physical controller receiving host feedback.</param>
     /// <param name="variant">The hardware generation the virtual device presents
     /// (<see cref="DualShock4Variant.V2"/> by default).</param>
-    public VirtualDualShock4Controller(nuint serverHandle, uint busId, IDualSenseOutputs outputs, DualShock4Variant variant = DualShock4Variant.V2) : base(outputs)
+    public VirtualDualShock4Controller(nuint serverHandle, uint busId, IDualSenseOutputs outputs, DualShock4Variant variant = DualShock4Variant.V2) :
+        base(outputs)
     {
         ushort productId = variant == DualShock4Variant.V1 ? ProductIdV1 : ProductIdV2;
         _outputCallback = OnOutput;
@@ -153,12 +154,14 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
         {
             return;
         }
+
         _log.Info("Removing virtual DualShock 4 device");
         LibVIIPER.SetDS4OutputCallback(handle, null);
         if (!LibVIIPER.RemoveDS4Device(handle))
         {
             _log.Error("The native library failed to remove the virtual DualShock 4 device");
         }
+
         DeviceHandle = null;
     }
 }

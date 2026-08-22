@@ -69,6 +69,7 @@ public sealed class SpecialActionService
             {
                 Load();
             }
+
             return _store.Item;
         }
     }
@@ -162,7 +163,13 @@ public sealed class SpecialActionService
         SpecialAction action = new SpecialAction
         {
             Name = GetUniqueName(baseName),
-            Effects = { new SpecialActionEffect { Type = SpecialActionTypes.SetLightbarColor } }
+            Effects =
+            {
+                new SpecialActionEffect
+                {
+                    Type = SpecialActionTypes.SetLightbarColor
+                }
+            }
         };
         if (!string.IsNullOrWhiteSpace(controllerId))
         {
@@ -241,7 +248,10 @@ public sealed class SpecialActionService
     /// </summary>
     private string SerializeForExport(IEnumerable<SpecialAction> actions)
     {
-        JsonObject wrapper = JsonSerializer.SerializeToNode(new SpecialActionsSettings { Actions = actions.ToList() }, _jsonOptions)!.AsObject();
+        JsonObject wrapper = JsonSerializer.SerializeToNode(new SpecialActionsSettings
+        {
+            Actions = actions.ToList()
+        }, _jsonOptions)!.AsObject();
         if (wrapper["actions"] is JsonArray array)
         {
             foreach (JsonObject? action in array.OfType<JsonObject>())
@@ -512,6 +522,7 @@ public sealed class SpecialActionService
         {
             suffix++;
         }
+
         return $"{candidate} {suffix}";
     }
 }

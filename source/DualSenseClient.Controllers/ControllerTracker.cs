@@ -141,6 +141,7 @@ public sealed class ControllerTracker : IControllerTracker
             {
                 return;
             }
+
             _controllers.Add(controller);
         }
 
@@ -159,6 +160,7 @@ public sealed class ControllerTracker : IControllerTracker
             {
                 _activeController = null;
             }
+
             removed = _controllers.RemoveAll(c => ReferenceEquals(c, controller)) > 0;
         }
 
@@ -171,6 +173,7 @@ public sealed class ControllerTracker : IControllerTracker
         {
             ActiveControllerChanged?.Invoke(this, EventArgs.Empty);
         }
+
         ControllersChanged?.Invoke(this, EventArgs.Empty);
     }
 

@@ -70,14 +70,12 @@ public partial class InputMonitorPageViewModel : ObservableObject
     /// <summary>
     /// Whether the value/coordinate tag labels are shown.
     /// </summary>
-    [ObservableProperty]
-    private bool _showStats;
+    [ObservableProperty] private bool _showStats;
 
     /// <summary>
     /// Whether the lightbar, player, and mute LEDs are shown.
     /// </summary>
-    [ObservableProperty]
-    private bool _showLightbarLeds = true;
+    [ObservableProperty] private bool _showLightbarLeds = true;
 
     /// <summary>
     /// Whether a controller is selected and its input state can be displayed.

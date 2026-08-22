@@ -21,6 +21,7 @@ public class DualSenseDeviceOutputsTests
         public bool IsConnected => true;
         public int Read(byte[] buffer, int offset, int count, int timeoutMs) => 0;
         public Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken ct) => Task.FromResult(0);
+
         public int Write(byte[] buffer, int offset, int count)
         {
             byte[] copy = new byte[count];
@@ -30,11 +31,13 @@ public class DualSenseDeviceOutputsTests
         }
 
         public byte[] GetFeatureReport(byte reportId, int bufferSize = 64) => [];
+
         public void SendFeatureReport(byte[] buffer, int offset, int count)
         {
         }
 
         public string GetProductName() => "Test";
+
         public void Dispose()
         {
         }
@@ -97,7 +100,11 @@ public class DualSenseDeviceOutputsTests
     private static SpecialAction CreateSustainedLightbarAction(byte red, byte green, byte blue) =>
         new SpecialAction
         {
-            Buttons = { ButtonType.L1.ToString(), ButtonType.R1.ToString() },
+            Buttons =
+            {
+                ButtonType.L1.ToString(),
+                ButtonType.R1.ToString()
+            },
             Effects =
             {
                 new SpecialActionEffect
@@ -109,7 +116,10 @@ public class DualSenseDeviceOutputsTests
                 }
             },
             ApplyWhileHeld = true,
-            EnabledControllers = { "test" }
+            EnabledControllers =
+            {
+                "test"
+            }
         };
 
     /// <summary>
@@ -118,7 +128,11 @@ public class DualSenseDeviceOutputsTests
     private static SpecialAction CreateSustainedPlayerLedsAction(byte mask) =>
         new SpecialAction
         {
-            Buttons = { ButtonType.L1.ToString(), ButtonType.R1.ToString() },
+            Buttons =
+            {
+                ButtonType.L1.ToString(),
+                ButtonType.R1.ToString()
+            },
             Effects =
             {
                 new SpecialActionEffect
@@ -128,7 +142,10 @@ public class DualSenseDeviceOutputsTests
                 }
             },
             ApplyWhileHeld = true,
-            EnabledControllers = { "test" }
+            EnabledControllers =
+            {
+                "test"
+            }
         };
 
     /// <summary>
@@ -269,7 +286,11 @@ public class DualSenseDeviceOutputsTests
         color.ApplyWhileHeld = false;
         color.DurationMs = 300;
         SpecialAction leds = CreateSustainedPlayerLedsAction(0x05);
-        leds.Buttons = new List<string> { ButtonType.Cross.ToString(), ButtonType.Circle.ToString() };
+        leds.Buttons = new List<string>
+        {
+            ButtonType.Cross.ToString(),
+            ButtonType.Circle.ToString()
+        };
         engine.UpdateActions([color, leds]);
         DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
 

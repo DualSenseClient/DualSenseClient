@@ -237,7 +237,8 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
             // then excluded (virtual controllers) never surface as connections.
             foreach (IHidDeviceInfo device in current.Where(device => !prevPaths.Contains(device.Path)))
             {
-                _log.Debug($"Device connected (awaiting confirmation): {device.ProductName} (VID=0x{device.VendorId:X4}, PID=0x{device.ProductId:X4}, path={device.Path})");
+                _log.Debug(
+                    $"Device connected (awaiting confirmation): {device.ProductName} (VID=0x{device.VendorId:X4}, PID=0x{device.ProductId:X4}, path={device.Path})");
                 _pendingConnected[device.Path] = device;
             }
 
@@ -248,6 +249,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                     // Never confirmed, so no connection event was raised for it.
                     continue;
                 }
+
                 _log.Info($"Device disconnected: {device.ProductName} (VID=0x{device.VendorId:X4}, PID=0x{device.ProductId:X4})");
                 try
                 {
@@ -296,6 +298,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                     _log.Debug($"Filtered out disconnected Bluetooth device: {device.ProductName} (VID=0x{device.VendorId:X4}, PID=0x{device.ProductId:X4})");
                     return;
                 }
+
                 connected.TryAdd(device.Path, true);
             });
 
@@ -359,12 +362,14 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                 HidUsageId usage = (HidUsageId)cur->usage;
                 if (usage == HidUsageId.Unknown)
                 {
-                    _log.Trace($"  Skipped {name} (VID=0x{cur->vendor_id:X4}, PID=0x{cur->product_id:X4}, usage=0x{cur->usage:X4}) — not a gamepad or joystick");
+                    _log.Trace(
+                        $"  Skipped {name} (VID=0x{cur->vendor_id:X4}, PID=0x{cur->product_id:X4}, usage=0x{cur->usage:X4}) — not a gamepad or joystick");
                     continue;
                 }
 
                 count++;
-                _log.Debug($"  [{count}] {name} (VID=0x{cur->vendor_id:X4}, PID=0x{cur->product_id:X4}, bus={cur->bus_type}, usagePage=0x{cur->usage_page:X4}, usage=0x{cur->usage:X4}, path={path})");
+                _log.Debug(
+                    $"  [{count}] {name} (VID=0x{cur->vendor_id:X4}, PID=0x{cur->product_id:X4}, bus={cur->bus_type}, usagePage=0x{cur->usage_page:X4}, usage=0x{cur->usage:X4}, path={path})");
 
                 result.Add(new HidDeviceInfo
                 {
@@ -429,6 +434,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
         {
             len++;
         }
+
         return len > 0 ? Encoding.UTF8.GetString(ptr, len) : string.Empty;
     }
 

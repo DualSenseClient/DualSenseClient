@@ -41,6 +41,9 @@ public class ProfileSettings
             return;
         }
 
-        Profiles.Insert(0, new Profile { Name = DefaultProfileName });
+        Profiles.Insert(0, new Profile
+        {
+            Name = DefaultProfileName
+        });
     }
 }

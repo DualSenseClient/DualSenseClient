@@ -186,6 +186,7 @@ public sealed partial class BatteryLevelItem : ObservableObject
         {
             OnPropertyChanged(nameof(Color));
         }
+
         OnPropertyChanged(nameof(Brush));
         _onColorChanged();
     }
@@ -380,14 +381,17 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
             {
                 return 1;
             }
+
             if (string.Equals(Gesture, TouchpadGestures.SwipeLeft, StringComparison.OrdinalIgnoreCase))
             {
                 return 2;
             }
+
             if (string.Equals(Gesture, TouchpadGestures.SwipeRight, StringComparison.OrdinalIgnoreCase))
             {
                 return 3;
             }
+
             return 0;
         }
         set => Gesture = value switch
@@ -792,7 +796,10 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
                 }));
         }
 
-        _saveTimer = new DispatcherTimer { Interval = SaveDebounce };
+        _saveTimer = new DispatcherTimer
+        {
+            Interval = SaveDebounce
+        };
         _saveTimer.Tick += (_, _) => CommitPendingChanges();
     }
 
@@ -941,7 +948,10 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
                 return;
             }
 
-            Action.Effects.Add(new SpecialActionEffect { Type = type });
+            Action.Effects.Add(new SpecialActionEffect
+            {
+                Type = type
+            });
         }
         else
         {
@@ -1106,6 +1116,7 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
         {
             OnPropertyChanged(nameof(LightbarColor));
         }
+
         Persist();
     }
 
@@ -1362,22 +1373,27 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
         {
             mask |= 0x01;
         }
+
         if (PlayerLed2)
         {
             mask |= 0x02;
         }
+
         if (PlayerLed3)
         {
             mask |= 0x04;
         }
+
         if (PlayerLed4)
         {
             mask |= 0x08;
         }
+
         if (PlayerLed5)
         {
             mask |= 0x10;
         }
+
         return mask;
     }
 

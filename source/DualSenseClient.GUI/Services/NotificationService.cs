@@ -137,6 +137,7 @@ public class NotificationService : INotificationService
             {
                 _infoBar = mainWindow.FindControl<FAInfoBar>("InfoBar");
             }
+
             return _infoBar;
         }
     }
@@ -200,7 +201,10 @@ public class NotificationService : INotificationService
                 return;
             }
 
-            Button button = new Button { Content = actionText };
+            Button button = new Button
+            {
+                Content = actionText
+            };
             button.Click += (_, _) =>
             {
                 _log.Trace("Action button clicked, executing action");
@@ -223,6 +227,7 @@ public class NotificationService : INotificationService
     public void ClearQueue()
     {
         while (_notificationQueue.TryDequeue(out _)) { }
+
         _processingCts?.Cancel();
     }
 

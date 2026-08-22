@@ -91,7 +91,10 @@ public class ViiperDualSenseAudioForwarderTests
         combined[11] = 0x90;
         combined[12] = 0x3F;
         haptics.CopyTo(combined, 78);
-        return new DSOutputState { BluetoothCombinedOutputReport = combined };
+        return new DSOutputState
+        {
+            BluetoothCombinedOutputReport = combined
+        };
     }
 
     /// <summary>
@@ -119,7 +122,10 @@ public class ViiperDualSenseAudioForwarderTests
     [Test]
     public void Start_LeavesBluetoothLaneClosedUntilAudioIsFed()
     {
-        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
 
         Assert.That(forwarder.Start(), Is.True);
@@ -151,7 +157,10 @@ public class ViiperDualSenseAudioForwarderTests
     [Test]
     public void LongIdleGap_RePrimesTheStreamOnResume()
     {
-        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
@@ -171,7 +180,10 @@ public class ViiperDualSenseAudioForwarderTests
     [Test]
     public void Start_NoTransportReturnsFalse()
     {
-        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Usb };
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Usb
+        };
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
 
         Assert.That(forwarder.Start(), Is.False);
@@ -180,7 +192,10 @@ public class ViiperDualSenseAudioForwarderTests
     [Test]
     public void FeedPcm_SendsCombinedAudioAndHapticsReports()
     {
-        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
@@ -188,6 +203,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             forwarder.FeedPcm(AudioBlock);
         }
+
         WaitUntil(() => fake.ReportCount >= 12, TimeSpan.FromSeconds(3));
 
         Assert.Multiple(() =>
@@ -206,7 +222,10 @@ public class ViiperDualSenseAudioForwarderTests
     [Test]
     public void FeedPcm_HapticsDisabledSendsAudioOnlyReports()
     {
-        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.HapticsEnabled = false;
         forwarder.Start();
@@ -215,6 +234,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             forwarder.FeedPcm(AudioBlock);
         }
+
         WaitUntil(() => fake.ReportCount >= 11, TimeSpan.FromSeconds(3));
 
         Assert.Multiple(() =>
@@ -230,7 +250,10 @@ public class ViiperDualSenseAudioForwarderTests
     [Test]
     public void FeedPcm_PartialBlocksAreAccumulatedAndChunked()
     {
-        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
@@ -249,7 +272,10 @@ public class ViiperDualSenseAudioForwarderTests
     [Test]
     public void FeedPcm_VolumeChangeAppliesWithinOneTick()
     {
-        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
@@ -276,7 +302,10 @@ public class ViiperDualSenseAudioForwarderTests
     [Test]
     public void Stop_NoFurtherReportsAreSent()
     {
-        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
@@ -295,7 +324,10 @@ public class ViiperDualSenseAudioForwarderTests
     [Test]
     public void Dispose_StopsThePumpAndReleases()
     {
-        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
         ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
@@ -320,7 +352,10 @@ public class ViiperDualSenseAudioForwarderTests
         byte[] left = new byte[11];
         left[0] = (byte)TriggerEffectType.Automatic;
 
-        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
@@ -375,7 +410,10 @@ public class ViiperDualSenseAudioForwarderTests
     [Test]
     public void FeedPcm_WithoutGameStateHapticsFollowTheAudio()
     {
-        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
@@ -383,6 +421,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             forwarder.FeedPcm(AudioBlock);
         }
+
         WaitUntil(() => fake.ReportCount >= 11, TimeSpan.FromSeconds(3));
 
         Assert.That(fake.LastHapticsFrame.Distinct().Count(), Is.EqualTo(1),
@@ -394,11 +433,18 @@ public class ViiperDualSenseAudioForwarderTests
     [Test]
     public void UpdateGameOutputState_GameRumbleIsSynthesizedIntoHapticsPcm()
     {
-        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
-        forwarder.UpdateGameOutputState(new SetStateData { RumbleLeft = 0xFF, RumbleRight = 0x00 });
+        forwarder.UpdateGameOutputState(new SetStateData
+        {
+            RumbleLeft = 0xFF,
+            RumbleRight = 0x00
+        });
         forwarder.FeedPcm(AudioBlock);
         WaitUntil(() => fake.ReportCount >= 12, TimeSpan.FromSeconds(3));
 
@@ -415,7 +461,10 @@ public class ViiperDualSenseAudioForwarderTests
     [Test]
     public void Flush_DiscardsBufferedAudioAndClosesTheLane()
     {
-        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
@@ -423,6 +472,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             forwarder.FeedPcm(AudioBlock);
         }
+
         WaitUntil(() => fake.ReportCount >= 12, TimeSpan.FromSeconds(3));
         int beforeFlush = fake.ReportCount;
         Assert.That(beforeFlush, Is.GreaterThanOrEqualTo(12));
@@ -448,7 +498,10 @@ public class ViiperDualSenseAudioForwarderTests
     [Test]
     public void Flush_ForcesRePrimeEvenWhenAudioResumesWithinTheIdleWindow()
     {
-        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
@@ -473,7 +526,10 @@ public class ViiperDualSenseAudioForwarderTests
         byte[] gameHaptics = new byte[64];
         Array.Fill(gameHaptics, (byte)0x10);
 
-        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
@@ -481,6 +537,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             forwarder.FeedPcm(MakeAudioBlock(0f));
         }
+
         WaitUntil(() => fake.ReportCount >= 8 && fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
 
         // Deliver the payload only after the stream is primed: the ~85 ms prime and
@@ -499,7 +556,10 @@ public class ViiperDualSenseAudioForwarderTests
     [Test]
     public void UpdateGameHaptics_SilentPayloadFallsBackToAudioDerived()
     {
-        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
@@ -523,7 +583,10 @@ public class ViiperDualSenseAudioForwarderTests
         byte[] gameHaptics = new byte[64];
         Array.Fill(gameHaptics, (byte)0x10);
 
-        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
@@ -542,7 +605,10 @@ public class ViiperDualSenseAudioForwarderTests
     [Test]
     public void UpdateGameHaptics_InvalidReportIsIgnored()
     {
-        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
@@ -564,7 +630,10 @@ public class ViiperDualSenseAudioForwarderTests
         byte[] gameHaptics = new byte[64];
         Array.Fill(gameHaptics, (byte)0x10);
 
-        FakeAudioOutputs fake = new FakeAudioOutputs { ConnectionType = ConnectionType.Bluetooth };
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
@@ -581,6 +650,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             forwarder.FeedPcm(MakeAudioBlock(0f));
         }
+
         WaitUntil(() => fake.ReportCount >= 8 && fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
 
         // Deliver the payload only after the stream is primed: the ~85 ms prime and

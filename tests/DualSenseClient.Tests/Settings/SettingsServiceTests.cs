@@ -207,7 +207,10 @@ public class SettingsServiceTests
         {
             WriteIndented = true,
             DefaultIgnoreCondition = JsonIgnoreCondition.Never,
-            Converters = { new JsonStringEnumConverter() }
+            Converters =
+            {
+                new JsonStringEnumConverter()
+            }
         };
     }
 }

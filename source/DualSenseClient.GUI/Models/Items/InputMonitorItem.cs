@@ -858,7 +858,10 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
         _leftTriggerModeIndex = 0;
         _rightTriggerModeIndex = 0;
 
-        _outputDebounceTimer = new DispatcherTimer { Interval = OutputDebounceDelay };
+        _outputDebounceTimer = new DispatcherTimer
+        {
+            Interval = OutputDebounceDelay
+        };
         _outputDebounceTimer.Tick += OnOutputDebounceTick;
 
         if (_device?.InputReport is { } report)

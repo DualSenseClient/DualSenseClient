@@ -93,6 +93,7 @@ public sealed class ViiperDualSenseAudioCapture : IDisposable
         {
             _log.Error("Failed to register the virtual DualSense audio-out callback");
         }
+
         if (!LibVIIPER.SetDualSenseSpeakerResetCallback(deviceHandle, _resetCallback))
         {
             _log.Error("Failed to register the virtual DualSense speaker-reset callback");
@@ -135,6 +136,7 @@ public sealed class ViiperDualSenseAudioCapture : IDisposable
             {
                 _rawScratch = new byte[byteCount];
             }
+
             Marshal.Copy(pcm, _rawScratch, 0, byteCount);
 
             int samples = byteCount / QuadBytesPerFrame * 2;
@@ -142,6 +144,7 @@ public sealed class ViiperDualSenseAudioCapture : IDisposable
             {
                 _stereoScratch = new float[samples];
             }
+
             ConvertToStereoFloat(_rawScratch.AsSpan(0, byteCount), _stereoScratch);
 
             Span<float> stereo = _stereoScratch.AsSpan(0, samples);
@@ -153,6 +156,7 @@ public sealed class ViiperDualSenseAudioCapture : IDisposable
                     nonZero++;
                 }
             }
+
             _totalBytes += byteCount;
             _totalSamples += samples;
             _nonZeroSamples += nonZero;

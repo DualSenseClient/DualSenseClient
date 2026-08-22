@@ -20,8 +20,12 @@ public static class ControllerFactory
     /// </summary>
     private static readonly Dictionary<(ushort Vid, ushort Pid), ControllerType> KnownDevices = new Dictionary<(ushort Vid, ushort Pid), ControllerType>
     {
-        { (0x054C, 0x0CE6), ControllerType.DualSense },
-        { (0x054C, 0x0DF2), ControllerType.DualSenseEdge }
+        {
+            (0x054C, 0x0CE6), ControllerType.DualSense
+        },
+        {
+            (0x054C, 0x0DF2), ControllerType.DualSenseEdge
+        }
     };
 
     /// <summary>
@@ -53,7 +57,8 @@ public static class ControllerFactory
             return null;
         }
 
-        _log.Debug($"Creating {type} controller for '{info.ProductName}' (VID=0x{info.VendorId:X4}, PID=0x{info.ProductId:X4}, bus={info.BusType}, path={info.Path})");
+        _log.Debug(
+            $"Creating {type} controller for '{info.ProductName}' (VID=0x{info.VendorId:X4}, PID=0x{info.ProductId:X4}, bus={info.BusType}, path={info.Path})");
         IHidDevice device = enumerator.OpenDevice(info.Path);
         try
         {

@@ -947,8 +947,14 @@ public sealed class DualSenseAudioPlayer : IDisposable
         return new MiniAudioDeviceConfig
         {
             PeriodSizeInFrames = 480,
-            Playback = new DeviceSubConfig { ShareMode = ShareMode.Exclusive },
-            Wasapi = new WasapiSettings { NoAutoConvertSRC = true }
+            Playback = new DeviceSubConfig
+            {
+                ShareMode = ShareMode.Exclusive
+            },
+            Wasapi = new WasapiSettings
+            {
+                NoAutoConvertSRC = true
+            }
         };
     }
 

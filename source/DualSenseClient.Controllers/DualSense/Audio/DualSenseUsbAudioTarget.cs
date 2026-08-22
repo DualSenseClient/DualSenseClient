@@ -170,6 +170,7 @@ public sealed class DualSenseUsbAudioTarget : IDisposable
             {
                 _log.Info("DualSense render endpoint could not be opened; USB audio forwarding unavailable");
             }
+
             return _player is not null;
         }
     }
@@ -202,6 +203,7 @@ public sealed class DualSenseUsbAudioTarget : IDisposable
                         _quadScratch[o + 2] = interleavedQuad[offset + i * 4 + 2] / 32768f;
                         _quadScratch[o + 3] = interleavedQuad[offset + i * 4 + 3] / 32768f;
                     }
+
                     _queue.AddSamples(_quadScratch);
                 }
                 else
@@ -211,6 +213,7 @@ public sealed class DualSenseUsbAudioTarget : IDisposable
                         _stereoScratch[i * 2] = interleavedQuad[offset + i * 4] / 32768f;
                         _stereoScratch[i * 2 + 1] = interleavedQuad[offset + i * 4 + 1] / 32768f;
                     }
+
                     _queue.AddSamples(_stereoScratch);
                 }
             }
@@ -259,7 +262,8 @@ public sealed class DualSenseUsbAudioTarget : IDisposable
         }
         catch (Exception ex)
         {
-            _log.Warning($"Could not open the DualSense render endpoint ({format.Channels}-channel, {(config is null ? "shared" : "exclusive")}): {ex.Message}");
+            _log.Warning(
+                $"Could not open the DualSense render endpoint ({format.Channels}-channel, {(config is null ? "shared" : "exclusive")}): {ex.Message}");
             player?.Dispose();
             device?.Dispose();
             return false;
@@ -286,8 +290,14 @@ public sealed class DualSenseUsbAudioTarget : IDisposable
         return new MiniAudioDeviceConfig
         {
             PeriodSizeInFrames = 480,
-            Playback = new DeviceSubConfig { ShareMode = ShareMode.Exclusive },
-            Wasapi = new WasapiSettings { NoAutoConvertSRC = true }
+            Playback = new DeviceSubConfig
+            {
+                ShareMode = ShareMode.Exclusive
+            },
+            Wasapi = new WasapiSettings
+            {
+                NoAutoConvertSRC = true
+            }
         };
     }
 

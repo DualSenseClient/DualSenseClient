@@ -283,10 +283,16 @@ public sealed partial class AudioPlayerItem : ObservableObject, IDisposable
             LocalizationService.GetText("InputMonitorPage.Audio.Output.Headset")
         ];
 
-        _seekDebounceTimer = new DispatcherTimer { Interval = SeekDebounceDelay };
+        _seekDebounceTimer = new DispatcherTimer
+        {
+            Interval = SeekDebounceDelay
+        };
         _seekDebounceTimer.Tick += OnSeekDebounceTick;
 
-        _optionsDebounceTimer = new DispatcherTimer { Interval = OptionsDebounceDelay };
+        _optionsDebounceTimer = new DispatcherTimer
+        {
+            Interval = OptionsDebounceDelay
+        };
         _optionsDebounceTimer.Tick += OnOptionsDebounceTick;
     }
 

@@ -76,6 +76,7 @@ public class DualSenseDeviceProfileTests
         {
             report[1 + i] = Convert.ToByte(octets[5 - i], 16);
         }
+
         return report;
     }
 
@@ -84,7 +85,10 @@ public class DualSenseDeviceProfileTests
     {
         // Profile application is deferred to the owning application (via ApplyProfile),
         // so constructing a device must not write any output state.
-        CapturingHidDevice hid = new CapturingHidDevice { PairingReport = CreatePairingReport(ClientMac) };
+        CapturingHidDevice hid = new CapturingHidDevice
+        {
+            PairingReport = CreatePairingReport(ClientMac)
+        };
         using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Usb));
 
         Assert.That(hid.LastWrite, Is.Null);
@@ -99,9 +103,20 @@ public class DualSenseDeviceProfileTests
         Profile profile = new Profile
         {
             Name = "Test",
-            Lightbar = { Red = 0x01, Green = 0x02, Blue = 0x03 },
-            MicLed = { Mode = 2 },
-            PlayerLeds = { Mask = 0x1F }
+            Lightbar =
+            {
+                Red = 0x01,
+                Green = 0x02,
+                Blue = 0x03
+            },
+            MicLed =
+            {
+                Mode = 2
+            },
+            PlayerLeds =
+            {
+                Mask = 0x1F
+            }
         };
         device.ApplyProfile(profile);
 

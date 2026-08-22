@@ -202,6 +202,7 @@ public partial class ProfilePageViewModel : ObservableObject
                     return i;
                 }
             }
+
             return -1;
         }
         set
@@ -481,6 +482,7 @@ public partial class ProfilePageViewModel : ObservableObject
             item.DeleteRequested -= OnSpecialActionDeleteRequested;
             item.Dispose();
         }
+
         SpecialActions.Clear();
 
         string? controllerId = SpecialActionService.GetControllerId(CurrentMac, CurrentDevicePath);
@@ -521,6 +523,7 @@ public partial class ProfilePageViewModel : ObservableObject
             item.ProfileChanged -= OnProfileChanged;
             item.Dispose();
         }
+
         Profiles.Clear();
 
         foreach (Profile profile in _profileService.Settings.Profiles)
@@ -550,6 +553,7 @@ public partial class ProfilePageViewModel : ObservableObject
         {
             AssignedProfileOptions.Add(item.Name);
         }
+
         OnPropertyChanged(nameof(SelectedAssignedProfileIndex));
     }
 
@@ -577,6 +581,7 @@ public partial class ProfilePageViewModel : ObservableObject
         {
             _controllerService.UpdateProfileName(args.OldName, args.NewName);
         }
+
         BuildAssignedProfileOptions();
     }
 

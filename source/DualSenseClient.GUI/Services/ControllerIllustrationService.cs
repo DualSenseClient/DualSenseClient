@@ -51,12 +51,14 @@ public sealed class ControllerIllustrationService
     /// <summary>
     /// Embedded resource path prefix of the monitor base folder (avares URI form).
     /// </summary>
-    private static readonly string MonitorSkinsFolderUri = $"avares://{typeof(ControllerIllustrationService).Assembly.GetName().Name}/Assets/DualSense/MonitorSkins/";
+    private static readonly string MonitorSkinsFolderUri =
+        $"avares://{typeof(ControllerIllustrationService).Assembly.GetName().Name}/Assets/DualSense/MonitorSkins/";
 
     /// <summary>
     /// Embedded resource path prefix of the overlay sprite folder (avares URI form).
     /// </summary>
-    private static readonly string ThemeAssetsFolderUri = $"avares://{typeof(ControllerIllustrationService).Assembly.GetName().Name}/Assets/DualSense/ThemeAssets/";
+    private static readonly string ThemeAssetsFolderUri =
+        $"avares://{typeof(ControllerIllustrationService).Assembly.GetName().Name}/Assets/DualSense/ThemeAssets/";
 
     /// <summary>
     /// Skin name to monitor base file name mapping.
@@ -423,14 +425,17 @@ public sealed class ControllerIllustrationService
             {
                 minX = x;
             }
+
             if (x > maxX)
             {
                 maxX = x;
             }
+
             if (y > maxY)
             {
                 maxY = y;
             }
+
             sumY += y;
             count++;
         }
@@ -442,7 +447,10 @@ public sealed class ControllerIllustrationService
 
         int centerX = (int)Math.Round((minX + maxX) / 2.0) + PlayerLedCenterOffsetX;
         int centerY = (int)Math.Round(sumY / (double)count) + PlayerLedCenterOffsetY;
-        int[] ledOffsets = { -PlayerLedOuterSpacing - PlayerLedInnerSpacing, -PlayerLedInnerSpacing, 0, PlayerLedInnerSpacing, PlayerLedOuterSpacing + PlayerLedInnerSpacing };
+        int[] ledOffsets =
+        {
+            -PlayerLedOuterSpacing - PlayerLedInnerSpacing, -PlayerLedInnerSpacing, 0, PlayerLedInnerSpacing, PlayerLedOuterSpacing + PlayerLedInnerSpacing
+        };
 
         for (int led = 0; led < PlayerLedCount; led++)
         {
@@ -787,6 +795,7 @@ public sealed class ControllerIllustrationService
             {
                 _log.Warning($"Could not load overlay sprite '{fileName}': {ex.Message}");
             }
+
             return null;
         }
     }

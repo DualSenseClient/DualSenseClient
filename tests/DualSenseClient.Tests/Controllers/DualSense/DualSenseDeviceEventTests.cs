@@ -20,10 +20,13 @@ public class DualSenseDeviceEventTests
         public Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken ct) => Task.FromResult(0);
         public int Write(byte[] buffer, int offset, int count) => 0;
         public byte[] GetFeatureReport(byte reportId, int bufferSize = 64) => [];
+
         public void SendFeatureReport(byte[] buffer, int offset, int count)
         {
         }
+
         public string GetProductName() => "Test";
+
         public void Dispose()
         {
         }

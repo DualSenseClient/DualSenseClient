@@ -83,7 +83,10 @@ public class SetStateDataTests
     [Test]
     public void HostTimestamp_IsLittleEndian()
     {
-        SetStateData payload = new SetStateData { HostTimestamp = 0x01020304 };
+        SetStateData payload = new SetStateData
+        {
+            HostTimestamp = 0x01020304
+        };
         byte[] raw = new byte[SetStateData.PayloadSize];
         payload.CopyTo(raw, 0);
 

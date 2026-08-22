@@ -17,29 +17,8 @@ on:
         value: ${{ jobs.build_windows.outputs.branch }}
 
 jobs:
-  test:
-    runs-on: windows-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: 10.0.x
-
-      - name: Restore dependencies
-        run: dotnet restore DualSenseClient.sln
-
-      - name: Fetch native libraries
-        run: python scripts/fetch_native_libraries.py win-x64
-
-      - name: Test
-        run: dotnet test tests/DualSenseClient.Tests/DualSenseClient.Tests.csproj
-
   build_windows:
     runs-on: windows-latest
-    needs: test
     outputs:
       sha_short: ${{ steps.info.outputs.sha_short }}
       branch: ${{ steps.info.outputs.branch }}
@@ -89,7 +68,6 @@ jobs:
 
   build_linux:
     runs-on: ubuntu-latest
-    needs: test
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7

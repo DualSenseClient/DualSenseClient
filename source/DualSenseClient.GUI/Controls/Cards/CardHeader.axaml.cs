@@ -45,7 +45,8 @@ public class CardHeader : TemplatedControl
     /// <summary>
     /// Data template for the ActionContent.
     /// </summary>
-    public static readonly StyledProperty<IDataTemplate?> ActionContentTemplateProperty = AvaloniaProperty.Register<CardHeader, IDataTemplate?>(nameof(ActionContentTemplate));
+    public static readonly StyledProperty<IDataTemplate?> ActionContentTemplateProperty =
+        AvaloniaProperty.Register<CardHeader, IDataTemplate?>(nameof(ActionContentTemplate));
 
     /// <summary>
     /// Gets or sets the main title text displayed in SemiBold.

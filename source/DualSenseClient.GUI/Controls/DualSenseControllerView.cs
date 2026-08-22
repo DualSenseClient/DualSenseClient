@@ -491,7 +491,8 @@ public sealed class DualSenseControllerView : Canvas
         AddOverlay(skin, "D-PAD_Left", -545.9, 21.5, 114, 87, s => s.DPadLeft);
         AddOverlay(skin, "D-PAD_Right", -400.7, 21.5, 114, 87, s => s.DPadRight);
         AddOverlay(skin, "Home_Button", 2.7, 166.7, 97, 54, s => s.PS);
-        _micLed = AddImage(_illustrations.GetMicLedSprite(), CenteredX(MicLedCenterOffsetX, MicLedWidth, 0, _scale), CenteredY(MicLedCenterOffsetY, MicLedHeight, 0, _scale), MicLedWidth, MicLedHeight);
+        _micLed = AddImage(_illustrations.GetMicLedSprite(), CenteredX(MicLedCenterOffsetX, MicLedWidth, 0, _scale),
+            CenteredY(MicLedCenterOffsetY, MicLedHeight, 0, _scale), MicLedWidth, MicLedHeight);
         AddOverlay(skin, "Mute_Button", 4.0, 225.9, 75, 16, s => s.Mute);
         AddOverlay(skin, "Option_Button", 359.0, -121.0, 55, 74, s => s.Options);
         AddOverlay(skin, "Create_Button", -359.0, -121.0, 52, 71, s => s.Create);
@@ -806,7 +807,8 @@ public sealed class DualSenseControllerView : Canvas
     /// </summary>
     private void AddOverlay(string skin, string name, double offsetX, double offsetY, double width, double height, Func<IControllerMonitorState, bool> pressed)
     {
-        Image image = AddImage(_illustrations.GetSprite(skin, name), CenteredX(offsetX, width, 0, _scale), CenteredY(offsetY, height, 0, _scale), width, height);
+        Image image = AddImage(_illustrations.GetSprite(skin, name), CenteredX(offsetX, width, 0, _scale), CenteredY(offsetY, height, 0, _scale), width,
+            height);
         _overlays.Add(new OverlaySprite(image, pressed));
         image.IsVisible = false;
     }
@@ -848,7 +850,10 @@ public sealed class DualSenseControllerView : Canvas
     {
         if (_micLedPulseTimer is null)
         {
-            _micLedPulseTimer = new DispatcherTimer { Interval = MicLedPulseTick };
+            _micLedPulseTimer = new DispatcherTimer
+            {
+                Interval = MicLedPulseTick
+            };
             _micLedPulseTimer.Tick += OnMicLedPulseTick;
         }
 

@@ -281,6 +281,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
             {
                 return 0;
             }
+
             return (int)GetEmulationSettings().Mode;
         }
         set
@@ -339,6 +340,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
             {
                 return 0;
             }
+
             return (int)GetEmulationSettings().DeviceType;
         }
         set
@@ -376,6 +378,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
             {
                 return 0;
             }
+
             return (int)GetEmulationSettings().Ds4Variant;
         }
         set
@@ -419,6 +422,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
             {
                 return 0;
             }
+
             return (int)GetEmulationSettings().ForwardAudioOutput;
         }
         set
@@ -458,6 +462,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
             {
                 return 0;
             }
+
             return GetEmulationSettings().ForwardVolume;
         }
         set
@@ -473,6 +478,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
             {
                 return;
             }
+
             settings.ForwardVolume = clamped;
             ScheduleEmulationSave();
             OnPropertyChanged(nameof(ForwardVolume));
@@ -495,6 +501,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
             {
                 return 0;
             }
+
             return GetEmulationSettings().ForwardHapticStrength;
         }
         set
@@ -510,6 +517,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
             {
                 return;
             }
+
             settings.ForwardHapticStrength = clamped;
             ScheduleEmulationSave();
             OnPropertyChanged(nameof(ForwardHapticStrength));
@@ -538,6 +546,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
             {
                 return LocalizationService.GetText("DeviceInfoPage.Emulation.Status.Creating");
             }
+
             if (!status.Running)
             {
                 return status.Detail ?? LocalizationService.GetText("DeviceInfoPage.Emulation.Status.Idle");
@@ -662,8 +671,12 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         {
             Skins.Add(skin);
         }
+
         _emulation.StateChanged += OnEmulationStateChanged;
-        _emulationSaveTimer = new DispatcherTimer { Interval = EmulationSaveDebounce };
+        _emulationSaveTimer = new DispatcherTimer
+        {
+            Interval = EmulationSaveDebounce
+        };
         _emulationSaveTimer.Tick += (_, _) => SaveEmulationDebounced();
         _mainViewModel.PropertyChanged += OnMainViewModelPropertyChanged;
         UpdateDevice();
@@ -781,6 +794,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         {
             return;
         }
+
         _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, GetEmulationSettings());
     }
 }

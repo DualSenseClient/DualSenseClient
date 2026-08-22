@@ -87,10 +87,12 @@ internal static class LinuxBluetooth
             {
                 chars[i * 3 - 1] = ':';
             }
+
             byte b = (byte)(address >> (8 * (5 - i)));
             chars[i * 3] = HexDigit(b >> 4);
             chars[i * 3 + 1] = HexDigit(b & 0x0F);
         }
+
         return new string(chars);
     }
 

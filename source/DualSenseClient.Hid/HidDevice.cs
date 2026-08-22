@@ -97,6 +97,7 @@ public sealed class HidDevice : IHidDevice
         {
             Encoding.UTF8.GetBytes(src, path.Length, pathPtr, byteCount);
         }
+
         pathPtr[byteCount] = 0;
 
         _device = SDL3.SDL_hid_open_path(pathPtr);
@@ -353,6 +354,7 @@ public sealed class HidDevice : IHidDevice
             {
                 SDL3.SDL_hid_close(_device);
             }
+
             _device = null;
         }
     }

@@ -54,24 +54,43 @@ public static class VirtualInputMapper
     {
         DualSenseButtons buttons = 0;
         if (input.Square) { buttons |= DualSenseButtons.Square; }
+
         if (input.Cross) { buttons |= DualSenseButtons.Cross; }
+
         if (input.Circle) { buttons |= DualSenseButtons.Circle; }
+
         if (input.Triangle) { buttons |= DualSenseButtons.Triangle; }
+
         if (input.L1) { buttons |= DualSenseButtons.L1; }
+
         if (input.R1) { buttons |= DualSenseButtons.R1; }
+
         if (input.L2Click) { buttons |= DualSenseButtons.L2; }
+
         if (input.R2Click) { buttons |= DualSenseButtons.R2; }
+
         if (input.Create) { buttons |= DualSenseButtons.Create; }
+
         if (input.Options) { buttons |= DualSenseButtons.Options; }
+
         if (input.L3) { buttons |= DualSenseButtons.L3; }
+
         if (input.R3) { buttons |= DualSenseButtons.R3; }
+
         if (input.PS) { buttons |= DualSenseButtons.PS; }
+
         if (input.TouchPad) { buttons |= DualSenseButtons.Touchpad; }
+
         if (input.Mute) { buttons |= DualSenseButtons.MicMute; }
+
         if (input.EdgeFunctionLeft) { buttons |= DualSenseButtons.LeftFunction; }
+
         if (input.EdgeFunctionRight) { buttons |= DualSenseButtons.RightFunction; }
+
         if (input.EdgePaddleLeft) { buttons |= DualSenseButtons.L4; }
+
         if (input.EdgePaddleRight) { buttons |= DualSenseButtons.R4; }
+
         return buttons;
     }
 
@@ -83,19 +102,33 @@ public static class VirtualInputMapper
     {
         DualShock4Buttons buttons = 0;
         if (input.Square) { buttons |= DualShock4Buttons.Square; }
+
         if (input.Cross) { buttons |= DualShock4Buttons.Cross; }
+
         if (input.Circle) { buttons |= DualShock4Buttons.Circle; }
+
         if (input.Triangle) { buttons |= DualShock4Buttons.Triangle; }
+
         if (input.L1) { buttons |= DualShock4Buttons.L1; }
+
         if (input.R1) { buttons |= DualShock4Buttons.R1; }
+
         if (input.L2Click) { buttons |= DualShock4Buttons.L2; }
+
         if (input.R2Click) { buttons |= DualShock4Buttons.R2; }
+
         if (input.Create) { buttons |= DualShock4Buttons.Share; }
+
         if (input.Options) { buttons |= DualShock4Buttons.Options; }
+
         if (input.L3) { buttons |= DualShock4Buttons.L3; }
+
         if (input.R3) { buttons |= DualShock4Buttons.R3; }
+
         if (input.PS) { buttons |= DualShock4Buttons.PS; }
+
         if (input.TouchPad) { buttons |= DualShock4Buttons.Touchpad; }
+
         return buttons;
     }
 
@@ -107,20 +140,35 @@ public static class VirtualInputMapper
     {
         Xbox360Buttons buttons = 0;
         if (input.DPadUp) { buttons |= Xbox360Buttons.DPadUp; }
+
         if (input.DPadDown) { buttons |= Xbox360Buttons.DPadDown; }
+
         if (input.DPadLeft) { buttons |= Xbox360Buttons.DPadLeft; }
+
         if (input.DPadRight) { buttons |= Xbox360Buttons.DPadRight; }
+
         if (input.Square) { buttons |= Xbox360Buttons.X; }
+
         if (input.Cross) { buttons |= Xbox360Buttons.A; }
+
         if (input.Circle) { buttons |= Xbox360Buttons.B; }
+
         if (input.Triangle) { buttons |= Xbox360Buttons.Y; }
+
         if (input.L1) { buttons |= Xbox360Buttons.LeftShoulder; }
+
         if (input.R1) { buttons |= Xbox360Buttons.RightShoulder; }
+
         if (input.L3) { buttons |= Xbox360Buttons.LeftThumb; }
+
         if (input.R3) { buttons |= Xbox360Buttons.RightThumb; }
+
         if (input.Create) { buttons |= Xbox360Buttons.Back; }
+
         if (input.Options) { buttons |= Xbox360Buttons.Start; }
+
         if (input.PS) { buttons |= Xbox360Buttons.Guide; }
+
         return buttons;
     }
 
@@ -131,9 +179,13 @@ public static class VirtualInputMapper
     {
         DualSenseDPad dpad = 0;
         if (input.DPadUp) { dpad |= DualSenseDPad.Up; }
+
         if (input.DPadDown) { dpad |= DualSenseDPad.Down; }
+
         if (input.DPadLeft) { dpad |= DualSenseDPad.Left; }
+
         if (input.DPadRight) { dpad |= DualSenseDPad.Right; }
+
         return dpad;
     }
 
@@ -147,9 +199,13 @@ public static class VirtualInputMapper
     {
         byte dpad = 0;
         if (input.DPadUp) { dpad |= 0x01; }
+
         if (input.DPadDown) { dpad |= 0x02; }
+
         if (input.DPadLeft) { dpad |= 0x04; }
+
         if (input.DPadRight) { dpad |= 0x08; }
+
         return dpad;
     }
 }

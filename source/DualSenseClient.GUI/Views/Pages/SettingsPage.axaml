@@ -5,22 +5,32 @@
              xmlns:fic="using:FluentIcons.Common"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             mc:Ignorable="d"
+             d:DesignWidth="800"
+             d:DesignHeight="450"
              x:Class="DualSenseClient.GUI.Views.Pages.SettingsPage"
              x:DataType="vm:SettingsPageViewModel">
     <Design.DataContext>
         <vm:SettingsPageViewModel />
     </Design.DataContext>
     <ScrollViewer>
-        <StackPanel Spacing="16" Margin="24">
+        <StackPanel Spacing="16"
+                    Margin="24">
             <!-- App Header -->
             <TextBlock Text="{DynamicResource MainWindow.Settings}"
                        FontSize="24"
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-            <StackPanel Orientation="Horizontal" Spacing="15" Margin="0,0,0,10">
-                <Image Source="/Assets/icon.png" Width="80" Height="80" VerticalAlignment="Center" />
-                <StackPanel Orientation="Vertical" Spacing="5" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="15"
+                        Margin="0,0,0,10">
+                <Image Source="/Assets/icon.png"
+                       Width="80"
+                       Height="80"
+                       VerticalAlignment="Center" />
+                <StackPanel Orientation="Vertical"
+                            Spacing="5"
+                            VerticalAlignment="Center">
                     <TextBlock Text="{DynamicResource SettingsPage.Header.AppName}"
                                FontSize="24"
                                FontWeight="SemiBold"

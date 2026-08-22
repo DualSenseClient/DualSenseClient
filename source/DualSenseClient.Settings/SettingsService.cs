@@ -44,6 +44,7 @@ public sealed class SettingsService
             {
                 LoadSettings();
             }
+
             return _store.Item;
         }
     }

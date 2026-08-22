@@ -56,6 +56,7 @@ public sealed class ProfileService
             {
                 Load();
             }
+
             return _store.Item;
         }
     }
@@ -123,7 +124,10 @@ public sealed class ProfileService
             return;
         }
 
-        Settings.Profiles.Insert(0, new Profile { Name = DefaultProfileName });
+        Settings.Profiles.Insert(0, new Profile
+        {
+            Name = DefaultProfileName
+        });
         _log.Debug("Seeded default profile");
     }
 
@@ -156,7 +160,10 @@ public sealed class ProfileService
     /// <param name="baseName">The base name for the new profile.</param>
     public Profile CreateProfile(string baseName = "Profile")
     {
-        Profile profile = new Profile { Name = GetUniqueProfileName(baseName) };
+        Profile profile = new Profile
+        {
+            Name = GetUniqueProfileName(baseName)
+        };
         Settings.Profiles.Add(profile);
         Save();
         return profile;
@@ -221,6 +228,7 @@ public sealed class ProfileService
         {
             return false;
         }
+
         if (GetProfile(trimmed) is not null)
         {
             return false;
@@ -288,6 +296,7 @@ public sealed class ProfileService
         {
             suffix++;
         }
+
         return $"{candidate} {suffix}";
     }
 }

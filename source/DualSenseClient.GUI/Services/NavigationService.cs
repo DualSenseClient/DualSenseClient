@@ -118,6 +118,7 @@ public class NavigationService
         {
             return;
         }
+
         foreach (object item in items)
         {
             if (item is FANavigationViewItem navItem)

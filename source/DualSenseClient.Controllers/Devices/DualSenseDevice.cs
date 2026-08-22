@@ -295,6 +295,7 @@ public class DualSenseDevice : ControllerDevice
                 _log.Warning($"Invalid USB report ID: 0x{reportId:X2} (expected 0x01)");
                 return;
             }
+
             offset = 1;
         }
 
@@ -304,6 +305,7 @@ public class DualSenseDevice : ControllerDevice
         {
             DetectChanges(prev, report);
         }
+
         _previousInputReport = report;
         InputReport = report;
         TrackPollingRate();
@@ -377,7 +379,8 @@ public class DualSenseDevice : ControllerDevice
             LedBlue = profile.Lightbar.Blue
         };
 
-        _log.Debug($"Applying profile: RGB({profile.Lightbar.Red}, {profile.Lightbar.Green}, {profile.Lightbar.Blue}), mic LED {profile.MicLed.Mode}, player LEDs {profile.PlayerLeds.Mask}");
+        _log.Debug(
+            $"Applying profile: RGB({profile.Lightbar.Red}, {profile.Lightbar.Green}, {profile.Lightbar.Blue}), mic LED {profile.MicLed.Mode}, player LEDs {profile.PlayerLeds.Mask}");
 
         try
         {
@@ -630,12 +633,15 @@ public class DualSenseDevice : ControllerDevice
         if (prev.Input.LeftStickX != cur.Input.LeftStickX || prev.Input.LeftStickY != cur.Input.LeftStickY)
         {
             _log.Trace($"Left stick moved to ({cur.Input.LeftStickX}, {cur.Input.LeftStickY})");
-            StickMoved?.Invoke(this, new StickEventArgs(StickType.Left, cur.Input.LeftStickX, cur.Input.LeftStickY, prev.Input.LeftStickX, prev.Input.LeftStickY));
+            StickMoved?.Invoke(this,
+                new StickEventArgs(StickType.Left, cur.Input.LeftStickX, cur.Input.LeftStickY, prev.Input.LeftStickX, prev.Input.LeftStickY));
         }
+
         if (prev.Input.RightStickX != cur.Input.RightStickX || prev.Input.RightStickY != cur.Input.RightStickY)
         {
             _log.Trace($"Right stick moved to ({cur.Input.RightStickX}, {cur.Input.RightStickY})");
-            StickMoved?.Invoke(this, new StickEventArgs(StickType.Right, cur.Input.RightStickX, cur.Input.RightStickY, prev.Input.RightStickX, prev.Input.RightStickY));
+            StickMoved?.Invoke(this,
+                new StickEventArgs(StickType.Right, cur.Input.RightStickX, cur.Input.RightStickY, prev.Input.RightStickX, prev.Input.RightStickY));
         }
 
         // Trigger movement
@@ -644,6 +650,7 @@ public class DualSenseDevice : ControllerDevice
             _log.Trace($"L2 trigger moved to {cur.Input.L2}");
             TriggerMoved?.Invoke(this, new TriggerEventArgs(TriggerType.L2, cur.Input.L2, prev.Input.L2));
         }
+
         if (prev.Input.R2 != cur.Input.R2)
         {
             _log.Trace($"R2 trigger moved to {cur.Input.R2}");
@@ -656,18 +663,22 @@ public class DualSenseDevice : ControllerDevice
             _log.Trace($"Battery changed from {prev.Battery.DisplayPercentage}% to {cur.Battery.DisplayPercentage}% (power state: {cur.Battery.PowerState})");
             BatteryStateChanged?.Invoke(this, new BatteryStateEventArgs(cur.Battery, prev.Battery));
         }
+
         if (prev.Connection != cur.Connection)
         {
             ConnectionStatusChanged?.Invoke(this, new ConnectionStatusEventArgs(cur.Connection, prev.Connection));
         }
+
         if (prev.Input != cur.Input)
         {
             InputStateChanged?.Invoke(this, new InputStateEventArgs(cur.Input, prev.Input));
         }
+
         if (prev.Motion != cur.Motion)
         {
             MotionChanged?.Invoke(this, new MotionEventArgs(cur.Motion, prev.Motion));
         }
+
         if (prev.Touchpad != cur.Touchpad)
         {
             TouchpadChanged?.Invoke(this, new TouchpadEventArgs(cur.Touchpad, prev.Touchpad));
@@ -686,6 +697,7 @@ public class DualSenseDevice : ControllerDevice
         {
             return;
         }
+
         if (isPressed)
         {
             _log.Trace($"{button} pressed");

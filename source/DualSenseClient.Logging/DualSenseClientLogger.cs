@@ -41,7 +41,8 @@ public sealed class DualSenseClientLogger
     /// <summary>
     /// Cached per-category logger instances, keyed by category name.
     /// </summary>
-    private static readonly ConcurrentDictionary<string, DualSenseClientLogger> Loggers = new ConcurrentDictionary<string, DualSenseClientLogger>(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, DualSenseClientLogger> Loggers =
+        new ConcurrentDictionary<string, DualSenseClientLogger>(StringComparer.Ordinal);
 
     /// <summary>
     /// Synchronizes access to the static sink configuration.
@@ -443,8 +444,10 @@ public sealed class DualSenseClientLogger
             WriteCritical($"[{context}] === System Information ===", sourceFileName, lineNumber, memberName);
             WriteCritical($"[{context}] Machine Name: {Environment.MachineName}", sourceFileName, lineNumber, memberName);
             WriteCritical($"[{context}] OS Version: {Environment.OSVersion}", sourceFileName, lineNumber, memberName);
-            WriteCritical($"[{context}] .NET Runtime: {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}", sourceFileName, lineNumber, memberName);
-            WriteCritical($"[{context}] Process Architecture: {System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture}", sourceFileName, lineNumber, memberName);
+            WriteCritical($"[{context}] .NET Runtime: {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}", sourceFileName, lineNumber,
+                memberName);
+            WriteCritical($"[{context}] Process Architecture: {System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture}", sourceFileName,
+                lineNumber, memberName);
             WriteCritical($"[{context}] Current Directory: {Environment.CurrentDirectory}", sourceFileName, lineNumber, memberName);
         }
 
@@ -538,6 +541,7 @@ public sealed class DualSenseClientLogger
                 depth = depth + 1;
                 continue;
             }
+
             break;
         }
     }

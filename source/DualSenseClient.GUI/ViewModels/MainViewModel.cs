@@ -103,7 +103,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// <param name="notifications">Notification service for connect/disconnect events.</param>
     /// <param name="profileService">Profile service used to look up profiles by name.</param>
     /// <param name="controllerService">Service storing persistent controller info and profile bindings.</param>
-    public MainViewModel(IControllerScanner scanner, IControllerTracker tracker, INotificationService notifications, ProfileService profileService, ControllerInfoService controllerService)
+    public MainViewModel(IControllerScanner scanner, IControllerTracker tracker, INotificationService notifications, ProfileService profileService,
+        ControllerInfoService controllerService)
     {
         _scanner = scanner;
         _tracker = tracker;
@@ -183,6 +184,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     {
                         device.Dispose();
                     }
+
                     return;
                 }
 
@@ -190,6 +192,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 {
                     AddController(controller);
                 }
+
                 _log.Info($"Found {Controllers.Count} controller(s) on initial scan");
 
                 string? activePath = _tracker.ActiveController?.Info.Path;
@@ -235,6 +238,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             _tracker.UntrackController(item.Device);
             item.Device.Dispose();
         }
+
         Controllers.Clear();
 
         _tracker.SelectController(null);
@@ -431,6 +435,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             _tracker.UntrackController(item.Device);
             item.Device.Dispose();
         }
+
         Controllers.Clear();
 
         _tracker.SelectController(null);

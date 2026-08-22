@@ -61,6 +61,7 @@ public sealed class HidHideService : IControllerHidingService
                     return true;
                 }
             }
+
             return false;
         }
         catch (Exception ex)
@@ -207,6 +208,7 @@ public sealed class HidHideService : IControllerHidingService
                         return true;
                     }
                 }
+
                 return false;
             }
             catch (Exception ex)

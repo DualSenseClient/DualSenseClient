@@ -75,7 +75,10 @@ public class BluetoothAudioReportBuilderTests
             Assert.That(report[2], Is.EqualTo(0x91));
             Assert.That(report[3], Is.EqualTo(0x07));
             Assert.That(report[4], Is.EqualTo(0xFE));
-            Assert.That(report[5..10], Is.EqualTo(new byte[] { 0x40, 0x40, 0x40, 0x40, 0x40 }));
+            Assert.That(report[5..10], Is.EqualTo(new byte[]
+            {
+                0x40, 0x40, 0x40, 0x40, 0x40
+            }));
             Assert.That(report[11], Is.EqualTo(0x92));
             Assert.That(report[12], Is.EqualTo(64));
             Assert.That(report[13..77], Is.EqualTo(HapticsPcm()));
@@ -111,7 +114,10 @@ public class BluetoothAudioReportBuilderTests
             Assert.That(report[2], Is.EqualTo(0x91));
             Assert.That(report[3], Is.EqualTo(0x07));
             Assert.That(report[4], Is.EqualTo(0xFE));
-            Assert.That(report[5..10], Is.EqualTo(new byte[] { 0x40, 0x40, 0x40, 0x40, 0x40 }));
+            Assert.That(report[5..10], Is.EqualTo(new byte[]
+            {
+                0x40, 0x40, 0x40, 0x40, 0x40
+            }));
             Assert.That(report[11], Is.EqualTo((byte)BluetoothAudioRoute.Speaker));
             Assert.That(report[12], Is.EqualTo(200));
             Assert.That(report[13..213], Is.EqualTo(OpusFrame()));
@@ -157,7 +163,10 @@ public class BluetoothAudioReportBuilderTests
             Assert.That(report[2], Is.EqualTo(0x91));
             Assert.That(report[3], Is.EqualTo(0x07));
             Assert.That(report[4], Is.EqualTo(0xFE));
-            Assert.That(report[5..10], Is.EqualTo(new byte[] { 0x40, 0x40, 0x40, 0x40, 0x40 }));
+            Assert.That(report[5..10], Is.EqualTo(new byte[]
+            {
+                0x40, 0x40, 0x40, 0x40, 0x40
+            }));
             Assert.That(report[11], Is.EqualTo(0x90));
             Assert.That(report[12], Is.EqualTo(0x3F));
             Assert.That(report[13..(13 + SetStateData.PayloadSize)], Is.EqualTo(stateRaw));

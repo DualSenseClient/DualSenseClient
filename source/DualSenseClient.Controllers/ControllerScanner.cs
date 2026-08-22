@@ -79,6 +79,7 @@ public sealed class ControllerScanner : IControllerScanner
                 controllers.Add(controller);
             }
         }
+
         _log.Info($"Scan found {controllers.Count} connected controller(s)");
         return controllers;
     }
@@ -96,6 +97,7 @@ public sealed class ControllerScanner : IControllerScanner
         {
             return;
         }
+
         _log.Debug($"Starting controller watcher (interval={intervalMs}ms)");
         _enumerator.DeviceConnected += OnDeviceConnected;
         _enumerator.DeviceDisconnected += OnDeviceDisconnected;
@@ -110,6 +112,7 @@ public sealed class ControllerScanner : IControllerScanner
         {
             return;
         }
+
         _log.Debug("Stopping controller watcher");
         _enumerator.DeviceConnected -= OnDeviceConnected;
         _enumerator.DeviceDisconnected -= OnDeviceDisconnected;
@@ -134,7 +137,8 @@ public sealed class ControllerScanner : IControllerScanner
         }
         catch (Exception ex)
         {
-            _log.Warning($"Skipping device that could not be opened: {info.ProductName} (VID=0x{info.VendorId:X4}, PID=0x{info.ProductId:X4}, bus={info.BusType}) — {ex.Message}");
+            _log.Warning(
+                $"Skipping device that could not be opened: {info.ProductName} (VID=0x{info.VendorId:X4}, PID=0x{info.ProductId:X4}, bus={info.BusType}) — {ex.Message}");
             return null;
         }
     }
@@ -151,6 +155,7 @@ public sealed class ControllerScanner : IControllerScanner
         {
             return;
         }
+
         _log.Info($"Controller connected: {e.Device.ProductName} ({controller.ControllerType}, bus={controller.ConnectionType})");
         ControllerConnected?.Invoke(this,
             new ControllerConnectionEventArgs(DeviceChangeType.Connected, e.Device, controller.ControllerType, controller));
@@ -169,6 +174,7 @@ public sealed class ControllerScanner : IControllerScanner
         {
             return;
         }
+
         _log.Info($"Controller disconnected: {e.Device.ProductName} ({type})");
         ControllerDisconnected?.Invoke(this,
             new ControllerConnectionEventArgs(DeviceChangeType.Disconnected, e.Device, type, null));

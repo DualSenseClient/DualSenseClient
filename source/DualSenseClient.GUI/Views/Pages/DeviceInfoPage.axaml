@@ -8,14 +8,17 @@
              xmlns:ic="using:FluentIcons.Avalonia.Fluent"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             mc:Ignorable="d"
+             d:DesignWidth="800"
+             d:DesignHeight="450"
              x:Class="DualSenseClient.GUI.Views.Pages.DeviceInfoPage"
              x:DataType="vm:DeviceInfoPageViewModel">
     <Design.DataContext>
         <vm:DeviceInfoPageViewModel />
     </Design.DataContext>
     <ScrollViewer>
-        <StackPanel Spacing="16" Margin="24">
+        <StackPanel Spacing="16"
+                    Margin="24">
             <!-- Empty state shown when no controller is selected -->
             <cards:EmptyStateCard Title="{DynamicResource DeviceInfoPage.NoDevice.Title}"
                                   Description="{DynamicResource DeviceInfoPage.NoDevice.Description}"

@@ -13,7 +13,10 @@ public class JsonFileStoreTests
     private readonly JsonSerializerOptions _options = new()
     {
         WriteIndented = true,
-        Converters = { new JsonStringEnumConverter() }
+        Converters =
+        {
+            new JsonStringEnumConverter()
+        }
     };
 
     [SetUp]

@@ -59,7 +59,10 @@ internal static class WindowsBluetooth
     /// <returns><c>true</c> if a radio disconnected the device; otherwise, <c>false</c>.</returns>
     public static bool Disconnect(ulong address)
     {
-        BluetoothFindRadioParams findParams = new BluetoothFindRadioParams { dwSize = Marshal.SizeOf<BluetoothFindRadioParams>() };
+        BluetoothFindRadioParams findParams = new BluetoothFindRadioParams
+        {
+            dwSize = Marshal.SizeOf<BluetoothFindRadioParams>()
+        };
         IntPtr hFind = BluetoothFindFirstRadio(ref findParams, out IntPtr hRadio);
         if (hFind == IntPtr.Zero)
         {

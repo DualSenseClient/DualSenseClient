@@ -18,7 +18,8 @@ public interface IVirtualControllerFactory
     /// <param name="vibrationV2">True when the physical controller uses the v2 rumble encoding.</param>
     /// <param name="edge">True to create a DualSense Edge instead of the standard DualSense (DualSense mode only).</param>
     /// <param name="ds4Variant">The DualShock 4 hardware generation to present (DualShock 4 mode only).</param>
-    IVirtualController? Create(EmulationMode mode, nuint serverHandle, uint busId, IDualSenseOutputs outputs, bool vibrationV2, bool edge = false, DualShock4Variant ds4Variant = DualShock4Variant.V2);
+    IVirtualController? Create(EmulationMode mode, nuint serverHandle, uint busId, IDualSenseOutputs outputs, bool vibrationV2, bool edge = false,
+        DualShock4Variant ds4Variant = DualShock4Variant.V2);
 }
 
 /// <summary>
@@ -27,7 +28,8 @@ public interface IVirtualControllerFactory
 public sealed class VirtualControllerFactory : IVirtualControllerFactory
 {
     /// <inheritdoc/>
-    public IVirtualController? Create(EmulationMode mode, nuint serverHandle, uint busId, IDualSenseOutputs outputs, bool vibrationV2, bool edge = false, DualShock4Variant ds4Variant = DualShock4Variant.V2)
+    public IVirtualController? Create(EmulationMode mode, nuint serverHandle, uint busId, IDualSenseOutputs outputs, bool vibrationV2, bool edge = false,
+        DualShock4Variant ds4Variant = DualShock4Variant.V2)
     {
         return mode switch
         {

@@ -151,6 +151,7 @@ public partial class SettingsPageViewModel : ObservableObject
                     return i;
                 }
             }
+
             return 0;
         }
         set
@@ -208,6 +209,7 @@ public partial class SettingsPageViewModel : ObservableObject
                     return i;
                 }
             }
+
             return 2; // Default to Info
         }
         set

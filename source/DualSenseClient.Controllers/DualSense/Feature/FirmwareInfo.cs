@@ -140,6 +140,7 @@ public readonly struct FirmwareInfo
         {
             count++;
         }
+
         return Encoding.ASCII.GetString(_raw, offset, count);
     }
 

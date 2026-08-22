@@ -28,6 +28,7 @@ public class DualSenseBtAudioPipelineTests
             block[i * 2] = (short)(max * i / (DualSenseBtAudioPipeline.FramesPerBlock - 1));
             block[i * 2 + 1] = (short)(max * (DualSenseBtAudioPipeline.FramesPerBlock - 1 - i) / (DualSenseBtAudioPipeline.FramesPerBlock - 1));
         }
+
         return block;
     }
 

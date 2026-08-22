@@ -84,6 +84,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         {
             created = LibVIIPER.CreateDualSenseDevice(serverHandle, out handle, busId, true, 0, 0, null);
         }
+
         if (!created)
         {
             _log.Error("Failed to create the virtual DualSense device");
@@ -170,12 +171,16 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         {
             meta.BatteryStatus = b.Raw;
         }
+
         if (status is { } c)
         {
             meta.ConnectionStatus = c.Raw;
         }
 
-        if (!LibVIIPER.SetDualSenseMetaState(handle, new[] { meta }))
+        if (!LibVIIPER.SetDualSenseMetaState(handle, new[]
+            {
+                meta
+            }))
         {
             _log.Error("Failed to set the virtual DualSense meta state");
         }
@@ -191,6 +196,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         {
             return;
         }
+
         _metaInitialized = true;
         PushMeta(report.Battery, report.Connection);
     }
@@ -248,6 +254,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         {
             return;
         }
+
         _log.Info("Removing virtual DualSense device");
         LibVIIPER.SetDualSenseOutputStateCallback(handle, null);
         LibVIIPER.SetDualSenseRealtimeHapticsCallback(handle, null);
@@ -255,6 +262,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         {
             _log.Error("The native library failed to remove the virtual DualSense device");
         }
+
         DeviceHandle = null;
     }
 }

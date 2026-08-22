@@ -131,5 +131,8 @@ public static class PathResolver
     /// </summary>
     /// <param name="relativePaths">An ordered set of relative path segments.</param>
     /// <returns>The resulting absolute path.</returns>
-    public static string GetFullPath(params string[] relativePaths) => Path.Combine(new[] { _baseDirectory }.Concat(relativePaths).ToArray());
+    public static string GetFullPath(params string[] relativePaths) => Path.Combine(new[]
+    {
+        _baseDirectory
+    }.Concat(relativePaths).ToArray());
 }

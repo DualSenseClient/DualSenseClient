@@ -70,7 +70,10 @@ public class PathResolverTests
     [Test]
     public void GetFullPath_SingleSegmentArray_CombinesWithBase()
     {
-        string result = PathResolver.GetFullPath(new[] { "file.txt" });
+        string result = PathResolver.GetFullPath(new[]
+        {
+            "file.txt"
+        });
         Assert.That(result, Is.EqualTo(Path.Combine(PathResolver.BaseDirectory, "file.txt")));
     }
 

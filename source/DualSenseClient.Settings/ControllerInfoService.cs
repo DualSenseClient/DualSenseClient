@@ -57,6 +57,7 @@ public sealed class ControllerInfoService
             {
                 Load();
             }
+
             return _store.Item;
         }
     }
@@ -175,10 +176,12 @@ public sealed class ControllerInfoService
             {
                 existing.MacAddress = normalizedMac;
             }
+
             if (!string.IsNullOrEmpty(normalizedPath))
             {
                 existing.DevicePath = normalizedPath;
             }
+
             return;
         }
 

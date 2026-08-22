@@ -286,7 +286,10 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
         _playerPreset4 = profile.PlayerLeds.Mask == PlayerPresetMasks[3];
         _playerPreset5 = profile.PlayerLeds.Mask == PlayerPresetMasks[4];
 
-        _saveTimer = new DispatcherTimer { Interval = SaveDebounce };
+        _saveTimer = new DispatcherTimer
+        {
+            Interval = SaveDebounce
+        };
         _saveTimer.Tick += (_, _) => CommitPendingChanges();
     }
 
@@ -512,22 +515,27 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
         {
             mask |= 0x01;
         }
+
         if (PlayerLed2)
         {
             mask |= 0x02;
         }
+
         if (PlayerLed3)
         {
             mask |= 0x04;
         }
+
         if (PlayerLed4)
         {
             mask |= 0x08;
         }
+
         if (PlayerLed5)
         {
             mask |= 0x10;
         }
+
         return mask;
     }
 

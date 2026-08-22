@@ -176,6 +176,7 @@ public sealed class EmulationService : IEmulationService
         {
             return;
         }
+
         _disposed = true;
 
         _tracker.ControllersChanged -= OnControllersChanged;
@@ -194,6 +195,7 @@ public sealed class EmulationService : IEmulationService
                     DeviceDisposeUnsubscribe(pair.Key);
                     DisposeEntryLocked(pair.Value);
                 }
+
                 _entries.Clear();
                 if (_serverHandle is { } serverHandle)
                 {
@@ -359,6 +361,7 @@ public sealed class EmulationService : IEmulationService
                 {
                     continue;
                 }
+
                 _entries.Remove(pair.Key);
                 DeviceDisposeUnsubscribe(pair.Key);
                 DisposeEntryLocked(pair.Value);
@@ -370,7 +373,11 @@ public sealed class EmulationService : IEmulationService
                 {
                     continue;
                 }
-                VirtualControllerEntry entry = new VirtualControllerEntry { Device = device };
+
+                VirtualControllerEntry entry = new VirtualControllerEntry
+                {
+                    Device = device
+                };
                 _entries.Add(device, entry);
                 DeviceSubscribe(device);
                 if (StartCreationLocked(entry))
@@ -448,11 +455,13 @@ public sealed class EmulationService : IEmulationService
                     // server is gone, so do not recreate it.
                     return;
                 }
+
                 if (!EnsureServerLocked())
                 {
                     SetStatus(entry, new EmulationStatus(mode, false, "Could not start the libVIIPER USB server", null));
                     return;
                 }
+
                 serverHandle = _serverHandle!.Value;
             }
 
@@ -472,8 +481,10 @@ public sealed class EmulationService : IEmulationService
                 {
                     return;
                 }
+
                 specialActions = _specialActions.GetOrCreate(entry.Device);
             }
+
             DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(entry.Device, specialActions);
             // The virtual Xbox 360 exposes no HID interface (only vendor-specific
             // 0xff/5d interfaces), so Windows never creates a HID node for it and
@@ -487,19 +498,23 @@ public sealed class EmulationService : IEmulationService
             IVirtualController? virtualController = TryCreateOnFreshBus(serverHandle, mode, outputs, entry.Device.UsesVibrationV2, edge, ds4Variant, ref busId);
             if (virtualController is null)
             {
-                _log.Warning($"Failed to create the virtual {mode} device for {entry.Device.Info.ProductName}; retrying in {(int)CreateRetryDelay.TotalMilliseconds} ms");
+                _log.Warning(
+                    $"Failed to create the virtual {mode} device for {entry.Device.Info.ProductName}; retrying in {(int)CreateRetryDelay.TotalMilliseconds} ms");
                 await Task.Delay(CreateRetryDelay);
 
                 if (IsStale(entry, generation))
                 {
                     return;
                 }
+
                 virtualController = TryCreateOnFreshBus(serverHandle, mode, outputs, entry.Device.UsesVibrationV2, edge, ds4Variant, ref busId);
             }
 
             if (virtualController is null)
             {
-                SetStatus(entry, new EmulationStatus(mode, false, "The native library could not create the virtual device. Check the VIIPER logs; USB/IP must be installed for auto-attachment", null));
+                SetStatus(entry,
+                    new EmulationStatus(mode, false,
+                        "The native library could not create the virtual device. Check the VIIPER logs; USB/IP must be installed for auto-attachment", null));
                 return;
             }
 
@@ -515,7 +530,9 @@ public sealed class EmulationService : IEmulationService
                 _log.Warning("Could not discover the virtual device in HID enumeration; removing it again");
                 virtualController.Dispose();
                 LibVIIPER.RemoveUSBBus(serverHandle, busId);
-                SetStatus(entry, new EmulationStatus(mode, false, "The virtual device did not appear in HID enumeration. Check the VIIPER logs; USB/IP must be installed for auto-attachment", null));
+                SetStatus(entry,
+                    new EmulationStatus(mode, false,
+                        "The virtual device did not appear in HID enumeration. Check the VIIPER logs; USB/IP must be installed for auto-attachment", null));
                 return;
             }
 
@@ -547,6 +564,7 @@ public sealed class EmulationService : IEmulationService
                     capture = new ViiperDualShock4AudioCapture(deviceHandle, forwarder);
                 }
             }
+
             if (forwarder is not null)
             {
                 _log.Info($"Host audio forwarding {(forwarder.Start() ? "started" : "unavailable")} for the virtual {mode}");
@@ -560,12 +578,14 @@ public sealed class EmulationService : IEmulationService
                     {
                         _enumerator.RemoveExcludedDevice(stalePath);
                     }
+
                     capture?.Dispose();
                     forwarder?.Dispose();
                     virtualController.Dispose();
                     LibVIIPER.RemoveUSBBus(serverHandle, busId);
                     return;
                 }
+
                 entry.BusId = busId;
                 entry.Virtual = virtualController;
                 entry.Forwarder = forwarder;
@@ -613,7 +633,8 @@ public sealed class EmulationService : IEmulationService
     /// <param name="ds4Variant">The DualShock 4 hardware generation to present (DualShock 4 mode only).</param>
     /// <param name="busId">Receives the id of the created bus, valid only on success.</param>
     /// <returns>The created virtual controller, or <c>null</c> when creation failed.</returns>
-    private IVirtualController? TryCreateOnFreshBus(nuint serverHandle, EmulationMode mode, DualSenseDeviceOutputs outputs, bool vibrationV2, bool edge, DualShock4Variant ds4Variant, ref uint busId)
+    private IVirtualController? TryCreateOnFreshBus(nuint serverHandle, EmulationMode mode, DualSenseDeviceOutputs outputs, bool vibrationV2, bool edge,
+        DualShock4Variant ds4Variant, ref uint busId)
     {
         if (!LibVIIPER.CreateUSBBus(serverHandle, ref busId))
         {
@@ -627,6 +648,7 @@ public sealed class EmulationService : IEmulationService
             virtualController = null;
             LibVIIPER.RemoveUSBBus(serverHandle, busId);
         }
+
         return virtualController;
     }
 
@@ -655,6 +677,7 @@ public sealed class EmulationService : IEmulationService
             forwarder.HapticStrength = Math.Clamp(emulation.ForwardHapticStrength, 0, 200) / 100f;
             forwarder.PlayToHeadset = emulation.ForwardAudioOutput == EmulationAudioOutput.Headset;
         }
+
         return forwarder;
     }
 
@@ -678,12 +701,14 @@ public sealed class EmulationService : IEmulationService
                 _log.Info($"Discovered virtual device path: {candidates[0]}");
                 return candidates[0];
             }
+
             if (candidates.Count > 1)
             {
                 _log.Warning($"Found {candidates.Count} new matching devices; abandoning discovery");
                 return null;
             }
         }
+
         return null;
     }
 
@@ -729,6 +754,7 @@ public sealed class EmulationService : IEmulationService
         {
             return false;
         }
+
         IVirtualController virtualController = entry.Virtual;
         entry.Virtual = null;
 
@@ -755,12 +781,14 @@ public sealed class EmulationService : IEmulationService
         {
             _enumerator.RemoveExcludedDevice(path);
         }
+
         virtualController.Dispose();
         if (_serverHandle is { } serverHandle && entry.BusId != 0)
         {
             LibVIIPER.RemoveUSBBus(serverHandle, entry.BusId);
             entry.BusId = 0;
         }
+
         return true;
     }
 
@@ -793,6 +821,7 @@ public sealed class EmulationService : IEmulationService
         {
             return;
         }
+
         lock (_sync)
         {
             if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Virtual is not null)
@@ -811,6 +840,7 @@ public sealed class EmulationService : IEmulationService
         {
             return;
         }
+
         lock (_sync)
         {
             if (_entries.TryGetValue(device, out VirtualControllerEntry? entry)
@@ -832,6 +862,7 @@ public sealed class EmulationService : IEmulationService
         {
             return;
         }
+
         lock (_sync)
         {
             if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Virtual is not null)

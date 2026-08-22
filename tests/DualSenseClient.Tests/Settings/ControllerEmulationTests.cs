@@ -9,7 +9,10 @@ public sealed class ControllerEmulationTests
 {
     private static readonly JsonSerializerOptions Options = new JsonSerializerOptions
     {
-        Converters = { new JsonStringEnumConverter() }
+        Converters =
+        {
+            new JsonStringEnumConverter()
+        }
     };
 
     [Test]
@@ -23,14 +26,26 @@ public sealed class ControllerEmulationTests
     [Test]
     public void ControllerInfo_CanChangeEmulationMode()
     {
-        ControllerInfo info = new ControllerInfo { Emulation = { Mode = EmulationMode.Xbox360 } };
+        ControllerInfo info = new ControllerInfo
+        {
+            Emulation =
+            {
+                Mode = EmulationMode.Xbox360
+            }
+        };
         Assert.That(info.Emulation.Mode, Is.EqualTo(EmulationMode.Xbox360));
     }
 
     [Test]
     public void ControllerInfo_Serialization_RoundTripsEmulationMode()
     {
-        ControllerInfo info = new ControllerInfo { Emulation = { Mode = EmulationMode.DualSense } };
+        ControllerInfo info = new ControllerInfo
+        {
+            Emulation =
+            {
+                Mode = EmulationMode.DualSense
+            }
+        };
         string json = JsonSerializer.Serialize(info, Options);
 
         Assert.That(json, Does.Contain("\"emulation\""));
@@ -67,7 +82,11 @@ public sealed class ControllerEmulationTests
     {
         ControllerInfo info = new ControllerInfo
         {
-            Emulation = { Mode = EmulationMode.DualShock4, Ds4Variant = DualShock4Variant.V1 }
+            Emulation =
+            {
+                Mode = EmulationMode.DualShock4,
+                Ds4Variant = DualShock4Variant.V1
+            }
         };
         string json = JsonSerializer.Serialize(info, Options);
 

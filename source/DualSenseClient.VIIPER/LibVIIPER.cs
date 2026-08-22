@@ -89,7 +89,8 @@ public static class LibVIIPER
     /// <param name="meta">Optional initial device metadata, or null to use defaults.</param>
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
-    public static extern bool CreateDualSenseDevice(nuint serverHandle, out nuint outDeviceHandle, uint busID, [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct, DSMetaState[]? meta);
+    public static extern bool CreateDualSenseDevice(nuint serverHandle, out nuint outDeviceHandle, uint busID,
+        [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct, DSMetaState[]? meta);
 
     /// <summary>
     /// Creates a new DualSense Edge device on the given bus.
@@ -103,7 +104,8 @@ public static class LibVIIPER
     /// <param name="meta">Optional initial device metadata, or null to use defaults.</param>
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
-    public static extern bool CreateDualSenseEdgeDevice(nuint serverHandle, out nuint outDeviceHandle, uint busID, [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct, DSMetaState[]? meta);
+    public static extern bool CreateDualSenseEdgeDevice(nuint serverHandle, out nuint outDeviceHandle, uint busID,
+        [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct, DSMetaState[]? meta);
 
     /// <summary>
     /// Creates a DualSense exposing only the audio interfaces and no HID gamepad interface.
@@ -117,7 +119,8 @@ public static class LibVIIPER
     /// <param name="meta">Optional initial device metadata, or null to use defaults.</param>
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
-    public static extern bool CreateDualSenseAudioOnlyDevice(nuint serverHandle, out nuint outDeviceHandle, uint busID, [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct, DSMetaState[]? meta);
+    public static extern bool CreateDualSenseAudioOnlyDevice(nuint serverHandle, out nuint outDeviceHandle, uint busID,
+        [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct, DSMetaState[]? meta);
 
     /// <summary>
     /// Creates a DualSense Edge exposing only the audio interfaces and no HID gamepad interface.
@@ -131,7 +134,8 @@ public static class LibVIIPER
     /// <param name="meta">Optional initial device metadata, or null to use defaults.</param>
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
-    public static extern bool CreateDualSenseEdgeAudioOnlyDevice(nuint serverHandle, out nuint outDeviceHandle, uint busID, [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct, DSMetaState[]? meta);
+    public static extern bool CreateDualSenseEdgeAudioOnlyDevice(nuint serverHandle, out nuint outDeviceHandle, uint busID,
+        [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct, DSMetaState[]? meta);
 
     /// <summary>
     /// Creates a DualSense exposing only the HID gamepad interface.
@@ -145,7 +149,8 @@ public static class LibVIIPER
     /// <param name="meta">Optional initial device metadata, or null to use defaults.</param>
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
-    public static extern bool CreateDualSenseGamepadOnlyDevice(nuint serverHandle, out nuint outDeviceHandle, uint busID, [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct, DSMetaState[]? meta);
+    public static extern bool CreateDualSenseGamepadOnlyDevice(nuint serverHandle, out nuint outDeviceHandle, uint busID,
+        [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct, DSMetaState[]? meta);
 
     /// <summary>
     /// Creates a DualSense Edge exposing only the HID gamepad interface.
@@ -159,7 +164,8 @@ public static class LibVIIPER
     /// <param name="meta">Optional initial device metadata, or null to use defaults.</param>
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
-    public static extern bool CreateDualSenseEdgeGamepadOnlyDevice(nuint serverHandle, out nuint outDeviceHandle, uint busID, [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct, DSMetaState[]? meta);
+    public static extern bool CreateDualSenseEdgeGamepadOnlyDevice(nuint serverHandle, out nuint outDeviceHandle, uint busID,
+        [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct, DSMetaState[]? meta);
 
     /// <summary>
     /// Updates the input state of the DualSense device associated with the given handle.
@@ -257,7 +263,8 @@ public static class LibVIIPER
     /// <param name="meta">Optional initial device metadata, or null to use defaults.</param>
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
-    public static extern bool CreateDS4Device(nuint serverHandle, out nuint outDeviceHandle, uint busID, [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct, DS4MetaState[]? meta);
+    public static extern bool CreateDS4Device(nuint serverHandle, out nuint outDeviceHandle, uint busID, [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost,
+        ushort idVendor, ushort idProduct, DS4MetaState[]? meta);
 
     /// <summary>
     /// Updates the input state of the DualShock 4 device associated with the given handle.
@@ -336,7 +343,8 @@ public static class LibVIIPER
     /// <param name="idProduct">Optional USB product ID (0 = default).</param>
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
-    public static extern bool CreateKeyboardDevice(nuint serverHandle, out nuint outDeviceHandle, uint busID, [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct);
+    public static extern bool CreateKeyboardDevice(nuint serverHandle, out nuint outDeviceHandle, uint busID,
+        [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct);
 
     /// <summary>
     /// Updates the input state of the keyboard device associated with the given handle.
@@ -377,7 +385,8 @@ public static class LibVIIPER
     /// <param name="idProduct">Optional USB product ID (0 = default).</param>
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
-    public static extern bool CreateMouseDevice(nuint serverHandle, out nuint outDeviceHandle, uint busID, [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct);
+    public static extern bool CreateMouseDevice(nuint serverHandle, out nuint outDeviceHandle, uint busID,
+        [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct);
 
     /// <summary>
     /// Updates the input state of the mouse device associated with the given handle.
@@ -410,7 +419,8 @@ public static class LibVIIPER
     /// <param name="meta">Optional initial device metadata, or null to use defaults.</param>
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
-    public static extern bool CreateNS2ProDevice(nuint serverHandle, out nuint outDeviceHandle, uint busID, [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct, NS2ProMetaState[]? meta);
+    public static extern bool CreateNS2ProDevice(nuint serverHandle, out nuint outDeviceHandle, uint busID,
+        [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct, NS2ProMetaState[]? meta);
 
     /// <summary>
     /// Updates the input state of the NS2Pro device associated with the given handle.
@@ -452,7 +462,8 @@ public static class LibVIIPER
     /// <param name="xinputSubType">Optional XInput subtype (0x01 gamepad, 0x02 wheel, etc.).</param>
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
-    public static extern bool CreateXbox360Device(nuint serverHandle, out nuint outDeviceHandle, uint busID, [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct, byte xinputSubType);
+    public static extern bool CreateXbox360Device(nuint serverHandle, out nuint outDeviceHandle, uint busID,
+        [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct, byte xinputSubType);
 
     /// <summary>
     /// Updates the input state of the Xbox360 device associated with the given handle.

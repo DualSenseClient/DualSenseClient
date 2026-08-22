@@ -96,7 +96,10 @@ public class SpecialActionServiceTests
     {
         SpecialActionService service = CreateService();
         SpecialAction action = service.CreateAction(null, "AA:BB:CC:DD:EE:FF");
-        Assert.That(action.EnabledControllers, Is.EqualTo(new[] { "AA:BB:CC:DD:EE:FF" }));
+        Assert.That(action.EnabledControllers, Is.EqualTo(new[]
+        {
+            "AA:BB:CC:DD:EE:FF"
+        }));
     }
 
     [Test]
@@ -143,11 +146,17 @@ public class SpecialActionServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(changed, Is.True);
-            Assert.That(action.EnabledControllers, Is.EqualTo(new[] { "aa:bb:cc:dd:ee:ff" }));
+            Assert.That(action.EnabledControllers, Is.EqualTo(new[]
+            {
+                "aa:bb:cc:dd:ee:ff"
+            }));
         });
 
         SpecialActionService reloaded = CreateService();
-        Assert.That(reloaded.Settings.Actions[0].EnabledControllers, Is.EqualTo(new[] { "aa:bb:cc:dd:ee:ff" }));
+        Assert.That(reloaded.Settings.Actions[0].EnabledControllers, Is.EqualTo(new[]
+        {
+            "aa:bb:cc:dd:ee:ff"
+        }));
     }
 
     [Test]
@@ -269,7 +278,10 @@ public class SpecialActionServiceTests
         {
             Assert.That(loaded, Is.Not.Null);
             Assert.That(loaded!.Name, Is.EqualTo("Multi"));
-            Assert.That(loaded.Buttons, Is.EqualTo(new[] { "L1", "R1" }));
+            Assert.That(loaded.Buttons, Is.EqualTo(new[]
+            {
+                "L1", "R1"
+            }));
             Assert.That(loaded.Effects, Has.Count.EqualTo(3));
             Assert.That(loaded.Effects[0].Type, Is.EqualTo(SpecialActionTypes.SetLightbarColor));
             Assert.That(loaded.Effects[0].Red, Is.EqualTo(0xAA));
@@ -285,7 +297,10 @@ public class SpecialActionServiceTests
             Assert.That(loaded.HoldTimeMs, Is.EqualTo(1500));
             Assert.That(loaded.ApplyWhileHeld, Is.True);
             Assert.That(loaded.DurationMs, Is.EqualTo(3000));
-            Assert.That(loaded.EnabledControllers, Is.EqualTo(new[] { "AA:BB:CC:DD:EE:FF" }));
+            Assert.That(loaded.EnabledControllers, Is.EqualTo(new[]
+            {
+                "AA:BB:CC:DD:EE:FF"
+            }));
         });
     }
 
@@ -297,7 +312,12 @@ public class SpecialActionServiceTests
         action.Buttons.Add("L1");
         action.Effects[0].Type = SpecialActionTypes.ShowBatteryLevel;
         action.Effects[0].BatteryColors = Enumerable.Range(0, 10)
-            .Select(i => new BatteryLevelColor { Red = (byte)(255 - i * 20), Green = (byte)i, Blue = (byte)(i * 10) })
+            .Select(i => new BatteryLevelColor
+            {
+                Red = (byte)(255 - i * 20),
+                Green = (byte)i,
+                Blue = (byte)(i * 10)
+            })
             .ToList();
         service.Save();
 
@@ -360,7 +380,10 @@ public class SpecialActionServiceTests
             Assert.That(lightbar.Effects[0].Red, Is.EqualTo(10));
             Assert.That(lightbar.Effects[0].Green, Is.EqualTo(20));
             Assert.That(lightbar.Effects[0].Blue, Is.EqualTo(30));
-            Assert.That(lightbar.Buttons, Is.EqualTo(new[] { "L1", "R1" }));
+            Assert.That(lightbar.Buttons, Is.EqualTo(new[]
+            {
+                "L1", "R1"
+            }));
         });
 
         SpecialAction? sound = service.Settings.Actions.FirstOrDefault(a => a.Id == soundId);
@@ -432,7 +455,10 @@ public class SpecialActionServiceTests
         string path = Path.Combine(_tempDir, "special_actions.json");
         File.WriteAllText(path, """{"actions":[{"name":"One","unknown_field":123},{"name":"Two"}]}""");
         SpecialActionService service = new SpecialActionService(actionsPath: path);
-        Assert.That(service.Settings.Actions.Select(a => a.Name), Is.EquivalentTo(new[] { "One", "Two" }));
+        Assert.That(service.Settings.Actions.Select(a => a.Name), Is.EquivalentTo(new[]
+        {
+            "One", "Two"
+        }));
     }
 
     [Test]
@@ -460,7 +486,15 @@ public class SpecialActionServiceTests
         action.Effects.Add(new SpecialActionEffect
         {
             Type = SpecialActionTypes.ShowBatteryLevel,
-            BatteryColors = [new BatteryLevelColor { Red = 1, Green = 2, Blue = 3 }]
+            BatteryColors =
+            [
+                new BatteryLevelColor
+                {
+                    Red = 1,
+                    Green = 2,
+                    Blue = 3
+                }
+            ]
         });
 
         string exportPath = Path.Combine(_tempDir, "export.json");
@@ -549,7 +583,10 @@ public class SpecialActionServiceTests
         {
             Assert.That(target.Settings.Actions, Has.Count.EqualTo(2));
             Assert.That(target.Settings.Actions.Select(a => a.Id).Distinct().Count(), Is.EqualTo(2));
-            Assert.That(target.Settings.Actions.Select(a => a.Name), Is.EquivalentTo(new[] { "Beep", "Beep 2" }));
+            Assert.That(target.Settings.Actions.Select(a => a.Name), Is.EquivalentTo(new[]
+            {
+                "Beep", "Beep 2"
+            }));
         });
     }
 

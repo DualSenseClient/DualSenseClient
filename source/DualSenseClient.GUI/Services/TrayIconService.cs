@@ -125,7 +125,8 @@ public sealed class TrayIconService
     /// <summary>
     /// Creates the tray icon and wires it to the application's controller state.
     /// </summary>
-    public TrayIconService(MainWindow mainWindow, MainViewModel mainViewModel, IControllerTracker tracker, ProfileService profileService, ControllerInfoService controllerInfoService, SettingsService settingsService, IEmulationService emulation)
+    public TrayIconService(MainWindow mainWindow, MainViewModel mainViewModel, IControllerTracker tracker, ProfileService profileService,
+        ControllerInfoService controllerInfoService, SettingsService settingsService, IEmulationService emulation)
     {
         _mainWindow = mainWindow;
         _mainViewModel = mainViewModel;
@@ -144,7 +145,10 @@ public sealed class TrayIconService
             IsVisible = true
         };
         _trayIcon.Clicked += (_, _) => ShowWindow();
-        TrayIcon.SetIcons(Application.Current!, new TrayIcons { _trayIcon });
+        TrayIcon.SetIcons(Application.Current!, new TrayIcons
+        {
+            _trayIcon
+        });
 
         _showBatteryPercentage = _settingsService.Settings.Ui.ShowBatteryPercentage;
         _settingsService.SettingsChanged += OnSettingsChanged;
@@ -201,7 +205,10 @@ public sealed class TrayIconService
 
         if (_mainViewModel.Controllers.Count == 0)
         {
-            _menu.Items.Add(new NativeMenuItem(LocalizationService.GetText("Tray.NoControllers")) { IsEnabled = false });
+            _menu.Items.Add(new NativeMenuItem(LocalizationService.GetText("Tray.NoControllers"))
+            {
+                IsEnabled = false
+            });
         }
         else
         {
@@ -314,6 +321,7 @@ public sealed class TrayIconService
         {
             return;
         }
+
         EmulationSettings settings = GetEmulationSettings(item);
         if (settings.Mode == mode)
         {

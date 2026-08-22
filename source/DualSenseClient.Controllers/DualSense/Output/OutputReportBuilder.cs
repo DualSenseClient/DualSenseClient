@@ -82,6 +82,7 @@ public sealed class OutputReportBuilder
         {
             flag0 |= ValidFlags.AllowRightTriggerFfb;
         }
+
         if (L2TriggerEffect.Mode != TriggerEffectType.Off)
         {
             flag0 |= ValidFlags.AllowLeftTriggerFfb;

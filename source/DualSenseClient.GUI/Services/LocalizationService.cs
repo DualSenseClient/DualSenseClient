@@ -220,5 +220,6 @@ public static class LocalizationService
     /// </summary>
     /// <param name="value">The string value to check.</param>
     /// <returns>True if the value is null, whitespace, or matches the <see cref="UntranslatedMarker"/>, otherwise false.</returns>
-    private static bool IsUntranslated(string value) => string.IsNullOrWhiteSpace(value) || value.Equals(UntranslatedMarker, StringComparison.OrdinalIgnoreCase);
+    private static bool IsUntranslated(string value) =>
+        string.IsNullOrWhiteSpace(value) || value.Equals(UntranslatedMarker, StringComparison.OrdinalIgnoreCase);
 }

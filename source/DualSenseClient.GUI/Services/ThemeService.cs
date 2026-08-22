@@ -173,6 +173,7 @@ public class ThemeService
                     ? ThemeVariant.Dark
                     : ThemeVariant.Light;
             }
+
             Application.Current.RequestedThemeVariant = targetVariant;
         }
 

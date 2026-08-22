@@ -17,12 +17,14 @@ public class ControllerTrackerTests
         public int MaxOutputReportLength => 64;
         public int PollingRateHz => 0;
         public int ReadInput(byte[] buffer, int offset, int count, int timeoutMs) => 0;
+
         public void SendOutput(byte[] buffer, int offset, int count)
         {
         }
 
         public Task<int> ReadInputAsync(byte[] buffer, int offset, int count, CancellationToken ct) => Task.FromResult(0);
         public byte[] GetFeatureReport(byte reportId, int bufferSize = 64) => [];
+
         public void SendFeatureReport(byte[] buffer, int offset, int count)
         {
         }

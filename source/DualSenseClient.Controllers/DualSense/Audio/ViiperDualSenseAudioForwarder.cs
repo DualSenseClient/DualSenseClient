@@ -396,6 +396,7 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
         {
             _pipeline.Dispose();
         }
+
         _usbTarget?.Dispose();
     }
 
@@ -475,8 +476,10 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
                 string head = combined is null
                     ? "(null)"
                     : string.Join(" ", combined.AsSpan(0, Math.Min(16, combined.Length)).ToArray().Select(b => b.ToString("X2")));
-                _log.Info($"Realtime-haptics combined report rejected (expected 0x36 report with 0x90 0x3F state block and 64-byte haptics at offset 78); head {head}");
+                _log.Info(
+                    $"Realtime-haptics combined report rejected (expected 0x36 report with 0x90 0x3F state block and 64-byte haptics at offset 78); head {head}");
             }
+
             return;
         }
 
@@ -542,8 +545,10 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
                         wasIdle = true;
                         idleSinceTicks = Stopwatch.GetTimestamp();
                     }
+
                     Thread.Sleep(2);
                 }
+
                 if (ct.IsCancellationRequested)
                 {
                     break;

@@ -102,6 +102,7 @@ public sealed class SpecialActionEngineRegistry : IDisposable
             {
                 engine.Dispose();
             }
+
             _engines.Clear();
         }
     }

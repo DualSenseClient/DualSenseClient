@@ -10,7 +10,10 @@ namespace DualSenseClient.Tests.Controllers.Emulation;
 public sealed class VirtualInputMapperTests
 {
     private static InputState State(byte stickX = 128, byte stickY = 128, byte l2 = 0, byte r2 = 0, byte byte7 = 0x08, byte byte8 = 0, byte byte9 = 0)
-        => new InputState(new byte[] { stickX, stickY, 128, 128, l2, r2, 0, byte7, byte8, byte9 }, 0);
+        => new InputState(new byte[]
+        {
+            stickX, stickY, 128, 128, l2, r2, 0, byte7, byte8, byte9
+        }, 0);
 
     [Test]
     public void DualSenseStick_Center_MapsToZero()

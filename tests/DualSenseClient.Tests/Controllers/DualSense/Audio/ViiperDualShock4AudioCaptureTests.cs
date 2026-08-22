@@ -91,6 +91,7 @@ public class ViiperDualShock4AudioCaptureTests
             Assert.That(allOutput[i * 2], Is.GreaterThanOrEqualTo(allOutput[(i - 1) * 2] - 1e-6f),
                 "the resampled ramp must never decrease, so no discontinuity at chunk boundaries");
         }
+
         Assert.That(allOutput[0], Is.EqualTo(0f).Within(1e-6f), "the stream must start at the first input sample");
         Assert.That(allOutput[written * 2 - 2], Is.EqualTo(4f - 2f / 3f).Within(1e-6f),
             "the last output lands 2/3 of a frame before the final input sample; the ramp value 4 carries into the next chunk's first output");
