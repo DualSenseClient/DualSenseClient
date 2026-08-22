@@ -26,7 +26,7 @@ namespace DualSenseClient.GUI.Views.Pages;
 /// <para>
 /// The controller visualization is the reusable <see cref="Controls.DualSenseControllerView"/>,
 /// which updates itself from the monitor item's notifications; this code-behind only drives
-/// the motion graphs, which must be re-pointed at the item's sample buffer on each update.
+/// the motion graphs, which are re-pointed at the item's sample buffer when a motion update lands.
 /// </para>
 /// </remarks>
 public partial class InputMonitorPage : UserControl
@@ -132,10 +132,18 @@ public partial class InputMonitorPage : UserControl
     }
 
     /// <summary>
-    /// Re-points the motion graphs whenever the live item reports an update.
+    /// Re-points the motion graphs when the live item reports new motion samples. All other
+    /// property notifications are ignored: the item re-raises every tracked property once
+    /// per input report, so reacting to each of them would refresh the graphs dozens of
+    /// times between actual motion updates.
     /// </summary>
     private void OnItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName != nameof(InputMonitorItem.MotionSamples))
+        {
+            return;
+        }
+
         if (Dispatcher.UIThread.CheckAccess())
         {
             UpdateGraphs();

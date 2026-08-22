@@ -299,6 +299,12 @@ public sealed class DualSenseControllerView : Canvas
     private IControllerMonitorState? _state;
 
     /// <summary>
+    /// Whether an update pass is already queued on the dispatcher, so bursts of property
+    /// notifications collapse into a single <see cref="UpdatePositions"/> run.
+    /// </summary>
+    private bool _positionsQueued;
+
+    /// <summary>
     /// The scale the visuals were last built with.
     /// </summary>
     private double _scale = DefaultScale;
@@ -410,6 +416,22 @@ public sealed class DualSenseControllerView : Canvas
     private TextBlock? _r3Label;
 
     /// <summary>
+    /// Last state values formatted into the tag labels (-1 forces the first format), so
+    /// unchanged values skip text formatting, assignment, and measurement.
+    /// </summary>
+    private int _lastL2 = -1;
+
+    private int _lastR2 = -1;
+    private int _lastLeftStickX = -1;
+    private int _lastLeftStickY = -1;
+    private int _lastRightStickX = -1;
+    private int _lastRightStickY = -1;
+    private int _lastTouch1X = -1;
+    private int _lastTouch1Y = -1;
+    private int _lastTouch2X = -1;
+    private int _lastTouch2Y = -1;
+
+    /// <summary>
     /// All static overlay sprites (pressed-driven visibility).
     /// </summary>
     private readonly List<OverlaySprite> _overlays = new();
@@ -456,6 +478,11 @@ public sealed class DualSenseControllerView : Canvas
         StopMicLedPulse();
         _micLed = null;
         _micLedMode = -1;
+        _lastL2 = _lastR2 = -1;
+        _lastLeftStickX = _lastLeftStickY = -1;
+        _lastRightStickX = _lastRightStickY = -1;
+        _lastTouch1X = _lastTouch1Y = -1;
+        _lastTouch2X = _lastTouch2Y = -1;
         _leftTrigger = _leftTriggerActive = _rightTrigger = _rightTriggerActive = null;
         _leftStick = _rightStick = _touch1 = _touch2 = null;
 
@@ -630,8 +657,9 @@ public sealed class DualSenseControllerView : Canvas
         if (_l2Label is { } l2Label)
         {
             l2Label.IsVisible = ShowStats;
-            if (ShowStats)
+            if (ShowStats && state.L2 != _lastL2)
             {
+                _lastL2 = state.L2;
                 l2Label.Text = $"L2: {state.L2}";
                 PositionTagLabel(l2Label, L2LabelCenterOffsetX, L2LabelCenterOffsetY, scale);
             }
@@ -640,8 +668,9 @@ public sealed class DualSenseControllerView : Canvas
         if (_r2Label is { } r2Label)
         {
             r2Label.IsVisible = ShowStats;
-            if (ShowStats)
+            if (ShowStats && state.R2 != _lastR2)
             {
+                _lastR2 = state.R2;
                 r2Label.Text = $"R2: {state.R2}";
                 PositionTagLabel(r2Label, R2LabelCenterOffsetX, R2LabelCenterOffsetY, scale);
             }
@@ -650,8 +679,10 @@ public sealed class DualSenseControllerView : Canvas
         if (_l3Label is { } l3Label)
         {
             l3Label.IsVisible = ShowStats;
-            if (ShowStats)
+            if (ShowStats && (state.LeftStickX != _lastLeftStickX || state.LeftStickY != _lastLeftStickY))
             {
+                _lastLeftStickX = state.LeftStickX;
+                _lastLeftStickY = state.LeftStickY;
                 l3Label.Text = $"L3  X: {state.LeftStickX}  Y: {state.LeftStickY}";
                 PositionTagLabel(l3Label, L3LabelCenterOffsetX, L3LabelCenterOffsetY, scale);
             }
@@ -660,15 +691,19 @@ public sealed class DualSenseControllerView : Canvas
         if (_r3Label is { } r3Label)
         {
             r3Label.IsVisible = ShowStats;
-            if (ShowStats)
+            if (ShowStats && (state.RightStickX != _lastRightStickX || state.RightStickY != _lastRightStickY))
             {
+                _lastRightStickX = state.RightStickX;
+                _lastRightStickY = state.RightStickY;
                 r3Label.Text = $"R3  X: {state.RightStickX}  Y: {state.RightStickY}";
                 PositionTagLabel(r3Label, R3LabelCenterOffsetX, R3LabelCenterOffsetY, scale);
             }
         }
 
-        PositionTouchDot(_touch1, _touch1Label, 1, ShowMovement && state.Touch1Active, state.Touch1X, state.Touch1Y, scale);
-        PositionTouchDot(_touch2, _touch2Label, 2, ShowMovement && state.Touch2Active, state.Touch2X, state.Touch2Y, scale);
+        PositionTouchDot(_touch1, _touch1Label, 1, ShowMovement && state.Touch1Active, state.Touch1X, state.Touch1Y, scale,
+            ref _lastTouch1X, ref _lastTouch1Y);
+        PositionTouchDot(_touch2, _touch2Label, 2, ShowMovement && state.Touch2Active, state.Touch2X, state.Touch2Y, scale,
+            ref _lastTouch2X, ref _lastTouch2Y);
     }
 
     /// <summary>
@@ -716,9 +751,12 @@ public sealed class DualSenseControllerView : Canvas
 
     /// <summary>
     /// Positions a touch indicator sprite at the mapped touch coordinates, clamped inside
-    /// the touchpad surface, and shows its coordinate label just below the dot.
+    /// the touchpad surface, and shows its coordinate label just below the dot. Skips all
+    /// positioning and label work while the coordinates are unchanged since the last call
+    /// (tracked through <paramref name="lastX"/>/<paramref name="lastY"/>).
     /// </summary>
-    private void PositionTouchDot(Image? dot, TextBlock? label, int index, bool active, int x, int y, double scale)
+    private void PositionTouchDot(Image? dot, TextBlock? label, int index, bool active, int x, int y, double scale,
+        ref int lastX, ref int lastY)
     {
         if (dot is null)
         {
@@ -736,19 +774,26 @@ public sealed class DualSenseControllerView : Canvas
             return;
         }
 
+        if (label is { } visibleLabel)
+        {
+            visibleLabel.IsVisible = ShowStats;
+        }
+
+        if (x == lastX && y == lastY)
+        {
+            return;
+        }
+
+        lastX = x;
+        lastY = y;
+
         double half = TouchDotSize / 2;
         double centerX = Math.Clamp(TouchSurfaceLeft + (x / 1919.0) * TouchSurfaceWidth, TouchSurfaceLeft + half, TouchSurfaceRight - half);
         double centerY = Math.Clamp(TouchSurfaceTop + (y / 1079.0) * TouchSurfaceHeight, TouchSurfaceTop + half, TouchSurfaceBottom - half);
         Canvas.SetLeft(dot, (centerX - half) * scale);
         Canvas.SetTop(dot, (centerY - half) * scale);
 
-        if (label is null)
-        {
-            return;
-        }
-
-        label.IsVisible = ShowStats;
-        if (!ShowStats)
+        if (label is null || !ShowStats)
         {
             return;
         }
@@ -779,8 +824,10 @@ public sealed class DualSenseControllerView : Canvas
     /// ranges.
     /// </summary>
     private static (byte Red, byte Green, byte Blue, byte Leds) BaseState(IControllerMonitorState state)
-        => (LightbarColor(state).Red, LightbarColor(state).Green, LightbarColor(state).Blue,
-            (byte)Math.Clamp(state.PlayerLeds, 0, 31));
+    {
+        (byte red, byte green, byte blue) color = LightbarColor(state);
+        return (color.red, color.green, color.blue, (byte)Math.Clamp(state.PlayerLeds, 0, 31));
+    }
 
     /// <summary>
     /// Left position of a sprite centered at the given asset-space offset, plus a travel offset.
@@ -888,18 +935,26 @@ public sealed class DualSenseControllerView : Canvas
     }
 
     /// <summary>
-    /// Repositions the dynamic sprites whenever the live state reports an update.
+    /// Coalesces state notifications into a single deferred repositioning pass: bursts of
+    /// property changes (one per tracked property per input report) queue exactly one
+    /// <see cref="UpdatePositions"/> run at background priority, which then reads the
+    /// latest values.
     /// </summary>
     private void OnStatePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (Dispatcher.UIThread.CheckAccess())
+        if (_positionsQueued)
         {
-            UpdatePositions();
+            return;
         }
-        else
-        {
-            Dispatcher.UIThread.Post(UpdatePositions);
-        }
+
+        _positionsQueued = true;
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                _positionsQueued = false;
+                UpdatePositions();
+            },
+            DispatcherPriority.Background);
     }
 
     /// <summary>
