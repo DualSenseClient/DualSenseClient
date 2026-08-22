@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using DualSenseClient.Controllers.DualSense.Enum;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -231,6 +234,21 @@ public sealed class DualSenseControllerView : Canvas
         AvaloniaProperty.Register<DualSenseControllerView, bool>(nameof(ShowStats), true);
 
     /// <summary>
+    /// The physical buttons currently selected for remapping, highlighted on the
+    /// illustration. Selection is a set: the remapping UI assigns one target to all of
+    /// them together.
+    /// </summary>
+    public static readonly StyledProperty<IReadOnlyList<ButtonType>> SelectedButtonsProperty =
+        AvaloniaProperty.Register<DualSenseControllerView, IReadOnlyList<ButtonType>>(nameof(SelectedButtons), []);
+
+    /// <summary>
+    /// Whether clicking buttons on the illustration selects them for remapping. When false
+    /// (the default) the view behaves exactly like before and raises no click events.
+    /// </summary>
+    public static readonly StyledProperty<bool> IsButtonSelectionEnabledProperty =
+        AvaloniaProperty.Register<DualSenseControllerView, bool>(nameof(IsButtonSelectionEnabled));
+
+    /// <summary>
     /// The controller state displayed by this view.
     /// </summary>
     public IControllerMonitorState? State
@@ -294,6 +312,25 @@ public sealed class DualSenseControllerView : Canvas
     }
 
     /// <summary>
+    /// The physical buttons currently selected for remapping, highlighted on the
+    /// illustration.
+    /// </summary>
+    public IReadOnlyList<ButtonType> SelectedButtons
+    {
+        get => GetValue(SelectedButtonsProperty);
+        set => SetValue(SelectedButtonsProperty, value);
+    }
+
+    /// <summary>
+    /// Whether clicking buttons on the illustration selects them for remapping.
+    /// </summary>
+    public bool IsButtonSelectionEnabled
+    {
+        get => GetValue(IsButtonSelectionEnabledProperty);
+        set => SetValue(IsButtonSelectionEnabledProperty, value);
+    }
+
+    /// <summary>
     /// The state currently subscribed to, so the previous subscription can be released.
     /// </summary>
     private IControllerMonitorState? _state;
@@ -313,6 +350,16 @@ public sealed class DualSenseControllerView : Canvas
     /// The service loading the monitor base images and overlay sprites.
     /// </summary>
     private readonly ControllerIllustrationService _illustrations;
+
+    /// <summary>
+    /// The accent color of the selection highlights.
+    /// </summary>
+    private static readonly Color SelectionColor = Color.FromRgb(0, 120, 212);
+
+    /// <summary>
+    /// The brush used for selection highlight outlines.
+    /// </summary>
+    private static readonly IBrush SelectionBrush = new SolidColorBrush(SelectionColor);
 
     /// <summary>
     /// The left trigger sprite (slides down while the trigger is pulled).
@@ -437,6 +484,41 @@ public sealed class DualSenseControllerView : Canvas
     private readonly List<OverlaySprite> _overlays = new();
 
     /// <summary>
+    /// Highlight markers for the currently selected remapping buttons, by button.
+    /// </summary>
+    private readonly Dictionary<ButtonType, Border> _selectionHighlights = new();
+
+    /// <summary>
+    /// Asset-space sprite rectangles of the buttons that can be selected on the
+    /// illustration (offsets from the base image center). The Edge-only function keys and
+    /// paddles have no sprites and are selected through the remapping UI instead. Values
+    /// mirror the overlay layout in <see cref="Rebuild"/>.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<ButtonType, (double OffsetX, double OffsetY, double Width, double Height)> SelectionRects =
+        new Dictionary<ButtonType, (double, double, double, double)>
+        {
+            [ButtonType.Cross] = (470.6, 112.9, 112, 95),
+            [ButtonType.Circle] = (583.5, 18.8, 110, 105),
+            [ButtonType.Square] = (363.0, 22.9, 110, 99),
+            [ButtonType.Triangle] = (476.0, -71.3, 112, 105),
+            [ButtonType.DPadUp] = (-473.3, -37.6, 93, 108),
+            [ButtonType.DPadDown] = (-473.3, 80.7, 93, 104),
+            [ButtonType.DPadLeft] = (-545.9, 21.5, 114, 87),
+            [ButtonType.DPadRight] = (-400.7, 21.5, 114, 87),
+            [ButtonType.L1] = (-471.9, -260.8, 221, 130),
+            [ButtonType.R1] = (471.9, -262.2, 221, 130),
+            [ButtonType.L2] = (-462.6, -330.1, 200, 152),
+            [ButtonType.R2] = (464.0, -333.1, 202, 149),
+            [ButtonType.L3] = (-238.0, 195.0, 196, 171),
+            [ButtonType.R3] = (242.0, 195.0, 196, 171),
+            [ButtonType.Create] = (-359.0, -121.0, 52, 71),
+            [ButtonType.Options] = (359.0, -121.0, 55, 74),
+            [ButtonType.PS] = (2.7, 166.7, 97, 54),
+            [ButtonType.Mute] = (4.0, 225.9, 75, 16),
+            [ButtonType.TouchPad] = (0, TouchpadCenterOffsetY, TouchSurfaceWidth, TouchSurfaceHeight)
+        };
+
+    /// <summary>
     /// Creates a controller view and resolves the illustration service from DI.
     /// </summary>
     public DualSenseControllerView()
@@ -454,7 +536,15 @@ public sealed class DualSenseControllerView : Canvas
         ShowButtonPressesProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.OnDisplayOptionsChanged());
         ShowLightbarLedsProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.OnDisplayOptionsChanged());
         ShowStatsProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.OnDisplayOptionsChanged());
+        SelectedButtonsProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.UpdateSelectionHighlights());
+        IsButtonSelectionEnabledProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.OnButtonSelectionEnabledChanged());
     }
+
+    /// <summary>
+    /// Raised when the user clicks a selectable button on the illustration while
+    /// <see cref="IsButtonSelectionEnabled"/> is set.
+    /// </summary>
+    public event EventHandler<ButtonType>? ButtonClicked;
 
     /// <summary>
     /// Releases the state subscription when the view leaves the visual tree.
@@ -473,6 +563,7 @@ public sealed class DualSenseControllerView : Canvas
         DetachState();
         Children.Clear();
         _overlays.Clear();
+        _selectionHighlights.Clear();
         _baseImage = null;
         _baseState = null;
         StopMicLedPulse();
@@ -546,6 +637,85 @@ public sealed class DualSenseControllerView : Canvas
         _state = state;
         state.PropertyChanged += OnStatePropertyChanged;
         UpdatePositions();
+        UpdateSelectionHighlights();
+    }
+
+    /// <summary>
+    /// Syncs the selection highlight markers with the current <see cref="SelectedButtons"/>:
+    /// creates an accent outline over each selected button's sprite area and removes the
+    /// others.
+    /// </summary>
+    private void UpdateSelectionHighlights()
+    {
+        IReadOnlyList<ButtonType> selected = SelectedButtons ?? [];
+        double scale = _scale;
+
+        foreach (ButtonType button in selected)
+        {
+            if (_selectionHighlights.ContainsKey(button) ||
+                !SelectionRects.TryGetValue(button, out (double OffsetX, double OffsetY, double Width, double Height) rect))
+            {
+                continue;
+            }
+
+            Border highlight = new Border
+            {
+                CornerRadius = new CornerRadius(6 * scale),
+                BorderThickness = new Thickness(2.5),
+                BorderBrush = SelectionBrush,
+                Background = new SolidColorBrush(Color.FromArgb(70, SelectionColor.R, SelectionColor.G, SelectionColor.B)),
+                IsHitTestVisible = false,
+                ZIndex = 100
+            };
+            SetLeft(highlight, CenteredX(rect.OffsetX, rect.Width, 0, scale));
+            SetTop(highlight, CenteredY(rect.OffsetY, rect.Height, 0, scale));
+            highlight.Width = rect.Width * scale;
+            highlight.Height = rect.Height * scale;
+            Children.Add(highlight);
+            _selectionHighlights[button] = highlight;
+        }
+
+        List<ButtonType> removed = _selectionHighlights.Keys.Where(button => !selected.Contains(button)).ToList();
+        foreach (ButtonType button in removed)
+        {
+            Border highlight = _selectionHighlights[button];
+            Children.Remove(highlight);
+            _selectionHighlights.Remove(button);
+        }
+    }
+
+    /// <summary>
+    /// Updates the cursor when button selection is toggled.
+    /// </summary>
+    private void OnButtonSelectionEnabledChanged()
+    {
+        Cursor = IsButtonSelectionEnabled ? new Cursor(StandardCursorType.Hand) : Cursor.Default;
+    }
+
+    /// <summary>
+    /// Hit-tests a pointer press against the selectable buttons' sprite rectangles and
+    /// raises <see cref="ButtonClicked"/> for the first match.
+    /// </summary>
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        if (!IsButtonSelectionEnabled || ButtonClicked is null)
+        {
+            return;
+        }
+
+        Point position = e.GetCurrentPoint(this).Position;
+        foreach (KeyValuePair<ButtonType, (double OffsetX, double OffsetY, double Width, double Height)> pair in SelectionRects)
+        {
+            double left = CenteredX(pair.Value.OffsetX, pair.Value.Width, 0, _scale);
+            double top = CenteredY(pair.Value.OffsetY, pair.Value.Height, 0, _scale);
+            if (position.X >= left && position.X <= left + pair.Value.Width * _scale
+                                   && position.Y >= top && position.Y <= top + pair.Value.Height * _scale)
+            {
+                ButtonClicked?.Invoke(this, pair.Key);
+                return;
+            }
+        }
     }
 
     /// <summary>
@@ -870,10 +1040,10 @@ public sealed class DualSenseControllerView : Canvas
             Source = bitmap,
             Width = width * _scale,
             Height = height * _scale,
-            Stretch = Avalonia.Media.Stretch.Fill
+            Stretch = Stretch.Fill
         };
-        Canvas.SetLeft(image, left);
-        Canvas.SetTop(image, top);
+        SetLeft(image, left);
+        SetTop(image, top);
         Children.Add(image);
         return image;
     }
