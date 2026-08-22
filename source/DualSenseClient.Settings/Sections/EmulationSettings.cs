@@ -126,4 +126,25 @@ public class EmulationSettings
     /// </summary>
     [JsonPropertyName("forward_haptics")]
     public int ForwardHapticStrength { get; set; } = 100;
+
+    /// <summary>
+    /// Gets or sets the button remapping rules for Xbox 360 emulation, or <c>null</c> to
+    /// use the built-in default mapping.
+    /// </summary>
+    [JsonPropertyName("xbox360_button_mappings")]
+    public List<ButtonMappingEntry>? Xbox360ButtonMappings { get; set; }
+
+    /// <summary>
+    /// Gets or sets the button remapping rules for DualShock 4 emulation, or <c>null</c>
+    /// to use the built-in default mapping.
+    /// </summary>
+    [JsonPropertyName("ds4_button_mappings")]
+    public List<ButtonMappingEntry>? DualShock4ButtonMappings { get; set; }
+
+    /// <summary>
+    /// Gets or sets the button remapping rules for DualSense emulation, or <c>null</c> to
+    /// use the built-in default mapping.
+    /// </summary>
+    [JsonPropertyName("dualsense_button_mappings")]
+    public List<ButtonMappingEntry>? DualSenseButtonMappings { get; set; }
 }
