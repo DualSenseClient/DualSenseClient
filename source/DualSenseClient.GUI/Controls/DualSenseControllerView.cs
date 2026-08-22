@@ -352,16 +352,6 @@ public sealed class DualSenseControllerView : Canvas
     private readonly ControllerIllustrationService _illustrations;
 
     /// <summary>
-    /// The accent color of the selection highlights.
-    /// </summary>
-    private static readonly Color SelectionColor = Color.FromRgb(0, 120, 212);
-
-    /// <summary>
-    /// The brush used for selection highlight outlines.
-    /// </summary>
-    private static readonly IBrush SelectionBrush = new SolidColorBrush(SelectionColor);
-
-    /// <summary>
     /// The left trigger sprite (slides down while the trigger is pulled).
     /// </summary>
     private Image? _leftTrigger;
@@ -484,38 +474,45 @@ public sealed class DualSenseControllerView : Canvas
     private readonly List<OverlaySprite> _overlays = new();
 
     /// <summary>
-    /// Highlight markers for the currently selected remapping buttons, by button.
+    /// Placement and press-overlay sprite of one selectable button's selection marker, in
+    /// asset space.
     /// </summary>
-    private readonly Dictionary<ButtonType, Border> _selectionHighlights = new();
+    private readonly record struct SelectionSprite(string Overlay, double OffsetX, double OffsetY, double Width, double Height);
 
     /// <summary>
-    /// Asset-space sprite rectangles of the buttons that can be selected on the
-    /// illustration (offsets from the base image center). The Edge-only function keys and
-    /// paddles have no sprites and are selected through the remapping UI instead. Values
-    /// mirror the overlay layout in <see cref="Rebuild"/>.
+    /// Press-overlay markers for the currently selected remapping buttons, by button.
     /// </summary>
-    private static readonly IReadOnlyDictionary<ButtonType, (double OffsetX, double OffsetY, double Width, double Height)> SelectionRects =
-        new Dictionary<ButtonType, (double, double, double, double)>
+    private readonly Dictionary<ButtonType, Image> _selectionHighlights = new();
+
+    /// <summary>
+    /// The pressed-state overlay sprite of each selectable button (offsets from the base
+    /// image center), used to mark selections so a selected button looks exactly as if it
+    /// were physically pressed. The Edge-only function keys and paddles have no sprites and
+    /// are selected through the remapping UI instead. Rect values mirror the overlay layout
+    /// in <see cref="Rebuild"/>.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<ButtonType, SelectionSprite> SelectionSprites =
+        new Dictionary<ButtonType, SelectionSprite>
         {
-            [ButtonType.Cross] = (470.6, 112.9, 112, 95),
-            [ButtonType.Circle] = (583.5, 18.8, 110, 105),
-            [ButtonType.Square] = (363.0, 22.9, 110, 99),
-            [ButtonType.Triangle] = (476.0, -71.3, 112, 105),
-            [ButtonType.DPadUp] = (-473.3, -37.6, 93, 108),
-            [ButtonType.DPadDown] = (-473.3, 80.7, 93, 104),
-            [ButtonType.DPadLeft] = (-545.9, 21.5, 114, 87),
-            [ButtonType.DPadRight] = (-400.7, 21.5, 114, 87),
-            [ButtonType.L1] = (-471.9, -260.8, 221, 130),
-            [ButtonType.R1] = (471.9, -262.2, 221, 130),
-            [ButtonType.L2] = (-462.6, -330.1, 200, 152),
-            [ButtonType.R2] = (464.0, -333.1, 202, 149),
-            [ButtonType.L3] = (-238.0, 195.0, 196, 171),
-            [ButtonType.R3] = (242.0, 195.0, 196, 171),
-            [ButtonType.Create] = (-359.0, -121.0, 52, 71),
-            [ButtonType.Options] = (359.0, -121.0, 55, 74),
-            [ButtonType.PS] = (2.7, 166.7, 97, 54),
-            [ButtonType.Mute] = (4.0, 225.9, 75, 16),
-            [ButtonType.TouchPad] = (0, TouchpadCenterOffsetY, TouchSurfaceWidth, TouchSurfaceHeight)
+            [ButtonType.Cross] = new("Cross", 470.6, 112.9, 112, 95),
+            [ButtonType.Circle] = new("Circle", 583.5, 18.8, 110, 105),
+            [ButtonType.Square] = new("Square", 363.0, 22.9, 110, 99),
+            [ButtonType.Triangle] = new("Triangle", 476.0, -71.3, 112, 105),
+            [ButtonType.DPadUp] = new("D-PAD_Up", -473.3, -37.6, 93, 108),
+            [ButtonType.DPadDown] = new("D-PAD_Down", -473.3, 80.7, 93, 104),
+            [ButtonType.DPadLeft] = new("D-PAD_Left", -545.9, 21.5, 114, 87),
+            [ButtonType.DPadRight] = new("D-PAD_Right", -400.7, 21.5, 114, 87),
+            [ButtonType.L1] = new("L1-Active", -471.9, -260.8, 221, 130),
+            [ButtonType.R1] = new("R1-Active", 471.9, -262.2, 221, 130),
+            [ButtonType.L2] = new("L2-Active", -462.6, -330.1, 200, 152),
+            [ButtonType.R2] = new("R2-Active", 464.0, -333.1, 202, 149),
+            [ButtonType.L3] = new("AnalogStick_Click", -238.0, 195.0, 196, 171),
+            [ButtonType.R3] = new("AnalogStick_Click", 242.0, 195.0, 196, 171),
+            [ButtonType.Create] = new("Create_Button", -359.0, -121.0, 52, 71),
+            [ButtonType.Options] = new("Option_Button", 359.0, -121.0, 55, 74),
+            [ButtonType.PS] = new("Home_Button", 2.7, 166.7, 97, 54),
+            [ButtonType.Mute] = new("Mute_Button", 4.0, 225.9, 75, 16),
+            [ButtonType.TouchPad] = new("Touchpad-Click", 0, TouchpadCenterOffsetY, TouchSurfaceWidth, TouchSurfaceHeight)
         };
 
     /// <summary>
@@ -641,45 +638,35 @@ public sealed class DualSenseControllerView : Canvas
     }
 
     /// <summary>
-    /// Syncs the selection highlight markers with the current <see cref="SelectedButtons"/>:
-    /// creates an accent outline over each selected button's sprite area and removes the
-    /// others.
+    /// Syncs the selection markers with the current <see cref="SelectedButtons"/>: shows
+    /// each selected button's pressed-state overlay sprite so it looks exactly as if the
+    /// button were physically held down, and removes the others.
     /// </summary>
     private void UpdateSelectionHighlights()
     {
         IReadOnlyList<ButtonType> selected = SelectedButtons ?? [];
-        double scale = _scale;
+        string skin = SkinName ?? string.Empty;
 
         foreach (ButtonType button in selected)
         {
-            if (_selectionHighlights.ContainsKey(button) ||
-                !SelectionRects.TryGetValue(button, out (double OffsetX, double OffsetY, double Width, double Height) rect))
+            if (_selectionHighlights.ContainsKey(button) || !SelectionSprites.TryGetValue(button, out SelectionSprite sprite))
             {
                 continue;
             }
 
-            Border highlight = new Border
-            {
-                CornerRadius = new CornerRadius(6 * scale),
-                BorderThickness = new Thickness(2.5),
-                BorderBrush = SelectionBrush,
-                Background = new SolidColorBrush(Color.FromArgb(70, SelectionColor.R, SelectionColor.G, SelectionColor.B)),
-                IsHitTestVisible = false,
-                ZIndex = 100
-            };
-            SetLeft(highlight, CenteredX(rect.OffsetX, rect.Width, 0, scale));
-            SetTop(highlight, CenteredY(rect.OffsetY, rect.Height, 0, scale));
-            highlight.Width = rect.Width * scale;
-            highlight.Height = rect.Height * scale;
-            Children.Add(highlight);
-            _selectionHighlights[button] = highlight;
+            Image marker = AddImage(_illustrations.GetSprite(skin, sprite.Overlay),
+                CenteredX(sprite.OffsetX, sprite.Width, 0, _scale), CenteredY(sprite.OffsetY, sprite.Height, 0, _scale),
+                sprite.Width, sprite.Height);
+            marker.IsHitTestVisible = false;
+            marker.ZIndex = 100;
+            _selectionHighlights[button] = marker;
         }
 
         List<ButtonType> removed = _selectionHighlights.Keys.Where(button => !selected.Contains(button)).ToList();
         foreach (ButtonType button in removed)
         {
-            Border highlight = _selectionHighlights[button];
-            Children.Remove(highlight);
+            Image marker = _selectionHighlights[button];
+            Children.Remove(marker);
             _selectionHighlights.Remove(button);
         }
     }
@@ -705,7 +692,7 @@ public sealed class DualSenseControllerView : Canvas
         }
 
         Point position = e.GetCurrentPoint(this).Position;
-        foreach (KeyValuePair<ButtonType, (double OffsetX, double OffsetY, double Width, double Height)> pair in SelectionRects)
+        foreach (KeyValuePair<ButtonType, SelectionSprite> pair in SelectionSprites)
         {
             double left = CenteredX(pair.Value.OffsetX, pair.Value.Width, 0, _scale);
             double top = CenteredY(pair.Value.OffsetY, pair.Value.Height, 0, _scale);
