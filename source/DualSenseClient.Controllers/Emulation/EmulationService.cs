@@ -59,6 +59,13 @@ public interface IEmulationService : IDisposable
     /// audio forwarding is not active for that controller.
     /// </summary>
     void SetForwardingAudioOutput(DualSenseDevice device, bool headset);
+
+    /// <summary>
+    /// Reloads the given controller's button remapping rules from its stored emulation
+    /// settings and applies them to its running virtual controller without recreating the
+    /// device. No-op when the controller has no active virtual controller.
+    /// </summary>
+    void ApplyButtonMappings(DualSenseDevice device);
 }
 
 /// <summary>
@@ -294,6 +301,39 @@ public sealed class EmulationService : IEmulationService
             }
         }
     }
+
+    /// <inheritdoc/>
+    public void ApplyButtonMappings(DualSenseDevice device)
+    {
+        lock (_sync)
+        {
+            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Virtual is { } virtualController)
+            {
+                ApplyButtonMappingsLocked(virtualController, device);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Resolves the controller's stored button mapping rules for the virtual controller's
+    /// emulation mode and assigns them to it. Caller must hold <see cref="_sync"/>.
+    /// </summary>
+    private void ApplyButtonMappingsLocked(IVirtualController virtualController, DualSenseDevice device)
+    {
+        EmulationSettings emulation = GetEmulationSettings(device);
+        virtualController.ButtonMappings = virtualController.Mode switch
+        {
+            EmulationMode.Xbox360 => VirtualInputMapper.Xbox360Table(emulation.Xbox360ButtonMappings, WarnInvalidMapping),
+            EmulationMode.DualShock4 => VirtualInputMapper.DualShock4Table(emulation.DualShock4ButtonMappings, WarnInvalidMapping),
+            EmulationMode.DualSense => VirtualInputMapper.DualSenseTable(emulation.DualSenseButtonMappings, WarnInvalidMapping),
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// Logs an invalid button mapping entry name without interrupting the remaining rules.
+    /// </summary>
+    private void WarnInvalidMapping(string message) => _log.Warning(message);
 
     /// <summary>
     /// Per-controller virtual device lifecycle: the physical controller, the virtual
@@ -601,6 +641,7 @@ public sealed class EmulationService : IEmulationService
                 entry.Virtual = virtualController;
                 entry.Forwarder = forwarder;
                 entry.Capture = capture;
+                ApplyButtonMappingsLocked(virtualController, entry.Device);
             }
 
             SetStatus(entry, new EmulationStatus(mode, true, null, virtualController.VirtualDevicePath,

@@ -117,16 +117,17 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         }
 
         InputState input = report.Input;
+        MappedInputResult mapped = (ButtonMappings ?? VirtualInputMapper.DualSenseDefaultTable).Evaluate(input);
         DSDeviceState state = new DSDeviceState
         {
             LX = VirtualInputMapper.DualSenseStick(input.LeftStickX),
             LY = VirtualInputMapper.DualSenseStick(input.LeftStickY),
             RX = VirtualInputMapper.DualSenseStick(input.RightStickX),
             RY = VirtualInputMapper.DualSenseStick(input.RightStickY),
-            Buttons = (uint)VirtualInputMapper.ToDualSenseButtons(input),
-            DPad = (byte)VirtualInputMapper.ToDualSenseDPad(input),
-            L2 = input.L2,
-            R2 = input.R2
+            Buttons = (uint)mapped.Buttons,
+            DPad = (byte)mapped.DPad,
+            L2 = mapped.LeftTrigger,
+            R2 = mapped.RightTrigger
         };
 
         TouchpadState touchpad = report.Touchpad;

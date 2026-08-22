@@ -27,6 +27,13 @@ public interface IVirtualController : IDisposable
     string? VirtualDevicePath { get; set; }
 
     /// <summary>
+    /// The button remapping rules applied to pushed input, or <c>null</c> to use the mode's
+    /// built-in default mapping. Swapping in a new immutable table takes effect on the next
+    /// input report without recreating the device.
+    /// </summary>
+    ButtonMappingTable? ButtonMappings { get; set; }
+
+    /// <summary>
     /// Pushes the latest physical input report to the virtual controller. Called on
     /// the physical device's read thread.
     /// </summary>
@@ -66,6 +73,9 @@ public abstract class VirtualControllerBase : IVirtualController
 
     /// <inheritdoc/>
     public string? VirtualDevicePath { get; set; }
+
+    /// <inheritdoc/>
+    public ButtonMappingTable? ButtonMappings { get; set; }
 
     /// <inheritdoc/>
     public abstract void PushInput(InputReport report);

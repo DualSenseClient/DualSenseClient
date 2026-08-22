@@ -85,16 +85,17 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
         }
 
         InputState input = report.Input;
+        MappedInputResult mapped = (ButtonMappings ?? VirtualInputMapper.DualShock4DefaultTable).Evaluate(input);
         DS4DeviceState state = new DS4DeviceState
         {
             LX = VirtualInputMapper.DualSenseStick(input.LeftStickX),
             LY = VirtualInputMapper.DualSenseStick(input.LeftStickY),
             RX = VirtualInputMapper.DualSenseStick(input.RightStickX),
             RY = VirtualInputMapper.DualSenseStick(input.RightStickY),
-            Buttons = (ushort)VirtualInputMapper.ToDualShock4Buttons(input),
-            DPad = VirtualInputMapper.ToDualShock4DPad(input),
-            L2 = input.L2,
-            R2 = input.R2
+            Buttons = (ushort)mapped.Buttons,
+            DPad = (byte)mapped.DPad,
+            L2 = mapped.LeftTrigger,
+            R2 = mapped.RightTrigger
         };
 
         TouchpadState touchpad = report.Touchpad;

@@ -60,11 +60,12 @@ public sealed class VirtualXbox360Controller : VirtualControllerBase
         }
 
         InputState input = report.Input;
+        MappedInputResult mapped = (ButtonMappings ?? VirtualInputMapper.Xbox360DefaultTable).Evaluate(input);
         Xbox360DeviceState state = new Xbox360DeviceState
         {
-            Buttons = (uint)VirtualInputMapper.ToXbox360Buttons(input),
-            LT = input.L2,
-            RT = input.R2,
+            Buttons = (uint)mapped.Buttons,
+            LT = mapped.LeftTrigger,
+            RT = mapped.RightTrigger,
             LX = VirtualInputMapper.X360Axis(input.LeftStickX),
             LY = VirtualInputMapper.X360AxisInverted(input.LeftStickY),
             RX = VirtualInputMapper.X360Axis(input.RightStickX),
