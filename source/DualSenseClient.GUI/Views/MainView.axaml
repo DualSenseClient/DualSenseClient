@@ -114,6 +114,13 @@
                         <ic:SymbolIconSource Symbol="Lightbulb" />
                     </controls:FANavigationViewItem.IconSource>
                 </controls:FANavigationViewItem>
+                <!-- Virtual controller page -->
+                <controls:FANavigationViewItem Content="{DynamicResource MainWindow.VirtualController}"
+                                               Tag="VirtualControllerPage">
+                    <controls:FANavigationViewItem.IconSource>
+                        <ic:SymbolIconSource Symbol="Games" />
+                    </controls:FANavigationViewItem.IconSource>
+                </controls:FANavigationViewItem>
             </controls:FANavigationView.MenuItems>
 
             <controls:FANavigationView.FooterMenuItems>

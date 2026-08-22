@@ -44,5 +44,8 @@
         <Compile Update="Views\Pages\ProfilePage.axaml.cs">
           <DependentUpon>ProfilePage.axaml</DependentUpon>
         </Compile>
+        <Compile Update="Views\Pages\VirtualControllerPage.axaml.cs">
+          <DependentUpon>VirtualControllerPage.axaml</DependentUpon>
+        </Compile>
     </ItemGroup>
 </Project>

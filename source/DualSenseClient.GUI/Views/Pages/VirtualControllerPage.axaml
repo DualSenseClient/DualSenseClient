@@ -1,0 +1,217 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DualSenseClient.GUI.ViewModels.Pages"
+             xmlns:cards="clr-namespace:DualSenseClient.GUI.Controls.Cards"
+             xmlns:controls="clr-namespace:DualSenseClient.GUI.Controls"
+             xmlns:ds="using:DualSenseClient.Controllers.DualSense.Enum"
+             xmlns:fic="using:FluentIcons.Common"
+             xmlns:ic="using:FluentIcons.Avalonia.Fluent"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:items="clr-namespace:DualSenseClient.GUI.Models.Items"
+             mc:Ignorable="d"
+             d:DesignWidth="900"
+             d:DesignHeight="600"
+             x:Class="DualSenseClient.GUI.Views.Pages.VirtualControllerPage"
+             x:DataType="vm:VirtualControllerPageViewModel">
+    <Design.DataContext>
+        <vm:VirtualControllerPageViewModel />
+    </Design.DataContext>
+    <ScrollViewer>
+        <StackPanel Spacing="16"
+                    Margin="24">
+            <!-- Empty state shown when no controller is selected -->
+            <cards:EmptyStateCard Title="{DynamicResource DeviceInfoPage.NoDevice.Title}"
+                                  Description="{DynamicResource DeviceInfoPage.NoDevice.Description}"
+                                  IsVisible="{Binding !HasDevice}" />
+
+            <!-- Virtual controller: header toggle enables emulation; options follow when on -->
+            <cards:CustomCard IsVisible="{Binding HasDevice}">
+                <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <cards:CardHeader Title="{DynamicResource VirtualControllerPage.Emulation.Title}"
+                                          Description="{DynamicResource VirtualControllerPage.Emulation.Mode.Description}"
+                                          Icon="{x:Static fic:Symbol.XboxController}" />
+                        <ToggleSwitch Grid.Column="1"
+                                      VerticalAlignment="Center"
+                                      IsChecked="{Binding IsEmulationEnabled}"
+                                      IsEnabled="{Binding CanChangeEmulation}" />
+                    </Grid>
+
+                    <!-- Options visible while a virtual controller exists -->
+                    <StackPanel Spacing="8"
+                                IsVisible="{Binding IsEmulationEnabled}">
+                        <cards:ComboBoxCard Title="{DynamicResource VirtualControllerPage.Emulation.Mode}"
+                                            ItemsSource="{Binding EmulationModes}"
+                                            SelectedIndex="{Binding EmulationModeIndex}"
+                                            IsEnabled="{Binding CanChangeEmulation}" />
+                        <cards:ComboBoxCard Title="{DynamicResource VirtualControllerPage.Emulation.DeviceType}"
+                                            Description="{DynamicResource VirtualControllerPage.Emulation.DeviceType.Description}"
+                                            ItemsSource="{Binding DualSenseVariants}"
+                                            SelectedIndex="{Binding DualSenseVariantIndex}"
+                                            IsVisible="{Binding IsDualSenseEmulation}"
+                                            IsEnabled="{Binding CanChangeEmulation}" />
+                        <cards:ComboBoxCard Title="{DynamicResource VirtualControllerPage.Emulation.Ds4Variant}"
+                                            Description="{DynamicResource VirtualControllerPage.Emulation.Ds4Variant.Description}"
+                                            ItemsSource="{Binding DualShock4Variants}"
+                                            SelectedIndex="{Binding DualShock4VariantIndex}"
+                                            IsVisible="{Binding IsDualShock4Emulation}"
+                                            IsEnabled="{Binding CanChangeEmulation}" />
+                        <cards:ComboBoxCard Title="{DynamicResource VirtualControllerPage.Emulation.AudioOutput}"
+                                            Description="{DynamicResource VirtualControllerPage.Emulation.AudioOutput.Description}"
+                                            ItemsSource="{Binding EmulationAudioOutputs}"
+                                            SelectedIndex="{Binding ForwardAudioOutputIndex}"
+                                            IsVisible="{Binding IsAudioEmulation}" />
+                        <cards:SliderCard Minimum="0"
+                                          Maximum="255"
+                                          TickFrequency="1"
+                                          Title="{DynamicResource VirtualControllerPage.Emulation.ForwardVolume}"
+                                          Value="{Binding ForwardVolume}"
+                                          IsVisible="{Binding IsAudioEmulation}" />
+                        <cards:SliderCard Minimum="0"
+                                          Maximum="200"
+                                          TickFrequency="1"
+                                          Title="{DynamicResource VirtualControllerPage.Emulation.ForwardHaptics}"
+                                          Value="{Binding ForwardHapticStrength}"
+                                          IsVisible="{Binding IsAudioEmulation}" />
+                    </StackPanel>
+
+                    <!-- Status line is shown whether enabled or not -->
+                    <TextBlock Text="{Binding EmulationStatusText}"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </cards:CustomCard>
+
+            <!-- Button remapping (hidden while emulation is off) -->
+            <cards:CustomCard IsVisible="{Binding IsMappingEditorVisible}">
+                <StackPanel Spacing="8">
+                    <cards:CardHeader Title="{DynamicResource VirtualControllerPage.Mapping.Title}"
+                                      Description="{DynamicResource VirtualControllerPage.Mapping.Description}"
+                                      Icon="{x:Static fic:Symbol.Games}" />
+                    <!-- Illustration on its own row -->
+                    <controls:DualSenseControllerView State="{Binding MonitorState}"
+                                                      SkinName="{Binding SkinName}"
+                                                      ShowMovement="False"
+                                                      ShowStats="False"
+                                                      ShowButtonPresses="False"
+                                                      IsButtonSelectionEnabled="True"
+                                                      SelectedButtons="{Binding SelectedButtonTypes}"
+                                                      ButtonClicked="ControllerView_OnButtonClicked"
+                                                      HorizontalAlignment="Center" />
+
+                    <!-- Edge-only sources have no sprite on the illustration; only the Edge has them -->
+                    <StackPanel Orientation="Horizontal"
+                                Spacing="6"
+                                HorizontalAlignment="Center"
+                                IsVisible="{Binding IsEdgeController}">
+                        <Button Content="FnL"
+                                Padding="10,4"
+                                Command="{Binding ToggleSelectionCommand}"
+                                CommandParameter="{x:Static ds:ButtonType.Edge_LeftFunction}" />
+                        <Button Content="FnR"
+                                Padding="10,4"
+                                Command="{Binding ToggleSelectionCommand}"
+                                CommandParameter="{x:Static ds:ButtonType.Edge_RightFunction}" />
+                        <Button Content="L4"
+                                Padding="10,4"
+                                Command="{Binding ToggleSelectionCommand}"
+                                CommandParameter="{x:Static ds:ButtonType.Edge_LeftPaddle}" />
+                        <Button Content="R4"
+                                Padding="10,4"
+                                Command="{Binding ToggleSelectionCommand}"
+                                CommandParameter="{x:Static ds:ButtonType.Edge_RightPaddle}" />
+                    </StackPanel>
+
+                    <!-- Assignment controls below the illustration -->
+                    <StackPanel Spacing="8"
+                                Margin="0,8,0,0">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock VerticalAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       FontWeight="SemiBold"
+                                       Text="{Binding SelectionSummary}" />
+                            <Button Grid.Column="1"
+                                    Command="{Binding ClearSelectionCommand}"
+                                    IsVisible="{Binding HasSelection}"
+                                    ToolTip.Tip="{DynamicResource VirtualControllerPage.Mapping.Clear}">
+                                <ic:FluentIcon Icon="Dismiss"
+                                               IconVariant="Regular" />
+                            </Button>
+                        </Grid>
+                        <ComboBox ItemsSource="{Binding TargetOptions}"
+                                  SelectedIndex="{Binding TargetIndex}"
+                                  IsEnabled="{Binding HasSelection}"
+                                  HorizontalAlignment="Stretch" />
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="8"
+                                    IsVisible="{Binding IsTriggerOutputVisible}">
+                            <TextBlock Text="{DynamicResource VirtualControllerPage.Mapping.Output}"
+                                       VerticalAlignment="Center" />
+                            <ComboBox ItemsSource="{Binding TriggerOutputs}"
+                                      SelectedIndex="{Binding TriggerOutputIndex}" />
+                        </StackPanel>
+                        <CheckBox Content="{DynamicResource VirtualControllerPage.Mapping.SuppressSolos}"
+                                  IsChecked="{Binding SuppressSolos}"
+                                  IsVisible="{Binding IsComboSelection}" />
+                        <Button Content="{DynamicResource VirtualControllerPage.Mapping.Assign}"
+                                Command="{Binding AssignMappingCommand}"
+                                IsEnabled="{Binding CanAssignMapping}"
+                                HorizontalAlignment="Left" />
+                    </StackPanel>
+
+                    <!-- Existing bindings -->
+                    <ItemsControl ItemsSource="{Binding Bindings}"
+                                  Margin="0,8,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="items:ButtonBindingItem">
+                                <Border BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        Padding="8,4"
+                                        Margin="0,2">
+                                    <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding KeysDisplay}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1"
+                                                   Text="→"
+                                                   Margin="8,0"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        <StackPanel Grid.Column="2"
+                                                    Orientation="Horizontal"
+                                                    Spacing="8"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding TargetDisplay}"
+                                                       FontWeight="SemiBold"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding Details}"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                       VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <Button Grid.Column="3"
+                                                Command="{Binding $parent[ItemsControl].((vm:VirtualControllerPageViewModel)DataContext).RemoveBindingCommand}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip.Tip="{DynamicResource VirtualControllerPage.Binding.Remove}"
+                                                Margin="8,0,0,0">
+                                            <ic:FluentIcon Icon="Delete"
+                                                           IconVariant="Regular" />
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Button Content="{DynamicResource VirtualControllerPage.Mapping.Reset}"
+                            Command="{Binding ResetMappingsCommand}"
+                            IsVisible="{Binding HasBindings}"
+                            HorizontalAlignment="Left" />
+                </StackPanel>
+            </cards:CustomCard>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

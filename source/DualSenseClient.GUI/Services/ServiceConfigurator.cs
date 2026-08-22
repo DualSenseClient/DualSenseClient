@@ -73,6 +73,7 @@ public abstract class ServiceConfigurator
         services.AddSingleton<DeviceInfoPageViewModel>();
         services.AddSingleton<InputMonitorPageViewModel>();
         services.AddSingleton<ProfilePageViewModel>();
+        services.AddSingleton<VirtualControllerPageViewModel>();
         services.AddSingleton<MainViewModel>();
 
         // Views

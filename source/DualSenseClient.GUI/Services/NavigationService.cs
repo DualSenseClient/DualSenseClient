@@ -81,6 +81,9 @@ public class NavigationService
             case "ProfilePage":
                 frame?.Navigate(typeof(ProfilePage));
                 break;
+            case "VirtualControllerPage":
+                frame?.Navigate(typeof(VirtualControllerPage));
+                break;
             case "Settings":
                 frame?.Navigate(typeof(SettingsPage));
                 break;
