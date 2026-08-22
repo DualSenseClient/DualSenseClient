@@ -32,14 +32,10 @@
     <sys:String x:Key="DeviceInfoPage.Device.Title">Device</sys:String>
     <sys:String x:Key="DeviceInfoPage.Device.Description">Controller identification</sys:String>
     <sys:String x:Key="DeviceInfoPage.Device.Name">Name</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Device.NameDescription">Rename this controller</sys:String>
     <sys:String x:Key="DeviceInfoPage.Device.Skin">Skin</sys:String>
     <sys:String x:Key="DeviceInfoPage.Device.Skin.Description">The controller illustration shown above. Stored per controller.</sys:String>
     <sys:String x:Key="DeviceInfoPage.Device.ConnectionType">Connection</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Pairing.Title">Pairing</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Pairing.Description">Bluetooth MAC addresses</sys:String>
     <sys:String x:Key="DeviceInfoPage.Pairing.ClientMac">Controller MAC</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Pairing.HostMac">Host MAC</sys:String>
     <sys:String x:Key="DeviceInfoPage.Firmware.Title">Firmware</sys:String>
     <sys:String x:Key="DeviceInfoPage.Firmware.Description">Version and build information</sys:String>
     <sys:String x:Key="DeviceInfoPage.Firmware.Refresh">Re-read firmware info</sys:String>
@@ -54,8 +50,6 @@
     <sys:String x:Key="DeviceInfoPage.Firmware.BuildTime">Build Time</sys:String>
 
     <!-- Device Info Page: Battery -->
-    <sys:String x:Key="DeviceInfoPage.Battery.Title">Battery</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Battery.Description">Power level and charging state</sys:String>
     <sys:String x:Key="DeviceInfoPage.Battery.Level">Battery Level</sys:String>
     <sys:String x:Key="DeviceInfoPage.Battery.PowerState">Power State</sys:String>
 
@@ -92,36 +86,14 @@
     <sys:String x:Key="InputMonitorPage.Controller.Description">Buttons, sticks, triggers, and touchpad</sys:String>
     <sys:String x:Key="InputMonitorPage.Display.Lights.Title">Lights</sys:String>
     <sys:String x:Key="InputMonitorPage.Display.Stats.Title">Stats</sys:String>
-    <sys:String x:Key="InputMonitorPage.Buttons.Title">Buttons</sys:String>
-    <sys:String x:Key="InputMonitorPage.Buttons.Description">Digital button state</sys:String>
-    <sys:String x:Key="InputMonitorPage.Sticks.Title">Sticks</sys:String>
-    <sys:String x:Key="InputMonitorPage.Sticks.Description">Analog stick position</sys:String>
-    <sys:String x:Key="InputMonitorPage.Sticks.Left">Left Stick</sys:String>
-    <sys:String x:Key="InputMonitorPage.Sticks.Right">Right Stick</sys:String>
-    <sys:String x:Key="InputMonitorPage.Sticks.X">X</sys:String>
-    <sys:String x:Key="InputMonitorPage.Sticks.Y">Y</sys:String>
-    <sys:String x:Key="InputMonitorPage.Triggers.Title">Triggers</sys:String>
-    <sys:String x:Key="InputMonitorPage.Triggers.Description">Analog trigger position</sys:String>
-    <sys:String x:Key="InputMonitorPage.Motion.Title">Motion</sys:String>
-    <sys:String x:Key="InputMonitorPage.Motion.Description">IMU gyroscope and accelerometer</sys:String>
     <sys:String x:Key="InputMonitorPage.Motion.GyroX">Gyro X</sys:String>
     <sys:String x:Key="InputMonitorPage.Motion.GyroY">Gyro Y</sys:String>
     <sys:String x:Key="InputMonitorPage.Motion.GyroZ">Gyro Z</sys:String>
     <sys:String x:Key="InputMonitorPage.Motion.AccelX">Accel X</sys:String>
     <sys:String x:Key="InputMonitorPage.Motion.AccelY">Accel Y</sys:String>
     <sys:String x:Key="InputMonitorPage.Motion.AccelZ">Accel Z</sys:String>
-    <sys:String x:Key="InputMonitorPage.Motion.GyroGraph.Title">Gyroscope graph</sys:String>
-    <sys:String x:Key="InputMonitorPage.Motion.AccelGraph.Title">Accelerometer graph</sys:String>
-    <sys:String x:Key="InputMonitorPage.Touchpad.Title">Touchpad</sys:String>
-    <sys:String x:Key="InputMonitorPage.Touchpad.Description">Touch surface</sys:String>
-    <sys:String x:Key="InputMonitorPage.Touchpad.Touch1">Touch 1</sys:String>
-    <sys:String x:Key="InputMonitorPage.Touchpad.Touch2">Touch 2</sys:String>
     <sys:String x:Key="InputMonitorPage.Common.Active">Active</sys:String>
     <sys:String x:Key="InputMonitorPage.Common.Inactive">Inactive</sys:String>
-    <sys:String x:Key="InputMonitorPage.Button.L2">L2</sys:String>
-    <sys:String x:Key="InputMonitorPage.Button.R2">R2</sys:String>
-    <sys:String x:Key="InputMonitorPage.Button.L3">L3</sys:String>
-    <sys:String x:Key="InputMonitorPage.Button.R3">R3</sys:String>
     <sys:String x:Key="InputMonitorPage.Button.FnL">FnL</sys:String>
     <sys:String x:Key="InputMonitorPage.Button.FnR">FnR</sys:String>
     <sys:String x:Key="InputMonitorPage.Button.L4">L4</sys:String>
@@ -165,16 +137,11 @@
     <sys:String x:Key="InputMonitorPage.Audio.Output.Haptics">Haptic Feedback</sys:String>
     <sys:String x:Key="InputMonitorPage.Audio.OutputVolume">Output Volume</sys:String>
     <sys:String x:Key="InputMonitorPage.Audio.HapticStrength">Haptic Strength</sys:String>
-    <sys:String x:Key="InputMonitorPage.Audio.Play">Play</sys:String>
-    <sys:String x:Key="InputMonitorPage.Audio.Pause">Pause</sys:String>
-    <sys:String x:Key="InputMonitorPage.Audio.Stop">Stop</sys:String>
     <sys:String x:Key="InputMonitorPage.Audio.NoFile">No file loaded</sys:String>
 
     <!-- Profile Page -->
     <sys:String x:Key="ProfilePage.NoDevice.Title">No controller selected</sys:String>
     <sys:String x:Key="ProfilePage.NoDevice.Description">Select a DualSense controller from the title bar to customize its profile.</sys:String>
-    <sys:String x:Key="ProfilePage.Lights.Title">Lights</sys:String>
-    <sys:String x:Key="ProfilePage.Lights.Description">Lightbar color, microphone LED, and player indicators</sys:String>
     <sys:String x:Key="ProfilePage.Controller.Title">Controller</sys:String>
     <sys:String x:Key="ProfilePage.Controller.Description">Profile assignment for the selected controller</sys:String>
     <sys:String x:Key="ProfilePage.AssignedProfile.Title">Assigned profile</sys:String>

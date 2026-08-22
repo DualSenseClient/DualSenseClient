@@ -60,7 +60,7 @@ public static class LocalizationService
 
     // Functions
     /// <summary>
-    /// Initializes the LocalizationHelper and loads the default language as the permanent fallback.
+    /// Initializes the LocalizationService and loads the default language as the permanent fallback.
     /// </summary>
     /// <param name="baseUri">The base URI where language resource files are located.</param>
     /// <exception cref="ArgumentException">Thrown when baseUri is null or empty.</exception>

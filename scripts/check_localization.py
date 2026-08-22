@@ -15,13 +15,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 SOURCE_PATH = Path("source")
-LANGUAGE_FILE = SOURCE_PATH / "DualSenseClient.GUI" / "Resources" / "Language" / "en.axaml"
+LANGUAGE_FILE = (
+    SOURCE_PATH / "DualSenseClient.GUI" / "Resources" / "Language" / "en.axaml"
+)
 IGNORE_FOLDERS = {"Resources", "obj", "bin"}
 
 DYNAMIC_RESOURCE_PATTERN = re.compile(r"\{DynamicResource\s+([^}]+)\}")
-LOCALIZATION_HELPER_PATTERN = re.compile(
-    r'LocalizationHelper\.GetText\(["\']([^"\']+)["\']\)'
-)
+GETTEXT_LITERAL_PATTERN = re.compile(r'\bGetText\(\s*["\']([^"\']+)["\']\s*\)')
+GETTEXT_INTERPOLATED_PATTERN = re.compile(r'\bGetText\(\s*\$\s*"([^"{]*)\{')
 KEY_PATTERN = re.compile(r'x:Key="([^"]+)"')
 # Skip keys that don't contain a dot - these are typically theme resources (brushes, colors, styles)
 # Localization keys always have a dot (e.g., "GameDetailsEditor.Background.Clear")
@@ -59,6 +60,7 @@ class ScanResults:
     hardcoded: list[tuple[str, str, str, int, str]] = field(
         default_factory=list
     )  # (file, property, text, line_number, line_content)
+    dynamic_prefixes: set[str] = field(default_factory=set)
 
     def merge(self, other: "ScanResults") -> None:
         for key, paths in other.found.items():
@@ -66,6 +68,7 @@ class ScanResults:
         for key, paths in other.missing.items():
             self.missing[key].extend(paths)
         self.hardcoded.extend(other.hardcoded)
+        self.dynamic_prefixes |= other.dynamic_prefixes
 
 
 def extract_keys_from_en_axaml(file_path: Path) -> set[str]:
@@ -136,10 +139,11 @@ def scan_hardcoded_text(file_path: Path) -> ScanResults:
         property_name = match.group(1)
         text_value = match.group(2).strip()
 
-        # Skip empty strings, bindings, markup extensions, single symbols, and single characters
+        # Skip empty strings, bindings, markup extensions, single symbols, booleans, and single characters
         if (
             not text_value
             or len(text_value) <= 1
+            or text_value.lower() in {"true", "false"}
             or SKIP_TEXT_PATTERN.match(text_value)
         ):
             continue
@@ -196,8 +200,8 @@ def scan_messagebox_service(file_path: Path) -> ScanResults:
         is_interpolated = match.group(2) == "$"
         message = match.group(3).strip() if match.group(3) else ""
 
-        # Skip if the text uses LocalizationHelper
-        if "LocalizationHelper" in match.group(0):
+        # Skip if the text is already localized via GetText
+        if "GetText(" in match.group(0):
             continue
 
         line_number = content[: match.start()].count("\n") + 1
@@ -246,10 +250,35 @@ def collect_source_files(
     return axaml_files, cs_files
 
 
+def scan_interpolated_keys(file_path: Path) -> ScanResults:
+    """Scan a C# file for dynamically built keys like GetText($"Prefix.{value}")."""
+    logger.debug("Checking %s for dynamic key prefixes...", file_path.name)
+    results = ScanResults()
+
+    try:
+        content = file_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        content = file_path.read_text(encoding="utf-8-sig")
+
+    for match in GETTEXT_INTERPOLATED_PATTERN.finditer(content):
+        results.dynamic_prefixes.add(match.group(1))
+
+    return results
+
+
+def is_covered_by_prefix(key: str, prefixes: set[str]) -> bool:
+    """Return True if the key may be produced by a dynamic GetText prefix."""
+    return any(key.startswith(prefix) for prefix in prefixes)
+
+
 def report(en_keys: set[str], results: ScanResults) -> bool:
     """Print the full report. Returns True if there are errors."""
     all_referenced = set(results.found) | set(results.missing)
-    unused_keys = en_keys - all_referenced
+    unused_keys = {
+        key
+        for key in en_keys - all_referenced
+        if not is_covered_by_prefix(key, results.dynamic_prefixes)
+    }
     div = "=" * 60
 
     print(f"\n{div}\nSUMMARY\n{div}")
@@ -258,6 +287,10 @@ def report(en_keys: set[str], results: ScanResults) -> bool:
     print(f"Keys found in en.axaml:              {len(results.found)}")
     print(f"Keys missing from en.axaml:          {len(results.missing)}")
     print(f"Hardcoded text detected:             {len(results.hardcoded)}")
+    if results.dynamic_prefixes:
+        print("Dynamic key prefixes:")
+        for prefix in sorted(results.dynamic_prefixes):
+            print(f"  {prefix}*")
     print(
         f"\n{div}\nUNUSED KEYS - defined in en.axaml but not referenced in code\n{div}"
     )
@@ -331,9 +364,13 @@ def main() -> None:
     for f in axaml_files:
         results.merge(scan_file(f, en_keys, DYNAMIC_RESOURCE_PATTERN))
 
-    logger.info("Scanning C# files for LocalizationHelper.GetText() usage...")
+    logger.info("Scanning C# files for GetText() usage...")
     for f in cs_files:
-        results.merge(scan_file(f, en_keys, LOCALIZATION_HELPER_PATTERN))
+        results.merge(scan_file(f, en_keys, GETTEXT_LITERAL_PATTERN))
+
+    logger.info("Scanning C# files for interpolated key prefixes...")
+    for f in cs_files:
+        results.merge(scan_interpolated_keys(f))
 
     logger.info("Checking AXAML files for hardcoded text...")
     for f in axaml_files:
