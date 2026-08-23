@@ -104,9 +104,6 @@ public partial class App : Application
             {
                 mainWindow.Opened += HideStartupWindow;
             }
-
-            // Tray icon (created for its side effects: icon, menu, and subscriptions).
-            _ = Services.GetRequiredService<TrayIconService>();
         }
 
         base.OnFrameworkInitializationCompleted();

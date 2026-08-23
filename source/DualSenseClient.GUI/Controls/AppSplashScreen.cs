@@ -69,11 +69,16 @@ internal class AppSplashScreen : IFAApplicationSplashScreen
         // Build the main shell content here rather than in the window's XAML, so the
         // window opens (and this splash screen appears) before that work runs. Queued
         // at background priority so splash progress updates render first, and awaited
-        // below so the content is complete before the splash transition fades it in.
-        DispatcherOperation shellPreload = Dispatcher.UIThread.InvokeAsync(() =>
+        // below so everything is complete before the splash transition fades it in.
+        DispatcherOperation uiPreload = Dispatcher.UIThread.InvokeAsync(() =>
         {
             MainWindow mainWindow = App.Services.GetRequiredService<MainWindow>();
             mainWindow.LoadMainContent();
+
+            // Tray icon (created for its side effects: icon, menu, and subscriptions).
+            // Resolved here instead of during app initialization so its setup cost also
+            // lands behind the splash screen; it needs the UI thread for its timer.
+            _ = App.Services.GetRequiredService<TrayIconService>();
         }, DispatcherPriority.Background);
 
         _splashScreen.UpdateStatusMessage(LocalizationService.GetText("SplashScreen.LoadingProfiles"));
@@ -117,6 +122,6 @@ internal class AppSplashScreen : IFAApplicationSplashScreen
         _splashScreen.UpdateStatusMessage(LocalizationService.GetText("SplashScreen.ScanningControllers"));
         await mainViewModel.InitializeScanningAsync(token);
 
-        await shellPreload;
+        await uiPreload;
     }
 }
