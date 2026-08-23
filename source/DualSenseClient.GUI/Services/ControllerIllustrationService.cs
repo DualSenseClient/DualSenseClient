@@ -12,7 +12,7 @@ namespace DualSenseClient.GUI.Services;
 
 /// <summary>
 /// Provides DualSense controller illustration skins embedded as Avalonia resources under
-/// <c>Assets/DualSense/Skins</c>. Skin names are the embedded file names (e.g. "Cosmic Red"),
+/// <c>Assets/Controllers/DualSense/Skins</c>. Skin names are the embedded file names (e.g. "Cosmic Red"),
 /// each mapping to a single <c>.png</c> controller illustration.
 /// </summary>
 /// <remarks>
@@ -22,7 +22,7 @@ namespace DualSenseClient.GUI.Services;
 /// </para>
 /// <para>
 /// Also provides the live-monitor assets: "no analog stick and triggers" base images under
-/// <c>Assets/DualSense/MonitorSkins</c> and overlay sprites under <c>Assets/DualSense/ThemeAssets</c>,
+/// <c>Assets/Controllers/DualSense/Base</c> and overlay sprites under <c>Assets/Controllers/DualSense/Buttons</c>,
 /// used by the reusable <see cref="DualSenseClient.GUI.Controls.DualSenseControllerView"/>.
 /// </para>
 /// </remarks>
@@ -46,33 +46,26 @@ public sealed class ControllerIllustrationService
     /// <summary>
     /// Embedded resource path prefix of the skin folder (avares URI form).
     /// </summary>
-    private static readonly string SkinsFolderUri = $"avares://{typeof(ControllerIllustrationService).Assembly.GetName().Name}/Assets/DualSense/Skins/";
+    private static readonly string SkinsFolderUri =
+        $"avares://{typeof(ControllerIllustrationService).Assembly.GetName().Name}/Assets/Controllers/DualSense/Skins/";
 
     /// <summary>
     /// Embedded resource path prefix of the monitor base folder (avares URI form).
     /// </summary>
-    private static readonly string MonitorSkinsFolderUri =
-        $"avares://{typeof(ControllerIllustrationService).Assembly.GetName().Name}/Assets/DualSense/MonitorSkins/";
+    private static readonly string BaseFolderUri =
+        $"avares://{typeof(ControllerIllustrationService).Assembly.GetName().Name}/Assets/Controllers/DualSense/Base/";
 
     /// <summary>
     /// Embedded resource path prefix of the overlay sprite folder (avares URI form).
     /// </summary>
-    private static readonly string ThemeAssetsFolderUri =
-        $"avares://{typeof(ControllerIllustrationService).Assembly.GetName().Name}/Assets/DualSense/ThemeAssets/";
+    private static readonly string ButtonsFolderUri =
+        $"avares://{typeof(ControllerIllustrationService).Assembly.GetName().Name}/Assets/Controllers/DualSense/Buttons/";
 
     /// <summary>
-    /// Skin name to monitor base file name mapping.
+    /// Gets the monitor base file name of a skin: the skin display name plus extension
+    /// (base images are named after their skin), falling back to the default skin when blank.
     /// </summary>
-    private static readonly IReadOnlyDictionary<string, string> MonitorBaseFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-    {
-        [DefaultSkin] = "DualSense_base_black.png",
-        ["Cosmic Red"] = "DualSense_base_red.png",
-        ["Galactic Purple"] = "DualSense_base_galactic_purple.png",
-        ["Nova Pink"] = "DualSense_base_nova_pink.png",
-        ["Starlight Blue"] = "DualSense_base_starlight_blue.png",
-        ["White"] = "DualSense_base.png",
-        [DevModeSkin] = "DualSense_DevMode_base.png"
-    };
+    private static string GetBaseFile(string? skin) => $"{(string.IsNullOrWhiteSpace(skin) ? DefaultSkin : skin)}.png";
 
     /// <summary>
     /// Loaded skin bitmaps, cached by skin name.
@@ -276,7 +269,7 @@ public sealed class ControllerIllustrationService
     /// <param name="skin">The skin name (e.g. "Midnight Black"), falling back to the default skin.</param>
     public Bitmap? GetMonitorBase(string skin)
     {
-        string file = MonitorBaseFiles.TryGetValue(skin ?? string.Empty, out string? named) ? named : MonitorBaseFiles[DefaultSkin];
+        string file = GetBaseFile(skin);
 
         if (_monitorBaseCache.TryGetValue(file, out Bitmap? cached))
         {
@@ -285,7 +278,7 @@ public sealed class ControllerIllustrationService
 
         try
         {
-            Uri uri = new Uri($"{MonitorSkinsFolderUri}{Uri.EscapeDataString(file)}");
+            Uri uri = new Uri($"{BaseFolderUri}{Uri.EscapeDataString(file)}");
             using Stream stream = AssetLoader.Open(uri);
             Bitmap bitmap = new Bitmap(stream);
             _monitorBaseCache[file] = bitmap;
@@ -294,7 +287,10 @@ public sealed class ControllerIllustrationService
         catch (Exception ex)
         {
             _log.Warning($"Could not load monitor base '{file}': {ex.Message}");
-            return null;
+
+            return string.Equals(file, GetBaseFile(DefaultSkin), StringComparison.OrdinalIgnoreCase)
+                ? null
+                : GetMonitorBase(DefaultSkin);
         }
     }
 
@@ -313,7 +309,7 @@ public sealed class ControllerIllustrationService
     /// <param name="playerLeds">Player LED mask: bit 0 = LED 1 (leftmost) through bit 4 = LED 5.</param>
     public Bitmap? GetMonitorBase(string? skin, byte red, byte green, byte blue, byte playerLeds)
     {
-        string file = MonitorBaseFiles.TryGetValue(skin ?? string.Empty, out string? named) ? named : MonitorBaseFiles[DefaultSkin];
+        string file = GetBaseFile(skin);
 
         var key = (file, red, green, blue, playerLeds);
         if (_monitorBaseTintCache.TryGetValue(key, out Bitmap? cached))
@@ -517,7 +513,7 @@ public sealed class ControllerIllustrationService
         {
             if (_lightbarMask is null)
             {
-                _lightbarMask = ExtractLightbarMask(GetMonitorBaseFromFile(MonitorBaseFiles[DefaultSkin])) ?? [];
+                _lightbarMask = ExtractLightbarMask(GetMonitorBaseFromFile(GetBaseFile(DefaultSkin))) ?? [];
                 _log.Debug($"Extracted lightbar mask with {_lightbarMask.Count} pixels");
             }
 
@@ -580,7 +576,7 @@ public sealed class ControllerIllustrationService
         {
             if (_micLedMask is null)
             {
-                _micLedMask = ExtractMicLedMask(GetMonitorBaseFromFile(MonitorBaseFiles[DefaultSkin])) ?? [];
+                _micLedMask = ExtractMicLedMask(GetMonitorBaseFromFile(GetBaseFile(DefaultSkin))) ?? [];
                 _log.Debug($"Extracted mic LED mask with {_micLedMask.Count} pixels");
             }
 
@@ -726,7 +722,7 @@ public sealed class ControllerIllustrationService
     {
         try
         {
-            Uri uri = new Uri($"{MonitorSkinsFolderUri}{Uri.EscapeDataString(file)}");
+            Uri uri = new Uri($"{BaseFolderUri}{Uri.EscapeDataString(file)}");
             using Stream stream = AssetLoader.Open(uri);
             return new Bitmap(stream);
         }
@@ -739,12 +735,12 @@ public sealed class ControllerIllustrationService
 
     /// <summary>
     /// Gets the overlay sprite bitmap for the given name and skin, or <c>null</c> when it
-    /// cannot be loaded. Dev Mode skins resolve the colored <c>DualSense_Dev_*</c> variants
-    /// and fall back to the standard sprite when no variant exists (e.g. the trigger and
-    /// stick sprites). Loaded bitmaps are cached by sprite key.
+    /// cannot be loaded. Dev Mode skins resolve the colored variant under <c>Buttons/Dev</c>
+    /// and fall back to the standard sprite under <c>Buttons/Base</c> when no variant exists
+    /// (e.g. the trigger and stick sprites). Loaded bitmaps are cached by sprite key.
     /// </summary>
     /// <param name="skin">The skin name (e.g. "Midnight Black").</param>
-    /// <param name="name">The sprite name without the <c>DualSense_</c> prefix (e.g. "Cross").</param>
+    /// <param name="name">The sprite file name without extension (e.g. "Cross").</param>
     public Bitmap? GetSprite(string skin, string name)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -760,10 +756,8 @@ public sealed class ControllerIllustrationService
             return cached;
         }
 
-        Bitmap? bitmap = dev
-            ? TryLoadSprite($"DualSense_Dev_{name}.png", logOnFailure: false)
-            : TryLoadSprite($"DualSense_{name}.png");
-        bitmap ??= dev ? TryLoadSprite($"DualSense_{name}.png") : null;
+        Bitmap? bitmap = dev ? TryLoadSprite("Dev", name, logOnFailure: false) : null;
+        bitmap ??= TryLoadSprite("Base", name);
 
         if (bitmap is not null)
         {
@@ -774,18 +768,19 @@ public sealed class ControllerIllustrationService
     }
 
     /// <summary>
-    /// Loads a sprite bitmap from the theme assets folder, or <c>null</c> on failure.
+    /// Loads a sprite bitmap from a subfolder of the buttons folder, or <c>null</c> on failure.
     /// </summary>
-    /// <param name="fileName">The asset file name without the folder prefix.</param>
+    /// <param name="folder">The sprite variant subfolder ("Base" or "Dev").</param>
+    /// <param name="name">The sprite file name without extension.</param>
     /// <param name="logOnFailure">
     /// Whether a failed load is logged as a warning. Pass <c>false</c> for the expected
     /// Dev Mode variant lookup, whose fallback attempt still logs when it also fails.
     /// </param>
-    private static Bitmap? TryLoadSprite(string fileName, bool logOnFailure = true)
+    private static Bitmap? TryLoadSprite(string folder, string name, bool logOnFailure = true)
     {
         try
         {
-            Uri uri = new Uri($"{ThemeAssetsFolderUri}{Uri.EscapeDataString(fileName)}");
+            Uri uri = new Uri($"{ButtonsFolderUri}{folder}/{Uri.EscapeDataString(name)}.png");
             using Stream stream = AssetLoader.Open(uri);
             return new Bitmap(stream);
         }
@@ -793,7 +788,7 @@ public sealed class ControllerIllustrationService
         {
             if (logOnFailure)
             {
-                _log.Warning($"Could not load overlay sprite '{fileName}': {ex.Message}");
+                _log.Warning($"Could not load overlay sprite '{folder}/{name}.png': {ex.Message}");
             }
 
             return null;

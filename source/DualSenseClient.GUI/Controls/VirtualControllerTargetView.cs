@@ -117,7 +117,7 @@ public sealed class VirtualControllerTargetView : Canvas
     /// </summary>
     public event EventHandler<string>? TargetClicked;
 
-    private const string AssetPrefix = "avares://DualSenseClient/Assets/VirtualControllers/";
+    private const string AssetPrefix = "avares://DualSenseClient/Assets/Controllers/";
 
     /// <summary>
     /// Loaded bitmaps, cached by asset URI.
@@ -135,76 +135,76 @@ public sealed class VirtualControllerTargetView : Canvas
             {
                 Width = 1095,
                 Height = 690,
-                BaseImage = "Xbox360/XB360_base_black.png",
+                BaseImage = "Xbox360/Base/Black.png",
                 BaseCenterX = 549,
                 BaseCenterY = 345,
                 BaseWidth = 1072,
                 BaseHeight = 664,
                 Decorations =
                 [
-                    new Decoration("Xbox360/XB360_LeftTrigger.png", 254, 64, 97, 102),
-                    new Decoration("Xbox360/XB360_RightTrigger.png", 864, 64, 95, 102),
-                    new Decoration("Xbox360/XB360_LeftStick.png", 218, 382, 148, 129),
-                    new Decoration("Xbox360/XB360_RightStick.png", 704, 545, 147, 124)
+                    new Decoration("Xbox360/Buttons/LeftTrigger.png", 254, 64, 97, 102),
+                    new Decoration("Xbox360/Buttons/RightTrigger.png", 864, 64, 95, 102),
+                    new Decoration("Xbox360/Buttons/LeftStick.png", 218, 382, 148, 129),
+                    new Decoration("Xbox360/Buttons/RightStick.png", 704, 545, 147, 124)
                 ],
                 Hotspots =
                 [
-                    new Hotspot("A", "Xbox360/XB360_A_Button.png", 873, 416, 89, 73),
-                    new Hotspot("B", "Xbox360/XB360_B_Button.png", 965, 341, 86, 80),
-                    new Hotspot("X", "Xbox360/XB360_X_Button.png", 791, 346, 88, 77),
-                    new Hotspot("Y", "Xbox360/XB360_Y_Button.png", 883, 272, 87, 81),
-                    new Hotspot("DPadUp", "Xbox360/XB360_D-PAD_Up.png", 386, 477, 76, 81),
-                    new Hotspot("DPadDown", "Xbox360/XB360_D-PAD_Down.png", 386, 552, 76, 80),
-                    new Hotspot("DPadLeft", "Xbox360/XB360_D-PAD_Left.png", 341, 515, 95, 76),
-                    new Hotspot("DPadRight", "Xbox360/XB360_D-PAD_Right.png", 431, 515, 95, 75),
-                    new Hotspot("Guide", "Xbox360/XB360_GuideButton.png", 550, 349, 119, 98),
-                    new Hotspot("Start", "Xbox360/XB360_StartButton.png", 668, 351, 63, 44),
-                    new Hotspot("Back", "Xbox360/XB360_BackButton.png", 431, 351, 62, 44),
-                    new Hotspot("LeftShoulder", "Xbox360/XB360_LeftBumper_Active.png", 217, 152, 214, 97),
-                    new Hotspot("RightShoulder", "Xbox360/XB360_RightBumper_Active.png", 893, 150, 195, 97),
-                    new Hotspot("LeftTrigger", "Xbox360/XB360_LeftTrigger_Active.png", 254, 64, 97, 102),
-                    new Hotspot("RightTrigger", "Xbox360/XB360_RightTrigger_Active.png", 864, 64, 95, 102),
-                    new Hotspot("LeftThumb", "Xbox360/XB360_LeftStick_Click.png", 224, 359, 164, 137),
-                    new Hotspot("RightThumb", "Xbox360/XB360_RightStick_Click.png", 703, 516, 162, 134)
+                    new Hotspot("A", "Xbox360/Buttons/A.png", 873, 416, 89, 73),
+                    new Hotspot("B", "Xbox360/Buttons/B.png", 965, 341, 86, 80),
+                    new Hotspot("X", "Xbox360/Buttons/X.png", 791, 346, 88, 77),
+                    new Hotspot("Y", "Xbox360/Buttons/Y.png", 883, 272, 87, 81),
+                    new Hotspot("DPadUp", "Xbox360/Buttons/DPad_Up.png", 386, 477, 76, 81),
+                    new Hotspot("DPadDown", "Xbox360/Buttons/DPad_Down.png", 386, 552, 76, 80),
+                    new Hotspot("DPadLeft", "Xbox360/Buttons/DPad_Left.png", 341, 515, 95, 76),
+                    new Hotspot("DPadRight", "Xbox360/Buttons/DPad_Right.png", 431, 515, 95, 75),
+                    new Hotspot("Guide", "Xbox360/Buttons/Guide.png", 550, 349, 119, 98),
+                    new Hotspot("Start", "Xbox360/Buttons/Start.png", 668, 351, 63, 44),
+                    new Hotspot("Back", "Xbox360/Buttons/Back.png", 431, 351, 62, 44),
+                    new Hotspot("LeftShoulder", "Xbox360/Buttons/LeftBumper_Active.png", 217, 152, 214, 97),
+                    new Hotspot("RightShoulder", "Xbox360/Buttons/RightBumper_Active.png", 893, 150, 195, 97),
+                    new Hotspot("LeftTrigger", "Xbox360/Buttons/LeftTrigger_Active.png", 254, 64, 97, 102),
+                    new Hotspot("RightTrigger", "Xbox360/Buttons/RightTrigger_Active.png", 864, 64, 95, 102),
+                    new Hotspot("LeftThumb", "Xbox360/Buttons/LeftStick_Click.png", 224, 359, 164, 137),
+                    new Hotspot("RightThumb", "Xbox360/Buttons/RightStick_Click.png", 703, 516, 162, 134)
                 ]
             },
             [VirtualControllerKind.DualShock4] = new Layout
             {
                 Width = 1150,
                 Height = 780,
-                BaseImage = "DualShock4/DS4_V2_base.png",
+                BaseImage = "DualShock4/Base/Black.png",
                 BaseCenterX = 575,
                 BaseCenterY = 311,
                 BaseWidth = 1091,
                 BaseHeight = 583,
                 Decorations =
                 [
-                    new Decoration("DualShock4/DS4_V2_L2.png", 252, 55, 123, 70),
-                    new Decoration("DualShock4/DS4_V2_R2.png", 898, 56, 123, 70),
-                    new Decoration("DualShock4/DS4_V2_LeftAnalogStick.png", 407, 464, 123, 109),
-                    new Decoration("DualShock4/DS4_V2_RightAnalogStick.png", 744, 464, 123, 109)
+                    new Decoration("DualShock4/Buttons/L2.png", 252, 55, 123, 70),
+                    new Decoration("DualShock4/Buttons/R2.png", 898, 56, 123, 70),
+                    new Decoration("DualShock4/Buttons/LeftStick.png", 407, 464, 123, 109),
+                    new Decoration("DualShock4/Buttons/RightStick.png", 744, 464, 123, 109)
                 ],
                 Hotspots =
                 [
                     // All four face buttons share one highlight glyph, placed on each position.
-                    new Hotspot("Cross", "DualShock4/DS4_Face_Button.png", 904, 385, 73, 67),
-                    new Hotspot("Circle", "DualShock4/DS4_Face_Button.png", 981, 317, 73, 67),
-                    new Hotspot("Square", "DualShock4/DS4_Face_Button.png", 826, 317, 73, 67),
-                    new Hotspot("Triangle", "DualShock4/DS4_Face_Button.png", 903, 249, 73, 67),
-                    new Hotspot("DPadUp", "DualShock4/DS4_D-PAD_Up.png", 247, 273, 66, 72),
-                    new Hotspot("DPadDown", "DualShock4/DS4_D-PAD_Down.png", 247, 363, 66, 77),
-                    new Hotspot("DPadLeft", "DualShock4/DS4_D-PAD_Left.png", 196, 318, 81, 63),
-                    new Hotspot("DPadRight", "DualShock4/DS4_D-PAD_Right.png", 297, 319, 81, 62),
-                    new Hotspot("PS", "DualShock4/DS4_Home_Button.png", 575, 429, 65, 45),
-                    new Hotspot("Options", "DualShock4/DS4_OptionsShare_Button.png", 791, 219, 39, 63),
-                    new Hotspot("Share", "DualShock4/DS4_OptionsShare_Button.png", 359, 219, 39, 63),
-                    new Hotspot("L1", "DualShock4/DS4_L1-Active.png", 249, 108, 148, 74),
-                    new Hotspot("R1", "DualShock4/DS4_R1-Active.png", 901, 108, 148, 73),
-                    new Hotspot("L2", "DualShock4/DS4_L2-Active.png", 252, 55, 134, 80),
-                    new Hotspot("R2", "DualShock4/DS4_R2-Active.png", 898, 56, 133, 79),
-                    new Hotspot("L3", "DualShock4/DS4_AnalogStick_Click.png", 406, 445, 145, 128),
-                    new Hotspot("R3", "DualShock4/DS4_AnalogStick_Click.png", 744, 445, 145, 128),
-                    new Hotspot("Touchpad", "DualShock4/DS4_Touchpad_Click.png", 575, 239, 359, 215)
+                    new Hotspot("Cross", "DualShock4/Buttons/Face.png", 904, 385, 73, 67),
+                    new Hotspot("Circle", "DualShock4/Buttons/Face.png", 981, 317, 73, 67),
+                    new Hotspot("Square", "DualShock4/Buttons/Face.png", 826, 317, 73, 67),
+                    new Hotspot("Triangle", "DualShock4/Buttons/Face.png", 903, 249, 73, 67),
+                    new Hotspot("DPadUp", "DualShock4/Buttons/DPad_Up.png", 247, 273, 66, 72),
+                    new Hotspot("DPadDown", "DualShock4/Buttons/DPad_Down.png", 247, 363, 66, 77),
+                    new Hotspot("DPadLeft", "DualShock4/Buttons/DPad_Left.png", 196, 318, 81, 63),
+                    new Hotspot("DPadRight", "DualShock4/Buttons/DPad_Right.png", 297, 319, 81, 62),
+                    new Hotspot("PS", "DualShock4/Buttons/PS.png", 575, 429, 65, 45),
+                    new Hotspot("Options", "DualShock4/Buttons/OptionsShare.png", 791, 219, 39, 63),
+                    new Hotspot("Share", "DualShock4/Buttons/OptionsShare.png", 359, 219, 39, 63),
+                    new Hotspot("L1", "DualShock4/Buttons/L1_Active.png", 249, 108, 148, 74),
+                    new Hotspot("R1", "DualShock4/Buttons/R1_Active.png", 901, 108, 148, 73),
+                    new Hotspot("L2", "DualShock4/Buttons/L2_Active.png", 252, 55, 134, 80),
+                    new Hotspot("R2", "DualShock4/Buttons/R2_Active.png", 898, 56, 133, 79),
+                    new Hotspot("L3", "DualShock4/Buttons/AnalogStick_Click.png", 406, 445, 145, 128),
+                    new Hotspot("R3", "DualShock4/Buttons/AnalogStick_Click.png", 744, 445, 145, 128),
+                    new Hotspot("Touchpad", "DualShock4/Buttons/Touchpad_Click.png", 575, 239, 359, 215)
                 ]
             }
         };

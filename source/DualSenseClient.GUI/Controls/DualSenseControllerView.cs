@@ -498,21 +498,21 @@ public sealed class DualSenseControllerView : Canvas
             [ButtonType.Circle] = new("Circle", 583.5, 18.8, 110, 105),
             [ButtonType.Square] = new("Square", 363.0, 22.9, 110, 99),
             [ButtonType.Triangle] = new("Triangle", 476.0, -71.3, 112, 105),
-            [ButtonType.DPadUp] = new("D-PAD_Up", -473.3, -37.6, 93, 108),
-            [ButtonType.DPadDown] = new("D-PAD_Down", -473.3, 80.7, 93, 104),
-            [ButtonType.DPadLeft] = new("D-PAD_Left", -545.9, 21.5, 114, 87),
-            [ButtonType.DPadRight] = new("D-PAD_Right", -400.7, 21.5, 114, 87),
-            [ButtonType.L1] = new("L1-Active", -471.9, -260.8, 221, 130),
-            [ButtonType.R1] = new("R1-Active", 471.9, -262.2, 221, 130),
-            [ButtonType.L2] = new("L2-Active", -462.6, -330.1, 200, 152),
-            [ButtonType.R2] = new("R2-Active", 464.0, -333.1, 202, 149),
+            [ButtonType.DPadUp] = new("DPad_Up", -473.3, -37.6, 93, 108),
+            [ButtonType.DPadDown] = new("DPad_Down", -473.3, 80.7, 93, 104),
+            [ButtonType.DPadLeft] = new("DPad_Left", -545.9, 21.5, 114, 87),
+            [ButtonType.DPadRight] = new("DPad_Right", -400.7, 21.5, 114, 87),
+            [ButtonType.L1] = new("L1_Active", -471.9, -260.8, 221, 130),
+            [ButtonType.R1] = new("R1_Active", 471.9, -262.2, 221, 130),
+            [ButtonType.L2] = new("L2_Active", -462.6, -330.1, 200, 152),
+            [ButtonType.R2] = new("R2_Active", 464.0, -333.1, 202, 149),
             [ButtonType.L3] = new("AnalogStick_Click", -238.0, 195.0, 196, 171),
             [ButtonType.R3] = new("AnalogStick_Click", 242.0, 195.0, 196, 171),
-            [ButtonType.Create] = new("Create_Button", -359.0, -121.0, 52, 71),
-            [ButtonType.Options] = new("Option_Button", 359.0, -121.0, 55, 74),
-            [ButtonType.PS] = new("Home_Button", 2.7, 166.7, 97, 54),
-            [ButtonType.Mute] = new("Mute_Button", 4.0, 225.9, 75, 16),
-            [ButtonType.TouchPad] = new("Touchpad-Click", 0, TouchpadCenterOffsetY, TouchSurfaceWidth, TouchSurfaceHeight)
+            [ButtonType.Create] = new("Create", -359.0, -121.0, 52, 71),
+            [ButtonType.Options] = new("Options", 359.0, -121.0, 55, 74),
+            [ButtonType.PS] = new("PS", 2.7, 166.7, 97, 54),
+            [ButtonType.Mute] = new("Mute", 4.0, 225.9, 75, 16),
+            [ButtonType.TouchPad] = new("Touchpad_Click", 0, TouchpadCenterOffsetY, TouchSurfaceWidth, TouchSurfaceHeight)
         };
 
     /// <summary>
@@ -587,37 +587,37 @@ public sealed class DualSenseControllerView : Canvas
         }
 
         AddSprite(skin, "L2", -462.6, -330.1, 200, 152, out _leftTrigger);
-        AddSprite(skin, "L2-Active", -462.6, -330.1, 200, 152, out _leftTriggerActive);
+        AddSprite(skin, "L2_Active", -462.6, -330.1, 200, 152, out _leftTriggerActive);
         AddSprite(skin, "R2", 464.0, -333.1, 202, 149, out _rightTrigger);
-        AddSprite(skin, "R2-Active", 464.0, -333.1, 202, 149, out _rightTriggerActive);
+        AddSprite(skin, "R2_Active", 464.0, -333.1, 202, 149, out _rightTriggerActive);
 
         (byte red, byte green, byte blue, byte leds) color = BaseState(state);
         _baseState = color;
         _baseImage = AddImage(_illustrations.GetMonitorBase(skin, color.red, color.green, color.blue, color.leds), 0, 0, BaseWidth, BaseHeight);
 
-        AddOverlay(skin, "L1-Active", -471.9, -260.8, 221, 130, s => s.L1);
-        AddOverlay(skin, "R1-Active", 471.9, -262.2, 221, 130, s => s.R1);
+        AddOverlay(skin, "L1_Active", -471.9, -260.8, 221, 130, s => s.L1);
+        AddOverlay(skin, "R1_Active", 471.9, -262.2, 221, 130, s => s.R1);
         AddOverlay(skin, "Triangle", 476.0, -71.3, 112, 105, s => s.Triangle);
         AddOverlay(skin, "Square", 363.0, 22.9, 110, 99, s => s.Square);
         AddOverlay(skin, "Cross", 470.6, 112.9, 112, 95, s => s.Cross);
         AddOverlay(skin, "Circle", 583.5, 18.8, 110, 105, s => s.Circle);
-        AddOverlay(skin, "D-PAD_Up", -473.3, -37.6, 93, 108, s => s.DPadUp);
-        AddOverlay(skin, "D-PAD_Down", -473.3, 80.7, 93, 104, s => s.DPadDown);
-        AddOverlay(skin, "D-PAD_Left", -545.9, 21.5, 114, 87, s => s.DPadLeft);
-        AddOverlay(skin, "D-PAD_Right", -400.7, 21.5, 114, 87, s => s.DPadRight);
-        AddOverlay(skin, "Home_Button", 2.7, 166.7, 97, 54, s => s.PS);
+        AddOverlay(skin, "DPad_Up", -473.3, -37.6, 93, 108, s => s.DPadUp);
+        AddOverlay(skin, "DPad_Down", -473.3, 80.7, 93, 104, s => s.DPadDown);
+        AddOverlay(skin, "DPad_Left", -545.9, 21.5, 114, 87, s => s.DPadLeft);
+        AddOverlay(skin, "DPad_Right", -400.7, 21.5, 114, 87, s => s.DPadRight);
+        AddOverlay(skin, "PS", 2.7, 166.7, 97, 54, s => s.PS);
         _micLed = AddImage(_illustrations.GetMicLedSprite(), CenteredX(MicLedCenterOffsetX, MicLedWidth, 0, _scale),
             CenteredY(MicLedCenterOffsetY, MicLedHeight, 0, _scale), MicLedWidth, MicLedHeight);
-        AddOverlay(skin, "Mute_Button", 4.0, 225.9, 75, 16, s => s.Mute);
-        AddOverlay(skin, "Option_Button", 359.0, -121.0, 55, 74, s => s.Options);
-        AddOverlay(skin, "Create_Button", -359.0, -121.0, 52, 71, s => s.Create);
+        AddOverlay(skin, "Mute", 4.0, 225.9, 75, 16, s => s.Mute);
+        AddOverlay(skin, "Options", 359.0, -121.0, 55, 74, s => s.Options);
+        AddOverlay(skin, "Create", -359.0, -121.0, 52, 71, s => s.Create);
         AddOverlay(skin, "AnalogStick_Click", -238.0, 195.0, 196, 171, s => s.L3);
         AddOverlay(skin, "AnalogStick_Click", 242.0, 195.0, 196, 171, s => s.R3);
 
-        AddSprite(skin, "LeftAnalogStick", -240.7, 227.2, 173, 147, out _leftStick);
-        AddSprite(skin, "RightAnalogStick", 242.0, 228.6, 175, 148, out _rightStick);
+        AddSprite(skin, "LeftStick", -240.7, 227.2, 173, 147, out _leftStick);
+        AddSprite(skin, "RightStick", 242.0, 228.6, 175, 148, out _rightStick);
 
-        AddOverlay(skin, "Touchpad-Click", 0, TouchpadCenterOffsetY, 617, 317, s => s.TouchPad);
+        AddOverlay(skin, "Touchpad_Click", 0, TouchpadCenterOffsetY, 617, 317, s => s.TouchPad);
         AddSprite(skin, "Touchpad_Touch", 0, 0, TouchDotSize, TouchDotSize, out _touch1);
         AddSprite(skin, "Touchpad_Touch", 0, 0, TouchDotSize, TouchDotSize, out _touch2);
         _touch1Label = CreateTagLabel();
