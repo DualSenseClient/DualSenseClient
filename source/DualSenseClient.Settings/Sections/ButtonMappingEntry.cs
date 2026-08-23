@@ -4,7 +4,7 @@ namespace DualSenseClient.Settings.Sections;
 
 /// <summary>
 /// A single button remapping rule: one or more physical DualSense buttons (a combo when
-/// more than one) mapped to a target on a virtual controller.
+/// more than one) mapped to one or more targets on a virtual controller.
 /// </summary>
 public class ButtonMappingEntry
 {
@@ -17,11 +17,12 @@ public class ButtonMappingEntry
     public List<string> Keys { get; set; } = [];
 
     /// <summary>
-    /// Target name in the mode's button set (for example "A", "LeftTrigger", "DPadUp"),
-    /// or "None" to disable the source buttons.
+    /// Target names in the mode's button set (for example "A", "LeftTrigger", "DPadUp").
+    /// Several targets are pressed together (for example "Y" and "B"); "None" disables the
+    /// source buttons.
     /// </summary>
-    [JsonPropertyName("target")]
-    public string Target { get; set; } = "None";
+    [JsonPropertyName("targets")]
+    public List<string> Targets { get; set; } = [];
 
     /// <summary>
     /// Output style for trigger targets that have both a click flag and an analog byte:

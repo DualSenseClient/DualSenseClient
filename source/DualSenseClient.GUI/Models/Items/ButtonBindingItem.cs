@@ -22,7 +22,7 @@ public sealed class ButtonBindingItem
     public string KeysDisplay { get; }
 
     /// <summary>
-    /// Human-readable target, e.g. "L4 (paddle)" or "None".
+    /// Human-readable targets, e.g. "L4 (paddle)", "Y + B" or "None".
     /// </summary>
     public string TargetDisplay { get; }
 
@@ -38,9 +38,12 @@ public sealed class ButtonBindingItem
     {
         Entry = entry;
         KeysDisplay = owner.DescribeKeys(entry.Keys);
-        TargetDisplay = entry.Target.Equals("None", StringComparison.OrdinalIgnoreCase)
+        string targets = string.Join(" + ", entry.Targets
+            .Where(target => !target.Equals("None", StringComparison.OrdinalIgnoreCase))
+            .Select(VirtualControllerPageViewModel.GetTargetDisplayName));
+        TargetDisplay = targets.Length == 0
             ? LocalizationService.GetText("VirtualControllerPage.Mapping.Target.None")
-            : entry.Target;
+            : targets;
         Details = string.Join(", ", new[]
         {
             string.Equals(entry.TargetOutput, "click", StringComparison.OrdinalIgnoreCase)

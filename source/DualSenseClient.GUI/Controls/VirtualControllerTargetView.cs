@@ -22,9 +22,9 @@ public enum VirtualControllerKind
 }
 
 /// <summary>
-/// Clickable illustration of a virtual controller (Xbox 360 or DualShock 4) used to pick a
-/// remapping target: clicking a button on the illustration selects that target, and the
-/// currently selected one is highlighted with its pressed-state overlay sprite.
+/// Clickable illustration of a virtual controller (Xbox 360 or DualShock 4) used to pick
+/// remapping targets: clicking a button toggles that target in the pending selection, and
+/// every selected one is highlighted with its pressed-state overlay sprite.
 /// </summary>
 public sealed class VirtualControllerTargetView : Canvas
 {
@@ -70,10 +70,10 @@ public sealed class VirtualControllerTargetView : Canvas
         AvaloniaProperty.Register<VirtualControllerTargetView, VirtualControllerKind>(nameof(Kind));
 
     /// <summary>
-    /// The raw target name currently picked on the illustration, or <c>null</c>.
+    /// The raw target names currently picked on the illustration, or <c>null</c>.
     /// </summary>
-    public static readonly StyledProperty<string?> SelectedTargetProperty =
-        AvaloniaProperty.Register<VirtualControllerTargetView, string?>(nameof(SelectedTarget));
+    public static readonly StyledProperty<IEnumerable<string>?> SelectedTargetsProperty =
+        AvaloniaProperty.Register<VirtualControllerTargetView, IEnumerable<string>?>(nameof(SelectedTargets));
 
     /// <summary>
     /// Whether clicking buttons on the illustration picks them.
@@ -93,10 +93,10 @@ public sealed class VirtualControllerTargetView : Canvas
         set => SetValue(KindProperty, value);
     }
 
-    public string? SelectedTarget
+    public IEnumerable<string>? SelectedTargets
     {
-        get => GetValue(SelectedTargetProperty);
-        set => SetValue(SelectedTargetProperty, value);
+        get => GetValue(SelectedTargetsProperty);
+        set => SetValue(SelectedTargetsProperty, value);
     }
 
     public bool IsSelectionEnabled
@@ -212,7 +212,7 @@ public sealed class VirtualControllerTargetView : Canvas
     static VirtualControllerTargetView()
     {
         KindProperty.Changed.AddClassHandler<VirtualControllerTargetView>((view, _) => view.Rebuild());
-        SelectedTargetProperty.Changed.AddClassHandler<VirtualControllerTargetView>((view, _) => view.UpdateSelectionMarker());
+        SelectedTargetsProperty.Changed.AddClassHandler<VirtualControllerTargetView>((view, _) => view.UpdateSelectionMarker());
         ScaleProperty.Changed.AddClassHandler<VirtualControllerTargetView>((view, _) => view.Rebuild());
     }
 
@@ -279,7 +279,7 @@ public sealed class VirtualControllerTargetView : Canvas
     }
 
     /// <summary>
-    /// Adds the selected target's pressed overlay sprite, if any.
+    /// Adds the selected targets' pressed overlay sprites, if any.
     /// </summary>
     private void UpdateSelectionMarker()
     {
@@ -292,8 +292,8 @@ public sealed class VirtualControllerTargetView : Canvas
             }
         }
 
-        string? selected = SelectedTarget;
-        if (string.IsNullOrEmpty(selected))
+        HashSet<string>? selected = SelectedTargets is not null ? [.. SelectedTargets] : null;
+        if (selected is null || selected.Count == 0)
         {
             return;
         }
@@ -301,7 +301,7 @@ public sealed class VirtualControllerTargetView : Canvas
         Layout layout = Layouts[Kind];
         foreach (Hotspot hotspot in layout.Hotspots)
         {
-            if (hotspot.Target != selected || hotspot.Overlay is null)
+            if (hotspot.Overlay is null || !selected.Contains(hotspot.Target))
             {
                 continue;
             }

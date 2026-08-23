@@ -144,20 +144,31 @@
                         <StackPanel Spacing="8"
                                     IsVisible="{Binding IsTargetPickerVisible}">
                             <controls:VirtualControllerTargetView Kind="{Binding TargetViewKind}"
-                                                                  SelectedTarget="{Binding SelectedTargetName}"
+                                                                  SelectedTargets="{Binding SelectedTargetNames}"
                                                                   IsSelectionEnabled="True"
                                                                   TargetClicked="TargetView_OnTargetClicked"
                                                                   HorizontalAlignment="Center" />
                             <ToggleButton Content="{DynamicResource VirtualControllerPage.Mapping.Target.None}"
                                           IsChecked="{Binding IsNoneTargetSelected}"
-                                          Command="{Binding SelectNoneCommand}"
                                           HorizontalAlignment="Center" />
                         </StackPanel>
-                        <ComboBox IsVisible="{Binding IsTargetComboVisible}"
-                                  ItemsSource="{Binding TargetOptions}"
-                                  SelectedIndex="{Binding TargetIndex}"
-                                  IsEnabled="{Binding HasSelection}"
-                                  HorizontalAlignment="Stretch" />
+                        <!-- Toggle chips (DualSense mode, which has no target illustration) -->
+                        <ItemsControl IsVisible="{Binding IsTargetComboVisible}"
+                                      ItemsSource="{Binding TargetOptions}"
+                                      IsEnabled="{Binding HasSelection}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="items:TargetOptionItem">
+                                    <ToggleButton Content="{Binding Display}"
+                                                  IsChecked="{Binding IsSelected}"
+                                                  Margin="0,0,6,6" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                         <StackPanel Orientation="Horizontal"
                                     Spacing="8"
                                     IsVisible="{Binding IsTriggerOutputVisible}">

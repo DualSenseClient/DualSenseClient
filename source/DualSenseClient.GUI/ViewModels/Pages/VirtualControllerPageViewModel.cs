@@ -548,42 +548,84 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     public bool IsMappingEditorVisible => EmulationModeIndex != (int)EmulationMode.Off && CanChangeEmulation;
 
     /// <summary>
-    /// Display strings of the assignable targets for the current emulation mode
-    /// (including the trailing "None" entry).
+    /// The assignable targets for the current emulation mode (including the trailing
+    /// "None" entry); each row tracks its own checked state.
     /// </summary>
-    public ObservableCollection<string> TargetOptions { get; } = [];
+    public ObservableCollection<TargetOptionItem> TargetOptions { get; } = [];
 
     /// <summary>
-    /// Backing field for <see cref="TargetIndex"/>.
-    /// </summary>
-    private int _targetIndex;
-
-    /// <summary>
-    /// Raw name of the single selected button's effective solo target (custom or default),
+    /// Raw names of the single selected button's effective solo targets (custom or default),
     /// or <c>null</c> when nothing/no default applies. Used to detect no-op assignments.
     /// </summary>
-    private string? _effectiveSoloTarget;
+    private IReadOnlyList<string>? _effectiveSoloTargets;
 
     /// <summary>
-    /// The selected entry in <see cref="TargetOptions"/>.
+    /// The raw names currently picked as assignment targets.
     /// </summary>
-    public int TargetIndex
-    {
-        get => _targetIndex;
-        set
-        {
-            if (value < -1 || value >= TargetOptions.Count)
-            {
-                return;
-            }
+    public IReadOnlyList<string> SelectedTargetNames
+        => [.. TargetOptions.Where(option => option.IsSelected).Select(option => option.Raw)];
 
-            _targetIndex = value;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(IsTriggerOutputVisible));
-            OnPropertyChanged(nameof(CanAssignMapping));
-            OnPropertyChanged(nameof(SelectedTargetName));
-            OnPropertyChanged(nameof(IsNoneTargetSelected));
+    /// <summary>
+    /// Selects or deselects a target by raw name.
+    /// </summary>
+    public void SetTargetSelected(string raw, bool selected)
+    {
+        TargetOptionItem? option = FindTargetOption(raw);
+        if (option is not null)
+        {
+            // The setter notifies back through OnTargetChanged, which enforces exclusivity.
+            option.IsSelected = selected;
         }
+    }
+
+    /// <summary>
+    /// Toggles a raw target name in the pending selection. Called from the page code-behind
+    /// when the user clicks a button on the target illustration.
+    /// </summary>
+    public void ToggleTarget(string raw)
+        => SetTargetSelected(raw, FindTargetOption(raw)?.IsSelected != true);
+
+    /// <summary>
+    /// Finds a pending-selection row by raw name, or <c>null</c>.
+    /// </summary>
+    private TargetOptionItem? FindTargetOption(string raw)
+        => TargetOptions.FirstOrDefault(option => option.Raw.Equals(raw, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Enforces the "None" exclusivity rule after a pick changed: "None" cannot be combined
+    /// with any other target, then refreshes everything derived from the picks.
+    /// </summary>
+    private void OnTargetChanged(TargetOptionItem option, bool selected)
+    {
+        if (selected && !option.Raw.Equals("None", StringComparison.OrdinalIgnoreCase))
+        {
+            TargetOptionItem? none = FindTargetOption("None");
+            if (none is { IsSelected: true })
+            {
+                none.IsSelected = false;
+            }
+        }
+        else if (selected)
+        {
+            foreach (TargetOptionItem other in TargetOptions.Where(candidate =>
+                         candidate.IsSelected && !candidate.Raw.Equals("None", StringComparison.OrdinalIgnoreCase)))
+            {
+                other.IsSelected = false;
+            }
+        }
+
+        NotifyTargetSelectionChanged();
+    }
+
+    /// <summary>
+    /// Notifies every consumer of the pending target picks.
+    /// </summary>
+    private void NotifyTargetSelectionChanged()
+    {
+        OnPropertyChanged(nameof(SelectedTargetNames));
+        OnPropertyChanged(nameof(IsNoneTargetSelected));
+        OnPropertyChanged(nameof(IsTriggerOutputVisible));
+        OnPropertyChanged(nameof(CanAssignMapping));
     }
 
     /// <summary>
@@ -618,41 +660,14 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// The raw target name picked on the illustration, or <c>null</c> when nothing is
-    /// chosen. Setting it selects the matching entry in <see cref="TargetOptions"/>; setting
-    /// the already-selected name clears the choice, so clicking the same button on the
-    /// illustration toggles the selection off.
+    /// Whether "None" is currently among the picked targets. Setting it picks or unpicks
+    /// "None"; picking it clears any other picks and vice versa.
     /// </summary>
-    public string? SelectedTargetName
+    public bool IsNoneTargetSelected
     {
-        get => TryGetRawTarget(out string raw) ? raw : null;
-        set
-        {
-            if (value is null)
-            {
-                return;
-            }
-
-            int index = IndexOfRawTarget(value);
-            if (index < 0)
-            {
-                return;
-            }
-
-            TargetIndex = TryGetRawTarget(out string current) && current == value ? -1 : index;
-        }
+        get => FindTargetOption("None")?.IsSelected == true;
+        set => SetTargetSelected("None", value);
     }
-
-    /// <summary>
-    /// Whether "None" is currently the chosen target.
-    /// </summary>
-    public bool IsNoneTargetSelected => SelectedTargetName == "None";
-
-    /// <summary>
-    /// Selects "None" as the remapping target, disabling the pending source selection.
-    /// </summary>
-    [RelayCommand]
-    private void SelectNone() => SelectedTargetName = "None";
 
     /// <summary>
     /// Output style options for trigger targets that have both a click flag and an
@@ -689,13 +704,18 @@ public partial class VirtualControllerPageViewModel : ObservableObject
 
     /// <summary>
     /// Whether the trigger output style choice applies to the current selection: it needs
-    /// a trigger target on a device whose triggers have both a flag and an analog byte
-    /// (DualShock 4 and DualSense; Xbox 360 triggers are byte-only).
+    /// exactly one picked target that is a trigger on a device whose triggers have both a
+    /// flag and an analog byte (DualShock 4 and DualSense; Xbox 360 triggers are byte-only).
     /// </summary>
     public bool IsTriggerOutputVisible
-        => EmulationModeIndex is (int)EmulationMode.DualShock4 or (int)EmulationMode.DualSense
-           && TryGetRawTarget(out string raw)
-           && raw is "L2" or "R2";
+    {
+        get
+        {
+            IReadOnlyList<string> picks = SelectedTargetNames;
+            return EmulationModeIndex is (int)EmulationMode.DualShock4 or (int)EmulationMode.DualSense
+                   && picks.Count == 1 && picks[0] is "L2" or "R2";
+        }
+    }
 
     /// <summary>
     /// Backing field for <see cref="SuppressSolos"/>.
@@ -770,7 +790,8 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     [RelayCommand]
     private void AssignMapping()
     {
-        if (!HasDevice || !TryGetRawTarget(out string target))
+        IReadOnlyList<string> targets = SelectedTargetNames;
+        if (!HasDevice || targets.Count == 0)
         {
             return;
         }
@@ -781,13 +802,13 @@ public partial class VirtualControllerPageViewModel : ObservableObject
         list.Add(new ButtonMappingEntry
         {
             Keys = _selectedButtons.Select(button => button.ToString()).ToList(),
-            Target = target,
+            Targets = [.. targets],
             TargetOutput = IsTriggerOutputVisible && TriggerOutputIndex == 1 ? "click" : null,
             SuppressSolos = SuppressSolos
         });
         SetEntries(settings, list);
 
-        _log.Info($"Assigned {_selectedButtons.Count} button(s) to '{target}' for {CurrentMac}");
+        _log.Info($"Assigned {_selectedButtons.Count} button(s) to '{string.Join("+", targets)}' for {CurrentMac}");
         SaveAndApply(settings);
         RefreshBindings();
     }
@@ -880,18 +901,7 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Resolves the raw target name behind the current dropdown selection, treating the
-    /// trailing "None" entry specially.
-    /// </summary>
-    private bool TryGetRawTarget(out string raw)
-    {
-        raw = string.Empty;
-        return TargetIndex >= 0 && TargetIndex < TargetOptions.Count
-                                && CurrentTargets()[TargetIndex] is string name && (raw = name) != string.Empty;
-    }
-
-    /// <summary>
-    /// The raw target names aligned with <see cref="TargetOptions"/> for the current mode.
+    /// The raw target names offered for the current emulation mode.
     /// In DualSense mode the Edge-only targets (function keys and paddles) are offered only
     /// when the virtual device presents a DualSense Edge.
     /// </summary>
@@ -916,21 +926,16 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     private void RefreshMappingTargets()
     {
         TargetOptions.Clear();
-        foreach ((_, string display) in CurrentTargets().Select(raw => (raw, GetTargetDisplayName(raw))))
+        foreach (string raw in CurrentTargets())
         {
-            TargetOptions.Add(display);
+            TargetOptions.Add(new TargetOptionItem(raw, GetTargetDisplayName(raw), OnTargetChanged));
         }
 
-        _targetIndex = -1;
-        _effectiveSoloTarget = null;
+        _effectiveSoloTargets = null;
         _triggerOutputIndex = 0;
         OnPropertyChanged(nameof(TargetOptions));
-        OnPropertyChanged(nameof(TargetIndex));
         OnPropertyChanged(nameof(TriggerOutputIndex));
-        OnPropertyChanged(nameof(IsTriggerOutputVisible));
-        OnPropertyChanged(nameof(SelectedTargetName));
-        OnPropertyChanged(nameof(IsNoneTargetSelected));
-        OnPropertyChanged(nameof(CanAssignMapping));
+        NotifyTargetSelectionChanged();
     }
 
     /// <summary>
@@ -969,21 +974,17 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Preselects the target dropdown with the selected button's effective solo mapping:
-    /// its custom binding when one exists, otherwise its built-in default. Combos start
-    /// with an empty target because defaults are defined per single button only.
+    /// Preselects the target picks with the selected button's effective solo mapping: its
+    /// custom binding when one exists, otherwise its built-in default. Combos start with
+    /// no picks because defaults are defined per single button only.
     /// </summary>
     private void UpdateTargetFromEffectiveSolo()
     {
         if (_selectedButtons.Count != 1 || !HasDevice)
         {
-            _effectiveSoloTarget = null;
-            _targetIndex = -1;
-            OnPropertyChanged(nameof(TargetIndex));
-            OnPropertyChanged(nameof(IsTriggerOutputVisible));
-            OnPropertyChanged(nameof(CanAssignMapping));
-            OnPropertyChanged(nameof(SelectedTargetName));
-            OnPropertyChanged(nameof(IsNoneTargetSelected));
+            _effectiveSoloTargets = null;
+            ClearTargetPicks();
+            NotifyTargetSelectionChanged();
             return;
         }
 
@@ -996,29 +997,49 @@ public partial class VirtualControllerPageViewModel : ObservableObject
             _ => null
         };
 
-        _effectiveSoloTarget = effective is { } target ? DescribeResolvedTarget(target) : null;
-        _targetIndex = _effectiveSoloTarget is null ? -1 : IndexOfRawTarget(_effectiveSoloTarget);
-        OnPropertyChanged(nameof(TargetIndex));
-        OnPropertyChanged(nameof(IsTriggerOutputVisible));
-        OnPropertyChanged(nameof(CanAssignMapping));
+        _effectiveSoloTargets = effective is { } target ? DescribeResolvedTargets(target) : null;
+        ApplyTargetPicks(_effectiveSoloTargets ?? []);
+        NotifyTargetSelectionChanged();
     }
 
     /// <summary>
-    /// Whether Assign may commit the pending selection: a target must be chosen, and a
-    /// single-button selection whose chosen target equals its current effective mapping
-    /// (custom or default) is already in place and needs no entry.
+    /// Unpicks every pending target.
+    /// </summary>
+    private void ClearTargetPicks()
+    {
+        foreach (TargetOptionItem option in TargetOptions.Where(option => option.IsSelected))
+        {
+            option.IsSelected = false;
+        }
+    }
+
+    /// <summary>
+    /// Sets the pending picks to exactly the given raw target names.
+    /// </summary>
+    private void ApplyTargetPicks(IReadOnlyList<string> raws)
+    {
+        foreach (TargetOptionItem option in TargetOptions)
+        {
+            option.IsSelected = raws.Contains(option.Raw);
+        }
+    }
+
+    /// <summary>
+    /// Whether Assign may commit the pending selection: at least one target must be
+    /// picked, and a single-button selection whose picks equal its current effective
+    /// mapping (custom or default) is already in place and needs no entry.
     /// </summary>
     public bool CanAssignMapping
     {
         get
         {
-            if (_selectedButtons.Count == 0 || _targetIndex < 0 || _targetIndex >= TargetOptions.Count)
+            IReadOnlyList<string> picks = SelectedTargetNames;
+            if (_selectedButtons.Count == 0 || picks.Count == 0)
             {
                 return false;
             }
 
-            if (_selectedButtons.Count == 1 && _effectiveSoloTarget is not null
-                                            && IndexOfRawTarget(_effectiveSoloTarget) == _targetIndex)
+            if (_selectedButtons.Count == 1 && _effectiveSoloTargets is not null && SameNames(picks, _effectiveSoloTargets))
             {
                 return false;
             }
@@ -1028,63 +1049,70 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Converts a resolved target back into its raw settings name so it can be matched
-    /// against the mode's target list.
+    /// Decomposes a resolved target into its raw settings names so it can be matched
+    /// against the mode's target list; multi-flag targets yield one name per flag.
     /// </summary>
-    private string? DescribeResolvedTarget(ResolvedMappingTarget target)
+    private IReadOnlyList<string> DescribeResolvedTargets(ResolvedMappingTarget target)
     {
         if (target.IsNone)
         {
-            return "None";
+            return ["None"];
         }
 
-        if (target.Trigger == MappableTriggerSide.Left)
+        List<string> names = [];
+        switch (target.Trigger)
         {
-            return EmulationModeIndex == (int)EmulationMode.Xbox360 ? "LeftTrigger" : "L2";
+            case MappableTriggerSide.Left:
+                names.Add(EmulationModeIndex == (int)EmulationMode.Xbox360 ? "LeftTrigger" : "L2");
+                break;
+            case MappableTriggerSide.Right:
+                names.Add(EmulationModeIndex == (int)EmulationMode.Xbox360 ? "RightTrigger" : "R2");
+                break;
         }
 
-        if (target.Trigger == MappableTriggerSide.Right)
+        if (target.DPad.HasFlag(VirtualDPad.Up))
         {
-            return EmulationModeIndex == (int)EmulationMode.Xbox360 ? "RightTrigger" : "R2";
+            names.Add("DPadUp");
         }
 
-        if (target.DPad != VirtualDPad.None)
+        if (target.DPad.HasFlag(VirtualDPad.Down))
         {
-            return target.DPad switch
-            {
-                VirtualDPad.Up => "DPadUp",
-                VirtualDPad.Down => "DPadDown",
-                VirtualDPad.Left => "DPadLeft",
-                VirtualDPad.Right => "DPadRight",
-                _ => null
-            };
+            names.Add("DPadDown");
         }
 
-        return EmulationModeIndex switch
+        if (target.DPad.HasFlag(VirtualDPad.Left))
         {
-            (int)EmulationMode.Xbox360 => Enum.GetName(typeof(Xbox360Buttons), (Xbox360Buttons)(uint)target.ButtonFlags),
-            (int)EmulationMode.DualShock4 => Enum.GetName(typeof(DualShock4Buttons), (DualShock4Buttons)(ushort)target.ButtonFlags),
-            (int)EmulationMode.DualSense => Enum.GetName(typeof(DualSenseButtons), (DualSenseButtons)(uint)target.ButtonFlags),
-            _ => null
-        };
+            names.Add("DPadLeft");
+        }
+
+        if (target.DPad.HasFlag(VirtualDPad.Right))
+        {
+            names.Add("DPadRight");
+        }
+
+        names.AddRange(EmulationModeIndex switch
+        {
+            (int)EmulationMode.Xbox360 => DecomposeFlags<Xbox360Buttons>(target.ButtonFlags),
+            (int)EmulationMode.DualShock4 => DecomposeFlags<DualShock4Buttons>(target.ButtonFlags),
+            (int)EmulationMode.DualSense => DecomposeFlags<DualSenseButtons>(target.ButtonFlags),
+            _ => []
+        });
+        return names;
     }
 
     /// <summary>
-    /// Finds a raw name's index in the current mode's target list, or -1.
+    /// Splits device button flag bits into their individual member names.
     /// </summary>
-    private int IndexOfRawTarget(string raw)
-    {
-        IReadOnlyList<string> targets = CurrentTargets();
-        for (int i = 0; i < targets.Count; i++)
-        {
-            if (targets[i] == raw)
-            {
-                return i;
-            }
-        }
+    private static IEnumerable<string> DecomposeFlags<TEnum>(ulong flags) where TEnum : struct, Enum
+        => Enum.GetValues<TEnum>()
+            .Where(value => Convert.ToUInt64(value) != 0 && (flags & Convert.ToUInt64(value)) == Convert.ToUInt64(value))
+            .Select(value => value.ToString());
 
-        return -1;
-    }
+    /// <summary>
+    /// Whether two raw-name lists pick exactly the same targets, ignoring order and case.
+    /// </summary>
+    private static bool SameNames(IEnumerable<string> first, IEnumerable<string> second)
+        => new HashSet<string>(first, StringComparer.OrdinalIgnoreCase).SetEquals(second);
 
     /// <summary>
     /// Display label of a physical source button.
@@ -1108,7 +1136,7 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// <summary>
     /// Display label of a raw target name.
     /// </summary>
-    private static string GetTargetDisplayName(string raw) => raw switch
+    internal static string GetTargetDisplayName(string raw) => raw switch
     {
         "LeftShoulder" => "LB",
         "RightShoulder" => "RB",

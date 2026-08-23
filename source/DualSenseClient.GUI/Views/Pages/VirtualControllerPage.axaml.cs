@@ -43,10 +43,10 @@ public partial class VirtualControllerPage : UserControl
     }
 
     /// <summary>
-    /// Selects the clicked target button on the virtual controller illustration.
+    /// Toggles the clicked target button in the pending target selection.
     /// </summary>
     private void TargetView_OnTargetClicked(object? sender, string e)
     {
-        _viewModel.SelectedTargetName = e;
+        _viewModel.ToggleTarget(e);
     }
 }

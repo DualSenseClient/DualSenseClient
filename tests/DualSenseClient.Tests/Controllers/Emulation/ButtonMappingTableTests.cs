@@ -18,7 +18,15 @@ public sealed class ButtonMappingTableTests
     private static ButtonMappingEntry Entry(string target, params string[] keys) => new ButtonMappingEntry
     {
         Keys = [.. keys],
-        Target = target,
+        Targets = [target],
+        TargetOutput = null,
+        SuppressSolos = true
+    };
+
+    private static ButtonMappingEntry Entry(string[] targets, params string[] keys) => new ButtonMappingEntry
+    {
+        Keys = [.. keys],
+        Targets = [.. targets],
         TargetOutput = null,
         SuppressSolos = true
     };
@@ -168,6 +176,67 @@ public sealed class ButtonMappingTableTests
         Assert.That(partialSolo.RightTrigger, Is.EqualTo(30));
     }
 
+    // ── Multi-target outputs ────────────────────────────────────
+
+    [Test]
+    public void Xbox360_Solo_CanPressTwoTargetsTogether()
+    {
+        ButtonMappingTable table = VirtualInputMapper.Xbox360Table([Entry(["Y", "B"], "TouchPad")]);
+        MappedInputResult result = table.Evaluate(State(byte9: 0x02)); // Touchpad clicked
+        Assert.That((Xbox360Buttons)(uint)result.Buttons, Is.EqualTo(Xbox360Buttons.Y | Xbox360Buttons.B));
+    }
+
+    [Test]
+    public void Xbox360_Combo_CanPressTwoTargetsTogether()
+    {
+        List<ButtonMappingEntry> entries =
+        [
+            Entry(["Guide", "Y"], "Create", "Options") // Create+Options -> Guide+Y
+        ];
+        ButtonMappingTable table = VirtualInputMapper.Xbox360Table(entries);
+
+        MappedInputResult both = table.Evaluate(State(byte8: 0x10 | 0x20));
+        Assert.That((Xbox360Buttons)(uint)both.Buttons, Is.EqualTo(Xbox360Buttons.Guide | Xbox360Buttons.Y));
+
+        MappedInputResult soloCreate = table.Evaluate(State(byte8: 0x10));
+        Assert.That((Xbox360Buttons)(uint)soloCreate.Buttons, Is.EqualTo(Xbox360Buttons.Back));
+    }
+
+    [Test]
+    public void Resolve_MultiTargetNames_AreCaseInsensitiveAndTolerateWhitespace()
+    {
+        ButtonMappingTable table = VirtualInputMapper.Xbox360Table([Entry([" y ", "B"], "TouchPad")]);
+        MappedInputResult result = table.Evaluate(State(byte9: 0x02));
+        Assert.That((Xbox360Buttons)(uint)result.Buttons, Is.EqualTo(Xbox360Buttons.Y | Xbox360Buttons.B));
+    }
+
+    [Test]
+    public void Resolve_MixedTriggerAndButtonTargets_MergesContributions()
+    {
+        ButtonMappingTable table = VirtualInputMapper.Xbox360Table([Entry(["A", "LeftTrigger"], "Cross")]);
+        MappedInputResult result = table.Evaluate(State(byte7: 0x08 | 0x20)); // Cross pressed
+        Assert.That((Xbox360Buttons)(uint)result.Buttons & Xbox360Buttons.A, Is.EqualTo(Xbox360Buttons.A));
+        Assert.That(result.LeftTrigger, Is.EqualTo(255));
+    }
+
+    [Test]
+    public void Resolve_ConflictingTriggerSides_IgnoreTheEntry()
+    {
+        ButtonMappingTable table = VirtualInputMapper.Xbox360Table([Entry(["LeftTrigger", "RightTrigger"], "Cross")]);
+        MappedInputResult result = table.Evaluate(State(byte7: 0x08 | 0x20)); // Cross keeps its default
+        Assert.That((Xbox360Buttons)(uint)result.Buttons, Is.EqualTo(Xbox360Buttons.A));
+        Assert.That(result.LeftTrigger, Is.EqualTo(0));
+        Assert.That(result.RightTrigger, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void Resolve_OneUnknownTargetAmongSeveral_IgnoresTheWholeEntry()
+    {
+        ButtonMappingTable table = VirtualInputMapper.Xbox360Table([Entry(["Y", "Bogus"], "Circle")]);
+        MappedInputResult result = table.Evaluate(State(byte7: 0x08 | 0x40)); // Circle pressed
+        Assert.That((Xbox360Buttons)(uint)result.Buttons, Is.EqualTo(Xbox360Buttons.B));
+    }
+
     // ── Parsing robustness ──────────────────────────────────────
 
     [Test]
@@ -178,12 +247,12 @@ public sealed class ButtonMappingTableTests
             new ButtonMappingEntry
             {
                 Keys = ["NotAButton"],
-                Target = "A"
+                Targets = ["A"]
             },
             new ButtonMappingEntry
             {
                 Keys = ["Cross"],
-                Target = "AlsoNotATarget"
+                Targets = ["AlsoNotATarget"]
             },
             Entry("Y", "Circle")
         ];

@@ -137,26 +137,8 @@ public sealed class ButtonMappingTable
                 continue;
             }
 
-            string targetName = entry.Target?.Trim() ?? string.Empty;
-            ResolvedMappingTarget target;
-            if (targetName.Equals("None", StringComparison.OrdinalIgnoreCase))
+            if (!TryResolveTargets(entry, parseTarget, logWarning, out ResolvedMappingTarget target))
             {
-                target = ResolvedMappingTarget.None;
-            }
-            else if (parseTarget(targetName) is { } parsed)
-            {
-                target = parsed;
-                if (IsClickOutput(entry.TargetOutput))
-                {
-                    target = target with
-                    {
-                        Output = MappingTriggerOutput.ClickOnly
-                    };
-                }
-            }
-            else
-            {
-                logWarning?.Invoke($"Unknown target '{entry.Target}' in a button mapping; ignoring the entry");
                 continue;
             }
 
@@ -181,6 +163,71 @@ public sealed class ButtonMappingTable
 
         return new ButtonMappingTable(solos, combos);
     }
+
+    /// <summary>
+    /// Resolves an entry's target list into one merged target: every name is parsed and
+    /// its contributions OR-combined, so several virtual keys are pressed together.
+    /// "None" contributes nothing, and combining left- and right-trigger targets is
+    /// rejected. Unknown names skip the whole entry.
+    /// </summary>
+    private static bool TryResolveTargets(
+        ButtonMappingEntry entry,
+        TryParseTarget parseTarget,
+        Action<string>? logWarning,
+        out ResolvedMappingTarget target)
+    {
+        target = ResolvedMappingTarget.None;
+        bool hasTrigger = false;
+        foreach (string? raw in entry.Targets ?? [])
+        {
+            string name = raw?.Trim() ?? string.Empty;
+            if (name.Length == 0 || name.Equals("None", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (parseTarget(name) is not { } parsed)
+            {
+                logWarning?.Invoke($"Unknown target '{raw}' in a button mapping; ignoring the entry");
+                return false;
+            }
+
+            if (parsed.Trigger != MappableTriggerSide.None)
+            {
+                if (hasTrigger && target.Trigger != parsed.Trigger)
+                {
+                    logWarning?.Invoke($"A button mapping cannot combine left- and right-trigger targets ('{raw}'); ignoring the entry");
+                    return false;
+                }
+
+                hasTrigger = true;
+            }
+
+            target = MergeTargets(target, parsed);
+        }
+
+        if (!target.IsNone && IsClickOutput(entry.TargetOutput))
+        {
+            target = target with
+            {
+                Output = MappingTriggerOutput.ClickOnly
+            };
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// OR-combines two resolved targets' button flags and D-pad directions, carrying over
+    /// the trigger side and output of whichever target has one.
+    /// </summary>
+    private static ResolvedMappingTarget MergeTargets(ResolvedMappingTarget first, ResolvedMappingTarget second) => new()
+    {
+        ButtonFlags = first.ButtonFlags | second.ButtonFlags,
+        DPad = first.DPad | second.DPad,
+        Trigger = second.Trigger != MappableTriggerSide.None ? second.Trigger : first.Trigger,
+        Output = second.Trigger != MappableTriggerSide.None ? second.Output : first.Output
+    };
 
     /// <summary>
     /// Translates one input report into the virtual controller's button result. Evaluation is

@@ -203,7 +203,7 @@
     <sys:String x:Key="VirtualControllerPage.Emulation.Status.RunningEdge">Virtual controller active: DualSense Edge</sys:String>
     <sys:String x:Key="VirtualControllerPage.Emulation.Status.Creating">Creating virtual controller…</sys:String>
     <sys:String x:Key="VirtualControllerPage.Mapping.Title">Button Mapping</sys:String>
-    <sys:String x:Key="VirtualControllerPage.Mapping.Description">Remap the physical buttons of this controller on the virtual controller. Click buttons on the illustration to select one or more sources, then assign their target.</sys:String>
+    <sys:String x:Key="VirtualControllerPage.Mapping.Description">Remap the physical buttons of this controller on the virtual controller. Click buttons on the illustration to select one or more sources, pick one or more targets (they are pressed together), then assign.</sys:String>
     <sys:String x:Key="VirtualControllerPage.Mapping.Clear">Clear the selection</sys:String>
     <sys:String x:Key="VirtualControllerPage.Mapping.Output">Trigger output</sys:String>
     <sys:String x:Key="VirtualControllerPage.Mapping.Output.Full">Full pull (analog)</sys:String>
