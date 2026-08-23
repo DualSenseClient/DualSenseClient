@@ -1,11 +1,13 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media;
+using Avalonia.Threading;
 using FluentAvalonia.UI.Windowing;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.GUI.ViewModels;
+using DualSenseClient.GUI.Views;
 using DualSenseClient.HidHide;
 using DualSenseClient.Settings;
 
@@ -63,6 +65,17 @@ internal class AppSplashScreen : IFAApplicationSplashScreen
     {
         // Required delay so the window properly shows
         await Task.Delay(10, token);
+
+        // Build the main shell content here rather than in the window's XAML, so the
+        // window opens (and this splash screen appears) before that work runs. Queued
+        // at background priority so splash progress updates render first, and awaited
+        // below so the content is complete before the splash transition fades it in.
+        DispatcherOperation shellPreload = Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            MainWindow mainWindow = App.Services.GetRequiredService<MainWindow>();
+            mainWindow.LoadMainContent();
+        }, DispatcherPriority.Background);
+
         _splashScreen.UpdateStatusMessage(LocalizationService.GetText("SplashScreen.LoadingProfiles"));
         App.Services.GetRequiredService<ProfileService>().Load();
         App.Services.GetRequiredService<ControllerInfoService>().Load();
@@ -84,5 +97,7 @@ internal class AppSplashScreen : IFAApplicationSplashScreen
         MainViewModel mainViewModel = App.Services.GetRequiredService<MainViewModel>();
         _splashScreen.UpdateStatusMessage(LocalizationService.GetText("SplashScreen.ScanningControllers"));
         await mainViewModel.InitializeScanningAsync(token);
+
+        await shellPreload;
     }
 }

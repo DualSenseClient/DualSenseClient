@@ -33,6 +33,12 @@ public partial class MainWindow : FAAppWindow
     private bool _closeToTray;
 
     /// <summary>
+    /// Whether the main shell content was already created. The splash screen's
+    /// preloading is the only caller, so this only guards against double loads.
+    /// </summary>
+    private bool _mainContentLoaded;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="MainWindow"/> class.
     /// Resolves <see cref="MainWindowViewModel"/> and <see cref="SettingsService"/> from the DI container,
     /// assigns the splash screen, and extends the window content into the title bar so
@@ -49,6 +55,23 @@ public partial class MainWindow : FAAppWindow
         _closeToTray = _settingsService.Settings.Ui.CloseToTray;
         _settingsService.SettingsChanged += OnSettingsChanged;
         Closing += OnClosing;
+    }
+
+    /// <summary>
+    /// Creates the <see cref="MainView"/> shell inside the content placeholder.
+    /// Called from the splash screen's preloading so the shell (and the page it
+    /// navigates to) is built behind the splash screen instead of before it opens,
+    /// which previously delayed the window's first appearance.
+    /// </summary>
+    internal void LoadMainContent()
+    {
+        if (_mainContentLoaded)
+        {
+            return;
+        }
+
+        _mainContentLoaded = true;
+        MainContent.Content = new MainView();
     }
 
     /// <summary>
