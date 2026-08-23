@@ -178,4 +178,15 @@ public sealed class VirtualInputMapperTests
     {
         Assert.That(VirtualInputMapper.AccelToDs4(raw), Is.EqualTo(expected));
     }
+
+    [TestCase(0, 0)]
+    [TestCase(270, 236)]
+    [TestCase(540, 471)]
+    [TestCase(810, 707)]
+    [TestCase(1079, 942)]
+    [TestCase(1080, 942)]
+    public void TouchYToDs4_ScalesOntoShorterDualShock4Touchpad(int raw, int expected)
+    {
+        Assert.That(VirtualInputMapper.TouchYToDs4((ushort)raw), Is.EqualTo((ushort)expected));
+    }
 }

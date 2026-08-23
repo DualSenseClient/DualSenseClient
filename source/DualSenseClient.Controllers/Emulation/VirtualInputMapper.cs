@@ -48,6 +48,13 @@ public static class VirtualInputMapper
     /// </summary>
     public static short AccelToDs4(short raw) => (short)((raw * 981 + (raw >= 0 ? 800 : -800)) / 1600);
 
+    /// <summary>
+    /// Scales a physical DualSense touchpad Y coordinate (0-1079) onto the shorter
+    /// virtual DualShock 4 touchpad (0-942), so touches keep their relative height
+    /// instead of pinning to its bottom edge.
+    /// </summary>
+    public static ushort TouchYToDs4(ushort raw) => (ushort)Math.Min((raw * 942 + 539) / 1079, 942);
+
     // ── Built-in default mapping tables ─────────────────────────
 
     /// <summary>

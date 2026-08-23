@@ -54,7 +54,7 @@ public struct DS4DeviceState
     public ushort Touch1X;
 
     /// <summary>
-    /// Touchpad 1 Y position (0-1080).
+    /// Touchpad 1 Y position (0-942).
     /// </summary>
     public ushort Touch1Y;
 
@@ -69,7 +69,7 @@ public struct DS4DeviceState
     public ushort Touch2X;
 
     /// <summary>
-    /// Touchpad 2 Y position (0-1080).
+    /// Touchpad 2 Y position (0-942).
     /// </summary>
     public ushort Touch2Y;
 

@@ -100,10 +100,10 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
 
         TouchpadState touchpad = report.Touchpad;
         state.Touch1X = touchpad.Touch1.X;
-        state.Touch1Y = touchpad.Touch1.Y;
+        state.Touch1Y = VirtualInputMapper.TouchYToDs4(touchpad.Touch1.Y);
         state.Touch1Active = touchpad.Touch1.IsActive ? (byte)1 : (byte)0;
         state.Touch2X = touchpad.Touch2.X;
-        state.Touch2Y = touchpad.Touch2.Y;
+        state.Touch2Y = VirtualInputMapper.TouchYToDs4(touchpad.Touch2.Y);
         state.Touch2Active = touchpad.Touch2.IsActive ? (byte)1 : (byte)0;
 
         MotionState motion = report.Motion;
