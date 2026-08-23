@@ -47,6 +47,14 @@ public class ThemeService
     private Theme _currentTheme = Theme.Light;
 
     /// <summary>
+    /// Raised after a new theme has been applied. Fired on the UI thread, because
+    /// <see cref="SetTheme"/> is only called from it. Unlike Avalonia's
+    /// ActualThemeVariantChanged, this also fires when switching between themes that
+    /// share a variant (e.g. Dark and Amoled), whose accent colors may differ.
+    /// </summary>
+    public event EventHandler? ThemeChanged;
+
+    /// <summary>
     /// Logger instance.
     /// </summary>
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("ThemeService");
@@ -132,6 +140,7 @@ public class ThemeService
         _log.Info($"Switching to {theme} theme");
         ApplyTheme(theme);
         _currentTheme = theme;
+        ThemeChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
