@@ -104,6 +104,13 @@ internal class AppSplashScreen : IFAApplicationSplashScreen
             // Controller hiding: ensure this app stays able to see hidden
             // controllers, e.g. via the HidHide driver whitelist on Windows.
             App.Services.GetRequiredService<IControllerHidingService>().EnsureSelfVisible();
+
+            // Pre-decode the default controller illustration assets so their decode
+            // cost doesn't land on the UI thread when the first page renders them.
+            ControllerIllustrationService illustrations = App.Services.GetRequiredService<ControllerIllustrationService>();
+            illustrations.GetSkins();
+            illustrations.GetSkinImage(ControllerIllustrationService.DefaultSkin);
+            illustrations.GetMonitorBase(ControllerIllustrationService.DefaultSkin);
         }, token);
 
         MainViewModel mainViewModel = App.Services.GetRequiredService<MainViewModel>();
