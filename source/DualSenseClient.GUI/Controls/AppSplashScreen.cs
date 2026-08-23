@@ -77,22 +77,34 @@ internal class AppSplashScreen : IFAApplicationSplashScreen
         }, DispatcherPriority.Background);
 
         _splashScreen.UpdateStatusMessage(LocalizationService.GetText("SplashScreen.LoadingProfiles"));
-        App.Services.GetRequiredService<ProfileService>().Load();
-        App.Services.GetRequiredService<ControllerInfoService>().Load();
+
+        // RunTasks runs on the UI thread (FAAppWindow awaits it from OnOpened), so
+        // every blocking step below is pushed to a worker thread to keep the splash
+        // progress bar animating. Profiles and controller info load first because the
+        // services started afterwards read them.
+        ProfileService profileService = App.Services.GetRequiredService<ProfileService>();
+        ControllerInfoService controllerInfoService = App.Services.GetRequiredService<ControllerInfoService>();
+        await Task.Run(() =>
+        {
+            profileService.Load();
+            controllerInfoService.Load();
+        }, token);
 
         _splashScreen.UpdateStatusMessage(LocalizationService.GetText("SplashScreen.StartingServices"));
+        await Task.Run(() =>
+        {
+            // Special action coordinator (created for its side effects: it attaches a
+            // special actions engine to every tracked controller).
+            _ = App.Services.GetRequiredService<SpecialActionCoordinator>();
 
-        // Special action coordinator (created for its side effects: it attaches a
-        // special actions engine to every tracked controller).
-        _ = App.Services.GetRequiredService<SpecialActionCoordinator>();
+            // Emulation service (started for its side effects: it creates a virtual
+            // controller for every tracked controller whose bound profile enables it).
+            App.Services.GetRequiredService<IEmulationService>().Start();
 
-        // Emulation service (started for its side effects: it creates a virtual
-        // controller for every tracked controller whose bound profile enables it).
-        App.Services.GetRequiredService<IEmulationService>().Start();
-
-        // Controller hiding: ensure this app stays able to see hidden
-        // controllers, e.g. via the HidHide driver whitelist on Windows.
-        App.Services.GetRequiredService<IControllerHidingService>().EnsureSelfVisible();
+            // Controller hiding: ensure this app stays able to see hidden
+            // controllers, e.g. via the HidHide driver whitelist on Windows.
+            App.Services.GetRequiredService<IControllerHidingService>().EnsureSelfVisible();
+        }, token);
 
         MainViewModel mainViewModel = App.Services.GetRequiredService<MainViewModel>();
         _splashScreen.UpdateStatusMessage(LocalizationService.GetText("SplashScreen.ScanningControllers"));
