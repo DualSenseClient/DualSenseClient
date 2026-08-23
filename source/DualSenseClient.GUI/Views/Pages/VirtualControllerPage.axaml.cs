@@ -41,4 +41,12 @@ public partial class VirtualControllerPage : UserControl
     {
         _viewModel.ToggleButton(e);
     }
+
+    /// <summary>
+    /// Selects the clicked target button on the virtual controller illustration.
+    /// </summary>
+    private void TargetView_OnTargetClicked(object? sender, string e)
+    {
+        _viewModel.SelectedTargetName = e;
+    }
 }

@@ -140,7 +140,21 @@
                                                IconVariant="Regular" />
                             </Button>
                         </Grid>
-                        <ComboBox ItemsSource="{Binding TargetOptions}"
+                        <!-- Clickable target illustration (Xbox 360 / DualShock 4 modes) -->
+                        <StackPanel Spacing="8"
+                                    IsVisible="{Binding IsTargetPickerVisible}">
+                            <controls:VirtualControllerTargetView Kind="{Binding TargetViewKind}"
+                                                                  SelectedTarget="{Binding SelectedTargetName}"
+                                                                  IsSelectionEnabled="True"
+                                                                  TargetClicked="TargetView_OnTargetClicked"
+                                                                  HorizontalAlignment="Center" />
+                            <ToggleButton Content="{DynamicResource VirtualControllerPage.Mapping.Target.None}"
+                                          IsChecked="{Binding IsNoneTargetSelected}"
+                                          Command="{Binding SelectNoneCommand}"
+                                          HorizontalAlignment="Center" />
+                        </StackPanel>
+                        <ComboBox IsVisible="{Binding IsTargetComboVisible}"
+                                  ItemsSource="{Binding TargetOptions}"
                                   SelectedIndex="{Binding TargetIndex}"
                                   IsEnabled="{Binding HasSelection}"
                                   HorizontalAlignment="Stretch" />

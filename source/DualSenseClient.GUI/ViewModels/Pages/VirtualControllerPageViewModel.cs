@@ -11,6 +11,7 @@ using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Enum;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.GUI.Models.Items;
+using DualSenseClient.GUI.Controls;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
@@ -249,6 +250,7 @@ public partial class VirtualControllerPageViewModel : ObservableObject
             OnPropertyChanged(nameof(IsDualShock4Emulation));
             OnPropertyChanged(nameof(IsAudioEmulation));
             OnPropertyChanged(nameof(IsMappingEditorVisible));
+            NotifyTargetPickerState();
             RefreshMappingTargets();
             RefreshBindings();
             _emulation.Refresh();
@@ -335,6 +337,8 @@ public partial class VirtualControllerPageViewModel : ObservableObject
             settings.DeviceType = variant;
             _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
             OnPropertyChanged(nameof(DualSenseVariantIndex));
+            RefreshMappingTargets();
+            RefreshBindings();
             _emulation.Refresh();
         }
     }
@@ -577,8 +581,78 @@ public partial class VirtualControllerPageViewModel : ObservableObject
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsTriggerOutputVisible));
             OnPropertyChanged(nameof(CanAssignMapping));
+            OnPropertyChanged(nameof(SelectedTargetName));
+            OnPropertyChanged(nameof(IsNoneTargetSelected));
         }
     }
+
+    /// <summary>
+    /// Which virtual controller illustration the target picker renders for the current
+    /// emulation mode.
+    /// </summary>
+    public VirtualControllerKind TargetViewKind => EmulationModeIndex == (int)EmulationMode.Xbox360
+        ? VirtualControllerKind.Xbox360
+        : VirtualControllerKind.DualShock4;
+
+    /// <summary>
+    /// Whether the clickable target controller illustration is offered: Xbox 360 and
+    /// DualShock 4 modes have illustrations; DualSense mode falls back to the dropdown.
+    /// </summary>
+    public bool IsTargetPickerVisible
+        => IsMappingEditorVisible && EmulationModeIndex is (int)EmulationMode.Xbox360 or (int)EmulationMode.DualShock4;
+
+    /// <summary>
+    /// Whether the plain target dropdown is shown instead of the illustration.
+    /// </summary>
+    public bool IsTargetComboVisible => IsMappingEditorVisible && !IsTargetPickerVisible;
+
+    /// <summary>
+    /// Raises change notifications for everything derived from the emulation mode's target
+    /// picking surface: which editor is shown and which illustration it renders.
+    /// </summary>
+    private void NotifyTargetPickerState()
+    {
+        OnPropertyChanged(nameof(IsTargetPickerVisible));
+        OnPropertyChanged(nameof(IsTargetComboVisible));
+        OnPropertyChanged(nameof(TargetViewKind));
+    }
+
+    /// <summary>
+    /// The raw target name picked on the illustration, or <c>null</c> when nothing is
+    /// chosen. Setting it selects the matching entry in <see cref="TargetOptions"/>; setting
+    /// the already-selected name clears the choice, so clicking the same button on the
+    /// illustration toggles the selection off.
+    /// </summary>
+    public string? SelectedTargetName
+    {
+        get => TryGetRawTarget(out string raw) ? raw : null;
+        set
+        {
+            if (value is null)
+            {
+                return;
+            }
+
+            int index = IndexOfRawTarget(value);
+            if (index < 0)
+            {
+                return;
+            }
+
+            TargetIndex = TryGetRawTarget(out string current) && current == value ? -1 : index;
+        }
+    }
+
+    /// <summary>
+    /// Whether "None" is currently the chosen target.
+    /// </summary>
+    public bool IsNoneTargetSelected => SelectedTargetName == "None";
+
+    /// <summary>
+    /// Selects "None" as the remapping target, disabling the pending source selection.
+    /// </summary>
+    [RelayCommand]
+    private void SelectNone() => SelectedTargetName = "None";
 
     /// <summary>
     /// Output style options for trigger targets that have both a click flag and an
@@ -818,14 +892,22 @@ public partial class VirtualControllerPageViewModel : ObservableObject
 
     /// <summary>
     /// The raw target names aligned with <see cref="TargetOptions"/> for the current mode.
+    /// In DualSense mode the Edge-only targets (function keys and paddles) are offered only
+    /// when the virtual device presents a DualSense Edge.
     /// </summary>
     private IReadOnlyList<string> CurrentTargets() => EmulationModeIndex switch
     {
         (int)EmulationMode.Xbox360 => Xbox360Targets,
         (int)EmulationMode.DualShock4 => DualShock4Targets,
-        (int)EmulationMode.DualSense => DualSenseTargets,
+        (int)EmulationMode.DualSense => IsEdgeVirtualController ? DualSenseTargets : DualSenseStandardTargets,
         _ => []
     };
+
+    /// <summary>
+    /// Whether the selected controller's virtual DualSense presents an Edge.
+    /// </summary>
+    private bool IsEdgeVirtualController
+        => HasDevice && GetEmulationSettings().DeviceType == DualSenseVariant.Edge;
 
     /// <summary>
     /// Rebuilds <see cref="TargetOptions"/> for the current emulation mode and resets the
@@ -846,6 +928,8 @@ public partial class VirtualControllerPageViewModel : ObservableObject
         OnPropertyChanged(nameof(TargetIndex));
         OnPropertyChanged(nameof(TriggerOutputIndex));
         OnPropertyChanged(nameof(IsTriggerOutputVisible));
+        OnPropertyChanged(nameof(SelectedTargetName));
+        OnPropertyChanged(nameof(IsNoneTargetSelected));
         OnPropertyChanged(nameof(CanAssignMapping));
     }
 
@@ -898,6 +982,8 @@ public partial class VirtualControllerPageViewModel : ObservableObject
             OnPropertyChanged(nameof(TargetIndex));
             OnPropertyChanged(nameof(IsTriggerOutputVisible));
             OnPropertyChanged(nameof(CanAssignMapping));
+            OnPropertyChanged(nameof(SelectedTargetName));
+            OnPropertyChanged(nameof(IsNoneTargetSelected));
             return;
         }
 
@@ -1064,12 +1150,24 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     ];
 
     /// <summary>
-    /// Raw target names of the DualSense mode.
+    /// Raw target names of the DualSense mode, including the Edge-only function keys and
+    /// back paddles. Only offered when the virtual device presents an Edge.
     /// </summary>
     private static readonly IReadOnlyList<string> DualSenseTargets =
     [
         "Square", "Cross", "Circle", "Triangle", "L1", "R1", "L2", "R2", "L3", "R3",
         "Create", "Options", "PS", "Touchpad", "MicMute", "LeftFunction", "RightFunction", "L4", "R4",
+        "DPadUp", "DPadDown", "DPadLeft", "DPadRight", "None"
+    ];
+
+    /// <summary>
+    /// Raw target names of a standard (non-Edge) virtual DualSense: the full list without
+    /// the Edge-only function keys and paddles.
+    /// </summary>
+    private static readonly IReadOnlyList<string> DualSenseStandardTargets =
+    [
+        "Square", "Cross", "Circle", "Triangle", "L1", "R1", "L2", "R2", "L3", "R3",
+        "Create", "Options", "PS", "Touchpad", "MicMute",
         "DPadUp", "DPadDown", "DPadLeft", "DPadRight", "None"
     ];
 
@@ -1127,6 +1225,7 @@ public partial class VirtualControllerPageViewModel : ObservableObject
         OnPropertyChanged(nameof(EmulationStatusText));
         OnPropertyChanged(nameof(CanChangeEmulation));
         OnPropertyChanged(nameof(IsMappingEditorVisible));
+        NotifyTargetPickerState();
     }
 
     /// <summary>
@@ -1167,6 +1266,7 @@ public partial class VirtualControllerPageViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDualShock4Emulation));
         OnPropertyChanged(nameof(IsAudioEmulation));
         OnPropertyChanged(nameof(IsMappingEditorVisible));
+        NotifyTargetPickerState();
         OnPropertyChanged(nameof(DualSenseVariantIndex));
         OnPropertyChanged(nameof(DualShock4VariantIndex));
         OnPropertyChanged(nameof(ForwardAudioOutputIndex));
