@@ -140,12 +140,18 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task DisconnectController()
     {
-        IControllerDevice? device = SelectedItem?.Device;
-        if (device is null)
+        if (SelectedItem?.Device is { } device)
         {
-            return;
+            await DisconnectControllerAsync(device);
         }
+    }
 
+    /// <summary>
+    /// Disconnects a Bluetooth controller. The device stays paired; the watcher removes
+    /// it from the controller list once the connection drops.
+    /// </summary>
+    public async Task DisconnectControllerAsync(IControllerDevice device)
+    {
         bool disconnected = await Task.Run(device.DisconnectController);
         if (disconnected)
         {

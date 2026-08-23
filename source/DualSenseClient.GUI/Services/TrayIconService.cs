@@ -16,6 +16,7 @@ using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.ViewModels;
 using DualSenseClient.GUI.Views;
+using DualSenseClient.Hid;
 using DualSenseClient.Settings;
 using DualSenseClient.Settings.Sections;
 
@@ -227,8 +228,8 @@ public sealed class TrayIconService
 
     /// <summary>
     /// Builds the menu entry for one connected controller: its name and battery
-    /// percentage, with a submenu to select it, change its bound profile, and change
-    /// its virtual controller emulation mode.
+    /// percentage, with a submenu to select it, change its bound profile, change its
+    /// virtual controller emulation mode, and disconnect it (Bluetooth only).
     /// </summary>
     private NativeMenuItem BuildControllerItem(ControllerItem item)
     {
@@ -267,6 +268,13 @@ public sealed class TrayIconService
                 IsEnabled = !_emulation.GetStatus(emulationDevice).IsCreating
             };
             subMenu.Items.Add(emulationItem);
+        }
+
+        if (item.Device.ConnectionType == ConnectionType.Bluetooth)
+        {
+            NativeMenuItem disconnectItem = new NativeMenuItem(LocalizationService.GetText("Tray.Disconnect"));
+            disconnectItem.Click += (_, _) => _ = _mainViewModel.DisconnectControllerAsync(item.Device);
+            subMenu.Items.Add(disconnectItem);
         }
 
         controllerItem.Menu = subMenu;
