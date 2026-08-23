@@ -24,10 +24,16 @@
             <StackPanel Orientation="Horizontal"
                         Spacing="15"
                         Margin="0,0,0,10">
-                <Image Source="/Assets/icon.png"
-                       Width="80"
-                       Height="80"
-                       VerticalAlignment="Center" />
+                <Border Width="80"
+                        Height="80"
+                        Padding="6"
+                        CornerRadius="8"
+                        Background="{DynamicResource SystemAccentColor}"
+                        BorderBrush="{DynamicResource SystemAccentColor}"
+                        BorderThickness="1"
+                        VerticalAlignment="Center">
+                    <Image Source="/Assets/icon-transparent.png" />
+                </Border>
                 <StackPanel Orientation="Vertical"
                             Spacing="5"
                             VerticalAlignment="Center">

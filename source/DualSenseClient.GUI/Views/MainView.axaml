@@ -13,18 +13,23 @@
               ColumnDefinitions="Auto,Auto,*,Auto"
               Background="Transparent"
               WindowDecorationProperties.ElementRole="TitleBar">
-            <Image Margin="12,4"
-                   Source="/Assets/icon.ico"
-                   Width="18"
-                   Height="18"
-                   RenderOptions.BitmapInterpolationMode="HighQuality">
-                <Image.IsVisible>
+            <Border Width="18"
+                    Height="18"
+                    Margin="12,4"
+                    Padding="2"
+                    CornerRadius="3"
+                    Background="{DynamicResource SystemAccentColor}"
+                    BorderBrush="{DynamicResource SystemAccentColor}"
+                    BorderThickness="1">
+                <Border.IsVisible>
                     <OnPlatform Default="False">
                         <On Options="Windows"
                             Content="True" />
                     </OnPlatform>
-                </Image.IsVisible>
-            </Image>
+                </Border.IsVisible>
+                <Image Source="/Assets/icon-transparent.png"
+                       RenderOptions.BitmapInterpolationMode="HighQuality" />
+            </Border>
 
             <TextBlock Grid.Column="1"
                        Text="{Binding Title, RelativeSource={RelativeSource FindAncestor, AncestorType=Window}}"

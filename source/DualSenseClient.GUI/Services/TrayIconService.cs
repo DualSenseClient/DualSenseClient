@@ -71,6 +71,12 @@ public sealed class TrayIconService
     private readonly SettingsService _settingsService;
 
     /// <summary>
+    /// Theme service whose changes re-render the fallback icon, because its accent
+    /// color follows the active theme.
+    /// </summary>
+    private readonly ThemeService _themeService;
+
+    /// <summary>
     /// Emulation service used to recreate the virtual controller when its mode is
     /// changed from the tray menu.
     /// </summary>
@@ -88,10 +94,10 @@ public sealed class TrayIconService
     private readonly NativeMenu _menu = new NativeMenu();
 
     /// <summary>
-    /// The application icon, shown when no controller with a known battery is selected
-    /// or when the battery percentage display is disabled.
+    /// The accent color the fallback icon was last rendered with. The icon is
+    /// re-rendered when the active theme's accent color changes.
     /// </summary>
-    private readonly WindowIcon _appIcon;
+    private Color _lastAppIconAccent;
 
     /// <summary>
     /// The active controller currently being watched for battery changes.
@@ -127,7 +133,7 @@ public sealed class TrayIconService
     /// Creates the tray icon and wires it to the application's controller state.
     /// </summary>
     public TrayIconService(MainWindow mainWindow, MainViewModel mainViewModel, IControllerTracker tracker, ProfileService profileService,
-        ControllerInfoService controllerInfoService, SettingsService settingsService, IEmulationService emulation)
+        ControllerInfoService controllerInfoService, SettingsService settingsService, IEmulationService emulation, ThemeService themeService)
     {
         _mainWindow = mainWindow;
         _mainViewModel = mainViewModel;
@@ -136,13 +142,14 @@ public sealed class TrayIconService
         _controllerInfoService = controllerInfoService;
         _settingsService = settingsService;
         _emulation = emulation;
+        _themeService = themeService;
 
-        _appIcon = LoadAppIcon();
+        _lastAppIconAccent = GetAccentColor();
         _trayIcon = new TrayIcon
         {
             ToolTipText = LocalizationService.GetText("MainWindow.Title"),
             Menu = _menu,
-            Icon = _appIcon,
+            Icon = CreateAppIcon(_lastAppIconAccent),
             IsVisible = true
         };
         _trayIcon.Clicked += (_, _) => ShowWindow();
@@ -153,6 +160,13 @@ public sealed class TrayIconService
 
         _showBatteryPercentage = _settingsService.Settings.Ui.ShowBatteryPercentage;
         _settingsService.SettingsChanged += OnSettingsChanged;
+
+        // Re-render immediately on theme switches: the fallback icon's accent tile and
+        // the percentage icon's text color both follow the theme. The variant-changed
+        // event covers the OS switching light/dark while the System theme follows it,
+        // which never raises the service's own ThemeChanged.
+        _themeService.ThemeChanged += OnThemeChanged;
+        Application.Current!.ActualThemeVariantChanged += OnActualThemeVariantChanged;
 
         _mainViewModel.Controllers.CollectionChanged += OnControllersChanged;
         _tracker.ActiveControllerChanged += OnActiveControllerChanged;
@@ -425,22 +439,63 @@ public sealed class TrayIconService
                 _lastTextColor = textColor;
             }
         }
-        else if (_lastPercentage is not null)
+        else
         {
-            _trayIcon.Icon = _appIcon;
-            _lastPercentage = null;
+            Color accent = GetAccentColor();
+            if (_lastPercentage is not null || accent != _lastAppIconAccent)
+            {
+                _trayIcon.Icon = CreateAppIcon(accent);
+                _lastAppIconAccent = accent;
+                _lastPercentage = null;
+            }
         }
 
         RebuildMenu();
     }
 
     /// <summary>
-    /// Loads the application icon for the tray icon fallback state.
+    /// Renders the fallback tray icon in the app UI's icon style: the transparent
+    /// controller illustration on an accent-colored rounded tile with a matching
+    /// border. The border, padding, and corner radius mirror the title bar and
+    /// settings page tiles (18px: 1px border + 2px padding + 3px radius) scaled to
+    /// the tray's 64px render size.
     /// </summary>
-    private static WindowIcon LoadAppIcon()
+    /// <param name="accent">The accent color of the active theme.</param>
+    private static WindowIcon CreateAppIcon(Color accent)
     {
-        using Stream stream = AssetLoader.Open(new Uri("avares://DualSenseClient/Assets/icon.ico"));
-        return new WindowIcon(stream);
+        const double size = IconSize;
+        const double border = 3;
+        const double padding = 7;
+        const float radius = 11;
+
+        using RenderTargetBitmap bitmap = new RenderTargetBitmap(new PixelSize((int)size, (int)size), new Vector(96, 96));
+        using DrawingContext context = bitmap.CreateDrawingContext();
+
+        context.FillRectangle(new SolidColorBrush(accent), new Rect(0, 0, size, size), radius);
+
+        using Stream stream = AssetLoader.Open(new Uri("avares://DualSenseClient/Assets/icon-transparent.png"));
+        using Bitmap illustration = new Bitmap(stream);
+        double image = size - (border + padding) * 2;
+        context.DrawImage(illustration, new Rect(border + padding, border + padding, image, image));
+
+        return new WindowIcon(bitmap);
+    }
+
+    /// <summary>
+    /// Returns the accent color of the active theme, resolved from the
+    /// <c>SystemAccentColor</c> resource. Falls back to the default theme's
+    /// accent when the resource is missing.
+    /// </summary>
+    private static Color GetAccentColor()
+    {
+        if (Application.Current is { } app
+            && app.TryGetResource("SystemAccentColor", app.ActualThemeVariant, out object? value)
+            && value is Color color)
+        {
+            return color;
+        }
+
+        return Color.Parse("#FF107C10");
     }
 
     /// <summary>
@@ -509,13 +564,31 @@ public sealed class TrayIconService
     }
 
     /// <summary>
-    /// Refreshes the tray state when virtual controller emulation changes, so the
+    /// Refreshes the tray state when the emulation service state changes, so the
     /// emulation menu re-enables after a (re)creation finishes. May be raised on a
     /// background thread, so it is marshaled to the UI thread.
     /// </summary>
     private void OnEmulationStateChanged(object? sender, EventArgs e)
     {
         Dispatcher.UIThread.Post(UpdateTrayState);
+    }
+
+    /// <summary>
+    /// Re-renders the tray icon right away when the user switches the app theme.
+    /// Raised on the UI thread (ThemeService.SetTheme callers).
+    /// </summary>
+    private void OnThemeChanged(object? sender, EventArgs e)
+    {
+        UpdateTrayState();
+    }
+
+    /// <summary>
+    /// Re-renders the tray icon when the effective light/dark variant changes, e.g.
+    /// the OS switches while the System theme follows it. Raised on the UI thread.
+    /// </summary>
+    private void OnActualThemeVariantChanged(object? sender, EventArgs e)
+    {
+        UpdateTrayState();
     }
 
     /// <summary>
