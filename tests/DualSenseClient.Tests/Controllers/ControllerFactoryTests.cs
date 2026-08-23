@@ -64,6 +64,8 @@ public class ControllerFactoryTests
 
         public IReadOnlyList<IHidDeviceInfo> Enumerate(IEnumerable<(ushort VendorId, ushort ProductId)> deviceIds) => [];
 
+        public IReadOnlyList<IHidDeviceInfo> EnumerateIncludingExcluded(ushort? vendorId = null, ushort? productId = null) => [];
+
         public IHidDevice OpenDevice(string path)
         {
             OpenedDevice?.Dispose();

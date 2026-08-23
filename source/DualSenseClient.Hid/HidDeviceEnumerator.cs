@@ -22,6 +22,15 @@ public interface IHidDeviceEnumerator : IDisposable
     IReadOnlyList<IHidDeviceInfo> Enumerate(IEnumerable<(ushort VendorId, ushort ProductId)> deviceIds);
 
     /// <summary>
+    /// Enumerates all HID devices matching the given VID/PID, including devices hidden
+    /// by <see cref="ExcludeDevice"/>. Used to rediscover paths that were excluded by a
+    /// previous virtual controller teardown: USB/IP reattaches at the same bus/port, so
+    /// a re-created virtual device can reuse the exact devnode path of its removed
+    /// predecessor.
+    /// </summary>
+    IReadOnlyList<IHidDeviceInfo> EnumerateIncludingExcluded(ushort? vendorId = null, ushort? productId = null);
+
+    /// <summary>
     /// Opens a HID device by its platform path.
     /// </summary>
     IHidDevice OpenDevice(string path);
@@ -271,7 +280,22 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
         _log.Debug($"Enumerating devices (vendorId=0x{vendorId:X4}, productId=0x{productId:X4})");
         List<IHidDeviceInfo> all = NativeEnumerate(vendorId, productId);
         all.RemoveAll(device => IsExcluded(device.Path));
+        return FilterConnected(all);
+    }
 
+    /// <inheritdoc/>
+    public IReadOnlyList<IHidDeviceInfo> EnumerateIncludingExcluded(ushort? vendorId = null, ushort? productId = null)
+    {
+        _log.Debug($"Enumerating devices including excluded (vendorId=0x{vendorId:X4}, productId=0x{productId:X4})");
+        return FilterConnected(NativeEnumerate(vendorId, productId));
+    }
+
+    /// <summary>
+    /// Splits USB and Bluetooth devices: USB passes through, Bluetooth devices are
+    /// probed in parallel for liveness.
+    /// </summary>
+    private List<IHidDeviceInfo> FilterConnected(List<IHidDeviceInfo> all)
+    {
         // Split USB and BT — USB passes through, BT probes in parallel for liveness.
         List<IHidDeviceInfo> result = new List<IHidDeviceInfo>(all.Count);
         List<IHidDeviceInfo> btDevices = new List<IHidDeviceInfo>(all.Count);

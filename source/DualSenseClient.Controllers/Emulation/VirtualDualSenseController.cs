@@ -76,13 +76,19 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         _realtimeHapticsCallback = OnRealtimeHaptics;
         bool created;
         nuint handle;
+        // Stamp the ownership MAC so the app's own scanner can tell this virtual device
+        // apart from real hardware (see VirtualDeviceFilter).
+        DSMetaState meta = new DSMetaState
+        {
+            MACAddress = VirtualDeviceFilter.CreateOwnershipMac()
+        };
         if (edge)
         {
-            created = LibVIIPER.CreateDualSenseEdgeDevice(serverHandle, out handle, busId, true, 0, 0, null);
+            created = LibVIIPER.CreateDualSenseEdgeDevice(serverHandle, out handle, busId, true, 0, 0, [meta]);
         }
         else
         {
-            created = LibVIIPER.CreateDualSenseDevice(serverHandle, out handle, busId, true, 0, 0, null);
+            created = LibVIIPER.CreateDualSenseDevice(serverHandle, out handle, busId, true, 0, 0, [meta]);
         }
 
         if (!created)

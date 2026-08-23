@@ -77,6 +77,12 @@ public sealed class EmulationService : IEmulationService
     private static readonly TimeSpan DiscoveryPollInterval = TimeSpan.FromMilliseconds(100);
 
     /// <summary>
+    /// How long to watch abandoned discovery candidates after removing the virtual
+    /// device, before deciding which of them were real hardware caught mid-connection.
+    /// </summary>
+    private static readonly TimeSpan DetachConfirmTimeout = TimeSpan.FromSeconds(2);
+
+    /// <summary>
     /// Delay before (re)creating a virtual device after the previous one was removed,
     /// letting the USBIP client driver finish detaching the old device so the new
     /// device does not collide with it during attachment.
@@ -491,7 +497,7 @@ public sealed class EmulationService : IEmulationService
             // HID enumeration can never find it; there is nothing to discover.
             bool canDiscover = mode != EmulationMode.Xbox360;
             HashSet<string> before = canDiscover
-                ? _enumerator.Enumerate(vid, pid).Select(info => info.Path).ToHashSet(StringComparer.OrdinalIgnoreCase)
+                ? _enumerator.EnumerateIncludingExcluded(vid, pid).Select(info => info.Path).ToHashSet(StringComparer.OrdinalIgnoreCase)
                 : [];
 
             uint busId = 0;
@@ -518,28 +524,34 @@ public sealed class EmulationService : IEmulationService
                 return;
             }
 
-            string? path = canDiscover ? await DiscoverVirtualPathAsync(vid, pid, entry.Device.Info.Path, before) : null;
-            if (canDiscover && path is null)
+            HashSet<string> candidates = canDiscover
+                ? await DiscoverVirtualPathCandidatesAsync(vid, pid, entry.Device.Info.Path, before)
+                : [];
+            if (canDiscover && candidates.Count != 1)
             {
                 // The virtual device never appeared in HID enumeration (slow USBIP
                 // attach) or appeared alongside other new devices, e.g. another
                 // controller connecting mid-creation or a previous virtual still
                 // detaching during a mode switch. Leaving it attached and unexcluded
                 // would make the watcher report it as a phantom controller, so the
-                // device and its bus are removed instead.
-                _log.Warning("Could not discover the virtual device in HID enumeration; removing it again");
+                // device and its bus are removed instead. All candidates were already
+                // excluded on first sighting during discovery; afterwards, any that
+                // survived removal was real hardware and is unexcluded again.
+                _log.Warning(candidates.Count == 0
+                    ? "Could not discover the virtual device in HID enumeration; removing it again"
+                    : $"Found {candidates.Count} new matching devices; removing them again");
                 virtualController.Dispose();
                 LibVIIPER.RemoveUSBBus(serverHandle, busId);
+                await UnexcludeSurvivingCandidatesAsync(vid, pid, candidates);
                 SetStatus(entry,
                     new EmulationStatus(mode, false,
                         "The virtual device did not appear in HID enumeration. Check the VIIPER logs; USB/IP must be installed for auto-attachment", null));
                 return;
             }
 
-            if (path is not null)
+            if (candidates.Count == 1)
             {
-                virtualController.VirtualDevicePath = path;
-                _enumerator.ExcludeDevice(path);
+                virtualController.VirtualDevicePath = candidates.Single();
             }
 
             bool forwardFeatures = mode is EmulationMode.DualSense or EmulationMode.DualShock4;
@@ -574,11 +586,10 @@ public sealed class EmulationService : IEmulationService
             {
                 if (IsStale(entry, generation))
                 {
-                    if (virtualController.VirtualDevicePath is { } stalePath)
-                    {
-                        _enumerator.RemoveExcludedDevice(stalePath);
-                    }
-
+                    // The stale virtual device's path stays excluded: unexcluding before
+                    // the detach completes would let the watcher see it as a phantom.
+                    // Re-created devices reusing the path are still discoverable via
+                    // EnumerateIncludingExcluded during discovery.
                     capture?.Dispose();
                     forwarder?.Dispose();
                     virtualController.Dispose();
@@ -682,34 +693,86 @@ public sealed class EmulationService : IEmulationService
     }
 
     /// <summary>
-    /// Polls HID enumeration until exactly one new device with the given VID/PID
-    /// (other than the physical controller) appears, and returns its path.
+    /// Polls HID enumeration until new device(s) with the given VID/PID (other than the
+    /// physical controller) appear, and returns their paths. Enumeration includes paths
+    /// excluded by earlier teardowns: USB/IP reattaches at the same bus/port, so a
+    /// re-created virtual device reuses its predecessor's devnode path, which is still
+    /// excluded and would otherwise be invisible forever. Every candidate is excluded
+    /// from enumeration on first sighting — exclusion takes effect immediately, well
+    /// before the watcher's two-poll confirmation could surface the device as a phantom
+    /// connection. Returns the set of candidate paths: exactly one entry means success;
+    /// more than one means an ambiguous attach (the caller removes the virtual device
+    /// again); empty means the virtual device never appeared within
+    /// <see cref="DiscoveryTimeout"/>. Excluded sightings are accumulated across
+    /// iterations.
     /// </summary>
-    private async Task<string?> DiscoverVirtualPathAsync(ushort vid, ushort pid, string? physicalPath, HashSet<string> before)
+    private async Task<HashSet<string>> DiscoverVirtualPathCandidatesAsync(ushort vid, ushort pid, string? physicalPath,
+        HashSet<string> before)
     {
+        HashSet<string> discovered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < DiscoveryTimeout.TotalMilliseconds / DiscoveryPollInterval.TotalMilliseconds; i++)
         {
             await Task.Delay(DiscoveryPollInterval);
-            List<string> candidates = _enumerator.Enumerate(vid, pid)
+            List<string> candidates = _enumerator.EnumerateIncludingExcluded(vid, pid)
                 .Where(info => !before.Contains(info.Path)
                                && !string.Equals(info.Path, physicalPath, StringComparison.OrdinalIgnoreCase))
                 .Select(info => info.Path)
                 .ToList();
 
-            if (candidates.Count == 1)
+            foreach (string candidate in candidates)
             {
-                _log.Info($"Discovered virtual device path: {candidates[0]}");
-                return candidates[0];
+                if (discovered.Add(candidate))
+                {
+                    _enumerator.ExcludeDevice(candidate);
+                    _log.Info($"Discovered virtual device candidate: {candidate}");
+                }
             }
 
-            if (candidates.Count > 1)
+            if (discovered.Count > 0)
             {
-                _log.Warning($"Found {candidates.Count} new matching devices; abandoning discovery");
-                return null;
+                return discovered;
             }
         }
 
-        return null;
+        return discovered;
+    }
+
+    /// <summary>
+    /// Restores enumeration visibility of abandoned discovery candidates that survived
+    /// removal of the virtual device: those were real controllers connecting at the same
+    /// time, not the virtual device. Candidates that vanished were (part of) the removed
+    /// virtual attach and stay excluded — their devnode instance IDs never recur.
+    /// Enumeration must include excluded devices here, because the candidates were
+    /// excluded during discovery and are invisible to the filtered view.
+    /// </summary>
+    private async Task UnexcludeSurvivingCandidatesAsync(ushort vid, ushort pid, HashSet<string> candidates)
+    {
+        if (candidates.Count == 0)
+        {
+            return;
+        }
+
+        for (int i = 0; i < DetachConfirmTimeout.TotalMilliseconds / DiscoveryPollInterval.TotalMilliseconds; i++)
+        {
+            HashSet<string> present = _enumerator.EnumerateIncludingExcluded(vid, pid)
+                .Select(info => info.Path)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (!candidates.Overlaps(present))
+            {
+                break;
+            }
+
+            await Task.Delay(DiscoveryPollInterval);
+        }
+
+        HashSet<string> remaining = _enumerator.EnumerateIncludingExcluded(vid, pid)
+            .Select(info => info.Path)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (string candidate in candidates.Where(remaining.Contains))
+        {
+            _log.Info($"Restoring non-virtual discovery candidate: {candidate}");
+            _enumerator.RemoveExcludedDevice(candidate);
+        }
     }
 
     /// <summary>
@@ -777,11 +840,10 @@ public sealed class EmulationService : IEmulationService
         entry.Forwarder?.Dispose();
         entry.Forwarder = null;
 
-        if (virtualController.VirtualDevicePath is { } path)
-        {
-            _enumerator.RemoveExcludedDevice(path);
-        }
-
+        // The virtual device's path stays excluded: unexcluding before the detach
+        // completes would let the watcher see the still-attached device as a phantom.
+        // Re-created devices reusing the path are still discoverable via
+        // EnumerateIncludingExcluded during discovery.
         virtualController.Dispose();
         if (_serverHandle is { } serverHandle && entry.BusId != 0)
         {
