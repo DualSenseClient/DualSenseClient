@@ -104,21 +104,21 @@
                 <controls:FANavigationViewItem Content="{DynamicResource MainWindow.InputMonitor}"
                                                Tag="InputMonitorPage">
                     <controls:FANavigationViewItem.IconSource>
-                        <ic:SymbolIconSource Symbol="XboxController" />
+                        <ic:SymbolIconSource Symbol="PulseSquare" />
                     </controls:FANavigationViewItem.IconSource>
                 </controls:FANavigationViewItem>
                 <!-- Controller profile page -->
                 <controls:FANavigationViewItem Content="{DynamicResource MainWindow.Profile}"
                                                Tag="ProfilePage">
                     <controls:FANavigationViewItem.IconSource>
-                        <ic:SymbolIconSource Symbol="Lightbulb" />
+                        <ic:SymbolIconSource Symbol="Options" />
                     </controls:FANavigationViewItem.IconSource>
                 </controls:FANavigationViewItem>
                 <!-- Virtual controller page -->
                 <controls:FANavigationViewItem Content="{DynamicResource MainWindow.VirtualController}"
                                                Tag="VirtualControllerPage">
                     <controls:FANavigationViewItem.IconSource>
-                        <ic:SymbolIconSource Symbol="Games" />
+                        <ic:SymbolIconSource Symbol="Joystick" />
                     </controls:FANavigationViewItem.IconSource>
                 </controls:FANavigationViewItem>
             </controls:FANavigationView.MenuItems>

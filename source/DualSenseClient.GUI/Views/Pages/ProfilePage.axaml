@@ -83,7 +83,7 @@
                 <Expander.Header>
                     <cards:CardHeader Title="{DynamicResource ProfilePage.Profiles.Title}"
                                       Description="{DynamicResource ProfilePage.Profiles.Description}"
-                                      Icon="{x:Static fic:Symbol.Lightbulb}"
+                                      Icon="{x:Static fic:Symbol.Collections}"
                                       MinHeight="64">
                         <cards:CardHeader.ActionContent>
                             <StackPanel Orientation="Horizontal"
@@ -237,7 +237,7 @@
                 <Expander.Header>
                     <cards:CardHeader Title="{DynamicResource ProfilePage.SpecialActions.Title}"
                                       Description="{DynamicResource ProfilePage.SpecialActions.Description}"
-                                      Icon="{x:Static fic:Symbol.Pulse}"
+                                      Icon="{x:Static fic:Symbol.Wand}"
                                       MinHeight="64">
                         <cards:CardHeader.ActionContent>
                             <StackPanel Orientation="Horizontal"

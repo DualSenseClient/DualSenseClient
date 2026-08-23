@@ -219,10 +219,10 @@
 
                         <!-- Visualization display options -->
                         <StackPanel Spacing="10">
-                            <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.Globe}"
+                            <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.Color}"
                                                     Title="{DynamicResource InputMonitorPage.Display.Lights.Title}"
                                                     IsChecked="{Binding ShowLightbarLeds}" />
-                            <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.TextNumberFormat}"
+                            <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.DataUsage}"
                                                     Title="{DynamicResource InputMonitorPage.Display.Stats.Title}"
                                                     IsChecked="{Binding ShowStats}" />
                         </StackPanel>

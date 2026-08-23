@@ -184,7 +184,7 @@
                 <Expander.Header>
                     <cards:CardHeader Title="{DynamicResource DeviceInfoPage.Firmware.Title}"
                                       Description="{DynamicResource DeviceInfoPage.Firmware.Description}"
-                                      Icon="{x:Static fic:Symbol.Gauge}"
+                                      Icon="{x:Static fic:Symbol.DeveloperBoard}"
                                       MinHeight="64">
                         <cards:CardHeader.ActionContent>
                             <Button Command="{Binding RefreshCommand}"

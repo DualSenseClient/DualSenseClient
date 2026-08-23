@@ -89,7 +89,7 @@
                 <StackPanel Spacing="8">
                     <cards:CardHeader Title="{DynamicResource VirtualControllerPage.Mapping.Title}"
                                       Description="{DynamicResource VirtualControllerPage.Mapping.Description}"
-                                      Icon="{x:Static fic:Symbol.Games}" />
+                                      Icon="{x:Static fic:Symbol.TargetEdit}" />
                     <!-- Illustration on its own row -->
                     <controls:DualSenseControllerView State="{Binding MonitorState}"
                                                       SkinName="{Binding SkinName}"
