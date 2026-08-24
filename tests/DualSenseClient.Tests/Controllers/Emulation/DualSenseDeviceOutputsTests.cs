@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using DualSenseClient.Controllers.DualSense.Enum;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Devices;
@@ -110,9 +110,12 @@ public class DualSenseDeviceOutputsTests
                 new SpecialActionEffect
                 {
                     Type = SpecialActionTypes.SetLightbarColor,
-                    Red = red,
-                    Green = green,
-                    Blue = blue
+                    Lightbar = new LightbarSettings
+                    {
+                        Red = red,
+                        Green = green,
+                        Blue = blue
+                    }
                 }
             },
             ApplyWhileHeld = true,
@@ -138,7 +141,10 @@ public class DualSenseDeviceOutputsTests
                 new SpecialActionEffect
                 {
                     Type = SpecialActionTypes.SetPlayerLeds,
-                    PlayerLedMask = mask
+                    PlayerLeds = new PlayerLedSettings
+                    {
+                        Mask = mask
+                    }
                 }
             },
             ApplyWhileHeld = true,

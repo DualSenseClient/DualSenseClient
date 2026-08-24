@@ -227,9 +227,12 @@ public class SpecialActionEngineTests
                 new SpecialActionEffect
                 {
                     Type = SpecialActionTypes.SetLightbarColor,
-                    Red = red,
-                    Green = green,
-                    Blue = blue
+                    Lightbar = new LightbarSettings
+                    {
+                        Red = red,
+                        Green = green,
+                        Blue = blue
+                    }
                 }
             },
             ApplyWhileHeld = applyWhileHeld,
@@ -295,7 +298,10 @@ public class SpecialActionEngineTests
             new SpecialActionEffect
             {
                 Type = SpecialActionTypes.PlaySound,
-                SoundPath = path
+                Sound = new SoundSettings
+                {
+                    Path = path
+                }
             }
         },
         ApplyWhileHeld = applyWhileHeld,
@@ -361,9 +367,12 @@ public class SpecialActionEngineTests
                 new SpecialActionEffect
                 {
                     Type = SpecialActionTypes.SetLightbarColor,
-                    Red = red,
-                    Green = green,
-                    Blue = blue
+                    Lightbar = new LightbarSettings
+                    {
+                        Red = red,
+                        Green = green,
+                        Blue = blue
+                    }
                 }
             },
             ApplyWhileHeld = applyWhileHeld,
@@ -556,9 +565,9 @@ public class SpecialActionEngineTests
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         SpecialAction action = CreateAction(ButtonType.L1, ButtonType.R1);
         action.Effects[0].Type = SpecialActionTypes.SetLightbarColor;
-        action.Effects[0].Red = 0xAA;
-        action.Effects[0].Green = 0xBB;
-        action.Effects[0].Blue = 0xCC;
+        action.Effects[0].Lightbar.Red = 0xAA;
+        action.Effects[0].Lightbar.Green = 0xBB;
+        action.Effects[0].Lightbar.Blue = 0xCC;
         engine.UpdateActions([action]);
 
         FeedReport(device, CreateReport());
@@ -591,9 +600,9 @@ public class SpecialActionEngineTests
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         SpecialAction action = CreateAction(ButtonType.L1, ButtonType.R1);
         action.Effects[0].Type = SpecialActionTypes.SetLightbarColor;
-        action.Effects[0].Red = 0xAA;
-        action.Effects[0].Green = 0xBB;
-        action.Effects[0].Blue = 0xCC;
+        action.Effects[0].Lightbar.Red = 0xAA;
+        action.Effects[0].Lightbar.Green = 0xBB;
+        action.Effects[0].Lightbar.Blue = 0xCC;
         action.Effects[0].Enabled = false;
         engine.UpdateActions([action]);
         int executions = 0;
@@ -618,14 +627,17 @@ public class SpecialActionEngineTests
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         SpecialAction action = CreateAction(ButtonType.L1, ButtonType.R1);
         action.Effects[0].Type = SpecialActionTypes.SetLightbarColor;
-        action.Effects[0].Red = 0xAA;
-        action.Effects[0].Green = 0xBB;
-        action.Effects[0].Blue = 0xCC;
+        action.Effects[0].Lightbar.Red = 0xAA;
+        action.Effects[0].Lightbar.Green = 0xBB;
+        action.Effects[0].Lightbar.Blue = 0xCC;
         action.Effects[0].Enabled = false;
         action.Effects.Add(new SpecialActionEffect
         {
             Type = SpecialActionTypes.SetPlayerLeds,
-            PlayerLedMask = 0x05
+            PlayerLeds = new PlayerLedSettings
+            {
+                Mask = 0x05
+            }
         });
         engine.UpdateActions([action]);
         int executions = 0;
@@ -653,7 +665,7 @@ public class SpecialActionEngineTests
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         SpecialAction action = CreateAction(ButtonType.L1, ButtonType.R1);
         action.Effects[0].Type = SpecialActionTypes.SetPlayerLeds;
-        action.Effects[0].PlayerLedMask = 0x05; // LEDs 1 and 3
+        action.Effects[0].PlayerLeds.Mask = 0x05; // LEDs 1 and 3
         engine.UpdateActions([action]);
 
         FeedReport(device, CreateReport());
@@ -1000,7 +1012,7 @@ public class SpecialActionEngineTests
         engine.ProfileProvider = _ => CreateRestoreProfile();
         SpecialAction action = CreateAction(ButtonType.L1, ButtonType.R1);
         action.Effects[0].Type = SpecialActionTypes.SetPlayerLeds;
-        action.Effects[0].PlayerLedMask = 0x05;
+        action.Effects[0].PlayerLeds.Mask = 0x05;
         action.ApplyWhileHeld = true;
         engine.UpdateActions([action]);
 
@@ -1029,13 +1041,16 @@ public class SpecialActionEngineTests
         engine.ProfileProvider = _ => CreateRestoreProfile();
         SpecialAction action = CreateAction(ButtonType.L1, ButtonType.R1);
         action.Effects[0].Type = SpecialActionTypes.SetLightbarColor;
-        action.Effects[0].Red = 0xAA;
-        action.Effects[0].Green = 0xBB;
-        action.Effects[0].Blue = 0xCC;
+        action.Effects[0].Lightbar.Red = 0xAA;
+        action.Effects[0].Lightbar.Green = 0xBB;
+        action.Effects[0].Lightbar.Blue = 0xCC;
         action.Effects.Add(new SpecialActionEffect
         {
             Type = SpecialActionTypes.SetPlayerLeds,
-            PlayerLedMask = 0x05
+            PlayerLeds = new PlayerLedSettings
+            {
+                Mask = 0x05
+            }
         });
         action.ApplyWhileHeld = true;
         engine.UpdateActions([action]);
@@ -1172,9 +1187,9 @@ public class SpecialActionEngineTests
         FakeSoundPlayer player = new FakeSoundPlayer();
         engine.SoundPlayerFactory = _ => player;
         SpecialAction action = CreateSoundAction("beep.wav", applyWhileHeld: false);
-        action.Effects[0].SoundVolume = 0x7F;
-        action.Effects[0].HapticFeedback = true;
-        action.Effects[0].HapticStrength = 150;
+        action.Effects[0].Sound.Volume = 0x7F;
+        action.Effects[0].Haptics.Feedback = true;
+        action.Effects[0].Haptics.Strength = 150;
         engine.UpdateActions([action]);
 
         FeedReport(device, CreateReport());
@@ -1199,7 +1214,7 @@ public class SpecialActionEngineTests
         FakeSoundPlayer player = new FakeSoundPlayer();
         engine.SoundPlayerFactory = _ => player;
         SpecialAction action = CreateSoundAction("beep.wav", applyWhileHeld: false);
-        action.Effects[0].SoundOutputDevice = SoundOutputDevices.Headset;
+        action.Effects[0].Sound.Output = SoundOutputDevices.Headset;
         engine.UpdateActions([action]);
 
         FeedReport(device, CreateReport());
@@ -1332,13 +1347,16 @@ public class SpecialActionEngineTests
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         SpecialAction action = CreateAction(ButtonType.L1, ButtonType.R1);
         action.Effects[0].Type = SpecialActionTypes.SetLightbarColor;
-        action.Effects[0].Red = 0xAA;
-        action.Effects[0].Green = 0xBB;
-        action.Effects[0].Blue = 0xCC;
+        action.Effects[0].Lightbar.Red = 0xAA;
+        action.Effects[0].Lightbar.Green = 0xBB;
+        action.Effects[0].Lightbar.Blue = 0xCC;
         action.Effects.Add(new SpecialActionEffect
         {
             Type = SpecialActionTypes.SetPlayerLeds,
-            PlayerLedMask = 0x05
+            PlayerLeds = new PlayerLedSettings
+            {
+                Mask = 0x05
+            }
         });
         engine.UpdateActions([action]);
         int executions = 0;
@@ -1369,9 +1387,12 @@ public class SpecialActionEngineTests
         action.Effects.Add(new SpecialActionEffect
         {
             Type = SpecialActionTypes.SetLightbarColor,
-            Red = 0x11,
-            Green = 0x22,
-            Blue = 0x33
+            Lightbar = new LightbarSettings
+            {
+                Red = 0x11,
+                Green = 0x22,
+                Blue = 0x33
+            }
         });
         engine.UpdateActions([action]);
         int executions = 0;
@@ -1400,7 +1421,10 @@ public class SpecialActionEngineTests
         action.Effects.Add(new SpecialActionEffect
         {
             Type = SpecialActionTypes.SetPlayerLeds,
-            PlayerLedMask = 0x03
+            PlayerLeds = new PlayerLedSettings
+            {
+                Mask = 0x03
+            }
         });
         engine.UpdateActions([action]);
         int executions = 0;
@@ -1454,7 +1478,10 @@ public class SpecialActionEngineTests
         action.Effects.Add(new SpecialActionEffect
         {
             Type = SpecialActionTypes.PlaySound,
-            SoundPath = "beep.wav"
+            Sound = new SoundSettings
+            {
+                Path = "beep.wav"
+            }
         });
         engine.UpdateActions([action]);
 
@@ -1797,7 +1824,7 @@ public class SpecialActionEngineTests
         engine.ProfileProvider = _ => CreateRestoreProfile();
         SpecialAction action = CreateAction(ButtonType.L1, ButtonType.R1);
         action.Effects[0].Type = SpecialActionTypes.SetPlayerLeds;
-        action.Effects[0].PlayerLedMask = 0x05;
+        action.Effects[0].PlayerLeds.Mask = 0x05;
         action.DurationMs = 300;
         engine.UpdateActions([action]);
 

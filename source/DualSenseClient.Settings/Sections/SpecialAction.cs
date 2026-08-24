@@ -114,6 +114,52 @@ public class BatteryLevelColor
 }
 
 /// <summary>
+/// Audio playback options of a play-sound effect.
+/// </summary>
+public class SoundSettings
+{
+    /// <summary>
+    /// Gets or sets the audio file played by <see cref="SpecialActionTypes.PlaySound"/>
+    /// (mp3, wav, flac, ...).
+    /// </summary>
+    [JsonPropertyName("path")]
+    public string? Path { get; set; }
+
+    /// <summary>
+    /// Gets or sets the controller speaker volume (0-255) for
+    /// <see cref="SpecialActionTypes.PlaySound"/>.
+    /// </summary>
+    [JsonPropertyName("volume")]
+    public byte Volume { get; set; } = 0x50;
+
+    /// <summary>
+    /// Gets or sets the audio output device for <see cref="SpecialActionTypes.PlaySound"/>,
+    /// one of <see cref="SoundOutputDevices"/> (the controller speaker or a headset in the
+    /// headset jack). Unknown values fall back to the speaker.
+    /// </summary>
+    [JsonPropertyName("output")]
+    public string Output { get; set; } = SoundOutputDevices.Speaker;
+}
+
+/// <summary>
+/// Haptic vibration options of a play-sound effect.
+/// </summary>
+public class HapticsSettings
+{
+    /// <summary>
+    /// Gets or sets whether the sound drives the controller's haptic actuators.
+    /// </summary>
+    [JsonPropertyName("feedback")]
+    public bool Feedback { get; set; }
+
+    /// <summary>
+    /// Gets or sets the haptic vibration strength as a percentage (0-200).
+    /// </summary>
+    [JsonPropertyName("strength")]
+    public int Strength { get; set; } = 100;
+}
+
+/// <summary>
 /// A single effect of a <see cref="SpecialAction"/>: one action type with its parameters.
 /// A special action can carry several effects, at most one per type.
 /// </summary>
@@ -134,64 +180,32 @@ public class SpecialActionEffect
     public bool Enabled { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets the lightbar red channel (0-255), used by <see cref="SpecialActionTypes.SetLightbarColor"/>.
+    /// Gets or sets the lightbar color applied by
+    /// <see cref="SpecialActionTypes.SetLightbarColor"/>.
     /// </summary>
-    [JsonPropertyName("red")]
-    public byte Red { get; set; }
+    [JsonPropertyName("lightbar")]
+    public LightbarSettings Lightbar { get; set; } = new LightbarSettings();
 
     /// <summary>
-    /// Gets or sets the lightbar green channel (0-255), used by <see cref="SpecialActionTypes.SetLightbarColor"/>.
-    /// </summary>
-    [JsonPropertyName("green")]
-    public byte Green { get; set; }
-
-    /// <summary>
-    /// Gets or sets the lightbar blue channel (0-255), used by <see cref="SpecialActionTypes.SetLightbarColor"/>.
-    /// </summary>
-    [JsonPropertyName("blue")]
-    public byte Blue { get; set; } = 255;
-
-    /// <summary>
-    /// Gets or sets the player LED mask (bit 0 = LED 1, ... bit 4 = LED 5), used by
-    /// <see cref="SpecialActionTypes.SetPlayerLeds"/>. Stored as a raw byte; the applying
-    /// side casts it to the protocol mask.
+    /// Gets or sets the player LED layout applied by
+    /// <see cref="SpecialActionTypes.SetPlayerLeds"/>. Stored as a raw byte mask; the
+    /// applying side casts it to the protocol mask.
     /// </summary>
     [JsonPropertyName("player_leds")]
-    public byte PlayerLedMask { get; set; }
+    public PlayerLedSettings PlayerLeds { get; set; } = new PlayerLedSettings();
 
     /// <summary>
-    /// Gets or sets the audio file played by <see cref="SpecialActionTypes.PlaySound"/>
-    /// (mp3, wav, flac, ...).
+    /// Gets or sets the audio options used by <see cref="SpecialActionTypes.PlaySound"/>.
     /// </summary>
-    [JsonPropertyName("sound_path")]
-    public string? SoundPath { get; set; }
+    [JsonPropertyName("sound")]
+    public SoundSettings Sound { get; set; } = new SoundSettings();
 
     /// <summary>
-    /// Gets or sets the controller speaker volume (0-255) for
+    /// Gets or sets the haptic vibration options used by
     /// <see cref="SpecialActionTypes.PlaySound"/>.
     /// </summary>
-    [JsonPropertyName("sound_volume")]
-    public byte SoundVolume { get; set; } = 0x50;
-
-    /// <summary>
-    /// Gets or sets the audio output device for <see cref="SpecialActionTypes.PlaySound"/>,
-    /// one of <see cref="SoundOutputDevices"/> (the controller speaker or a headset in the
-    /// headset jack). Unknown values fall back to the speaker.
-    /// </summary>
-    [JsonPropertyName("sound_output")]
-    public string SoundOutputDevice { get; set; } = SoundOutputDevices.Speaker;
-
-    /// <summary>
-    /// Gets or sets whether the sound drives the controller's haptic actuators.
-    /// </summary>
-    [JsonPropertyName("haptic_feedback")]
-    public bool HapticFeedback { get; set; }
-
-    /// <summary>
-    /// Gets or sets the haptic vibration strength as a percentage (0-200).
-    /// </summary>
-    [JsonPropertyName("haptic_strength")]
-    public int HapticStrength { get; set; } = 100;
+    [JsonPropertyName("haptics")]
+    public HapticsSettings Haptics { get; set; } = new HapticsSettings();
 
     /// <summary>
     /// Gets or sets the lightbar colors for the 10 charge levels of

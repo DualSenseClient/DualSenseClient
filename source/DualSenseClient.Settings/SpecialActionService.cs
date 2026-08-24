@@ -131,7 +131,6 @@ public sealed class SpecialActionService
             _log.Info($"Loading special actions from '{_store.FilePath}'");
             _store.Load();
             _loaded = true;
-            MigrateLegacyActions();
         }
     }
 
@@ -356,119 +355,6 @@ public sealed class SpecialActionService
 
         Save();
         return true;
-    }
-
-    /// <summary>
-    /// Migrates actions saved by older versions of the app, which stored a single action
-    /// type and its parameters directly on the action (e.g. <c>type</c>, <c>red</c>), into
-    /// the current effects list. Actions that already carry effects are left untouched.
-    /// Best effort: any failure is logged and skipped.
-    /// </summary>
-    private void MigrateLegacyActions()
-    {
-        try
-        {
-            if (!File.Exists(_store.FilePath))
-            {
-                return;
-            }
-
-            using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(_store.FilePath));
-            if (!doc.RootElement.TryGetProperty("actions", out JsonElement actions) || actions.ValueKind != JsonValueKind.Array)
-            {
-                return;
-            }
-
-            Dictionary<Guid, SpecialActionEffect> legacy = new Dictionary<Guid, SpecialActionEffect>();
-            foreach (JsonElement element in actions.EnumerateArray())
-            {
-                if (!element.TryGetProperty("id", out JsonElement idElement)
-                    || !Guid.TryParse(idElement.GetString(), out Guid id)
-                    || !element.TryGetProperty("type", out JsonElement typeElement))
-                {
-                    continue;
-                }
-
-                string? type = typeElement.GetString();
-                if (string.IsNullOrWhiteSpace(type))
-                {
-                    continue;
-                }
-
-                legacy[id] = new SpecialActionEffect
-                {
-                    Type = type,
-                    Red = ByteProperty(element, "red"),
-                    Green = ByteProperty(element, "green"),
-                    Blue = ByteProperty(element, "blue", 255),
-                    PlayerLedMask = ByteProperty(element, "player_leds"),
-                    SoundPath = element.TryGetProperty("sound_path", out JsonElement sound) ? sound.GetString() : null,
-                    SoundVolume = ByteProperty(element, "sound_volume", 0x50),
-                    HapticFeedback = BoolProperty(element, "haptic_feedback"),
-                    HapticStrength = IntProperty(element, "haptic_strength", 100)
-                };
-            }
-
-            if (legacy.Count == 0)
-            {
-                return;
-            }
-
-            bool migrated = false;
-            foreach (SpecialAction action in Settings.Actions)
-            {
-                if (action.Effects.Count > 0 || !legacy.TryGetValue(action.Id, out SpecialActionEffect? effect))
-                {
-                    continue;
-                }
-
-                action.Effects.Add(effect);
-                migrated = true;
-            }
-
-            if (migrated)
-            {
-                _log.Info("Migrated legacy special actions to the effects format");
-                Save();
-            }
-        }
-        catch (JsonException)
-        {
-            // The store already fell back to defaults for an invalid file; there is
-            // nothing to migrate from malformed legacy data.
-            _log.Debug("Legacy special actions file is not valid JSON; nothing to migrate");
-        }
-        catch (Exception ex)
-        {
-            _log.Warning("Failed to migrate legacy special actions");
-            _log.LogExceptionDetails(ex);
-        }
-    }
-
-    /// <summary>
-    /// Reads a byte property from a legacy action element, falling back to
-    /// <paramref name="fallback"/> when missing or unparsable.
-    /// </summary>
-    private static byte ByteProperty(JsonElement element, string name, byte fallback = 0)
-    {
-        return element.TryGetProperty(name, out JsonElement value) && value.TryGetByte(out byte result) ? result : fallback;
-    }
-
-    /// <summary>
-    /// Reads a boolean property from a legacy action element.
-    /// </summary>
-    private static bool BoolProperty(JsonElement element, string name)
-    {
-        return element.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.True;
-    }
-
-    /// <summary>
-    /// Reads an integer property from a legacy action element, falling back to
-    /// <paramref name="fallback"/> when missing or unparsable.
-    /// </summary>
-    private static int IntProperty(JsonElement element, string name, int fallback)
-    {
-        return element.TryGetProperty(name, out JsonElement value) && value.TryGetInt32(out int result) ? result : fallback;
     }
 
     /// <summary>

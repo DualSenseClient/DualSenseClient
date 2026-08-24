@@ -548,18 +548,18 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     /// </summary>
     public string? SoundPath
     {
-        get => Effect(SpecialActionTypes.PlaySound)?.SoundPath;
+        get => Effect(SpecialActionTypes.PlaySound)?.Sound.Path;
         set
         {
             SpecialActionEffect? effect = Effect(SpecialActionTypes.PlaySound);
             string? normalized = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-            if (effect is null || string.Equals(effect.SoundPath, normalized, StringComparison.Ordinal))
+            if (effect is null || string.Equals(effect.Sound.Path, normalized, StringComparison.Ordinal))
             {
                 OnPropertyChanged();
                 return;
             }
 
-            effect.SoundPath = normalized;
+            effect.Sound.Path = normalized;
             OnPropertyChanged();
             Persist();
         }
@@ -745,10 +745,10 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
         _effectSound = Effect(SpecialActionTypes.PlaySound)?.Enabled ?? false;
         _effectBattery = Effect(SpecialActionTypes.ShowBatteryLevel)?.Enabled ?? false;
         _isEnabledForThisController = SpecialActionService.IsEnabledFor(action, controllerId);
-        _ledRed = Effect(SpecialActionTypes.SetLightbarColor)?.Red ?? 0;
-        _ledGreen = Effect(SpecialActionTypes.SetLightbarColor)?.Green ?? 0;
-        _ledBlue = Effect(SpecialActionTypes.SetLightbarColor)?.Blue ?? 255;
-        byte ledMask = Effect(SpecialActionTypes.SetPlayerLeds)?.PlayerLedMask ?? 0;
+        _ledRed = Effect(SpecialActionTypes.SetLightbarColor)?.Lightbar.Red ?? 0;
+        _ledGreen = Effect(SpecialActionTypes.SetLightbarColor)?.Lightbar.Green ?? 0;
+        _ledBlue = Effect(SpecialActionTypes.SetLightbarColor)?.Lightbar.Blue ?? 255;
+        byte ledMask = Effect(SpecialActionTypes.SetPlayerLeds)?.PlayerLeds.Mask ?? 0;
         _playerLed1 = (ledMask & 0x01) != 0;
         _playerLed2 = (ledMask & 0x02) != 0;
         _playerLed3 = (ledMask & 0x04) != 0;
@@ -764,10 +764,10 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
         _durationSeconds = action.DurationMs / 1000.0;
         _gesture = NormalizeGesture(action.TouchpadGesture) ?? TouchpadGestures.SwipeUp;
         _touchpadGesture = NormalizeGesture(action.TouchpadGesture);
-        _soundVolume = Effect(SpecialActionTypes.PlaySound)?.SoundVolume ?? 0x50;
-        _soundOutputDevice = Effect(SpecialActionTypes.PlaySound)?.SoundOutputDevice ?? SoundOutputDevices.Speaker;
-        _hapticFeedback = Effect(SpecialActionTypes.PlaySound)?.HapticFeedback ?? false;
-        _hapticStrength = Effect(SpecialActionTypes.PlaySound)?.HapticStrength ?? 100;
+        _soundVolume = Effect(SpecialActionTypes.PlaySound)?.Sound.Volume ?? 0x50;
+        _soundOutputDevice = Effect(SpecialActionTypes.PlaySound)?.Sound.Output ?? SoundOutputDevices.Speaker;
+        _hapticFeedback = Effect(SpecialActionTypes.PlaySound)?.Haptics.Feedback ?? false;
+        _hapticStrength = Effect(SpecialActionTypes.PlaySound)?.Haptics.Strength ?? 100;
         _selectedBatteryLevel = 0;
 
         IReadOnlyList<BatteryLevelColor>? customColors = Effect(SpecialActionTypes.ShowBatteryLevel)?.BatteryColors;
@@ -1290,25 +1290,25 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
         SpecialActionEffect? color = Effect(SpecialActionTypes.SetLightbarColor);
         if (color is not null)
         {
-            color.Red = Channel(LedRed);
-            color.Green = Channel(LedGreen);
-            color.Blue = Channel(LedBlue);
+            color.Lightbar.Red = Channel(LedRed);
+            color.Lightbar.Green = Channel(LedGreen);
+            color.Lightbar.Blue = Channel(LedBlue);
         }
 
         SpecialActionEffect? playerLeds = Effect(SpecialActionTypes.SetPlayerLeds);
         if (playerLeds is not null)
         {
-            playerLeds.PlayerLedMask = ComputePlayerLedMask();
+            playerLeds.PlayerLeds.Mask = ComputePlayerLedMask();
         }
 
         SpecialActionEffect? sound = Effect(SpecialActionTypes.PlaySound);
         if (sound is not null)
         {
-            sound.SoundPath = string.IsNullOrWhiteSpace(SoundPath) ? null : SoundPath.Trim();
-            sound.SoundVolume = (byte)Math.Clamp(SoundVolume, 0, 255);
-            sound.SoundOutputDevice = SoundOutputDevice;
-            sound.HapticFeedback = HapticFeedback;
-            sound.HapticStrength = Math.Clamp(HapticStrength, 0, 200);
+            sound.Sound.Path = string.IsNullOrWhiteSpace(SoundPath) ? null : SoundPath.Trim();
+            sound.Sound.Volume = (byte)Math.Clamp(SoundVolume, 0, 255);
+            sound.Sound.Output = SoundOutputDevice;
+            sound.Haptics.Feedback = HapticFeedback;
+            sound.Haptics.Strength = Math.Clamp(HapticStrength, 0, 200);
         }
 
         SpecialActionEffect? battery = Effect(SpecialActionTypes.ShowBatteryLevel);

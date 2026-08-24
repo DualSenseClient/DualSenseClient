@@ -789,12 +789,12 @@ public sealed class SpecialActionEngine : IDisposable
             case SpecialActionTypes.SetLightbarColor:
                 return new OutputStateOverride
                 {
-                    LightbarColor = SendLightbarColor(effect.Red, effect.Green, effect.Blue)
+                    LightbarColor = SendLightbarColor(effect.Lightbar.Red, effect.Lightbar.Green, effect.Lightbar.Blue)
                 };
             case SpecialActionTypes.SetPlayerLeds:
                 return new OutputStateOverride
                 {
-                    PlayerLeds = SendPlayerLeds(effect.PlayerLedMask)
+                    PlayerLeds = SendPlayerLeds(effect.PlayerLeds.Mask)
                 };
             case SpecialActionTypes.PlaySound:
                 PlaySound(effect);
@@ -923,7 +923,7 @@ public sealed class SpecialActionEngine : IDisposable
     /// </summary>
     private void PlaySound(SpecialActionEffect effect)
     {
-        if (string.IsNullOrEmpty(effect.SoundPath))
+        if (string.IsNullOrEmpty(effect.Sound.Path))
         {
             _log.Warning("Special action sound effect has no sound file selected");
             return;
@@ -941,13 +941,13 @@ public sealed class SpecialActionEngine : IDisposable
         }
 
         _soundPlayer.Play(
-            effect.SoundPath,
-            string.Equals(effect.SoundOutputDevice, SoundOutputDevices.Headset, StringComparison.OrdinalIgnoreCase)
+            effect.Sound.Path,
+            string.Equals(effect.Sound.Output, SoundOutputDevices.Headset, StringComparison.OrdinalIgnoreCase)
                 ? SoundOutputTarget.Headset
                 : SoundOutputTarget.Speaker,
-            effect.SoundVolume,
-            effect.HapticFeedback,
-            effect.HapticStrength);
+            effect.Sound.Volume,
+            effect.Haptics.Feedback,
+            effect.Haptics.Strength);
     }
 
     /// <summary>

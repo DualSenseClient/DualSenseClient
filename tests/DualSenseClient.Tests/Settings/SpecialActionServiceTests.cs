@@ -249,22 +249,34 @@ public class SpecialActionServiceTests
         action.Effects.Add(new SpecialActionEffect
         {
             Type = SpecialActionTypes.SetLightbarColor,
-            Red = 0xAA,
-            Green = 0xBB,
-            Blue = 0xCC
+            Lightbar = new LightbarSettings
+            {
+                Red = 0xAA,
+                Green = 0xBB,
+                Blue = 0xCC
+            }
         });
         action.Effects.Add(new SpecialActionEffect
         {
             Type = SpecialActionTypes.SetPlayerLeds,
-            PlayerLedMask = 0x07
+            PlayerLeds = new PlayerLedSettings
+            {
+                Mask = 0x07
+            }
         });
         action.Effects.Add(new SpecialActionEffect
         {
             Type = SpecialActionTypes.PlaySound,
-            SoundPath = @"C:\sounds\beep.mp3",
-            SoundVolume = 0x7F,
-            HapticFeedback = true,
-            HapticStrength = 150
+            Sound = new SoundSettings
+            {
+                Path = @"C:\sounds\beep.mp3",
+                Volume = 0x7F
+            },
+            Haptics = new HapticsSettings
+            {
+                Feedback = true,
+                Strength = 150
+            }
         });
         action.Effects.RemoveAt(0);
         action.HoldTimeMs = 1500;
@@ -284,16 +296,16 @@ public class SpecialActionServiceTests
             }));
             Assert.That(loaded.Effects, Has.Count.EqualTo(3));
             Assert.That(loaded.Effects[0].Type, Is.EqualTo(SpecialActionTypes.SetLightbarColor));
-            Assert.That(loaded.Effects[0].Red, Is.EqualTo(0xAA));
-            Assert.That(loaded.Effects[0].Green, Is.EqualTo(0xBB));
-            Assert.That(loaded.Effects[0].Blue, Is.EqualTo(0xCC));
+            Assert.That(loaded.Effects[0].Lightbar.Red, Is.EqualTo(0xAA));
+            Assert.That(loaded.Effects[0].Lightbar.Green, Is.EqualTo(0xBB));
+            Assert.That(loaded.Effects[0].Lightbar.Blue, Is.EqualTo(0xCC));
             Assert.That(loaded.Effects[1].Type, Is.EqualTo(SpecialActionTypes.SetPlayerLeds));
-            Assert.That(loaded.Effects[1].PlayerLedMask, Is.EqualTo(0x07));
+            Assert.That(loaded.Effects[1].PlayerLeds.Mask, Is.EqualTo(0x07));
             Assert.That(loaded.Effects[2].Type, Is.EqualTo(SpecialActionTypes.PlaySound));
-            Assert.That(loaded.Effects[2].SoundPath, Is.EqualTo(@"C:\sounds\beep.mp3"));
-            Assert.That(loaded.Effects[2].SoundVolume, Is.EqualTo(0x7F));
-            Assert.That(loaded.Effects[2].HapticFeedback, Is.True);
-            Assert.That(loaded.Effects[2].HapticStrength, Is.EqualTo(150));
+            Assert.That(loaded.Effects[2].Sound.Path, Is.EqualTo(@"C:\sounds\beep.mp3"));
+            Assert.That(loaded.Effects[2].Sound.Volume, Is.EqualTo(0x7F));
+            Assert.That(loaded.Effects[2].Haptics.Feedback, Is.True);
+            Assert.That(loaded.Effects[2].Haptics.Strength, Is.EqualTo(150));
             Assert.That(loaded.HoldTimeMs, Is.EqualTo(1500));
             Assert.That(loaded.ApplyWhileHeld, Is.True);
             Assert.That(loaded.DurationMs, Is.EqualTo(3000));
@@ -357,99 +369,6 @@ public class SpecialActionServiceTests
     }
 
     [Test]
-    public void Load_MigratesLegacySingleTypeActions()
-    {
-        Guid lightbarId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-        Guid soundId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-        WriteActionsJson($$"""
-                           {"actions":[
-                             {"id":"{{lightbarId}}","name":"Legacy Lightbar","buttons":["L1","R1"],"type":"SetLightbarColor","red":10,"green":20,"blue":30},
-                             {"id":"{{soundId}}","name":"Legacy Sound","type":"PlaySound","sound_path":"C:\\sounds\\beep.mp3","sound_volume":127,"haptic_feedback":true,"haptic_strength":150}
-                           ]}
-                           """);
-
-        SpecialActionService service = CreateService();
-        Assert.That(service.Settings.Actions, Has.Count.EqualTo(2));
-
-        SpecialAction? lightbar = service.Settings.Actions.FirstOrDefault(a => a.Id == lightbarId);
-        Assert.Multiple(() =>
-        {
-            Assert.That(lightbar, Is.Not.Null);
-            Assert.That(lightbar!.Effects, Has.Count.EqualTo(1));
-            Assert.That(lightbar.Effects[0].Type, Is.EqualTo(SpecialActionTypes.SetLightbarColor));
-            Assert.That(lightbar.Effects[0].Red, Is.EqualTo(10));
-            Assert.That(lightbar.Effects[0].Green, Is.EqualTo(20));
-            Assert.That(lightbar.Effects[0].Blue, Is.EqualTo(30));
-            Assert.That(lightbar.Buttons, Is.EqualTo(new[]
-            {
-                "L1", "R1"
-            }));
-        });
-
-        SpecialAction? sound = service.Settings.Actions.FirstOrDefault(a => a.Id == soundId);
-        Assert.Multiple(() =>
-        {
-            Assert.That(sound, Is.Not.Null);
-            Assert.That(sound!.Effects, Has.Count.EqualTo(1));
-            Assert.That(sound.Effects[0].Type, Is.EqualTo(SpecialActionTypes.PlaySound));
-            Assert.That(sound.Effects[0].SoundPath, Is.EqualTo(@"C:\sounds\beep.mp3"));
-            Assert.That(sound.Effects[0].SoundVolume, Is.EqualTo(127));
-            Assert.That(sound.Effects[0].HapticFeedback, Is.True);
-            Assert.That(sound.Effects[0].HapticStrength, Is.EqualTo(150));
-        });
-
-        Assert.That(File.ReadAllText(ActionsPath), Does.Not.Contain("\"type\":\"SetLightbarColor\""));
-    }
-
-    [Test]
-    public void Load_LegacyMigration_KeepsExistingEffects()
-    {
-        Guid modernId = Guid.Parse("33333333-3333-3333-3333-333333333333");
-        Guid legacyId = Guid.Parse("44444444-4444-4444-4444-444444444444");
-        WriteActionsJson($$"""
-                           {"actions":[
-                             {"id":"{{modernId}}","name":"Modern","type":"Disconnect","effects":[{"type":"SetPlayerLeds","player_leds":5}]},
-                             {"id":"{{legacyId}}","name":"Legacy","type":"SetLightbarColor","red":9,"green":8,"blue":7}
-                           ]}
-                           """);
-
-        SpecialActionService service = CreateService();
-        SpecialAction? modern = service.Settings.Actions.FirstOrDefault(a => a.Id == modernId);
-        Assert.Multiple(() =>
-        {
-            Assert.That(modern, Is.Not.Null);
-            Assert.That(modern!.Effects, Has.Count.EqualTo(1));
-            Assert.That(modern.Effects[0].Type, Is.EqualTo(SpecialActionTypes.SetPlayerLeds));
-        });
-
-        SpecialAction? legacy = service.Settings.Actions.FirstOrDefault(a => a.Id == legacyId);
-        Assert.Multiple(() =>
-        {
-            Assert.That(legacy, Is.Not.Null);
-            Assert.That(legacy!.Effects, Has.Count.EqualTo(1));
-            Assert.That(legacy.Effects[0].Type, Is.EqualTo(SpecialActionTypes.SetLightbarColor));
-            Assert.That(legacy.Effects[0].Red, Is.EqualTo(9));
-        });
-    }
-
-    [Test]
-    public void Load_LegacyMigration_MissingType_IsSkipped()
-    {
-        Guid legacyId = Guid.Parse("55555555-5555-5555-5555-555555555555");
-        WriteActionsJson($$"""
-                           {"actions":[{"id":"{{legacyId}}","name":"No Type","red":1,"green":2,"blue":3}]}
-                           """);
-
-        SpecialActionService service = CreateService();
-        SpecialAction? action = service.Settings.Actions.FirstOrDefault(a => a.Id == legacyId);
-        Assert.Multiple(() =>
-        {
-            Assert.That(action, Is.Not.Null);
-            Assert.That(action!.Effects, Is.Empty);
-        });
-    }
-
-    [Test]
     public void Load_UnknownProperties_DoesNotLoseActions()
     {
         string path = Path.Combine(_tempDir, "special_actions.json");
@@ -470,18 +389,27 @@ public class SpecialActionServiceTests
         action.Effects.Add(new SpecialActionEffect
         {
             Type = SpecialActionTypes.SetLightbarColor,
-            Red = 12,
-            Green = 34,
-            Blue = 56
+            Lightbar = new LightbarSettings
+            {
+                Red = 12,
+                Green = 34,
+                Blue = 56
+            }
         });
         action.Effects.Add(new SpecialActionEffect
         {
             Type = SpecialActionTypes.PlaySound,
-            SoundPath = @"C:\sounds\beep.wav",
-            SoundVolume = 0x7F,
-            SoundOutputDevice = SoundOutputDevices.Headset,
-            HapticFeedback = true,
-            HapticStrength = 150
+            Sound = new SoundSettings
+            {
+                Path = @"C:\sounds\beep.wav",
+                Volume = 0x7F,
+                Output = SoundOutputDevices.Headset
+            },
+            Haptics = new HapticsSettings
+            {
+                Feedback = true,
+                Strength = 150
+            }
         });
         action.Effects.Add(new SpecialActionEffect
         {
@@ -522,20 +450,20 @@ public class SpecialActionServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(lightbar.Type, Is.EqualTo(SpecialActionTypes.SetLightbarColor));
-            Assert.That(lightbar.Red, Is.EqualTo(12));
-            Assert.That(lightbar.Green, Is.EqualTo(34));
-            Assert.That(lightbar.Blue, Is.EqualTo(56));
+            Assert.That(lightbar.Lightbar.Red, Is.EqualTo(12));
+            Assert.That(lightbar.Lightbar.Green, Is.EqualTo(34));
+            Assert.That(lightbar.Lightbar.Blue, Is.EqualTo(56));
         });
 
         SpecialActionEffect sound = imported.Effects[1];
         Assert.Multiple(() =>
         {
             Assert.That(sound.Type, Is.EqualTo(SpecialActionTypes.PlaySound));
-            Assert.That(sound.SoundPath, Is.EqualTo(@"C:\sounds\beep.wav"));
-            Assert.That(sound.SoundVolume, Is.EqualTo(0x7F));
-            Assert.That(sound.SoundOutputDevice, Is.EqualTo(SoundOutputDevices.Headset));
-            Assert.That(sound.HapticFeedback, Is.True);
-            Assert.That(sound.HapticStrength, Is.EqualTo(150));
+            Assert.That(sound.Sound.Path, Is.EqualTo(@"C:\sounds\beep.wav"));
+            Assert.That(sound.Sound.Volume, Is.EqualTo(0x7F));
+            Assert.That(sound.Sound.Output, Is.EqualTo(SoundOutputDevices.Headset));
+            Assert.That(sound.Haptics.Feedback, Is.True);
+            Assert.That(sound.Haptics.Strength, Is.EqualTo(150));
         });
 
         SpecialActionEffect battery = imported.Effects[2];
