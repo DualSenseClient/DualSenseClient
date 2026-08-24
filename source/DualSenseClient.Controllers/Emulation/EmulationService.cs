@@ -240,10 +240,10 @@ public sealed class EmulationService : IEmulationService
                 EmulationSettings emulation = GetEmulationSettings(entry.Device);
                 EmulationMode mode = emulation?.Mode ?? EmulationMode.Off;
                 DualSenseVariant? variant = mode == EmulationMode.DualSense
-                    ? emulation?.DeviceType ?? DualSenseVariant.Standard
+                    ? emulation?.Variant.DualSense ?? DualSenseVariant.Standard
                     : null;
                 DualShock4Variant? ds4Variant = mode == EmulationMode.DualShock4
-                    ? emulation?.Ds4Variant ?? DualShock4Variant.V2
+                    ? emulation?.Variant.DualShock4 ?? DualShock4Variant.V2
                     : null;
                 if (entry.Virtual is not null && entry.Status.Mode == mode
                                               && entry.Status.Variant == variant && entry.Status.Ds4Variant == ds4Variant)
@@ -323,9 +323,9 @@ public sealed class EmulationService : IEmulationService
         EmulationSettings emulation = GetEmulationSettings(device);
         virtualController.ButtonMappings = virtualController.Mode switch
         {
-            EmulationMode.Xbox360 => VirtualInputMapper.Xbox360Table(emulation.Xbox360ButtonMappings, WarnInvalidMapping),
-            EmulationMode.DualShock4 => VirtualInputMapper.DualShock4Table(emulation.DualShock4ButtonMappings, WarnInvalidMapping),
-            EmulationMode.DualSense => VirtualInputMapper.DualSenseTable(emulation.DualSenseButtonMappings, WarnInvalidMapping),
+            EmulationMode.Xbox360 => VirtualInputMapper.Xbox360Table(emulation.Mappings.Xbox360, WarnInvalidMapping),
+            EmulationMode.DualShock4 => VirtualInputMapper.DualShock4Table(emulation.Mappings.DualShock4, WarnInvalidMapping),
+            EmulationMode.DualSense => VirtualInputMapper.DualSenseTable(emulation.Mappings.DualSense, WarnInvalidMapping),
             _ => null
         };
     }
@@ -517,8 +517,8 @@ public sealed class EmulationService : IEmulationService
             }
 
             EmulationSettings emulation = GetEmulationSettings(entry.Device);
-            bool edge = emulation?.DeviceType == DualSenseVariant.Edge;
-            DualShock4Variant ds4Variant = emulation?.Ds4Variant ?? DualShock4Variant.V2;
+            bool edge = emulation?.Variant.DualSense == DualSenseVariant.Edge;
+            DualShock4Variant ds4Variant = emulation?.Variant.DualShock4 ?? DualShock4Variant.V2;
             (ushort vid, ushort pid) = GetDeviceIds(mode, edge, ds4Variant);
             SpecialActionEngine specialActions;
             lock (_sync)
@@ -725,9 +725,9 @@ public sealed class EmulationService : IEmulationService
         ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(outputs, usbTarget);
         if (emulation is not null)
         {
-            forwarder.SpeakerVolume = (byte)Math.Clamp(emulation.ForwardVolume, 0, 255);
-            forwarder.HapticStrength = Math.Clamp(emulation.ForwardHapticStrength, 0, 200) / 100f;
-            forwarder.PlayToHeadset = emulation.ForwardAudioOutput == EmulationAudioOutput.Headset;
+            forwarder.SpeakerVolume = (byte)Math.Clamp(emulation.Forward.Volume, 0, 255);
+            forwarder.HapticStrength = Math.Clamp(emulation.Forward.Haptics, 0, 200) / 100f;
+            forwarder.PlayToHeadset = emulation.Forward.AudioOutput == EmulationAudioOutput.Headset;
         }
 
         return forwarder;

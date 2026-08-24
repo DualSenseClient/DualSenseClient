@@ -79,6 +79,85 @@ public enum EmulationAudioOutput
 }
 
 /// <summary>
+/// The per-mode hardware variants presented by the virtual controller. Only the entry
+/// matching the active emulation mode is used; the other keeps its default.
+/// </summary>
+public class VariantSettings
+{
+    /// <summary>
+    /// Gets or sets the DualSense hardware variant of the virtual device when the
+    /// emulation mode is <see cref="EmulationMode.DualSense"/>
+    /// (<see cref="DualSenseVariant.Standard"/> by default).
+    /// </summary>
+    [JsonPropertyName("dualsense")]
+    public DualSenseVariant DualSense { get; set; } = DualSenseVariant.Standard;
+
+    /// <summary>
+    /// Gets or sets the DualShock 4 hardware generation of the virtual device when the
+    /// emulation mode is <see cref="EmulationMode.DualShock4"/>
+    /// (<see cref="DualShock4Variant.V2"/> by default, matching the libVIIPER default).
+    /// </summary>
+    [JsonPropertyName("dualshock4")]
+    public DualShock4Variant DualShock4 { get; set; } = DualShock4Variant.V2;
+}
+
+/// <summary>
+/// The host-audio forwarding options applied to the physical controller while a
+/// virtual device is active.
+/// </summary>
+public class ForwardSettings
+{
+    /// <summary>
+    /// Gets or sets the physical controller output used when forwarding host audio
+    /// (<see cref="EmulationAudioOutput.Speaker"/> by default).
+    /// </summary>
+    [JsonPropertyName("audio_output")]
+    public EmulationAudioOutput AudioOutput { get; set; } = EmulationAudioOutput.Speaker;
+
+    /// <summary>
+    /// Gets or sets the volume applied to the physical controller's speaker when
+    /// forwarding host audio (0-255, same range as the audio player tester).
+    /// </summary>
+    [JsonPropertyName("volume")]
+    public int Volume { get; set; } = 0x50;
+
+    /// <summary>
+    /// Gets or sets the haptic vibration strength when forwarding host audio, as a
+    /// percentage (0-200, same range as the audio player tester).
+    /// </summary>
+    [JsonPropertyName("haptics")]
+    public int Haptics { get; set; } = 100;
+}
+
+/// <summary>
+/// The button remapping rules per emulation mode. A <c>null</c> list means the mode
+/// uses its built-in default mapping.
+/// </summary>
+public class MappingsSettings
+{
+    /// <summary>
+    /// Gets or sets the button remapping rules for Xbox 360 emulation, or <c>null</c> to
+    /// use the built-in default mapping.
+    /// </summary>
+    [JsonPropertyName("xbox360")]
+    public List<ButtonMappingEntry>? Xbox360 { get; set; }
+
+    /// <summary>
+    /// Gets or sets the button remapping rules for DualShock 4 emulation, or <c>null</c>
+    /// to use the built-in default mapping.
+    /// </summary>
+    [JsonPropertyName("dualshock4")]
+    public List<ButtonMappingEntry>? DualShock4 { get; set; }
+
+    /// <summary>
+    /// Gets or sets the button remapping rules for DualSense emulation, or <c>null</c> to
+    /// use the built-in default mapping.
+    /// </summary>
+    [JsonPropertyName("dualsense")]
+    public List<ButtonMappingEntry>? DualSense { get; set; }
+}
+
+/// <summary>
 /// The virtual controller emulation settings stored in a controller profile.
 /// </summary>
 public class EmulationSettings
@@ -91,60 +170,20 @@ public class EmulationSettings
     public EmulationMode Mode { get; set; } = EmulationMode.Off;
 
     /// <summary>
-    /// Gets or sets the DualSense hardware variant of the virtual device when
-    /// <see cref="Mode"/> is <see cref="EmulationMode.DualSense"/>
-    /// (<see cref="DualSenseVariant.Standard"/> by default).
+    /// Gets or sets the per-mode hardware variants of the virtual device.
     /// </summary>
-    [JsonPropertyName("device_type")]
-    public DualSenseVariant DeviceType { get; set; } = DualSenseVariant.Standard;
+    [JsonPropertyName("variant")]
+    public VariantSettings Variant { get; set; } = new VariantSettings();
 
     /// <summary>
-    /// Gets or sets the DualShock 4 hardware generation of the virtual device when
-    /// <see cref="Mode"/> is <see cref="EmulationMode.DualShock4"/>
-    /// (<see cref="DualShock4Variant.V2"/> by default, matching the libVIIPER default).
+    /// Gets or sets the host-audio forwarding options of the physical controller.
     /// </summary>
-    [JsonPropertyName("ds4_variant")]
-    public DualShock4Variant Ds4Variant { get; set; } = DualShock4Variant.V2;
+    [JsonPropertyName("forward")]
+    public ForwardSettings Forward { get; set; } = new ForwardSettings();
 
     /// <summary>
-    /// Gets or sets the physical controller output used when forwarding host audio
-    /// (<see cref="EmulationAudioOutput.Speaker"/> by default).
+    /// Gets or sets the per-mode button remapping rules.
     /// </summary>
-    [JsonPropertyName("forward_audio_output")]
-    public EmulationAudioOutput ForwardAudioOutput { get; set; } = EmulationAudioOutput.Speaker;
-
-    /// <summary>
-    /// Gets or sets the volume applied to the physical controller's speaker when
-    /// forwarding host audio (0-255, same range as the audio player tester).
-    /// </summary>
-    [JsonPropertyName("forward_volume")]
-    public int ForwardVolume { get; set; } = 0x50;
-
-    /// <summary>
-    /// Gets or sets the haptic vibration strength when forwarding host audio, as a
-    /// percentage (0-200, same range as the audio player tester).
-    /// </summary>
-    [JsonPropertyName("forward_haptics")]
-    public int ForwardHapticStrength { get; set; } = 100;
-
-    /// <summary>
-    /// Gets or sets the button remapping rules for Xbox 360 emulation, or <c>null</c> to
-    /// use the built-in default mapping.
-    /// </summary>
-    [JsonPropertyName("xbox360_button_mappings")]
-    public List<ButtonMappingEntry>? Xbox360ButtonMappings { get; set; }
-
-    /// <summary>
-    /// Gets or sets the button remapping rules for DualShock 4 emulation, or <c>null</c>
-    /// to use the built-in default mapping.
-    /// </summary>
-    [JsonPropertyName("ds4_button_mappings")]
-    public List<ButtonMappingEntry>? DualShock4ButtonMappings { get; set; }
-
-    /// <summary>
-    /// Gets or sets the button remapping rules for DualSense emulation, or <c>null</c> to
-    /// use the built-in default mapping.
-    /// </summary>
-    [JsonPropertyName("dualsense_button_mappings")]
-    public List<ButtonMappingEntry>? DualSenseButtonMappings { get; set; }
+    [JsonPropertyName("mappings")]
+    public MappingsSettings Mappings { get; set; } = new MappingsSettings();
 }

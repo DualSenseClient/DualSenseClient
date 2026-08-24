@@ -318,7 +318,7 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// </summary>
     public int DualSenseVariantIndex
     {
-        get => !HasDevice ? 0 : (int)GetEmulationSettings().DeviceType;
+        get => !HasDevice ? 0 : (int)GetEmulationSettings().Variant.DualSense;
         set
         {
             if (!HasDevice)
@@ -328,13 +328,13 @@ public partial class VirtualControllerPageViewModel : ObservableObject
 
             DualSenseVariant variant = (DualSenseVariant)Math.Clamp(value, 0, (int)DualSenseVariant.Edge);
             EmulationSettings settings = GetEmulationSettings();
-            if (settings.DeviceType == variant)
+            if (settings.Variant.DualSense == variant)
             {
                 return;
             }
 
             _log.Info($"Setting DualSense variant of {CurrentMac} to {variant}");
-            settings.DeviceType = variant;
+            settings.Variant.DualSense = variant;
             _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
             OnPropertyChanged(nameof(DualSenseVariantIndex));
             RefreshMappingTargets();
@@ -350,7 +350,7 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// </summary>
     public int DualShock4VariantIndex
     {
-        get => !HasDevice ? 0 : (int)GetEmulationSettings().Ds4Variant;
+        get => !HasDevice ? 0 : (int)GetEmulationSettings().Variant.DualShock4;
         set
         {
             if (!HasDevice)
@@ -360,13 +360,13 @@ public partial class VirtualControllerPageViewModel : ObservableObject
 
             DualShock4Variant variant = (DualShock4Variant)Math.Clamp(value, 0, (int)DualShock4Variant.V2);
             EmulationSettings settings = GetEmulationSettings();
-            if (settings.Ds4Variant == variant)
+            if (settings.Variant.DualShock4 == variant)
             {
                 return;
             }
 
             _log.Info($"Setting DualShock 4 variant of {CurrentMac} to {variant}");
-            settings.Ds4Variant = variant;
+            settings.Variant.DualShock4 = variant;
             _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
             OnPropertyChanged(nameof(DualShock4VariantIndex));
             _emulation.Refresh();
@@ -380,7 +380,7 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// </summary>
     public int ForwardAudioOutputIndex
     {
-        get => !HasDevice ? 0 : (int)GetEmulationSettings().ForwardAudioOutput;
+        get => !HasDevice ? 0 : (int)GetEmulationSettings().Forward.AudioOutput;
         set
         {
             if (!HasDevice)
@@ -390,13 +390,13 @@ public partial class VirtualControllerPageViewModel : ObservableObject
 
             EmulationAudioOutput output = (EmulationAudioOutput)Math.Clamp(value, 0, (int)EmulationAudioOutput.Headset);
             EmulationSettings settings = GetEmulationSettings();
-            if (settings.ForwardAudioOutput == output)
+            if (settings.Forward.AudioOutput == output)
             {
                 return;
             }
 
             _log.Info($"Setting forwarded audio output of {CurrentMac} to {output}");
-            settings.ForwardAudioOutput = output;
+            settings.Forward.AudioOutput = output;
             _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
             OnPropertyChanged(nameof(ForwardAudioOutputIndex));
             if (CurrentDualSenseDevice is { } device)
@@ -412,7 +412,7 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// </summary>
     public int ForwardVolume
     {
-        get => !HasDevice ? 0 : GetEmulationSettings().ForwardVolume;
+        get => !HasDevice ? 0 : GetEmulationSettings().Forward.Volume;
         set
         {
             if (!HasDevice)
@@ -422,17 +422,17 @@ public partial class VirtualControllerPageViewModel : ObservableObject
 
             int clamped = Math.Clamp(value, 0, 255);
             EmulationSettings settings = GetEmulationSettings();
-            if (settings.ForwardVolume == clamped)
+            if (settings.Forward.Volume == clamped)
             {
                 return;
             }
 
-            settings.ForwardVolume = clamped;
+            settings.Forward.Volume = clamped;
             ScheduleEmulationSave();
             OnPropertyChanged(nameof(ForwardVolume));
             if (CurrentDualSenseDevice is { } device)
             {
-                _emulation.SetForwardingAudioOptions(device, (byte)clamped, settings.ForwardHapticStrength / 100f);
+                _emulation.SetForwardingAudioOptions(device, (byte)clamped, settings.Forward.Haptics / 100f);
             }
         }
     }
@@ -443,7 +443,7 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// </summary>
     public int ForwardHapticStrength
     {
-        get => !HasDevice ? 0 : GetEmulationSettings().ForwardHapticStrength;
+        get => !HasDevice ? 0 : GetEmulationSettings().Forward.Haptics;
         set
         {
             if (!HasDevice)
@@ -453,17 +453,17 @@ public partial class VirtualControllerPageViewModel : ObservableObject
 
             int clamped = Math.Clamp(value, 0, 200);
             EmulationSettings settings = GetEmulationSettings();
-            if (settings.ForwardHapticStrength == clamped)
+            if (settings.Forward.Haptics == clamped)
             {
                 return;
             }
 
-            settings.ForwardHapticStrength = clamped;
+            settings.Forward.Haptics = clamped;
             ScheduleEmulationSave();
             OnPropertyChanged(nameof(ForwardHapticStrength));
             if (CurrentDualSenseDevice is { } device)
             {
-                _emulation.SetForwardingAudioOptions(device, (byte)settings.ForwardVolume, clamped / 100f);
+                _emulation.SetForwardingAudioOptions(device, (byte)settings.Forward.Volume, clamped / 100f);
             }
         }
     }
@@ -862,9 +862,9 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// </summary>
     private List<ButtonMappingEntry>? GetEntries(EmulationSettings settings) => EmulationModeIndex switch
     {
-        (int)EmulationMode.Xbox360 => settings.Xbox360ButtonMappings,
-        (int)EmulationMode.DualShock4 => settings.DualShock4ButtonMappings,
-        (int)EmulationMode.DualSense => settings.DualSenseButtonMappings,
+        (int)EmulationMode.Xbox360 => settings.Mappings.Xbox360,
+        (int)EmulationMode.DualShock4 => settings.Mappings.DualShock4,
+        (int)EmulationMode.DualSense => settings.Mappings.DualSense,
         _ => null
     };
 
@@ -876,13 +876,13 @@ public partial class VirtualControllerPageViewModel : ObservableObject
         switch ((EmulationMode)EmulationModeIndex)
         {
             case EmulationMode.Xbox360:
-                settings.Xbox360ButtonMappings = entries;
+                settings.Mappings.Xbox360 = entries;
                 break;
             case EmulationMode.DualShock4:
-                settings.DualShock4ButtonMappings = entries;
+                settings.Mappings.DualShock4 = entries;
                 break;
             case EmulationMode.DualSense:
-                settings.DualSenseButtonMappings = entries;
+                settings.Mappings.DualSense = entries;
                 break;
         }
     }
@@ -917,7 +917,7 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// Whether the selected controller's virtual DualSense presents an Edge.
     /// </summary>
     private bool IsEdgeVirtualController
-        => HasDevice && GetEmulationSettings().DeviceType == DualSenseVariant.Edge;
+        => HasDevice && GetEmulationSettings().Variant.DualSense == DualSenseVariant.Edge;
 
     /// <summary>
     /// Rebuilds <see cref="TargetOptions"/> for the current emulation mode and resets the
