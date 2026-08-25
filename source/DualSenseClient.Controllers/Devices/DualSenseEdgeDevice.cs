@@ -22,11 +22,23 @@ public sealed class DualSenseEdgeDevice : DualSenseDevice
     }
 
     /// <inheritdoc/>
-    public override ControllerType ControllerType => ControllerType.DualSenseEdge;
+    public override ControllerType ControllerType
+    {
+        get
+        {
+            return ControllerType.DualSenseEdge;
+        }
+    }
 
     /// <summary>
     /// This controller is a DualSense Edge: it has the extra Fn buttons and back
     /// paddles and always uses the "vibration v2" rumble encoding.
     /// </summary>
-    public override bool IsEdge => true;
+    public override bool IsEdge
+    {
+        get
+        {
+            return true;
+        }
+    }
 }

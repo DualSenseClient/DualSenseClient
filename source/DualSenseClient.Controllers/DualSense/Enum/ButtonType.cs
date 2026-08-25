@@ -118,5 +118,5 @@ public enum ButtonType
     /// <summary>
     /// DualSense Edge R4 Paddle
     /// </summary>
-    Edge_RightPaddle,
+    Edge_RightPaddle
 }

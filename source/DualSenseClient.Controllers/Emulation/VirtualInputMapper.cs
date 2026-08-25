@@ -312,7 +312,7 @@ public static class VirtualInputMapper
     /// names are rejected because their result would not be a defined member.
     /// </summary>
     private static bool TryParseFlag<TEnum>(string name, out TEnum value) where TEnum : struct, Enum
-        => Enum.TryParse(name, ignoreCase: true, out value) && Enum.IsDefined(value) && Convert.ToUInt64(value) != 0;
+        => Enum.TryParse(name, true, out value) && Enum.IsDefined(value) && Convert.ToUInt64(value) != 0;
 
     // ── Built-in-default convenience translators ────────────────
 
@@ -358,8 +358,8 @@ public static class VirtualInputMapper
     /// <summary>
     /// Wraps a device flag enum member into a flag-only resolved target.
     /// </summary>
-    private static ResolvedMappingTarget Flag<TEnum>(TEnum value) where TEnum : struct, Enum
-        => new()
+    private static ResolvedMappingTarget Flag<TEnum>(TEnum value) where TEnum : struct, Enum =>
+        new ResolvedMappingTarget
         {
             ButtonFlags = Convert.ToUInt64(value)
         };

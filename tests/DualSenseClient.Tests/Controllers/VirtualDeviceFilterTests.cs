@@ -5,40 +5,22 @@ namespace DualSenseClient.Tests.Controllers;
 public class VirtualDeviceFilterTests
 {
     [Test]
-    public void IsKnownVirtualMac_OwnershipPrefix_Matches()
-    {
-        Assert.That(VirtualDeviceFilter.IsKnownVirtualMac("02:D5:AA:BB:CC:DD"), Is.True);
-    }
+    public void IsKnownVirtualMac_OwnershipPrefix_Matches() => Assert.That(VirtualDeviceFilter.IsKnownVirtualMac("02:D5:AA:BB:CC:DD"), Is.True);
 
     [Test]
-    public void IsKnownVirtualMac_OwnershipPrefixLowercase_Matches()
-    {
-        Assert.That(VirtualDeviceFilter.IsKnownVirtualMac("02:d5:a1:b2:c3:d4"), Is.True);
-    }
+    public void IsKnownVirtualMac_OwnershipPrefixLowercase_Matches() => Assert.That(VirtualDeviceFilter.IsKnownVirtualMac("02:d5:a1:b2:c3:d4"), Is.True);
 
     [Test]
-    public void IsKnownVirtualMac_LegacyDualSenseDefault_Matches()
-    {
-        Assert.That(VirtualDeviceFilter.IsKnownVirtualMac("A5:FA:9C:CF:92:00"), Is.True);
-    }
+    public void IsKnownVirtualMac_LegacyDualSenseDefault_Matches() => Assert.That(VirtualDeviceFilter.IsKnownVirtualMac("A5:FA:9C:CF:92:00"), Is.True);
 
     [Test]
-    public void IsKnownVirtualMac_LegacyEdgeDefault_Matches()
-    {
-        Assert.That(VirtualDeviceFilter.IsKnownVirtualMac("A5:FE:9C:CF:92:00"), Is.True);
-    }
+    public void IsKnownVirtualMac_LegacyEdgeDefault_Matches() => Assert.That(VirtualDeviceFilter.IsKnownVirtualMac("A5:FE:9C:CF:92:00"), Is.True);
 
     [Test]
-    public void IsKnownVirtualMac_LegacyDefaultLowercase_Matches()
-    {
-        Assert.That(VirtualDeviceFilter.IsKnownVirtualMac("a5:fa:9c:cf:92:00"), Is.True);
-    }
+    public void IsKnownVirtualMac_LegacyDefaultLowercase_Matches() => Assert.That(VirtualDeviceFilter.IsKnownVirtualMac("a5:fa:9c:cf:92:00"), Is.True);
 
     [Test]
-    public void IsKnownVirtualMac_RealControllerOui_DoesNotMatch()
-    {
-        Assert.That(VirtualDeviceFilter.IsKnownVirtualMac("D0:BC:C1:17:55:63"), Is.False);
-    }
+    public void IsKnownVirtualMac_RealControllerOui_DoesNotMatch() => Assert.That(VirtualDeviceFilter.IsKnownVirtualMac("D0:BC:C1:17:55:63"), Is.False);
 
     [Test]
     public void IsKnownVirtualMac_PrefixLookalike_DoesNotMatch()

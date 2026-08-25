@@ -548,57 +548,39 @@ public sealed class TrayIconService
     /// Refreshes the tray state when a controller connects or disconnects.
     /// Raised on the UI thread.
     /// </summary>
-    private void OnControllersChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        UpdateTrayState();
-    }
+    private void OnControllersChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdateTrayState();
 
     /// <summary>
     /// Re-watches the active controller for battery changes when it changes.
     /// Raised on the UI thread (marshaled, because the tracker may raise the
     /// event from a background thread on disconnect).
     /// </summary>
-    private void OnActiveControllerChanged(object? sender, EventArgs e)
-    {
-        Dispatcher.UIThread.Post(UpdateBatterySource);
-    }
+    private void OnActiveControllerChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(UpdateBatterySource);
 
     /// <summary>
     /// Refreshes the tray state when the emulation service state changes, so the
     /// emulation menu re-enables after a (re)creation finishes. May be raised on a
     /// background thread, so it is marshaled to the UI thread.
     /// </summary>
-    private void OnEmulationStateChanged(object? sender, EventArgs e)
-    {
-        Dispatcher.UIThread.Post(UpdateTrayState);
-    }
+    private void OnEmulationStateChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(UpdateTrayState);
 
     /// <summary>
     /// Re-renders the tray icon right away when the user switches the app theme.
     /// Raised on the UI thread (ThemeService.SetTheme callers).
     /// </summary>
-    private void OnThemeChanged(object? sender, EventArgs e)
-    {
-        UpdateTrayState();
-    }
+    private void OnThemeChanged(object? sender, EventArgs e) => UpdateTrayState();
 
     /// <summary>
     /// Re-renders the tray icon when the effective light/dark variant changes, e.g.
     /// the OS switches while the System theme follows it. Raised on the UI thread.
     /// </summary>
-    private void OnActualThemeVariantChanged(object? sender, EventArgs e)
-    {
-        UpdateTrayState();
-    }
+    private void OnActualThemeVariantChanged(object? sender, EventArgs e) => UpdateTrayState();
 
     /// <summary>
     /// Refreshes the tray state when the selected controller's battery changes.
     /// Raised from the device read loop, so it is marshaled to the UI thread.
     /// </summary>
-    private void OnBatteryStateChanged(object? sender, BatteryStateEventArgs e)
-    {
-        Dispatcher.UIThread.Post(UpdateTrayState);
-    }
+    private void OnBatteryStateChanged(object? sender, BatteryStateEventArgs e) => Dispatcher.UIThread.Post(UpdateTrayState);
 
     /// <summary>
     /// Refreshes the tray state when settings, profiles, or controller info change

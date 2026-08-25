@@ -138,7 +138,10 @@ public sealed partial class AudioPlayerItem : ObservableObject, IDisposable
     /// </summary>
     public bool PlayToDesktop
     {
-        get => _playToDesktop;
+        get
+        {
+            return _playToDesktop;
+        }
         set
         {
             if (SetProperty(ref _playToDesktop, value))
@@ -161,7 +164,10 @@ public sealed partial class AudioPlayerItem : ObservableObject, IDisposable
     /// </summary>
     public int ControllerOutputIndex
     {
-        get => _controllerOutputIndex;
+        get
+        {
+            return _controllerOutputIndex;
+        }
         set
         {
             if (SetProperty(ref _controllerOutputIndex, Math.Clamp(value, 0, 2)))
@@ -176,7 +182,10 @@ public sealed partial class AudioPlayerItem : ObservableObject, IDisposable
     /// </summary>
     public bool PlayToHaptics
     {
-        get => _playToHaptics;
+        get
+        {
+            return _playToHaptics;
+        }
         set
         {
             if (SetProperty(ref _playToHaptics, value))
@@ -191,7 +200,10 @@ public sealed partial class AudioPlayerItem : ObservableObject, IDisposable
     /// </summary>
     public int SpeakerVolume
     {
-        get => _speakerVolume;
+        get
+        {
+            return _speakerVolume;
+        }
         set
         {
             if (SetProperty(ref _speakerVolume, Math.Clamp(value, 0, 255)))
@@ -206,7 +218,10 @@ public sealed partial class AudioPlayerItem : ObservableObject, IDisposable
     /// </summary>
     public int HapticStrength
     {
-        get => _hapticStrength;
+        get
+        {
+            return _hapticStrength;
+        }
         set
         {
             if (SetProperty(ref _hapticStrength, Math.Clamp(value, 0, 200)))
@@ -219,22 +234,46 @@ public sealed partial class AudioPlayerItem : ObservableObject, IDisposable
     /// <summary>
     /// Name of the loaded file, or <c>null</c> when none is loaded.
     /// </summary>
-    public string? FileName => _fileName;
+    public string? FileName
+    {
+        get
+        {
+            return _fileName;
+        }
+    }
 
     /// <summary>
     /// Whether a file is loaded and can be played.
     /// </summary>
-    public bool HasFile => _hasFile;
+    public bool HasFile
+    {
+        get
+        {
+            return _hasFile;
+        }
+    }
 
     /// <summary>
     /// Whether the writer loop is running.
     /// </summary>
-    public bool IsPlaying => _isPlaying;
+    public bool IsPlaying
+    {
+        get
+        {
+            return _isPlaying;
+        }
+    }
 
     /// <summary>
     /// Total duration of the loaded file in seconds (drives the seek slider maximum).
     /// </summary>
-    public double DurationSeconds => _player.Duration.TotalSeconds;
+    public double DurationSeconds
+    {
+        get
+        {
+            return _player.Duration.TotalSeconds;
+        }
+    }
 
     /// <summary>
     /// Playback position in seconds (two-way; the setter is only hit by user drags).
@@ -243,7 +282,10 @@ public sealed partial class AudioPlayerItem : ObservableObject, IDisposable
     /// </summary>
     public double PositionSeconds
     {
-        get => _positionSeconds;
+        get
+        {
+            return _positionSeconds;
+        }
         set
         {
             if (SetProperty(ref _positionSeconds, value))
@@ -257,12 +299,24 @@ public sealed partial class AudioPlayerItem : ObservableObject, IDisposable
     /// <summary>
     /// Playback position formatted as "m:ss", or "-" when nothing is loaded.
     /// </summary>
-    public string PositionText => _hasFile ? FormatClock(_player.Position) : "-";
+    public string PositionText
+    {
+        get
+        {
+            return _hasFile ? FormatClock(_player.Position) : "-";
+        }
+    }
 
     /// <summary>
     /// Duration formatted as "m:ss", or "-" when nothing is loaded.
     /// </summary>
-    public string DurationText => _hasFile ? FormatClock(_player.Duration) : "-";
+    public string DurationText
+    {
+        get
+        {
+            return _hasFile ? FormatClock(_player.Duration) : "-";
+        }
+    }
 
     /// <summary>
     /// Creates the audio player for the given DualSense, or for desktop-only output when

@@ -22,7 +22,7 @@ public class SpecialActionServiceTests
         {
             if (Directory.Exists(_tempDir))
             {
-                Directory.Delete(_tempDir, recursive: true);
+                Directory.Delete(_tempDir, true);
             }
         }
         catch
@@ -31,7 +31,13 @@ public class SpecialActionServiceTests
         }
     }
 
-    private string ActionsPath => Path.Combine(_tempDir, "Config", "special_actions.json");
+    private string ActionsPath
+    {
+        get
+        {
+            return Path.Combine(_tempDir, "Config", "special_actions.json");
+        }
+    }
 
     /// <summary>
     /// Writes raw JSON to the actions path, creating the directory first.

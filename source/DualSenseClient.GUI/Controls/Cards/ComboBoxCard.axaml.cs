@@ -37,7 +37,7 @@ public class ComboBoxCard : ContentControl
     /// </summary>
     public static readonly StyledProperty<bool> ShowIconBackgroundProperty = AvaloniaProperty.Register<CardHeader, bool>(
         nameof(ShowIconBackground),
-        defaultValue: false);
+        false);
 
     /// <summary>
     /// Item source for the ComboBox.
@@ -56,7 +56,7 @@ public class ComboBoxCard : ContentControl
     /// </summary>
     public static readonly StyledProperty<int> SelectedIndexProperty = AvaloniaProperty.Register<ComboBoxCard, int>(
         nameof(SelectedIndex),
-        defaultValue: -1,
+        -1,
         defaultBindingMode: BindingMode.TwoWay);
 
     /// <summary>
@@ -74,70 +74,130 @@ public class ComboBoxCard : ContentControl
     /// <inheritdoc cref="TitleProperty"/>
     public string? Title
     {
-        get => GetValue(TitleProperty);
-        set => SetValue(TitleProperty, value);
+        get
+        {
+            return GetValue(TitleProperty);
+        }
+        set
+        {
+            SetValue(TitleProperty, value);
+        }
     }
 
     /// <inheritdoc cref="DescriptionProperty"/>
     public string? Description
     {
-        get => GetValue(DescriptionProperty);
-        set => SetValue(DescriptionProperty, value);
+        get
+        {
+            return GetValue(DescriptionProperty);
+        }
+        set
+        {
+            SetValue(DescriptionProperty, value);
+        }
     }
 
     /// <inheritdoc cref="TooltipProperty"/>
     public string? Tooltip
     {
-        get => GetValue(TooltipProperty);
-        set => SetValue(TooltipProperty, value);
+        get
+        {
+            return GetValue(TooltipProperty);
+        }
+        set
+        {
+            SetValue(TooltipProperty, value);
+        }
     }
 
     /// <inheritdoc cref="IconProperty"/>
     public Symbol? Icon
     {
-        get => GetValue(IconProperty);
-        set => SetValue(IconProperty, value);
+        get
+        {
+            return GetValue(IconProperty);
+        }
+        set
+        {
+            SetValue(IconProperty, value);
+        }
     }
 
     /// <inheritdoc cref="ShowIconBackgroundProperty"/>
     public bool ShowIconBackground
     {
-        get => GetValue(ShowIconBackgroundProperty);
-        set => SetValue(ShowIconBackgroundProperty, value);
+        get
+        {
+            return GetValue(ShowIconBackgroundProperty);
+        }
+        set
+        {
+            SetValue(ShowIconBackgroundProperty, value);
+        }
     }
 
     /// <inheritdoc cref="ItemsSourceProperty"/>
     public IEnumerable? ItemsSource
     {
-        get => GetValue(ItemsSourceProperty);
-        set => SetValue(ItemsSourceProperty, value);
+        get
+        {
+            return GetValue(ItemsSourceProperty);
+        }
+        set
+        {
+            SetValue(ItemsSourceProperty, value);
+        }
     }
 
     /// <inheritdoc cref="SelectedItemProperty"/>
     public object? SelectedItem
     {
-        get => GetValue(SelectedItemProperty);
-        set => SetValue(SelectedItemProperty, value);
+        get
+        {
+            return GetValue(SelectedItemProperty);
+        }
+        set
+        {
+            SetValue(SelectedItemProperty, value);
+        }
     }
 
     /// <inheritdoc cref="SelectedIndexProperty"/>
     public int SelectedIndex
     {
-        get => GetValue(SelectedIndexProperty);
-        set => SetValue(SelectedIndexProperty, value);
+        get
+        {
+            return GetValue(SelectedIndexProperty);
+        }
+        set
+        {
+            SetValue(SelectedIndexProperty, value);
+        }
     }
 
     /// <inheritdoc cref="ItemTemplateProperty"/>
     public DataTemplate? ItemTemplate
     {
-        get => GetValue(ItemTemplateProperty);
-        set => SetValue(ItemTemplateProperty, value);
+        get
+        {
+            return GetValue(ItemTemplateProperty);
+        }
+        set
+        {
+            SetValue(ItemTemplateProperty, value);
+        }
     }
 
     /// <inheritdoc cref="ComboBoxMinWidthProperty"/>
     public double ComboBoxMinWidth
     {
-        get => GetValue(ComboBoxMinWidthProperty);
-        set => SetValue(ComboBoxMinWidthProperty, value);
+        get
+        {
+            return GetValue(ComboBoxMinWidthProperty);
+        }
+        set
+        {
+            SetValue(ComboBoxMinWidthProperty, value);
+        }
     }
 }

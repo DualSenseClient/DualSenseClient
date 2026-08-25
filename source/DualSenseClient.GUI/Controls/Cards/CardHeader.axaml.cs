@@ -35,7 +35,7 @@ public class CardHeader : TemplatedControl
     /// </summary>
     public static readonly StyledProperty<bool> ShowIconBackgroundProperty = AvaloniaProperty.Register<CardHeader, bool>(
         nameof(ShowIconBackground),
-        defaultValue: false);
+        false);
 
     /// <summary>
     /// Custom content displayed on the right side of the header.
@@ -53,8 +53,14 @@ public class CardHeader : TemplatedControl
     /// </summary>
     public string? Title
     {
-        get => GetValue(TitleProperty);
-        set => SetValue(TitleProperty, value);
+        get
+        {
+            return GetValue(TitleProperty);
+        }
+        set
+        {
+            SetValue(TitleProperty, value);
+        }
     }
 
     /// <summary>
@@ -62,8 +68,14 @@ public class CardHeader : TemplatedControl
     /// </summary>
     public string? Description
     {
-        get => GetValue(DescriptionProperty);
-        set => SetValue(DescriptionProperty, value);
+        get
+        {
+            return GetValue(DescriptionProperty);
+        }
+        set
+        {
+            SetValue(DescriptionProperty, value);
+        }
     }
 
     /// <summary>
@@ -71,8 +83,14 @@ public class CardHeader : TemplatedControl
     /// </summary>
     public string? Tooltip
     {
-        get => GetValue(TooltipProperty);
-        set => SetValue(TooltipProperty, value);
+        get
+        {
+            return GetValue(TooltipProperty);
+        }
+        set
+        {
+            SetValue(TooltipProperty, value);
+        }
     }
 
     /// <summary>
@@ -80,8 +98,14 @@ public class CardHeader : TemplatedControl
     /// </summary>
     public Symbol? Icon
     {
-        get => GetValue(IconProperty);
-        set => SetValue(IconProperty, value);
+        get
+        {
+            return GetValue(IconProperty);
+        }
+        set
+        {
+            SetValue(IconProperty, value);
+        }
     }
 
     /// <summary>
@@ -90,8 +114,14 @@ public class CardHeader : TemplatedControl
     /// </summary>
     public bool ShowIconBackground
     {
-        get => GetValue(ShowIconBackgroundProperty);
-        set => SetValue(ShowIconBackgroundProperty, value);
+        get
+        {
+            return GetValue(ShowIconBackgroundProperty);
+        }
+        set
+        {
+            SetValue(ShowIconBackgroundProperty, value);
+        }
     }
 
     /// <summary>
@@ -99,8 +129,14 @@ public class CardHeader : TemplatedControl
     /// </summary>
     public object? ActionContent
     {
-        get => GetValue(ActionContentProperty);
-        set => SetValue(ActionContentProperty, value);
+        get
+        {
+            return GetValue(ActionContentProperty);
+        }
+        set
+        {
+            SetValue(ActionContentProperty, value);
+        }
     }
 
     /// <summary>
@@ -108,7 +144,13 @@ public class CardHeader : TemplatedControl
     /// </summary>
     public IDataTemplate? ActionContentTemplate
     {
-        get => GetValue(ActionContentTemplateProperty);
-        set => SetValue(ActionContentTemplateProperty, value);
+        get
+        {
+            return GetValue(ActionContentTemplateProperty);
+        }
+        set
+        {
+            SetValue(ActionContentTemplateProperty, value);
+        }
     }
 }

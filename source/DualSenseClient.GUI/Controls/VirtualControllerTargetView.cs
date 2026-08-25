@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -89,26 +90,50 @@ public sealed class VirtualControllerTargetView : Canvas
 
     public VirtualControllerKind Kind
     {
-        get => GetValue(KindProperty);
-        set => SetValue(KindProperty, value);
+        get
+        {
+            return GetValue(KindProperty);
+        }
+        set
+        {
+            SetValue(KindProperty, value);
+        }
     }
 
     public IEnumerable<string>? SelectedTargets
     {
-        get => GetValue(SelectedTargetsProperty);
-        set => SetValue(SelectedTargetsProperty, value);
+        get
+        {
+            return GetValue(SelectedTargetsProperty);
+        }
+        set
+        {
+            SetValue(SelectedTargetsProperty, value);
+        }
     }
 
     public bool IsSelectionEnabled
     {
-        get => GetValue(IsSelectionEnabledProperty);
-        set => SetValue(IsSelectionEnabledProperty, value);
+        get
+        {
+            return GetValue(IsSelectionEnabledProperty);
+        }
+        set
+        {
+            SetValue(IsSelectionEnabledProperty, value);
+        }
     }
 
     public double Scale
     {
-        get => GetValue(ScaleProperty);
-        set => SetValue(ScaleProperty, value);
+        get
+        {
+            return GetValue(ScaleProperty);
+        }
+        set
+        {
+            SetValue(ScaleProperty, value);
+        }
     }
 
     /// <summary>
@@ -238,7 +263,7 @@ public sealed class VirtualControllerTargetView : Canvas
 
         try
         {
-            using var stream = AssetLoader.Open(new Uri(uri));
+            using Stream stream = AssetLoader.Open(new Uri(uri));
             Bitmap bitmap = new Bitmap(stream);
             BitmapCache[uri] = bitmap;
             return bitmap;

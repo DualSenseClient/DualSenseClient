@@ -35,7 +35,10 @@ public sealed class TargetOptionItem : ObservableObject
     /// </summary>
     public bool IsSelected
     {
-        get => _isSelected;
+        get
+        {
+            return _isSelected;
+        }
         set
         {
             if (_isSelected == value)

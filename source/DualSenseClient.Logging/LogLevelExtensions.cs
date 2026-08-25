@@ -20,7 +20,7 @@ public static class LogLevelExtensions
             LogLevel.Warning => "WARNING",
             LogLevel.Error => "ERROR",
             LogLevel.Critical => "CRITICAL",
-            _ => "LOG",
+            _ => "LOG"
         };
     }
 }

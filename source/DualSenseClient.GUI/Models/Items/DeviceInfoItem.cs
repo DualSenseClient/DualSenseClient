@@ -77,56 +77,116 @@ public sealed partial class DeviceInfoItem : ObservableObject, IDisposable
     /// <summary>
     /// Human-readable product name.
     /// </summary>
-    public string DisplayName => Controller.DisplayName;
+    public string DisplayName
+    {
+        get
+        {
+            return Controller.DisplayName;
+        }
+    }
 
     /// <summary>
     /// Physical transport (USB / Bluetooth).
     /// </summary>
-    public ConnectionType ConnectionType => Controller.ConnectionType;
+    public ConnectionType ConnectionType
+    {
+        get
+        {
+            return Controller.ConnectionType;
+        }
+    }
 
     // ── Firmware / Hardware ────────────────────────────────────
 
     /// <summary>
     /// Whether a valid firmware info report was read from the controller.
     /// </summary>
-    public bool HasFirmwareInfo => Controller.FirmwareInfo?.IsValid == true;
+    public bool HasFirmwareInfo
+    {
+        get
+        {
+            return Controller.FirmwareInfo?.IsValid == true;
+        }
+    }
 
     /// <summary>
     /// Main firmware version (major.minor.patch).
     /// </summary>
-    public string MainFirmwareVersion => Controller.FirmwareInfo?.MainFirmwareVersion ?? Unavailable;
+    public string MainFirmwareVersion
+    {
+        get
+        {
+            return Controller.FirmwareInfo?.MainFirmwareVersion ?? Unavailable;
+        }
+    }
 
     /// <summary>
     /// SBL firmware version (major.minor.patch).
     /// </summary>
-    public string SblFirmwareVersion => Controller.FirmwareInfo?.SblFirmwareVersion ?? Unavailable;
+    public string SblFirmwareVersion
+    {
+        get
+        {
+            return Controller.FirmwareInfo?.SblFirmwareVersion ?? Unavailable;
+        }
+    }
 
     /// <summary>
     /// DSP firmware version (hex_hex).
     /// </summary>
-    public string DspFirmwareVersion => Controller.FirmwareInfo?.DspFirmwareVersion ?? Unavailable;
+    public string DspFirmwareVersion
+    {
+        get
+        {
+            return Controller.FirmwareInfo?.DspFirmwareVersion ?? Unavailable;
+        }
+    }
 
     /// <summary>
     /// MCU/Spider DSP firmware version (major.minor.patch).
     /// </summary>
-    public string McuSpiderDspFirmwareVersion => Controller.FirmwareInfo?.McuSpiderDspFirmwareVersion ?? Unavailable;
+    public string McuSpiderDspFirmwareVersion
+    {
+        get
+        {
+            return Controller.FirmwareInfo?.McuSpiderDspFirmwareVersion ?? Unavailable;
+        }
+    }
 
     /// <summary>
     /// Model revision number, or "-" when unavailable.
     /// </summary>
-    public string ModelRevision => HasFirmwareInfo ? Controller.FirmwareInfo!.Value.ModelRevision.ToString() : Unavailable;
+    public string ModelRevision
+    {
+        get
+        {
+            return HasFirmwareInfo ? Controller.FirmwareInfo!.Value.ModelRevision.ToString() : Unavailable;
+        }
+    }
 
     /// <summary>
     /// Raw hardware info value (bytes 24-27) rendered as hex, or "-" when unavailable.
     /// </summary>
-    public string HardwareVersion => HasFirmwareInfo ? $"0x{Controller.FirmwareInfo!.Value.HardwareInfo:X8}" : Unavailable;
+    public string HardwareVersion
+    {
+        get
+        {
+            return HasFirmwareInfo ? $"0x{Controller.FirmwareInfo!.Value.HardwareInfo:X8}" : Unavailable;
+        }
+    }
 
     /// <summary>
     /// Hardware generation (bits 8-15 of the hardware info value), or "-" when unavailable.
     /// </summary>
-    public string HardwareGeneration => HasFirmwareInfo
-        ? FormatHardwareGeneration(Controller.FirmwareInfo!.Value.HardwareGeneration)
-        : Unavailable;
+    public string HardwareGeneration
+    {
+        get
+        {
+            return HasFirmwareInfo
+                ? FormatHardwareGeneration(Controller.FirmwareInfo!.Value.HardwareGeneration)
+                : Unavailable;
+        }
+    }
 
     /// <summary>
     /// Formats a hardware generation as a friendly name with the raw value in brackets,
@@ -138,36 +198,72 @@ public sealed partial class DeviceInfoItem : ObservableObject, IDisposable
     /// <summary>
     /// Firmware build date.
     /// </summary>
-    public string BuildDate => Controller.FirmwareInfo?.BuildDate ?? Unavailable;
+    public string BuildDate
+    {
+        get
+        {
+            return Controller.FirmwareInfo?.BuildDate ?? Unavailable;
+        }
+    }
 
     /// <summary>
     /// Firmware build time.
     /// </summary>
-    public string BuildTime => Controller.FirmwareInfo?.BuildTime ?? Unavailable;
+    public string BuildTime
+    {
+        get
+        {
+            return Controller.FirmwareInfo?.BuildTime ?? Unavailable;
+        }
+    }
 
     // ── Pairing ─────────────────────────────────────────────────
 
     /// <summary>
     /// Whether pairing information (MAC addresses) was read from the controller.
     /// </summary>
-    public bool HasPairingInfo => Controller.PairingInfo?.IsValid == true;
+    public bool HasPairingInfo
+    {
+        get
+        {
+            return Controller.PairingInfo?.IsValid == true;
+        }
+    }
 
     /// <summary>
     /// Controller (client) Bluetooth MAC address, or "-" when unavailable.
     /// </summary>
-    public string ClientMac => Controller.PairingInfo?.ClientMac ?? Unavailable;
+    public string ClientMac
+    {
+        get
+        {
+            return Controller.PairingInfo?.ClientMac ?? Unavailable;
+        }
+    }
 
     /// <summary>
     /// Host Bluetooth MAC address, or "-" when unavailable.
     /// </summary>
-    public string HostMac => Controller.PairingInfo?.HostMac ?? Unavailable;
+    public string HostMac
+    {
+        get
+        {
+            return Controller.PairingInfo?.HostMac ?? Unavailable;
+        }
+    }
 
     // ── Battery ────────────────────────────────────────────────
 
     /// <summary>
     /// Whether an input report has been received, so live status is available.
     /// </summary>
-    public bool HasStatus => _device?.InputReport is not null;
+    public bool HasStatus
+    {
+        get
+        {
+            return _device?.InputReport is not null;
+        }
+    }
 
     /// <summary>
     /// Battery level as a percentage (e.g. "85%"), or "-" when unknown.
@@ -228,27 +324,57 @@ public sealed partial class DeviceInfoItem : ObservableObject, IDisposable
     /// <summary>
     /// Whether headphones are connected to the controller, or "-" when unknown.
     /// </summary>
-    public string Headphones => ConnectionText(status => status.Headphone, IsConnected);
+    public string Headphones
+    {
+        get
+        {
+            return ConnectionText(status => status.Headphone, IsConnected);
+        }
+    }
 
     /// <summary>
     /// Whether a microphone is connected to the controller, or "-" when unknown.
     /// </summary>
-    public string Microphone => ConnectionText(status => status.Mic, IsConnected);
+    public string Microphone
+    {
+        get
+        {
+            return ConnectionText(status => status.Mic, IsConnected);
+        }
+    }
 
     /// <summary>
     /// Whether the microphone is muted, or "-" when unknown.
     /// </summary>
-    public string MicrophoneMuted => ConnectionText(status => status.MicMuted, IsYesNo);
+    public string MicrophoneMuted
+    {
+        get
+        {
+            return ConnectionText(status => status.MicMuted, IsYesNo);
+        }
+    }
 
     /// <summary>
     /// Whether the USB data connection is active, or "-" when unknown.
     /// </summary>
-    public string UsbData => ConnectionText(status => status.UsbData, IsActive);
+    public string UsbData
+    {
+        get
+        {
+            return ConnectionText(status => status.UsbData, IsActive);
+        }
+    }
 
     /// <summary>
     /// Whether USB power is connected, or "-" when unknown.
     /// </summary>
-    public string UsbPower => ConnectionText(status => status.UsbPower, IsConnected);
+    public string UsbPower
+    {
+        get
+        {
+            return ConnectionText(status => status.UsbPower, IsConnected);
+        }
+    }
 
     /// <summary>
     /// Creates a new device info item for the given controller and subscribes to its

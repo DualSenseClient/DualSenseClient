@@ -60,26 +60,20 @@ public class MessageBoxService : IMessageBoxService
     /// <summary>
     /// Shows an information message dialog.
     /// </summary>
-    public async Task ShowInfoAsync(string title, string message, MessageBoxDialogType dialogType = MessageBoxDialogType.ContentDialog)
-    {
+    public async Task ShowInfoAsync(string title, string message, MessageBoxDialogType dialogType = MessageBoxDialogType.ContentDialog) =>
         await ShowDialogAsync(title, message, dialogType);
-    }
 
     /// <summary>
     /// Shows a warning message dialog.
     /// </summary>
-    public async Task ShowWarningAsync(string title, string message, MessageBoxDialogType dialogType = MessageBoxDialogType.ContentDialog)
-    {
+    public async Task ShowWarningAsync(string title, string message, MessageBoxDialogType dialogType = MessageBoxDialogType.ContentDialog) =>
         await ShowDialogAsync(title, message, dialogType);
-    }
 
     /// <summary>
     /// Shows an error message dialog.
     /// </summary>
-    public async Task ShowErrorAsync(string title, string message, MessageBoxDialogType dialogType = MessageBoxDialogType.ContentDialog)
-    {
+    public async Task ShowErrorAsync(string title, string message, MessageBoxDialogType dialogType = MessageBoxDialogType.ContentDialog) =>
         await ShowDialogAsync(title, message, dialogType);
-    }
 
     /// <summary>
     /// Shows a confirmation dialog with Yes/No buttons.

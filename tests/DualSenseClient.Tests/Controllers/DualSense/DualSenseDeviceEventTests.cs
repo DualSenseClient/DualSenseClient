@@ -12,10 +12,38 @@ public class DualSenseDeviceEventTests
 {
     private sealed class StubHidDevice : IHidDevice
     {
-        public ushort VendorId => 0x054C;
-        public ushort ProductId => 0x0CE6;
-        public string DevicePath => "test";
-        public bool IsConnected => true;
+        public ushort VendorId
+        {
+            get
+            {
+                return 0x054C;
+            }
+        }
+
+        public ushort ProductId
+        {
+            get
+            {
+                return 0x0CE6;
+            }
+        }
+
+        public string DevicePath
+        {
+            get
+            {
+                return "test";
+            }
+        }
+
+        public bool IsConnected
+        {
+            get
+            {
+                return true;
+            }
+        }
+
         public int Read(byte[] buffer, int offset, int count, int timeoutMs) => 0;
         public Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken ct) => Task.FromResult(0);
         public int Write(byte[] buffer, int offset, int count) => 0;
@@ -34,15 +62,77 @@ public class DualSenseDeviceEventTests
 
     private sealed class StubHidDeviceInfo : IHidDeviceInfo
     {
-        public string Path => "test";
-        public ushort VendorId => 0x054C;
-        public ushort ProductId => 0x0CE6;
-        public string ProductName => "DualSense Test";
-        public string Manufacturer => "Sony";
-        public int InterfaceNumber => 0;
-        public ushort UsagePage => 1;
-        public HidUsageId Usage => HidUsageId.GamePad;
-        public ConnectionType BusType => ConnectionType.Usb;
+        public string Path
+        {
+            get
+            {
+                return "test";
+            }
+        }
+
+        public ushort VendorId
+        {
+            get
+            {
+                return 0x054C;
+            }
+        }
+
+        public ushort ProductId
+        {
+            get
+            {
+                return 0x0CE6;
+            }
+        }
+
+        public string ProductName
+        {
+            get
+            {
+                return "DualSense Test";
+            }
+        }
+
+        public string Manufacturer
+        {
+            get
+            {
+                return "Sony";
+            }
+        }
+
+        public int InterfaceNumber
+        {
+            get
+            {
+                return 0;
+            }
+        }
+
+        public ushort UsagePage
+        {
+            get
+            {
+                return 1;
+            }
+        }
+
+        public HidUsageId Usage
+        {
+            get
+            {
+                return HidUsageId.GamePad;
+            }
+        }
+
+        public ConnectionType BusType
+        {
+            get
+            {
+                return ConnectionType.Usb;
+            }
+        }
     }
 
     private static readonly MethodInfo ProcessInputReportMethod = typeof(DualSenseDevice)

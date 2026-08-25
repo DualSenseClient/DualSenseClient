@@ -29,7 +29,13 @@ public class ViiperDualSenseAudioForwarderTests
         public byte[] LastHapticsFrame { get; private set; } = [];
         public bool AnyHapticsNonZero { get; private set; }
 
-        public int ReportCount => CombinedReportCount + AudioOnlyReportCount;
+        public int ReportCount
+        {
+            get
+            {
+                return CombinedReportCount + AudioOnlyReportCount;
+            }
+        }
 
         public byte[] LastStateBlock { get; private set; } = new byte[SetStateData.PayloadSize];
         public byte[] LastPrimeStateBlock { get; private set; } = new byte[SetStateData.PayloadSize];
@@ -643,7 +649,7 @@ public class ViiperDualSenseAudioForwarderTests
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
-        forwarder.UpdateGameHaptics(MakeCombinedReport(new byte[64], reportId: 0x31));
+        forwarder.UpdateGameHaptics(MakeCombinedReport(new byte[64], 0x31));
         forwarder.FeedPcm(MakeAudioBlock(0f));
         WaitUntil(() => fake.ReportCount >= 12, TimeSpan.FromSeconds(3));
 

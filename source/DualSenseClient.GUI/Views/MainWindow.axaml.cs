@@ -77,10 +77,7 @@ public partial class MainWindow : FAAppWindow
     /// <summary>
     /// Keeps <see cref="_closeToTray"/> in sync with the "close to tray" setting.
     /// </summary>
-    private void OnSettingsChanged(object? sender, EventArgs e)
-    {
-        _closeToTray = _settingsService.Settings.Ui.CloseToTray;
-    }
+    private void OnSettingsChanged(object? sender, EventArgs e) => _closeToTray = _settingsService.Settings.Ui.CloseToTray;
 
     /// <summary>
     /// Hides the window to the tray instead of closing it when the "close to tray" setting

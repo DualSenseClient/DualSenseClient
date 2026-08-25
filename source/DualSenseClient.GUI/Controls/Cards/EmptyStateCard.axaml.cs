@@ -24,8 +24,14 @@ public class EmptyStateCard : TemplatedControl
     /// </summary>
     public string? Title
     {
-        get => GetValue(TitleProperty);
-        set => SetValue(TitleProperty, value);
+        get
+        {
+            return GetValue(TitleProperty);
+        }
+        set
+        {
+            SetValue(TitleProperty, value);
+        }
     }
 
     /// <summary>
@@ -33,7 +39,13 @@ public class EmptyStateCard : TemplatedControl
     /// </summary>
     public string? Description
     {
-        get => GetValue(DescriptionProperty);
-        set => SetValue(DescriptionProperty, value);
+        get
+        {
+            return GetValue(DescriptionProperty);
+        }
+        set
+        {
+            SetValue(DescriptionProperty, value);
+        }
     }
 }

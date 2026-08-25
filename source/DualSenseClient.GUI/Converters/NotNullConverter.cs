@@ -24,16 +24,10 @@ public class NotNullConverter : IValueConverter
     /// <param name="parameter">An optional parameter (unused).</param>
     /// <param name="culture">The culture to use (unused).</param>
     /// <returns><c>true</c> if <paramref name="value"/> is not <c>null</c>; otherwise, <c>false</c>.</returns>
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
-        return value != null;
-    }
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value != null;
 
     /// <summary>
     /// Not supported. Returns <see cref="AvaloniaProperty.UnsetValue"/>.
     /// </summary>
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
-        return AvaloniaProperty.UnsetValue;
-    }
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => AvaloniaProperty.UnsetValue;
 }

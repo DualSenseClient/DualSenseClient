@@ -25,7 +25,7 @@ public sealed class HidHideService : IControllerHidingService
     /// <summary>
     /// The underlying driver wrapper.
     /// </summary>
-    private readonly HidHideControlService _driver = new();
+    private readonly HidHideControlService _driver = new HidHideControlService();
 
     /// <inheritdoc />
     public bool IsAvailable

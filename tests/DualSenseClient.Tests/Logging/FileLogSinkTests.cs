@@ -20,7 +20,7 @@ public class FileLogSinkTests
         {
             if (Directory.Exists(_tempDir))
             {
-                Directory.Delete(_tempDir, recursive: true);
+                Directory.Delete(_tempDir, true);
             }
         }
         catch
@@ -30,22 +30,16 @@ public class FileLogSinkTests
     }
 
     [Test]
-    public void Constructor_ThrowsOnNull()
-    {
-        Assert.Throws<ArgumentNullException>(() => new FileLogSink(null!));
-    }
+    public void Constructor_ThrowsOnNull() => Assert.Throws<ArgumentNullException>(() => new FileLogSink(null!));
 
     [Test]
-    public void Constructor_ThrowsOnWhitespace()
-    {
-        Assert.Throws<ArgumentException>(() => new FileLogSink("   "));
-    }
+    public void Constructor_ThrowsOnWhitespace() => Assert.Throws<ArgumentException>(() => new FileLogSink("   "));
 
     [Test]
     public void Constructor_CreatesDirectory()
     {
         string path = Path.Combine(_tempDir, "subdir", "app.log");
-        using FileLogSink sink = new(path);
+        using FileLogSink sink = new FileLogSink(path);
         Assert.That(Directory.Exists(Path.GetDirectoryName(path)), Is.True);
     }
 
@@ -53,16 +47,9 @@ public class FileLogSinkTests
     public void Write_CreatesLogFile()
     {
         string path = Path.Combine(_tempDir, "app.log");
-        using (FileLogSink sink = new(path, rotateDaily: false))
+        using (FileLogSink sink = new FileLogSink(path, rotateDaily: false))
         {
-            LogEntry entry = new(
-                DateTimeOffset.UtcNow,
-                LogLevel.Info,
-                "TestCat",
-                "test message",
-                "TestFile.cs",
-                1,
-                "TestMethod");
+            LogEntry entry = new LogEntry(DateTimeOffset.UtcNow, LogLevel.Info, "TestCat", "test message", "TestFile.cs", 1, "TestMethod");
             sink.Write(in entry);
         }
 
@@ -74,16 +61,9 @@ public class FileLogSinkTests
     public void Write_IncludesLevelLabel()
     {
         string path = Path.Combine(_tempDir, "app.log");
-        using (FileLogSink sink = new(path, rotateDaily: false, includeTimestamp: false))
+        using (FileLogSink sink = new FileLogSink(path, rotateDaily: false, includeTimestamp: false))
         {
-            LogEntry entry = new(
-                DateTimeOffset.UtcNow,
-                LogLevel.Warning,
-                "TestCat",
-                "warn msg",
-                "File.cs",
-                10,
-                "Method");
+            LogEntry entry = new LogEntry(DateTimeOffset.UtcNow, LogLevel.Warning, "TestCat", "warn msg", "File.cs", 10, "Method");
             sink.Write(in entry);
         }
 
@@ -98,16 +78,9 @@ public class FileLogSinkTests
     public void Write_IncludesTimestamp_WhenEnabled()
     {
         string path = Path.Combine(_tempDir, "app.log");
-        using (FileLogSink sink = new(path, rotateDaily: false, includeTimestamp: true))
+        using (FileLogSink sink = new FileLogSink(path, rotateDaily: false, includeTimestamp: true))
         {
-            LogEntry entry = new(
-                DateTimeOffset.UtcNow,
-                LogLevel.Info,
-                "Cat",
-                "msg",
-                "f.cs",
-                1,
-                "M");
+            LogEntry entry = new LogEntry(DateTimeOffset.UtcNow, LogLevel.Info, "Cat", "msg", "f.cs", 1, "M");
             sink.Write(in entry);
         }
 
@@ -119,16 +92,9 @@ public class FileLogSinkTests
     public void Write_OmitsTimestamp_WhenDisabled()
     {
         string path = Path.Combine(_tempDir, "app.log");
-        using (FileLogSink sink = new(path, rotateDaily: false, includeTimestamp: false))
+        using (FileLogSink sink = new FileLogSink(path, rotateDaily: false, includeTimestamp: false))
         {
-            LogEntry entry = new(
-                DateTimeOffset.UtcNow,
-                LogLevel.Info,
-                "Cat",
-                "msg",
-                "f.cs",
-                1,
-                "M");
+            LogEntry entry = new LogEntry(DateTimeOffset.UtcNow, LogLevel.Info, "Cat", "msg", "f.cs", 1, "M");
             sink.Write(in entry);
         }
 
@@ -140,7 +106,7 @@ public class FileLogSinkTests
     public void Write_RotateDaily_IncludesDateInFilename()
     {
         string path = Path.Combine(_tempDir, "rotating.log");
-        using FileLogSink sink = new(path, rotateDaily: true);
+        using FileLogSink sink = new FileLogSink(path, rotateDaily: true);
 
         string[] files = Directory.GetFiles(_tempDir, "rotating*.log");
         Assert.That(files.Length, Is.EqualTo(1));
@@ -151,7 +117,7 @@ public class FileLogSinkTests
     public void Write_RotateDailyFalse_NoDateInFilename()
     {
         string path = Path.Combine(_tempDir, "fixed.log");
-        using FileLogSink sink = new(path, rotateDaily: false);
+        using FileLogSink sink = new FileLogSink(path, rotateDaily: false);
 
         string[] files = Directory.GetFiles(_tempDir, "fixed*.log");
         Assert.That(files.Length, Is.EqualTo(1));
@@ -162,18 +128,10 @@ public class FileLogSinkTests
     public void Write_WithException_IncludesExceptionInFile()
     {
         string path = Path.Combine(_tempDir, "app.log");
-        InvalidOperationException ex = new("file exception");
-        using (FileLogSink sink = new(path, rotateDaily: false))
+        InvalidOperationException ex = new InvalidOperationException("file exception");
+        using (FileLogSink sink = new FileLogSink(path, rotateDaily: false))
         {
-            LogEntry entry = new(
-                DateTimeOffset.UtcNow,
-                LogLevel.Error,
-                "Cat",
-                "msg",
-                "f.cs",
-                1,
-                "M",
-                ex);
+            LogEntry entry = new LogEntry(DateTimeOffset.UtcNow, LogLevel.Error, "Cat", "msg", "f.cs", 1, "M", ex);
             sink.Write(in entry);
         }
 
@@ -185,15 +143,8 @@ public class FileLogSinkTests
     public void Dispose_ClosesFile()
     {
         string path = Path.Combine(_tempDir, "app.log");
-        FileLogSink sink = new(path, rotateDaily: false);
-        LogEntry entry = new(
-            DateTimeOffset.UtcNow,
-            LogLevel.Info,
-            "Cat",
-            "msg",
-            "f.cs",
-            1,
-            "M");
+        FileLogSink sink = new FileLogSink(path, rotateDaily: false);
+        LogEntry entry = new LogEntry(DateTimeOffset.UtcNow, LogLevel.Info, "Cat", "msg", "f.cs", 1, "M");
         sink.Write(in entry);
         sink.Dispose();
 
@@ -205,7 +156,7 @@ public class FileLogSinkTests
     public void Dispose_DoubleDispose_NoException()
     {
         string path = Path.Combine(_tempDir, "app.log");
-        FileLogSink sink = new(path, rotateDaily: false);
+        FileLogSink sink = new FileLogSink(path, rotateDaily: false);
 
         Assert.DoesNotThrow(() =>
         {
@@ -218,7 +169,7 @@ public class FileLogSinkTests
     public void DefaultExtension_UsesDotLog()
     {
         string path = Path.Combine(_tempDir, "noext");
-        using FileLogSink sink = new(path, rotateDaily: false);
+        using FileLogSink sink = new FileLogSink(path, rotateDaily: false);
 
         string[] files = Directory.GetFiles(_tempDir, "noext*");
         Assert.That(files.Length, Is.EqualTo(1));
@@ -229,30 +180,17 @@ public class FileLogSinkTests
     public void Write_AfterRotationFailure_DoesNotThrow()
     {
         string path = Path.Combine(_tempDir, "app.log");
-        using FileLogSink sink = new(path, rotateDaily: true);
+        using FileLogSink sink = new FileLogSink(path, rotateDaily: true);
 
-        LogEntry entry = new(
-            DateTimeOffset.UtcNow,
-            LogLevel.Info,
-            "Cat",
-            "before rotation",
-            "f.cs",
-            1,
-            "M");
+        LogEntry entry = new LogEntry(DateTimeOffset.UtcNow, LogLevel.Info, "Cat", "before rotation", "f.cs", 1, "M");
         sink.Write(in entry);
 
-        DateOnly futureDate = new(2099, 1, 1);
+        DateOnly futureDate = new DateOnly(2099, 1, 1);
         string rotatedPath = Path.Combine(_tempDir, $"app-{futureDate:yyyy-MM-dd}.log");
         File.WriteAllBytes(rotatedPath, []);
         File.SetAttributes(rotatedPath, FileAttributes.ReadOnly);
 
-        LogEntry futureEntry = new(
-            new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero),
-            LogLevel.Info,
-            "Cat",
-            "after failed rotation",
-            "f.cs",
-            1,
+        LogEntry futureEntry = new LogEntry(new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero), LogLevel.Info, "Cat", "after failed rotation", "f.cs", 1,
             "M");
 
         Assert.DoesNotThrow(() => sink.Write(in futureEntry));
@@ -262,30 +200,17 @@ public class FileLogSinkTests
     public void Write_AfterRotationFailure_SilentlyDropsEntries()
     {
         string path = Path.Combine(_tempDir, "app.log");
-        using FileLogSink sink = new(path, rotateDaily: true);
+        using FileLogSink sink = new FileLogSink(path, rotateDaily: true);
 
-        LogEntry entry = new(
-            DateTimeOffset.UtcNow,
-            LogLevel.Info,
-            "Cat",
-            "before rotation",
-            "f.cs",
-            1,
-            "M");
+        LogEntry entry = new LogEntry(DateTimeOffset.UtcNow, LogLevel.Info, "Cat", "before rotation", "f.cs", 1, "M");
         sink.Write(in entry);
 
-        DateOnly futureDate = new(2099, 1, 1);
+        DateOnly futureDate = new DateOnly(2099, 1, 1);
         string rotatedPath = Path.Combine(_tempDir, $"app-{futureDate:yyyy-MM-dd}.log");
         File.WriteAllBytes(rotatedPath, []);
         File.SetAttributes(rotatedPath, FileAttributes.ReadOnly);
 
-        LogEntry futureEntry = new(
-            new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero),
-            LogLevel.Info,
-            "Cat",
-            "after failed rotation",
-            "f.cs",
-            1,
+        LogEntry futureEntry = new LogEntry(new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero), LogLevel.Info, "Cat", "after failed rotation", "f.cs", 1,
             "M");
         sink.Write(in futureEntry);
 

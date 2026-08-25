@@ -121,10 +121,7 @@ public class JsonFileStore<T> where T : class, new()
     /// <summary>
     /// Asynchronously loads the item from disk.
     /// </summary>
-    public async Task LoadAsync()
-    {
-        await Task.Run(Load);
-    }
+    public async Task LoadAsync() => await Task.Run(Load);
 
     /// <summary>
     /// Saves the current <see cref="Item"/> to disk.
@@ -146,10 +143,7 @@ public class JsonFileStore<T> where T : class, new()
     /// <summary>
     /// Asynchronously saves the current <see cref="Item"/> to disk.
     /// </summary>
-    public async Task SaveAsync()
-    {
-        await Task.Run(Save);
-    }
+    public async Task SaveAsync() => await Task.Run(Save);
 
     private void SaveUnsafe()
     {
@@ -171,7 +165,7 @@ public class JsonFileStore<T> where T : class, new()
         {
             if (File.Exists(FilePath))
             {
-                File.Copy(FilePath, BackupPath, overwrite: true);
+                File.Copy(FilePath, BackupPath, true);
             }
         }
         catch (Exception ex)

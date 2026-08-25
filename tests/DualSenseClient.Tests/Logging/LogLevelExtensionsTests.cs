@@ -10,10 +10,7 @@ public class LogLevelExtensionsTests
     [TestCase(LogLevel.Warning, "WARNING")]
     [TestCase(LogLevel.Error, "ERROR")]
     [TestCase(LogLevel.Critical, "CRITICAL")]
-    public void ToLevelLabel_ReturnsUppercaseLabel(LogLevel level, string expected)
-    {
-        Assert.That(level.ToLevelLabel(), Is.EqualTo(expected));
-    }
+    public void ToLevelLabel_ReturnsUppercaseLabel(LogLevel level, string expected) => Assert.That(level.ToLevelLabel(), Is.EqualTo(expected));
 
     [Test]
     public void ToLevelLabel_UnrecognizedValue_ReturnsLog()

@@ -111,7 +111,13 @@ public sealed class EmulationService : IEmulationService
     /// Whether virtual controller emulation is available on this platform. Disabled on
     /// Linux for now.
     /// </summary>
-    public static bool IsSupported => !OperatingSystem.IsLinux();
+    public static bool IsSupported
+    {
+        get
+        {
+            return !OperatingSystem.IsLinux();
+        }
+    }
 
     /// <summary>
     /// Logger receiving the libVIIPER USB server's own log messages.
@@ -133,7 +139,7 @@ public sealed class EmulationService : IEmulationService
     /// <summary>
     /// The virtual controller state per tracked controller.
     /// </summary>
-    private readonly Dictionary<DualSenseDevice, VirtualControllerEntry> _entries = new();
+    private readonly Dictionary<DualSenseDevice, VirtualControllerEntry> _entries = new Dictionary<DualSenseDevice, VirtualControllerEntry>();
 
     /// <summary>
     /// The USB bus owned by <see cref="_serverHandle"/>, shared by all virtual controllers.
@@ -226,7 +232,7 @@ public sealed class EmulationService : IEmulationService
     /// <inheritdoc/>
     public void Refresh()
     {
-        List<(VirtualControllerEntry Entry, bool Settle)> toRecreate = new();
+        List<(VirtualControllerEntry Entry, bool Settle)> toRecreate = new List<(VirtualControllerEntry Entry, bool Settle)>();
         lock (_sync)
         {
             foreach (VirtualControllerEntry entry in _entries.Values)
@@ -396,7 +402,7 @@ public sealed class EmulationService : IEmulationService
     /// </summary>
     private void Reconcile()
     {
-        List<VirtualControllerEntry> toCreate = new();
+        List<VirtualControllerEntry> toCreate = new List<VirtualControllerEntry>();
         lock (_sync)
         {
             HashSet<DualSenseDevice> current = _tracker.Controllers.OfType<DualSenseDevice>().ToHashSet();
@@ -435,7 +441,7 @@ public sealed class EmulationService : IEmulationService
 
         foreach (VirtualControllerEntry entry in toCreate)
         {
-            _ = CreateVirtualControllerAsync(entry, settleAfterRemoval: false);
+            _ = CreateVirtualControllerAsync(entry, false);
         }
     }
 
@@ -459,7 +465,7 @@ public sealed class EmulationService : IEmulationService
             return false;
         }
 
-        SetStatus(entry, new EmulationStatus(mode, false, null, null, IsCreating: true));
+        SetStatus(entry, new EmulationStatus(mode, false, null, null, true));
         return true;
     }
 
@@ -645,7 +651,7 @@ public sealed class EmulationService : IEmulationService
             }
 
             SetStatus(entry, new EmulationStatus(mode, true, null, virtualController.VirtualDevicePath,
-                Variant: mode == EmulationMode.DualSense ? (edge ? DualSenseVariant.Edge : DualSenseVariant.Standard) : null,
+                Variant: mode == EmulationMode.DualSense ? edge ? DualSenseVariant.Edge : DualSenseVariant.Standard : null,
                 Ds4Variant: mode == EmulationMode.DualShock4 ? ds4Variant : null));
         }
         catch (Exception ex)

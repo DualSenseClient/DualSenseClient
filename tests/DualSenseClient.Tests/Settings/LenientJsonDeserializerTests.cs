@@ -7,7 +7,7 @@ namespace DualSenseClient.Tests.Settings;
 
 public class LenientJsonDeserializerTests
 {
-    private readonly JsonSerializerOptions _options = new()
+    private readonly JsonSerializerOptions _options = new JsonSerializerOptions
     {
         WriteIndented = true,
         Converters =

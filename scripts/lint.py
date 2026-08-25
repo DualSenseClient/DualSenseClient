@@ -9,8 +9,11 @@ unless --install is passed, which installs it as a .NET global tool.
 Code style rules come from the root .editorconfig, which jb applies
 automatically to every file under it.
 
-With --check, exits with code 1 when formatting would change any file,
-without treating that as success — used by CI to enforce formatting.
+By default a missing jb is installed at the latest version; CI passes
+--pin-version to force the predefined TOOL_VERSION instead.
+
+With --check, exits with code 1 when formatting changes any file that was
+not already modified before the run - used by CI to enforce formatting.
 """
 
 import argparse
@@ -23,7 +26,8 @@ from pathlib import Path
 SOLUTION = Path("DualSenseClient.sln")
 TOOL_PACKAGE = "JetBrains.ReSharper.GlobalTools"
 TOOL_COMMAND = "jb"
-DEFAULT_PROFILE = "Built-in: Reformat Code"
+TOOL_VERSION = "2026.2.1"
+DEFAULT_PROFILE = "Built-in: Reformat & Apply Syntax Style"
 
 logger = logging.getLogger(__name__)
 
@@ -48,25 +52,64 @@ def find_tool() -> Path | None:
     return None
 
 
-def install_tool() -> None:
-    """Install ReSharper Command Line Tools as a .NET global tool."""
-    logger.info("Installing %s...", TOOL_PACKAGE)
-    result = subprocess.run(
-        ["dotnet", "tool", "install", "--global", TOOL_PACKAGE],
-        check=False,
-    )
+def install_tool(pin: bool) -> None:
+    """Install ReSharper CLT as a .NET global tool, optionally at the pinned version.
+
+    'dotnet tool update' is used when pinning because it installs the tool
+    when missing and re-pins an existing copy in a single command.
+    """
+    target = f"v{TOOL_VERSION}" if pin else "latest"
+    logger.info("Installing %s (%s)...", TOOL_PACKAGE, target)
+    if pin:
+        command = [
+            "dotnet",
+            "tool",
+            "update",
+            "--global",
+            TOOL_PACKAGE,
+            "--version",
+            TOOL_VERSION,
+        ]
+    else:
+        command = ["dotnet", "tool", "install", "--global", TOOL_PACKAGE]
+    result = subprocess.run(command, check=False)
     if result.returncode != 0:
         raise RuntimeError(
             f"Failed to install {TOOL_PACKAGE}. Is the .NET SDK installed?"
         )
 
 
-def ensure_tool(install: bool) -> Path:
-    """Return the jb executable, optionally installing it first when missing."""
+def tool_version() -> str | None:
+    """Return the installed version of the global tools package, if listed."""
+    result = subprocess.run(
+        ["dotnet", "tool", "list", "--global"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    for line in result.stdout.splitlines():
+        columns = line.split()
+        if columns and columns[0].lower() == TOOL_PACKAGE.lower():
+            return columns[1] if len(columns) > 1 else None
+    return None
+
+
+def ensure_tool(install: bool, pin: bool) -> Path:
+    """Return the jb executable, installing it first when missing.
+
+    With pin, the global tools copy is forced to TOOL_VERSION; otherwise
+    any existing installation is used as-is.
+    """
     tool = find_tool()
     if tool is not None:
-        logger.info("Using %s at %s", TOOL_COMMAND, tool)
-        return tool
+        mismatched = (
+            pin
+            and tool.parent.resolve() == tools_directory().resolve()
+            and tool_version() != TOOL_VERSION
+        )
+        if not mismatched:
+            logger.info("Using %s at %s", TOOL_COMMAND, tool)
+            return tool
 
     if not install:
         raise RuntimeError(
@@ -75,7 +118,7 @@ def ensure_tool(install: bool) -> Path:
             "(or rerun with --install)"
         )
 
-    install_tool()
+    install_tool(pin)
 
     tool = find_tool()
     if tool is None:
@@ -90,12 +133,19 @@ def ensure_tool(install: bool) -> Path:
 def uncommitted_files() -> list[str]:
     """Return files with uncommitted modifications per git."""
     result = subprocess.run(
-        ["git", "status", "--porcelain"],
+        ["git", "-c", "core.quotepath=false", "status", "--porcelain"],
         capture_output=True,
         text=True,
         check=False,
     )
-    return [line[3:] for line in result.stdout.splitlines()]
+    files = []
+    for line in result.stdout.splitlines():
+        status, path = line[:2], line[3:]
+        if status.strip() == "R":
+            # Rename entries look like "R  old -> new"; report the new name.
+            path = path.split(" -> ", maxsplit=1)[-1]
+        files.append(path)
+    return files
 
 
 def format_solution(
@@ -155,6 +205,14 @@ def main() -> int:
         help=f"Install {TOOL_PACKAGE} as a .NET global tool when missing",
     )
     parser.add_argument(
+        "--pin-version",
+        action="store_true",
+        help=(
+            "Install/force the predefined tool version "
+            f"({TOOL_VERSION}) instead of the latest; used by CI"
+        ),
+    )
+    parser.add_argument(
         "--no-build",
         action="store_true",
         help="Skip building the solution before formatting",
@@ -162,7 +220,7 @@ def main() -> int:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Fail with exit code 1 when formatting would change any file",
+        help="Fail with exit code 1 when formatting changes any file",
     )
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     args = parser.parse_args()
@@ -177,10 +235,12 @@ def main() -> int:
         return 1
 
     try:
-        tool = ensure_tool(args.install)
+        tool = ensure_tool(args.install, args.pin_version)
     except RuntimeError as error:
         logger.error(str(error))
         return 1
+
+    already_dirty = set(uncommitted_files())
 
     exit_code = format_solution(
         tool, args.solution, args.profile, args.settings, args.no_build
@@ -188,16 +248,16 @@ def main() -> int:
     if exit_code != 0 or not args.check:
         return exit_code
 
-    files = uncommitted_files()
-    if not files:
+    reformatted = sorted(set(uncommitted_files()) - already_dirty)
+    if not reformatted:
         logger.info("Check passed: everything is formatted")
         return 0
 
-    logger.error("Not linted - formatting would change %d file(s):", len(files))
-    for name in files[:20]:
+    logger.error("Not linted - formatting changed %d file(s):", len(reformatted))
+    for name in reformatted[:20]:
         logger.error("  %s", name)
-    if len(files) > 20:
-        logger.error("  ... and %d more", len(files) - 20)
+    if len(reformatted) > 20:
+        logger.error("  ... and %d more", len(reformatted) - 20)
     logger.error("Run 'python scripts/lint.py' and commit the result.")
     return 1
 

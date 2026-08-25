@@ -10,12 +10,54 @@ public class ControllerTrackerTests
         public string Path { get; } = path;
         public int DisposeCount { get; private set; }
 
-        public IHidDeviceInfo Info => new FakeHidDeviceInfo(Path);
-        public ConnectionType ConnectionType => ConnectionType.Usb;
-        public ControllerType ControllerType => ControllerType.DualSense;
-        public bool IsConnected => true;
-        public int MaxOutputReportLength => 64;
-        public int PollingRateHz => 0;
+        public IHidDeviceInfo Info
+        {
+            get
+            {
+                return new FakeHidDeviceInfo(Path);
+            }
+        }
+
+        public ConnectionType ConnectionType
+        {
+            get
+            {
+                return ConnectionType.Usb;
+            }
+        }
+
+        public ControllerType ControllerType
+        {
+            get
+            {
+                return ControllerType.DualSense;
+            }
+        }
+
+        public bool IsConnected
+        {
+            get
+            {
+                return true;
+            }
+        }
+
+        public int MaxOutputReportLength
+        {
+            get
+            {
+                return 64;
+            }
+        }
+
+        public int PollingRateHz
+        {
+            get
+            {
+                return 0;
+            }
+        }
+
         public int ReadInput(byte[] buffer, int offset, int count, int timeoutMs) => 0;
 
         public void SendOutput(byte[] buffer, int offset, int count)
@@ -36,15 +78,77 @@ public class ControllerTrackerTests
 
     private sealed class FakeHidDeviceInfo(string path) : IHidDeviceInfo
     {
-        public string Path => path;
-        public ushort VendorId => 0x054C;
-        public ushort ProductId => 0x0CE6;
-        public string ProductName => path;
-        public string Manufacturer => "Sony";
-        public int InterfaceNumber => 0;
-        public ushort UsagePage => 1;
-        public HidUsageId Usage => HidUsageId.GamePad;
-        public ConnectionType BusType => ConnectionType.Usb;
+        public string Path
+        {
+            get
+            {
+                return path;
+            }
+        }
+
+        public ushort VendorId
+        {
+            get
+            {
+                return 0x054C;
+            }
+        }
+
+        public ushort ProductId
+        {
+            get
+            {
+                return 0x0CE6;
+            }
+        }
+
+        public string ProductName
+        {
+            get
+            {
+                return path;
+            }
+        }
+
+        public string Manufacturer
+        {
+            get
+            {
+                return "Sony";
+            }
+        }
+
+        public int InterfaceNumber
+        {
+            get
+            {
+                return 0;
+            }
+        }
+
+        public ushort UsagePage
+        {
+            get
+            {
+                return 1;
+            }
+        }
+
+        public HidUsageId Usage
+        {
+            get
+            {
+                return HidUsageId.GamePad;
+            }
+        }
+
+        public ConnectionType BusType
+        {
+            get
+            {
+                return ConnectionType.Usb;
+            }
+        }
     }
 
     private ControllerTracker _tracker = null!;

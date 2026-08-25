@@ -77,7 +77,10 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// </summary>
     public string ControllerName
     {
-        get => _controllerName;
+        get
+        {
+            return _controllerName;
+        }
         set
         {
             string trimmed = value?.Trim() ?? string.Empty;
@@ -118,12 +121,24 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// <summary>
     /// The Bluetooth MAC address of the selected controller, or empty when unavailable.
     /// </summary>
-    private string CurrentMac => CurrentDevice?.Controller.PairingInfo?.ClientMac ?? string.Empty;
+    private string CurrentMac
+    {
+        get
+        {
+            return CurrentDevice?.Controller.PairingInfo?.ClientMac ?? string.Empty;
+        }
+    }
 
     /// <summary>
     /// The HID device path of the selected controller.
     /// </summary>
-    private string CurrentDevicePath => CurrentDevice?.Controller.Device.Info.Path ?? string.Empty;
+    private string CurrentDevicePath
+    {
+        get
+        {
+            return CurrentDevice?.Controller.Device.Info.Path ?? string.Empty;
+        }
+    }
 
     /// <summary>
     /// Tracks the previous item so its event subscriptions are released on replacement.
@@ -140,7 +155,13 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// <summary>
     /// Whether the battery indicator shows the icon (instead of the percentage text).
     /// </summary>
-    public bool ShowBatteryIcon => !ShowBatteryPercentage;
+    public bool ShowBatteryIcon
+    {
+        get
+        {
+            return !ShowBatteryPercentage;
+        }
+    }
 
     /// <summary>
     /// Switches the battery indicator between the percentage text and the icon.
@@ -159,7 +180,13 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// The illustration skin rendered by the controller visualization, or empty when no
     /// controller is selected.
     /// </summary>
-    public string SkinName => Skins.Count > 0 ? Skins[Math.Clamp(_skinIndex, 0, Skins.Count - 1)] : string.Empty;
+    public string SkinName
+    {
+        get
+        {
+            return Skins.Count > 0 ? Skins[Math.Clamp(_skinIndex, 0, Skins.Count - 1)] : string.Empty;
+        }
+    }
 
     /// <summary>
     /// Backing field for <see cref="SkinIndex"/>.
@@ -173,7 +200,10 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// </summary>
     public int SkinIndex
     {
-        get => _skinIndex;
+        get
+        {
+            return _skinIndex;
+        }
         set
         {
             if (value < 0 || value >= Skins.Count || value == _skinIndex)
@@ -193,7 +223,13 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// <summary>
     /// Whether a controller is selected and its info can be displayed.
     /// </summary>
-    public bool HasDevice => CurrentDevice is not null;
+    public bool HasDevice
+    {
+        get
+        {
+            return CurrentDevice is not null;
+        }
+    }
 
     // ── Controller hiding ───────────────────────────────────────
 
@@ -238,7 +274,13 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// <summary>
     /// Whether controller hiding is offered at all, i.e. the platform supports it.
     /// </summary>
-    public bool IsHidingVisible => OperatingSystem.IsWindows();
+    public bool IsHidingVisible
+    {
+        get
+        {
+            return OperatingSystem.IsWindows();
+        }
+    }
 
     /// <summary>
     /// Card description for the hide toggle; replaced with an explanation when the
@@ -261,7 +303,13 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// Whether the selected controller can be hidden, i.e. the driver is available and
     /// its HID path can be resolved to a device instance ID.
     /// </summary>
-    public bool CanHideController => HidingAvailable && TryGetCurrentInstanceId(out _);
+    public bool CanHideController
+    {
+        get
+        {
+            return HidingAvailable && TryGetCurrentInstanceId(out _);
+        }
+    }
 
     /// <summary>
     /// Tries to resolve the selected controller's HID device path to the device

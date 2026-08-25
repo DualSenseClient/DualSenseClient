@@ -75,10 +75,7 @@ public class LanguageItem
     /// </summary>
     /// <param name="obj">The object to compare with.</param>
     /// <returns>True if the other object is a <see cref="LanguageItem"/> with the same culture; otherwise, false.</returns>
-    public override bool Equals(object? obj)
-    {
-        return obj is LanguageItem other && Culture.Equals(other.Culture);
-    }
+    public override bool Equals(object? obj) => obj is LanguageItem other && Culture.Equals(other.Culture);
 
     /// <summary>
     /// Returns the hash code based on the underlying <see cref="CultureInfo"/>.

@@ -9,13 +9,37 @@ public class DualSenseDeviceDisposeTests
     {
         private bool _disposed;
 
-        public ushort VendorId => 0x054C;
+        public ushort VendorId
+        {
+            get
+            {
+                return 0x054C;
+            }
+        }
 
-        public ushort ProductId => 0x0CE6;
+        public ushort ProductId
+        {
+            get
+            {
+                return 0x0CE6;
+            }
+        }
 
-        public string DevicePath => "test";
+        public string DevicePath
+        {
+            get
+            {
+                return "test";
+            }
+        }
 
-        public bool IsConnected => !_disposed;
+        public bool IsConnected
+        {
+            get
+            {
+                return !_disposed;
+            }
+        }
 
         public int Read(byte[] buffer, int offset, int count, int timeoutMs)
         {
@@ -41,10 +65,7 @@ public class DualSenseDeviceDisposeTests
             return [];
         }
 
-        public void SendFeatureReport(byte[] buffer, int offset, int count)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-        }
+        public void SendFeatureReport(byte[] buffer, int offset, int count) => ObjectDisposedException.ThrowIf(_disposed, this);
 
         public string GetProductName()
         {
@@ -52,31 +73,82 @@ public class DualSenseDeviceDisposeTests
             return "Test";
         }
 
-        public void Dispose()
-        {
-            _disposed = true;
-        }
+        public void Dispose() => _disposed = true;
     }
 
     private sealed class StubHidDeviceInfo(ConnectionType busType) : IHidDeviceInfo
     {
-        public string Path => "test";
+        public string Path
+        {
+            get
+            {
+                return "test";
+            }
+        }
 
-        public ushort VendorId => 0x054C;
+        public ushort VendorId
+        {
+            get
+            {
+                return 0x054C;
+            }
+        }
 
-        public ushort ProductId => 0x0CE6;
+        public ushort ProductId
+        {
+            get
+            {
+                return 0x0CE6;
+            }
+        }
 
-        public string ProductName => "DualSense Test";
+        public string ProductName
+        {
+            get
+            {
+                return "DualSense Test";
+            }
+        }
 
-        public string Manufacturer => "Sony";
+        public string Manufacturer
+        {
+            get
+            {
+                return "Sony";
+            }
+        }
 
-        public int InterfaceNumber => 0;
+        public int InterfaceNumber
+        {
+            get
+            {
+                return 0;
+            }
+        }
 
-        public ushort UsagePage => 1;
+        public ushort UsagePage
+        {
+            get
+            {
+                return 1;
+            }
+        }
 
-        public HidUsageId Usage => HidUsageId.GamePad;
+        public HidUsageId Usage
+        {
+            get
+            {
+                return HidUsageId.GamePad;
+            }
+        }
 
-        public ConnectionType BusType => busType;
+        public ConnectionType BusType
+        {
+            get
+            {
+                return busType;
+            }
+        }
     }
 
     [Test]
@@ -150,13 +222,37 @@ public class DualSenseDeviceDisposeTests
         private int _readReturned;
         private volatile bool _disposed;
 
-        public ushort VendorId => 0x054C;
+        public ushort VendorId
+        {
+            get
+            {
+                return 0x054C;
+            }
+        }
 
-        public ushort ProductId => 0x0CE6;
+        public ushort ProductId
+        {
+            get
+            {
+                return 0x0CE6;
+            }
+        }
 
-        public string DevicePath => "test";
+        public string DevicePath
+        {
+            get
+            {
+                return "test";
+            }
+        }
 
-        public bool IsConnected => !_disposed;
+        public bool IsConnected
+        {
+            get
+            {
+                return !_disposed;
+            }
+        }
 
         public int Read(byte[] buffer, int offset, int count, int timeoutMs)
         {
@@ -172,7 +268,13 @@ public class DualSenseDeviceDisposeTests
         /// <summary>
         /// True once a blocked <see cref="Read"/> has been released by disposal.
         /// </summary>
-        public bool ReadReturned => Volatile.Read(ref _readReturned) == 1;
+        public bool ReadReturned
+        {
+            get
+            {
+                return Volatile.Read(ref _readReturned) == 1;
+            }
+        }
 
         public Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken ct)
         {
@@ -192,10 +294,7 @@ public class DualSenseDeviceDisposeTests
             return [];
         }
 
-        public void SendFeatureReport(byte[] buffer, int offset, int count)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-        }
+        public void SendFeatureReport(byte[] buffer, int offset, int count) => ObjectDisposedException.ThrowIf(_disposed, this);
 
         public string GetProductName()
         {

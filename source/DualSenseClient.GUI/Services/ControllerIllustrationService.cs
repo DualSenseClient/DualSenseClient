@@ -81,7 +81,8 @@ public sealed class ControllerIllustrationService
     /// Lightbar-tinted monitor base bitmaps, cached by file name, lightbar color, and
     /// player LED layout.
     /// </summary>
-    private readonly Dictionary<(string File, byte R, byte G, byte B, byte Leds), Bitmap> _monitorBaseTintCache = new();
+    private readonly Dictionary<(string File, byte R, byte G, byte B, byte Leds), Bitmap> _monitorBaseTintCache =
+        new Dictionary<(string File, byte R, byte G, byte B, byte Leds), Bitmap>();
 
     /// <summary>
     /// Loaded overlay sprite bitmaps, cached by sprite key (skin variant prefixed).
@@ -99,7 +100,7 @@ public sealed class ControllerIllustrationService
     /// <summary>
     /// Synchronizes lazy extraction of <see cref="_lightbarMask"/>.
     /// </summary>
-    private static readonly object _lightbarMaskLock = new();
+    private static readonly object _lightbarMaskLock = new object();
 
     /// <summary>
     /// Pixel positions of the baked microphone LED dot just below the mute button,
@@ -111,7 +112,7 @@ public sealed class ControllerIllustrationService
     /// <summary>
     /// Synchronizes lazy extraction of <see cref="_micLedMask"/>.
     /// </summary>
-    private static readonly object _micLedMaskLock = new();
+    private static readonly object _micLedMaskLock = new object();
 
     /// <summary>
     /// The animated microphone LED sprite (an orange glow over the mute button),
@@ -122,7 +123,7 @@ public sealed class ControllerIllustrationService
     /// <summary>
     /// Synchronizes lazy generation of <see cref="_micLedSprite"/>.
     /// </summary>
-    private static readonly object _micLedSpriteLock = new();
+    private static readonly object _micLedSpriteLock = new object();
 
     /// <summary>
     /// Scan band of the baked microphone LED dot on the monitor base (just below the
@@ -311,7 +312,7 @@ public sealed class ControllerIllustrationService
     {
         string file = GetBaseFile(skin);
 
-        var key = (file, red, green, blue, playerLeds);
+        (string file, byte red, byte green, byte blue, byte playerLeds) key = (file, red, green, blue, playerLeds);
         if (_monitorBaseTintCache.TryGetValue(key, out Bitmap? cached))
         {
             return cached;
@@ -385,7 +386,7 @@ public sealed class ControllerIllustrationService
             buffer[offset + 2] = (byte)((buffer[offset + 2] + MicLedOffRed * 9) / 10);
         }
 
-        var tinted = new WriteableBitmap(new PixelSize(width, height), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Unpremul);
+        WriteableBitmap tinted = new WriteableBitmap(new PixelSize(width, height), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Unpremul);
         using (ILockedFramebuffer target = tinted.Lock())
         {
             Marshal.Copy(buffer, 0, target.Address, buffer.Length);
@@ -537,7 +538,7 @@ public sealed class ControllerIllustrationService
         int rowBytes = width * 4;
         byte[] buffer = ReadPixels(baseImage, width, height, rowBytes);
 
-        var pixels = new List<(int X, int Y, byte Luminance)>();
+        List<(int X, int Y, byte Luminance)> pixels = new List<(int X, int Y, byte Luminance)>();
         int xStart = Math.Min(300, width);
         int xEnd = Math.Min(1160, width);
         int yStart = Math.Min(140, height);
@@ -600,7 +601,7 @@ public sealed class ControllerIllustrationService
         int rowBytes = width * 4;
         byte[] buffer = ReadPixels(baseImage, width, height, rowBytes);
 
-        var pixels = new List<(int X, int Y)>();
+        List<(int X, int Y)> pixels = new List<(int X, int Y)>();
         int xStart = Math.Min(MicLedBandXStart, width);
         int xEnd = Math.Min(MicLedBandXEnd, width);
         int yStart = Math.Min(MicLedBandYStart, height);
@@ -686,7 +687,7 @@ public sealed class ControllerIllustrationService
             }
         }
 
-        var sprite = new WriteableBitmap(new PixelSize(sizeX, sizeY), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
+        WriteableBitmap sprite = new WriteableBitmap(new PixelSize(sizeX, sizeY), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
         using (ILockedFramebuffer target = sprite.Lock())
         {
             Marshal.Copy(buffer, 0, target.Address, buffer.Length);
@@ -756,7 +757,7 @@ public sealed class ControllerIllustrationService
             return cached;
         }
 
-        Bitmap? bitmap = dev ? TryLoadSprite("Dev", name, logOnFailure: false) : null;
+        Bitmap? bitmap = dev ? TryLoadSprite("Dev", name, false) : null;
         bitmap ??= TryLoadSprite("Base", name);
 
         if (bitmap is not null)

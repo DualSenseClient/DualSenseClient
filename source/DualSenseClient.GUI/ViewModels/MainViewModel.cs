@@ -70,7 +70,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// Whether the disconnect button should be shown: the selected controller
     /// is connected over Bluetooth.
     /// </summary>
-    public bool CanDisconnectController => SelectedItem?.Device.ConnectionType == ConnectionType.Bluetooth;
+    public bool CanDisconnectController
+    {
+        get
+        {
+            return SelectedItem?.Device.ConnectionType == ConnectionType.Bluetooth;
+        }
+    }
 
     /// <summary>
     /// Whether the scanner is currently watching for controller connection changes.
@@ -81,9 +87,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// <summary>
     /// Tooltip for the scan toggle button, describing the next action.
     /// </summary>
-    public string ScanButtonToolTip => IsScanning
-        ? LocalizationService.GetText("MainWindow.ScanDevices.Stop")
-        : LocalizationService.GetText("MainWindow.ScanDevices.Start");
+    public string ScanButtonToolTip
+    {
+        get
+        {
+            return IsScanning
+                ? LocalizationService.GetText("MainWindow.ScanDevices.Stop")
+                : LocalizationService.GetText("MainWindow.ScanDevices.Start");
+        }
+    }
 
     /// <summary>
     /// Guards against feedback loops between the combobox selection and the tracker.

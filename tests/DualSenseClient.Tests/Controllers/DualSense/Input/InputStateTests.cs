@@ -143,7 +143,7 @@ public class InputStateTests
         btReport[10] = 0x01; // payload byte 8 = L1 only
         btReport[11] = 0x01; // payload byte 9 = PS button only
 
-        InputReport report = new(btReport, 2);
+        InputReport report = new InputReport(btReport, 2);
 
         Assert.That(report.Input.LeftStickX, Is.EqualTo(0));
         Assert.That(report.Input.L1, Is.True);

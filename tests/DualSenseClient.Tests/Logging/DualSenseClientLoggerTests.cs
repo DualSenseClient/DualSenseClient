@@ -7,10 +7,7 @@ public class DualSenseClientLoggerTests
     private ILogSink _originalSink = null!;
 
     [SetUp]
-    public void Setup()
-    {
-        _originalSink = DualSenseClientLogger.Sink;
-    }
+    public void Setup() => _originalSink = DualSenseClientLogger.Sink;
 
     [TearDown]
     public void TearDown()
@@ -27,16 +24,10 @@ public class DualSenseClientLoggerTests
     }
 
     [Test]
-    public void For_ThrowsOnNull()
-    {
-        Assert.Throws<ArgumentNullException>(() => DualSenseClientLogger.For(null!));
-    }
+    public void For_ThrowsOnNull() => Assert.Throws<ArgumentNullException>(() => DualSenseClientLogger.For(null!));
 
     [Test]
-    public void For_ThrowsOnWhitespace()
-    {
-        Assert.Throws<ArgumentException>(() => DualSenseClientLogger.For("   "));
-    }
+    public void For_ThrowsOnWhitespace() => Assert.Throws<ArgumentException>(() => DualSenseClientLogger.For("   "));
 
     [Test]
     public void For_ReturnsSameInstanceForSameCategory()
@@ -57,7 +48,7 @@ public class DualSenseClientLoggerTests
     [Test]
     public void Configure_SetsMinimumLevel()
     {
-        DualSenseClientLogger.Configure(minimumLevel: LogLevel.Warning);
+        DualSenseClientLogger.Configure(LogLevel.Warning);
         Assert.That(DualSenseClientLogger.MinimumLevel, Is.EqualTo(LogLevel.Warning));
     }
 
@@ -73,7 +64,7 @@ public class DualSenseClientLoggerTests
     public void Configure_NullMinimumLevel_PreservesExisting()
     {
         DualSenseClientLogger.MinimumLevel = LogLevel.Debug;
-        DualSenseClientLogger.Configure(minimumLevel: null);
+        DualSenseClientLogger.Configure(null);
         Assert.That(DualSenseClientLogger.MinimumLevel, Is.EqualTo(LogLevel.Debug));
     }
 
@@ -87,10 +78,7 @@ public class DualSenseClientLoggerTests
     }
 
     [Test]
-    public void Sink_Setter_ThrowsOnNull()
-    {
-        Assert.Throws<ArgumentNullException>(() => DualSenseClientLogger.Sink = null!);
-    }
+    public void Sink_Setter_ThrowsOnNull() => Assert.Throws<ArgumentNullException>(() => DualSenseClientLogger.Sink = null!);
 
     [Test]
     public void Sink_Setter_DisposesOldSink()
@@ -139,22 +127,13 @@ public class DualSenseClientLoggerTests
     }
 
     [Test]
-    public void TryParseLevel_NullReturnsFalse()
-    {
-        Assert.That(DualSenseClientLogger.TryParseLevel(null, out _), Is.False);
-    }
+    public void TryParseLevel_NullReturnsFalse() => Assert.That(DualSenseClientLogger.TryParseLevel(null, out _), Is.False);
 
     [Test]
-    public void TryParseLevel_EmptyReturnsFalse()
-    {
-        Assert.That(DualSenseClientLogger.TryParseLevel("", out _), Is.False);
-    }
+    public void TryParseLevel_EmptyReturnsFalse() => Assert.That(DualSenseClientLogger.TryParseLevel("", out _), Is.False);
 
     [Test]
-    public void TryParseLevel_InvalidReturnsFalse()
-    {
-        Assert.That(DualSenseClientLogger.TryParseLevel("notalevel", out _), Is.False);
-    }
+    public void TryParseLevel_InvalidReturnsFalse() => Assert.That(DualSenseClientLogger.TryParseLevel("notalevel", out _), Is.False);
 
     [Test]
     public void TryParseLevel_NoneLevelReturnsFalse()
@@ -200,8 +179,8 @@ public class DualSenseClientLoggerTests
         DualSenseClientLogger.MinimumLevel = LogLevel.Trace;
 
         DualSenseClientLogger logger = DualSenseClientLogger.For("TestCategory");
-        InvalidOperationException ex = new("test");
-        logger.LogExceptionDetails(ex, includeEnvironmentInfo: false);
+        InvalidOperationException ex = new InvalidOperationException("test");
+        logger.LogExceptionDetails(ex, false);
 
         Assert.That(testSink.Entries.Count, Is.GreaterThan(0));
         Assert.That(testSink.Entries[0].SourceMemberName, Does.Contain("LogExceptionDetails_EntrySourcePointsToCaller"));
@@ -245,7 +224,7 @@ public class DualSenseClientLoggerTests
         DualSenseClientLogger.MinimumLevel = LogLevel.Trace;
 
         DualSenseClientLogger logger = DualSenseClientLogger.For("TestCategory");
-        InvalidOperationException ex = new("test error");
+        InvalidOperationException ex = new InvalidOperationException("test error");
         logger.Error("error message", ex);
 
         Assert.That(testSink.LastEntry!.Value.Level, Is.EqualTo(LogLevel.Error));
@@ -287,8 +266,8 @@ public class DualSenseClientLoggerTests
         DualSenseClientLogger.MinimumLevel = LogLevel.Trace;
 
         DualSenseClientLogger logger = DualSenseClientLogger.For("TestCategory");
-        InvalidOperationException ex = new("test");
-        logger.LogExceptionDetails(ex, includeEnvironmentInfo: false);
+        InvalidOperationException ex = new InvalidOperationException("test");
+        logger.LogExceptionDetails(ex, false);
 
         Assert.That(testSink.Entries.Count, Is.GreaterThan(1));
         Assert.That(testSink.Entries[0].Message, Does.Contain("Exception Report Start"));
@@ -332,8 +311,8 @@ public class DualSenseClientLoggerTests
         DualSenseClientLogger.MinimumLevel = LogLevel.Trace;
 
         DualSenseClientLogger logger = DualSenseClientLogger.For("TestCategory");
-        InvalidOperationException ex = new("test");
-        logger.LogExceptionDetails(ex, includeEnvironmentInfo: true);
+        InvalidOperationException ex = new InvalidOperationException("test");
+        logger.LogExceptionDetails(ex, true);
 
         Assert.That(testSink.Entries.Count, Is.GreaterThan(1));
         bool hasSystemInfo = false;
@@ -357,9 +336,9 @@ public class DualSenseClientLoggerTests
         DualSenseClientLogger.MinimumLevel = LogLevel.Trace;
 
         DualSenseClientLogger logger = DualSenseClientLogger.For("TestCategory");
-        InvalidOperationException inner = new("inner exception");
-        InvalidOperationException outer = new("outer exception", inner);
-        logger.LogExceptionDetails(outer, includeEnvironmentInfo: false);
+        InvalidOperationException inner = new InvalidOperationException("inner exception");
+        InvalidOperationException outer = new InvalidOperationException("outer exception", inner);
+        logger.LogExceptionDetails(outer, false);
 
         bool hasInner = false;
         bool hasOuter = false;
@@ -382,7 +361,7 @@ public class DualSenseClientLoggerTests
 
     private class TestLogSink : ILogSink, IDisposable
     {
-        public List<LogEntry> Entries { get; } = new();
+        public List<LogEntry> Entries { get; } = new List<LogEntry>();
         public LogEntry? LastEntry { get; private set; }
         public bool Disposed { get; private set; }
 

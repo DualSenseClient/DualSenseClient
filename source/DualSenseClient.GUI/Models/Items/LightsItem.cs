@@ -52,7 +52,13 @@ public sealed partial class LightsItem : ObservableObject, IDisposable
     /// <summary>
     /// Human-readable product name.
     /// </summary>
-    public string DisplayName => Controller.DisplayName;
+    public string DisplayName
+    {
+        get
+        {
+            return Controller.DisplayName;
+        }
+    }
 
     /// <summary>
     /// Lightbar red channel (0-255).
@@ -103,12 +109,24 @@ public sealed partial class LightsItem : ObservableObject, IDisposable
     /// <summary>
     /// Brush for the lightbar color preview swatch.
     /// </summary>
-    public IBrush LightbarBrush => new SolidColorBrush(Color.FromRgb(Channel(LedRed), Channel(LedGreen), Channel(LedBlue)));
+    public IBrush LightbarBrush
+    {
+        get
+        {
+            return new SolidColorBrush(Color.FromRgb(Channel(LedRed), Channel(LedGreen), Channel(LedBlue)));
+        }
+    }
 
     /// <summary>
     /// Lightbar color as a "#RRGGBB" string.
     /// </summary>
-    public string ColorHex => $"#{Channel(LedRed):X2}{Channel(LedGreen):X2}{Channel(LedBlue):X2}";
+    public string ColorHex
+    {
+        get
+        {
+            return $"#{Channel(LedRed):X2}{Channel(LedGreen):X2}{Channel(LedBlue):X2}";
+        }
+    }
 
     /// <summary>
     /// Tracks whether a color update is in progress to avoid feedback loops
@@ -129,7 +147,10 @@ public sealed partial class LightsItem : ObservableObject, IDisposable
     /// </summary>
     public Color LightbarColor
     {
-        get => Color.FromRgb(Channel(LedRed), Channel(LedGreen), Channel(LedBlue));
+        get
+        {
+            return Color.FromRgb(Channel(LedRed), Channel(LedGreen), Channel(LedBlue));
+        }
         set
         {
             if (_syncingColor)
@@ -331,8 +352,5 @@ public sealed partial class LightsItem : ObservableObject, IDisposable
     /// <summary>
     /// Releases the item. Nothing to release; kept for parity with the page lifecycle.
     /// </summary>
-    public void Dispose()
-    {
-        _disposed = true;
-    }
+    public void Dispose() => _disposed = true;
 }

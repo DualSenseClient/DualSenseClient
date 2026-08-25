@@ -10,7 +10,7 @@ namespace DualSenseClient.GUI;
 /// Do not use any Avalonia or third-party APIs before <see cref="Main"/> is called,
 /// as the framework has not been initialized yet.
 /// </remarks>
-sealed class Program
+internal sealed class Program
 {
     /// <summary>
     /// The application entry point. Configures the Avalonia app builder and starts the classic desktop lifetime.

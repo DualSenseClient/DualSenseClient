@@ -256,7 +256,10 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// </summary>
     public bool LeftMotorEnabled
     {
-        get => _leftMotorEnabled;
+        get
+        {
+            return _leftMotorEnabled;
+        }
         set
         {
             if (SetProperty(ref _leftMotorEnabled, value))
@@ -271,7 +274,10 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// </summary>
     public int LeftMotorStrength
     {
-        get => _leftMotorStrength;
+        get
+        {
+            return _leftMotorStrength;
+        }
         set
         {
             if (SetProperty(ref _leftMotorStrength, value))
@@ -286,7 +292,10 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// </summary>
     public bool RightMotorEnabled
     {
-        get => _rightMotorEnabled;
+        get
+        {
+            return _rightMotorEnabled;
+        }
         set
         {
             if (SetProperty(ref _rightMotorEnabled, value))
@@ -301,7 +310,10 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// </summary>
     public int RightMotorStrength
     {
-        get => _rightMotorStrength;
+        get
+        {
+            return _rightMotorStrength;
+        }
         set
         {
             if (SetProperty(ref _rightMotorStrength, value))
@@ -317,7 +329,10 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// </summary>
     public int LeftTriggerModeIndex
     {
-        get => _leftTriggerModeIndex;
+        get
+        {
+            return _leftTriggerModeIndex;
+        }
         set
         {
             int clamped = Math.Clamp(value, 0, TriggerEffectModes.Count - 1);
@@ -334,7 +349,10 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// </summary>
     public int LeftTriggerForce
     {
-        get => _leftTriggerForce;
+        get
+        {
+            return _leftTriggerForce;
+        }
         set
         {
             if (SetProperty(ref _leftTriggerForce, value))
@@ -349,7 +367,10 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// </summary>
     public int LeftTriggerStart
     {
-        get => _leftTriggerStart;
+        get
+        {
+            return _leftTriggerStart;
+        }
         set
         {
             if (SetProperty(ref _leftTriggerStart, value))
@@ -364,7 +385,10 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// </summary>
     public int LeftTriggerEnd
     {
-        get => _leftTriggerEnd;
+        get
+        {
+            return _leftTriggerEnd;
+        }
         set
         {
             if (SetProperty(ref _leftTriggerEnd, value))
@@ -379,7 +403,10 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// </summary>
     public int LeftTriggerFrequency
     {
-        get => _leftTriggerFrequency;
+        get
+        {
+            return _leftTriggerFrequency;
+        }
         set
         {
             if (SetProperty(ref _leftTriggerFrequency, value))
@@ -395,7 +422,10 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// </summary>
     public int RightTriggerModeIndex
     {
-        get => _rightTriggerModeIndex;
+        get
+        {
+            return _rightTriggerModeIndex;
+        }
         set
         {
             int clamped = Math.Clamp(value, 0, TriggerEffectModes.Count - 1);
@@ -412,7 +442,10 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// </summary>
     public int RightTriggerForce
     {
-        get => _rightTriggerForce;
+        get
+        {
+            return _rightTriggerForce;
+        }
         set
         {
             if (SetProperty(ref _rightTriggerForce, value))
@@ -427,7 +460,10 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// </summary>
     public int RightTriggerStart
     {
-        get => _rightTriggerStart;
+        get
+        {
+            return _rightTriggerStart;
+        }
         set
         {
             if (SetProperty(ref _rightTriggerStart, value))
@@ -442,7 +478,10 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// </summary>
     public int RightTriggerEnd
     {
-        get => _rightTriggerEnd;
+        get
+        {
+            return _rightTriggerEnd;
+        }
         set
         {
             if (SetProperty(ref _rightTriggerEnd, value))
@@ -457,7 +496,10 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// </summary>
     public int RightTriggerFrequency
     {
-        get => _rightTriggerFrequency;
+        get
+        {
+            return _rightTriggerFrequency;
+        }
         set
         {
             if (SetProperty(ref _rightTriggerFrequency, value))
@@ -470,313 +512,673 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// <summary>
     /// Whether any left (L2) trigger effect parameter is applicable, i.e. a mode other than Off is selected.
     /// </summary>
-    public bool LeftTriggerParametersVisible => SelectedLeftTriggerMode != TriggerEffectType.Off;
+    public bool LeftTriggerParametersVisible
+    {
+        get
+        {
+            return SelectedLeftTriggerMode != TriggerEffectType.Off;
+        }
+    }
 
     /// <summary>
     /// Whether the left (L2) start-position slider applies to the selected mode.
     /// </summary>
-    public bool LeftTriggerStartVisible => LeftTriggerParametersVisible;
+    public bool LeftTriggerStartVisible
+    {
+        get
+        {
+            return LeftTriggerParametersVisible;
+        }
+    }
 
     /// <summary>
     /// Whether the left (L2) end-position slider applies to the selected mode (Trigger mode only).
     /// </summary>
-    public bool LeftTriggerEndVisible => SelectedLeftTriggerMode == TriggerEffectType.Trigger;
+    public bool LeftTriggerEndVisible
+    {
+        get
+        {
+            return SelectedLeftTriggerMode == TriggerEffectType.Trigger;
+        }
+    }
 
     /// <summary>
     /// Whether the left (L2) force slider applies to the selected mode.
     /// </summary>
-    public bool LeftTriggerForceVisible => LeftTriggerParametersVisible;
+    public bool LeftTriggerForceVisible
+    {
+        get
+        {
+            return LeftTriggerParametersVisible;
+        }
+    }
 
     /// <summary>
     /// Whether the left (L2) frequency slider applies to the selected mode (Automatic mode only).
     /// </summary>
-    public bool LeftTriggerFrequencyVisible => SelectedLeftTriggerMode == TriggerEffectType.Automatic;
+    public bool LeftTriggerFrequencyVisible
+    {
+        get
+        {
+            return SelectedLeftTriggerMode == TriggerEffectType.Automatic;
+        }
+    }
 
     /// <summary>
     /// Whether any right (R2) trigger effect parameter is applicable, i.e. a mode other than Off is selected.
     /// </summary>
-    public bool RightTriggerParametersVisible => SelectedRightTriggerMode != TriggerEffectType.Off;
+    public bool RightTriggerParametersVisible
+    {
+        get
+        {
+            return SelectedRightTriggerMode != TriggerEffectType.Off;
+        }
+    }
 
     /// <summary>
     /// Whether the right (R2) start-position slider applies to the selected mode.
     /// </summary>
-    public bool RightTriggerStartVisible => RightTriggerParametersVisible;
+    public bool RightTriggerStartVisible
+    {
+        get
+        {
+            return RightTriggerParametersVisible;
+        }
+    }
 
     /// <summary>
     /// Whether the right (R2) end-position slider applies to the selected mode (Trigger mode only).
     /// </summary>
-    public bool RightTriggerEndVisible => SelectedRightTriggerMode == TriggerEffectType.Trigger;
+    public bool RightTriggerEndVisible
+    {
+        get
+        {
+            return SelectedRightTriggerMode == TriggerEffectType.Trigger;
+        }
+    }
 
     /// <summary>
     /// Whether the right (R2) force slider applies to the selected mode.
     /// </summary>
-    public bool RightTriggerForceVisible => RightTriggerParametersVisible;
+    public bool RightTriggerForceVisible
+    {
+        get
+        {
+            return RightTriggerParametersVisible;
+        }
+    }
 
     /// <summary>
     /// Whether the right (R2) frequency slider applies to the selected mode (Automatic mode only).
     /// </summary>
-    public bool RightTriggerFrequencyVisible => SelectedRightTriggerMode == TriggerEffectType.Automatic;
+    public bool RightTriggerFrequencyVisible
+    {
+        get
+        {
+            return SelectedRightTriggerMode == TriggerEffectType.Automatic;
+        }
+    }
 
     /// <summary>
     /// Human-readable product name.
     /// </summary>
-    public string DisplayName => Controller.DisplayName;
+    public string DisplayName
+    {
+        get
+        {
+            return Controller.DisplayName;
+        }
+    }
 
     /// <summary>
     /// Physical transport (USB / Bluetooth).
     /// </summary>
-    public ConnectionType ConnectionType => Controller.ConnectionType;
+    public ConnectionType ConnectionType
+    {
+        get
+        {
+            return Controller.ConnectionType;
+        }
+    }
 
     /// <summary>
     /// Whether at least one input report has been received, so live values are available.
     /// </summary>
-    public bool HasReport => _hasReport;
+    public bool HasReport
+    {
+        get
+        {
+            return _hasReport;
+        }
+    }
 
     // ── Buttons ────────────────────────────────────────────────
 
     /// <summary>
     /// Whether the Cross (X) face button is currently pressed.
     /// </summary>
-    public bool Cross => _input?.Cross ?? false;
+    public bool Cross
+    {
+        get
+        {
+            return _input?.Cross ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the Circle (O) face button is currently pressed.
     /// </summary>
-    public bool Circle => _input?.Circle ?? false;
+    public bool Circle
+    {
+        get
+        {
+            return _input?.Circle ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the Square ([]) face button is currently pressed.
     /// </summary>
-    public bool Square => _input?.Square ?? false;
+    public bool Square
+    {
+        get
+        {
+            return _input?.Square ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the Triangle (^) face button is currently pressed.
     /// </summary>
-    public bool Triangle => _input?.Triangle ?? false;
+    public bool Triangle
+    {
+        get
+        {
+            return _input?.Triangle ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the D-pad up direction is currently pressed.
     /// </summary>
-    public bool DPadUp => _input?.DPadUp ?? false;
+    public bool DPadUp
+    {
+        get
+        {
+            return _input?.DPadUp ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the D-pad down direction is currently pressed.
     /// </summary>
-    public bool DPadDown => _input?.DPadDown ?? false;
+    public bool DPadDown
+    {
+        get
+        {
+            return _input?.DPadDown ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the D-pad left direction is currently pressed.
     /// </summary>
-    public bool DPadLeft => _input?.DPadLeft ?? false;
+    public bool DPadLeft
+    {
+        get
+        {
+            return _input?.DPadLeft ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the D-pad right direction is currently pressed.
     /// </summary>
-    public bool DPadRight => _input?.DPadRight ?? false;
+    public bool DPadRight
+    {
+        get
+        {
+            return _input?.DPadRight ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the left shoulder button is currently pressed.
     /// </summary>
-    public bool L1 => _input?.L1 ?? false;
+    public bool L1
+    {
+        get
+        {
+            return _input?.L1 ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the right shoulder button is currently pressed.
     /// </summary>
-    public bool R1 => _input?.R1 ?? false;
+    public bool R1
+    {
+        get
+        {
+            return _input?.R1 ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the left trigger click is currently pressed.
     /// </summary>
-    public bool L2Click => _input?.L2Click ?? false;
+    public bool L2Click
+    {
+        get
+        {
+            return _input?.L2Click ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the right trigger click is currently pressed.
     /// </summary>
-    public bool R2Click => _input?.R2Click ?? false;
+    public bool R2Click
+    {
+        get
+        {
+            return _input?.R2Click ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the left stick is currently pressed down (L3).
     /// </summary>
-    public bool L3 => _input?.L3 ?? false;
+    public bool L3
+    {
+        get
+        {
+            return _input?.L3 ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the right stick is currently pressed down (R3).
     /// </summary>
-    public bool R3 => _input?.R3 ?? false;
+    public bool R3
+    {
+        get
+        {
+            return _input?.R3 ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the Create button is currently pressed.
     /// </summary>
-    public bool Create => _input?.Create ?? false;
+    public bool Create
+    {
+        get
+        {
+            return _input?.Create ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the Options button is currently pressed.
     /// </summary>
-    public bool Options => _input?.Options ?? false;
+    public bool Options
+    {
+        get
+        {
+            return _input?.Options ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the PlayStation button is currently pressed.
     /// </summary>
-    public bool PS => _input?.PS ?? false;
+    public bool PS
+    {
+        get
+        {
+            return _input?.PS ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the touchpad click is currently pressed.
     /// </summary>
-    public bool TouchPad => _input?.TouchPad ?? false;
+    public bool TouchPad
+    {
+        get
+        {
+            return _input?.TouchPad ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the mute button is currently pressed.
     /// </summary>
-    public bool Mute => _input?.Mute ?? false;
+    public bool Mute
+    {
+        get
+        {
+            return _input?.Mute ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the connected controller is a DualSense Edge (has the Fn buttons
     /// and back paddles). Drives visibility of Edge-only UI.
     /// </summary>
-    public bool IsEdge => _device?.IsEdge ?? false;
+    public bool IsEdge
+    {
+        get
+        {
+            return _device?.IsEdge ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the left Edge function button is currently pressed.
     /// </summary>
-    public bool FnL => _input?.EdgeFunctionLeft ?? false;
+    public bool FnL
+    {
+        get
+        {
+            return _input?.EdgeFunctionLeft ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the right Edge function button is currently pressed.
     /// </summary>
-    public bool FnR => _input?.EdgeFunctionRight ?? false;
+    public bool FnR
+    {
+        get
+        {
+            return _input?.EdgeFunctionRight ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the left Edge paddle is currently pressed.
     /// </summary>
-    public bool L4 => _input?.EdgePaddleLeft ?? false;
+    public bool L4
+    {
+        get
+        {
+            return _input?.EdgePaddleLeft ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the right Edge paddle is currently pressed.
     /// </summary>
-    public bool R4 => _input?.EdgePaddleRight ?? false;
+    public bool R4
+    {
+        get
+        {
+            return _input?.EdgePaddleRight ?? false;
+        }
+    }
 
     // ── Sticks ────────────────────────────────────────────────
 
     /// <summary>
     /// Left stick horizontal position (0-255, center is 128).
     /// </summary>
-    public int LeftStickX => _input?.LeftStickX ?? 128;
+    public int LeftStickX
+    {
+        get
+        {
+            return _input?.LeftStickX ?? 128;
+        }
+    }
 
     /// <summary>
     /// Left stick vertical position (0-255, center is 128, 0 is up).
     /// </summary>
-    public int LeftStickY => _input?.LeftStickY ?? 128;
+    public int LeftStickY
+    {
+        get
+        {
+            return _input?.LeftStickY ?? 128;
+        }
+    }
 
     /// <summary>
     /// Right stick horizontal position (0-255, center is 128).
     /// </summary>
-    public int RightStickX => _input?.RightStickX ?? 128;
+    public int RightStickX
+    {
+        get
+        {
+            return _input?.RightStickX ?? 128;
+        }
+    }
 
     /// <summary>
     /// Right stick vertical position (0-255, center is 128, 0 is up).
     /// </summary>
-    public int RightStickY => _input?.RightStickY ?? 128;
+    public int RightStickY
+    {
+        get
+        {
+            return _input?.RightStickY ?? 128;
+        }
+    }
 
     // ── Triggers ──────────────────────────────────────────────
 
     /// <summary>
     /// Left analog trigger value (0-255, released to fully pressed).
     /// </summary>
-    public int L2 => _input?.L2 ?? 0;
+    public int L2
+    {
+        get
+        {
+            return _input?.L2 ?? 0;
+        }
+    }
 
     /// <summary>
     /// Right analog trigger value (0-255, released to fully pressed).
     /// </summary>
-    public int R2 => _input?.R2 ?? 0;
+    public int R2
+    {
+        get
+        {
+            return _input?.R2 ?? 0;
+        }
+    }
 
     // ── Motion ────────────────────────────────────────────────
 
     /// <summary>
     /// Gyroscope X-axis / pitch (angular velocity, 16.384 LSB/dps), or "-" when unavailable.
     /// </summary>
-    public string GyroX => _motion is { } motion ? motion.GyroX.ToString() : Unavailable;
+    public string GyroX
+    {
+        get
+        {
+            return _motion is { } motion ? motion.GyroX.ToString() : Unavailable;
+        }
+    }
 
     /// <summary>
     /// Gyroscope Y-axis / yaw (angular velocity, 16.384 LSB/dps), or "-" when unavailable.
     /// </summary>
-    public string GyroY => _motion is { } motion ? motion.GyroY.ToString() : Unavailable;
+    public string GyroY
+    {
+        get
+        {
+            return _motion is { } motion ? motion.GyroY.ToString() : Unavailable;
+        }
+    }
 
     /// <summary>
     /// Gyroscope Z-axis / roll (angular velocity, 16.384 LSB/dps), or "-" when unavailable.
     /// </summary>
-    public string GyroZ => _motion is { } motion ? motion.GyroZ.ToString() : Unavailable;
+    public string GyroZ
+    {
+        get
+        {
+            return _motion is { } motion ? motion.GyroZ.ToString() : Unavailable;
+        }
+    }
 
     /// <summary>
     /// Accelerometer X-axis (linear acceleration, 8192 LSB/g), or "-" when unavailable.
     /// </summary>
-    public string AccelX => _motion is { } motion ? motion.AccelX.ToString() : Unavailable;
+    public string AccelX
+    {
+        get
+        {
+            return _motion is { } motion ? motion.AccelX.ToString() : Unavailable;
+        }
+    }
 
     /// <summary>
     /// Accelerometer Y-axis (linear acceleration, 8192 LSB/g), or "-" when unavailable.
     /// </summary>
-    public string AccelY => _motion is { } motion ? motion.AccelY.ToString() : Unavailable;
+    public string AccelY
+    {
+        get
+        {
+            return _motion is { } motion ? motion.AccelY.ToString() : Unavailable;
+        }
+    }
 
     /// <summary>
     /// Accelerometer Z-axis (linear acceleration, 8192 LSB/g), or "-" when unavailable.
     /// </summary>
-    public string AccelZ => _motion is { } motion ? motion.AccelZ.ToString() : Unavailable;
+    public string AccelZ
+    {
+        get
+        {
+            return _motion is { } motion ? motion.AccelZ.ToString() : Unavailable;
+        }
+    }
 
     /// <summary>
     /// Rolling buffer of recent motion samples (oldest first) for the motion graphs.
     /// </summary>
-    public IReadOnlyList<MotionState> MotionSamples => _motionSamples;
+    public IReadOnlyList<MotionState> MotionSamples
+    {
+        get
+        {
+            return _motionSamples;
+        }
+    }
 
     // ── Touchpad ──────────────────────────────────────────────
 
     /// <summary>
     /// Whether a finger is currently detected at touch point 1.
     /// </summary>
-    public bool Touch1Active => _touchpad?.Touch1.IsActive ?? false;
+    public bool Touch1Active
+    {
+        get
+        {
+            return _touchpad?.Touch1.IsActive ?? false;
+        }
+    }
 
     /// <summary>
     /// Touch point 1 horizontal position (0-1919), or 0 when no finger is detected.
     /// </summary>
-    public int Touch1X => _touchpad?.Touch1 is { } p && p.IsActive ? p.X : 0;
+    public int Touch1X
+    {
+        get
+        {
+            return _touchpad?.Touch1 is { } p && p.IsActive ? p.X : 0;
+        }
+    }
 
     /// <summary>
     /// Touch point 1 vertical position (0-1079), or 0 when no finger is detected.
     /// </summary>
-    public int Touch1Y => _touchpad?.Touch1 is { } p && p.IsActive ? p.Y : 0;
+    public int Touch1Y
+    {
+        get
+        {
+            return _touchpad?.Touch1 is { } p && p.IsActive ? p.Y : 0;
+        }
+    }
 
     /// <summary>
     /// Localized active/inactive text for touch point 1.
     /// </summary>
-    public string Touch1State => ActiveText(Touch1Active);
+    public string Touch1State
+    {
+        get
+        {
+            return ActiveText(Touch1Active);
+        }
+    }
 
     /// <summary>
     /// Touch point 1 position as "x, y", or "-" when no finger is detected.
     /// </summary>
-    public string Touch1Position => TouchPosition(_touchpad?.Touch1);
+    public string Touch1Position
+    {
+        get
+        {
+            return TouchPosition(_touchpad?.Touch1);
+        }
+    }
 
     /// <summary>
     /// Whether a finger is currently detected at touch point 2.
     /// </summary>
-    public bool Touch2Active => _touchpad?.Touch2.IsActive ?? false;
+    public bool Touch2Active
+    {
+        get
+        {
+            return _touchpad?.Touch2.IsActive ?? false;
+        }
+    }
 
     /// <summary>
     /// Touch point 2 horizontal position (0-1919), or 0 when no finger is detected.
     /// </summary>
-    public int Touch2X => _touchpad?.Touch2 is { } p && p.IsActive ? p.X : 0;
+    public int Touch2X
+    {
+        get
+        {
+            return _touchpad?.Touch2 is { } p && p.IsActive ? p.X : 0;
+        }
+    }
 
     /// <summary>
     /// Touch point 2 vertical position (0-1079), or 0 when no finger is detected.
     /// </summary>
-    public int Touch2Y => _touchpad?.Touch2 is { } p && p.IsActive ? p.Y : 0;
+    public int Touch2Y
+    {
+        get
+        {
+            return _touchpad?.Touch2 is { } p && p.IsActive ? p.Y : 0;
+        }
+    }
 
     /// <summary>
     /// Localized active/inactive text for touch point 2.
     /// </summary>
-    public string Touch2State => ActiveText(Touch2Active);
+    public string Touch2State
+    {
+        get
+        {
+            return ActiveText(Touch2Active);
+        }
+    }
 
     /// <summary>
     /// Touch point 2 position as "x, y", or "-" when no finger is detected.
     /// </summary>
-    public string Touch2Position => TouchPosition(_touchpad?.Touch2);
+    public string Touch2Position
+    {
+        get
+        {
+            return TouchPosition(_touchpad?.Touch2);
+        }
+    }
 
     // ── Lightbar ──────────────────────────────────────────────
 
@@ -784,38 +1186,74 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// Current lightbar red channel (0-255), or the default PS blue when no
     /// DualSense device is present.
     /// </summary>
-    public int LightbarRed => _device?.CurrentLightbarColor.Red ?? DefaultLightbarRed;
+    public int LightbarRed
+    {
+        get
+        {
+            return _device?.CurrentLightbarColor.Red ?? DefaultLightbarRed;
+        }
+    }
 
     /// <summary>
     /// Current lightbar green channel (0-255), or the default PS blue when no
     /// DualSense device is present.
     /// </summary>
-    public int LightbarGreen => _device?.CurrentLightbarColor.Green ?? DefaultLightbarGreen;
+    public int LightbarGreen
+    {
+        get
+        {
+            return _device?.CurrentLightbarColor.Green ?? DefaultLightbarGreen;
+        }
+    }
 
     /// <summary>
     /// Current lightbar blue channel (0-255), or the default PS blue when no
     /// DualSense device is present.
     /// </summary>
-    public int LightbarBlue => _device?.CurrentLightbarColor.Blue ?? DefaultLightbarBlue;
+    public int LightbarBlue
+    {
+        get
+        {
+            return _device?.CurrentLightbarColor.Blue ?? DefaultLightbarBlue;
+        }
+    }
 
     /// <summary>
     /// Current player LED layout as a bitmask (bit 0 = LED 1, leftmost), or 0 when no
     /// DualSense device is present.
     /// </summary>
-    public int PlayerLeds => _device?.CurrentPlayerLeds ?? 0;
+    public int PlayerLeds
+    {
+        get
+        {
+            return _device?.CurrentPlayerLeds ?? 0;
+        }
+    }
 
     /// <summary>
     /// Current mute LED mode (0 = off, 1 = on, 2 = pulse), or 0 when no DualSense device
     /// is present.
     /// </summary>
-    public int MuteLedMode => _device?.CurrentMuteLedMode ?? 0;
+    public int MuteLedMode
+    {
+        get
+        {
+            return _device?.CurrentMuteLedMode ?? 0;
+        }
+    }
 
     // ── Report ────────────────────────────────────────────────
 
     /// <summary>
     /// Measured controller polling rate in Hz, or 0 before it can be measured.
     /// </summary>
-    public int PollingRateHz => _device?.PollingRateHz ?? 0;
+    public int PollingRateHz
+    {
+        get
+        {
+            return _device?.PollingRateHz ?? 0;
+        }
+    }
 
     /// <summary>
     /// Creates a new input monitor item for the given controller and subscribes to its
@@ -1047,12 +1485,24 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// <summary>
     /// The trigger effect mode currently selected in the left (L2) picker.
     /// </summary>
-    private TriggerEffectType SelectedLeftTriggerMode => TriggerEffectModes[LeftTriggerModeIndex].Value;
+    private TriggerEffectType SelectedLeftTriggerMode
+    {
+        get
+        {
+            return TriggerEffectModes[LeftTriggerModeIndex].Value;
+        }
+    }
 
     /// <summary>
     /// The trigger effect mode currently selected in the right (R2) picker.
     /// </summary>
-    private TriggerEffectType SelectedRightTriggerMode => TriggerEffectModes[RightTriggerModeIndex].Value;
+    private TriggerEffectType SelectedRightTriggerMode
+    {
+        get
+        {
+            return TriggerEffectModes[RightTriggerModeIndex].Value;
+        }
+    }
 
     /// <summary>
     /// Re-raises the left (L2) trigger parameter visibility properties after its mode changes.
@@ -1113,10 +1563,7 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// Queues a UI-thread update so the lightbar color properties re-read the
     /// device's latest color.
     /// </summary>
-    private void OnLightbarColorChanged(object? sender, EventArgs e)
-    {
-        QueueUpdate();
-    }
+    private void OnLightbarColorChanged(object? sender, EventArgs e) => QueueUpdate();
 
     /// <summary>
     /// Queues a single coalesced UI-thread update that refreshes every bound property

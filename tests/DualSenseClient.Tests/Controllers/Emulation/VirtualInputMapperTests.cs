@@ -16,46 +16,25 @@ public sealed class VirtualInputMapperTests
         }, 0);
 
     [Test]
-    public void DualSenseStick_Center_MapsToZero()
-    {
-        Assert.That(VirtualInputMapper.DualSenseStick(128), Is.EqualTo((sbyte)0));
-    }
+    public void DualSenseStick_Center_MapsToZero() => Assert.That(VirtualInputMapper.DualSenseStick(128), Is.EqualTo((sbyte)0));
 
     [Test]
-    public void DualSenseStick_FullLeft_MapsToMinus128()
-    {
-        Assert.That(VirtualInputMapper.DualSenseStick(0), Is.EqualTo((sbyte)-128));
-    }
+    public void DualSenseStick_FullLeft_MapsToMinus128() => Assert.That(VirtualInputMapper.DualSenseStick(0), Is.EqualTo((sbyte)-128));
 
     [Test]
-    public void DualSenseStick_FullRight_MapsTo127()
-    {
-        Assert.That(VirtualInputMapper.DualSenseStick(255), Is.EqualTo((sbyte)127));
-    }
+    public void DualSenseStick_FullRight_MapsTo127() => Assert.That(VirtualInputMapper.DualSenseStick(255), Is.EqualTo((sbyte)127));
 
     [Test]
-    public void X360Axis_FullLeft_MapsToShortMinValue()
-    {
-        Assert.That(VirtualInputMapper.X360Axis(0), Is.EqualTo(short.MinValue));
-    }
+    public void X360Axis_FullLeft_MapsToShortMinValue() => Assert.That(VirtualInputMapper.X360Axis(0), Is.EqualTo(short.MinValue));
 
     [Test]
-    public void X360Axis_Center_MapsToZero()
-    {
-        Assert.That(VirtualInputMapper.X360Axis(128), Is.EqualTo((short)0));
-    }
+    public void X360Axis_Center_MapsToZero() => Assert.That(VirtualInputMapper.X360Axis(128), Is.EqualTo((short)0));
 
     [Test]
-    public void X360AxisInverted_FullUp_ClampsFromOverflowToMaxValue()
-    {
-        Assert.That(VirtualInputMapper.X360AxisInverted(0), Is.EqualTo(short.MaxValue));
-    }
+    public void X360AxisInverted_FullUp_ClampsFromOverflowToMaxValue() => Assert.That(VirtualInputMapper.X360AxisInverted(0), Is.EqualTo(short.MaxValue));
 
     [Test]
-    public void X360AxisInverted_FullDown_MapsToNegativeRange()
-    {
-        Assert.That(VirtualInputMapper.X360AxisInverted(255), Is.EqualTo((short)-32512));
-    }
+    public void X360AxisInverted_FullDown_MapsToNegativeRange() => Assert.That(VirtualInputMapper.X360AxisInverted(255), Is.EqualTo((short)-32512));
 
     [Test]
     public void X360Buttons_PhysicalFaceButtons_MapToOneToOne()
@@ -166,18 +145,12 @@ public sealed class VirtualInputMapperTests
     [TestCase(0, 0)]
     [TestCase(16384, 16000)]
     [TestCase(-16384, -16000)]
-    public void GyroToDs4_ScalesDpsToFixedPoint(short raw, short expected)
-    {
-        Assert.That(VirtualInputMapper.GyroToDs4(raw), Is.EqualTo(expected));
-    }
+    public void GyroToDs4_ScalesDpsToFixedPoint(short raw, short expected) => Assert.That(VirtualInputMapper.GyroToDs4(raw), Is.EqualTo(expected));
 
     [TestCase(0, 0)]
     [TestCase(8192, 5023)]
     [TestCase(-8192, -5023)]
-    public void AccelToDs4_ScalesGravityToMs2FixedPoint(short raw, short expected)
-    {
-        Assert.That(VirtualInputMapper.AccelToDs4(raw), Is.EqualTo(expected));
-    }
+    public void AccelToDs4_ScalesGravityToMs2FixedPoint(short raw, short expected) => Assert.That(VirtualInputMapper.AccelToDs4(raw), Is.EqualTo(expected));
 
     [TestCase(0, 0)]
     [TestCase(270, 236)]
@@ -185,8 +158,6 @@ public sealed class VirtualInputMapperTests
     [TestCase(810, 707)]
     [TestCase(1079, 942)]
     [TestCase(1080, 942)]
-    public void TouchYToDs4_ScalesOntoShorterDualShock4Touchpad(int raw, int expected)
-    {
+    public void TouchYToDs4_ScalesOntoShorterDualShock4Touchpad(int raw, int expected) =>
         Assert.That(VirtualInputMapper.TouchYToDs4((ushort)raw), Is.EqualTo((ushort)expected));
-    }
 }

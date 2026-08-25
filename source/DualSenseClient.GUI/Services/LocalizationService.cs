@@ -54,7 +54,7 @@ public static class LocalizationService
     /// </summary>
     private static readonly CultureInfo[] SupportedLanguages =
     [
-        new CultureInfo(DefaultLanguageCode), // English
+        new CultureInfo(DefaultLanguageCode) // English
         // Add Languages here
     ];
 

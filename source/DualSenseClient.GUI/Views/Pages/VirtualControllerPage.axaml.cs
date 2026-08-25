@@ -37,16 +37,10 @@ public partial class VirtualControllerPage : UserControl
     /// <summary>
     /// Toggles the clicked illustration button in the pending selection.
     /// </summary>
-    private void ControllerView_OnButtonClicked(object? sender, ButtonType e)
-    {
-        _viewModel.ToggleButton(e);
-    }
+    private void ControllerView_OnButtonClicked(object? sender, ButtonType e) => _viewModel.ToggleButton(e);
 
     /// <summary>
     /// Toggles the clicked target button in the pending target selection.
     /// </summary>
-    private void TargetView_OnTargetClicked(object? sender, string e)
-    {
-        _viewModel.ToggleTarget(e);
-    }
+    private void TargetView_OnTargetClicked(object? sender, string e) => _viewModel.ToggleTarget(e);
 }

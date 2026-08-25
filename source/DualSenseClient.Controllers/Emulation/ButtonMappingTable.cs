@@ -91,7 +91,7 @@ public sealed class ButtonMappingTable
     /// </summary>
     public static bool TryParseSource(string name, out ButtonType button)
     {
-        if (Enum.TryParse(name, ignoreCase: true, out button) && Enum.IsDefined(button))
+        if (Enum.TryParse(name, true, out button) && Enum.IsDefined(button))
         {
             return true;
         }
@@ -112,7 +112,7 @@ public sealed class ButtonMappingTable
         TryParseTarget parseTarget,
         Action<string>? logWarning)
     {
-        Dictionary<ButtonType, ResolvedMappingTarget> solos = new(defaults);
+        Dictionary<ButtonType, ResolvedMappingTarget> solos = new Dictionary<ButtonType, ResolvedMappingTarget>(defaults);
         List<ComboRule> combos = [];
 
         foreach (ButtonMappingEntry entry in entries ?? [])
@@ -221,13 +221,14 @@ public sealed class ButtonMappingTable
     /// OR-combines two resolved targets' button flags and D-pad directions, carrying over
     /// the trigger side and output of whichever target has one.
     /// </summary>
-    private static ResolvedMappingTarget MergeTargets(ResolvedMappingTarget first, ResolvedMappingTarget second) => new()
-    {
-        ButtonFlags = first.ButtonFlags | second.ButtonFlags,
-        DPad = first.DPad | second.DPad,
-        Trigger = second.Trigger != MappableTriggerSide.None ? second.Trigger : first.Trigger,
-        Output = second.Trigger != MappableTriggerSide.None ? second.Output : first.Output
-    };
+    private static ResolvedMappingTarget MergeTargets(ResolvedMappingTarget first, ResolvedMappingTarget second) =>
+        new ResolvedMappingTarget
+        {
+            ButtonFlags = first.ButtonFlags | second.ButtonFlags,
+            DPad = first.DPad | second.DPad,
+            Trigger = second.Trigger != MappableTriggerSide.None ? second.Trigger : first.Trigger,
+            Output = second.Trigger != MappableTriggerSide.None ? second.Output : first.Output
+        };
 
     /// <summary>
     /// Translates one input report into the virtual controller's button result. Evaluation is
@@ -275,7 +276,7 @@ public sealed class ButtonMappingTable
 
         foreach (KeyValuePair<ButtonType, ResolvedMappingTarget> solo in _solos)
         {
-            if ((pressed is null || !pressed.Contains(solo.Key)) || (muted is not null && muted.Contains(solo.Key)))
+            if (pressed is null || !pressed.Contains(solo.Key) || (muted is not null && muted.Contains(solo.Key)))
             {
                 continue;
             }

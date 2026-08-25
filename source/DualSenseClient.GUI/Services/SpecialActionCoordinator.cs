@@ -85,18 +85,12 @@ public sealed class SpecialActionCoordinator : IDisposable
     /// Attaches an engine to every tracked controller and removes the engines of
     /// controllers that were untracked. Raised on the UI thread (tracker events).
     /// </summary>
-    private void OnControllersChanged(object? sender, EventArgs e)
-    {
-        ReconcileControllers();
-    }
+    private void OnControllersChanged(object? sender, EventArgs e) => ReconcileControllers();
 
     /// <summary>
     /// Pushes the latest configuration into every engine when the user edits special actions.
     /// </summary>
-    private void OnSpecialActionsChanged(object? sender, EventArgs e)
-    {
-        _engines.UpdateActions(_service.Settings.Actions);
-    }
+    private void OnSpecialActionsChanged(object? sender, EventArgs e) => _engines.UpdateActions(_service.Settings.Actions);
 
     /// <summary>
     /// Diffs the tracked controllers against the attached set, creating and removing

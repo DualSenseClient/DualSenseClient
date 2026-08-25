@@ -35,7 +35,7 @@ public class SliderCard : ContentControl
     /// </summary>
     public static readonly StyledProperty<bool> ShowIconBackgroundProperty = AvaloniaProperty.Register<CardHeader, bool>(
         nameof(ShowIconBackground),
-        defaultValue: false);
+        false);
 
     /// <summary>
     /// Minimum slider value.
@@ -94,98 +94,182 @@ public class SliderCard : ContentControl
     /// <inheritdoc cref="TitleProperty"/>
     public string? Title
     {
-        get => GetValue(TitleProperty);
-        set => SetValue(TitleProperty, value);
+        get
+        {
+            return GetValue(TitleProperty);
+        }
+        set
+        {
+            SetValue(TitleProperty, value);
+        }
     }
 
     /// <inheritdoc cref="DescriptionProperty"/>
     public string? Description
     {
-        get => GetValue(DescriptionProperty);
-        set => SetValue(DescriptionProperty, value);
+        get
+        {
+            return GetValue(DescriptionProperty);
+        }
+        set
+        {
+            SetValue(DescriptionProperty, value);
+        }
     }
 
     /// <inheritdoc cref="TooltipProperty"/>
     public string? Tooltip
     {
-        get => GetValue(TooltipProperty);
-        set => SetValue(TooltipProperty, value);
+        get
+        {
+            return GetValue(TooltipProperty);
+        }
+        set
+        {
+            SetValue(TooltipProperty, value);
+        }
     }
 
     /// <inheritdoc cref="IconProperty"/>
     public Symbol? Icon
     {
-        get => GetValue(IconProperty);
-        set => SetValue(IconProperty, value);
+        get
+        {
+            return GetValue(IconProperty);
+        }
+        set
+        {
+            SetValue(IconProperty, value);
+        }
     }
 
     /// <inheritdoc cref="MinimumProperty"/>
     public double Minimum
     {
-        get => GetValue(MinimumProperty);
-        set => SetValue(MinimumProperty, value);
+        get
+        {
+            return GetValue(MinimumProperty);
+        }
+        set
+        {
+            SetValue(MinimumProperty, value);
+        }
     }
 
     /// <inheritdoc cref="MaximumProperty"/>
     public double Maximum
     {
-        get => GetValue(MaximumProperty);
-        set => SetValue(MaximumProperty, value);
+        get
+        {
+            return GetValue(MaximumProperty);
+        }
+        set
+        {
+            SetValue(MaximumProperty, value);
+        }
     }
 
     /// <inheritdoc cref="ValueProperty"/>
     public double Value
     {
-        get => GetValue(ValueProperty);
-        set => SetValue(ValueProperty, value);
+        get
+        {
+            return GetValue(ValueProperty);
+        }
+        set
+        {
+            SetValue(ValueProperty, value);
+        }
     }
 
     /// <inheritdoc cref="TickFrequencyProperty"/>
     public double TickFrequency
     {
-        get => GetValue(TickFrequencyProperty);
-        set => SetValue(TickFrequencyProperty, value);
+        get
+        {
+            return GetValue(TickFrequencyProperty);
+        }
+        set
+        {
+            SetValue(TickFrequencyProperty, value);
+        }
     }
 
     /// <inheritdoc cref="IsSnapToTickEnabledProperty"/>
     public bool IsSnapToTickEnabled
     {
-        get => GetValue(IsSnapToTickEnabledProperty);
-        set => SetValue(IsSnapToTickEnabledProperty, value);
+        get
+        {
+            return GetValue(IsSnapToTickEnabledProperty);
+        }
+        set
+        {
+            SetValue(IsSnapToTickEnabledProperty, value);
+        }
     }
 
     /// <inheritdoc cref="TickPlacementProperty"/>
     public TickPlacement TickPlacement
     {
-        get => GetValue(TickPlacementProperty);
-        set => SetValue(TickPlacementProperty, value);
+        get
+        {
+            return GetValue(TickPlacementProperty);
+        }
+        set
+        {
+            SetValue(TickPlacementProperty, value);
+        }
     }
 
     /// <inheritdoc cref="UseLayoutRoundingProperty"/>
     public new bool UseLayoutRounding
     {
-        get => GetValue(UseLayoutRoundingProperty);
-        set => SetValue(UseLayoutRoundingProperty, value);
+        get
+        {
+            return GetValue(UseLayoutRoundingProperty);
+        }
+        set
+        {
+            SetValue(UseLayoutRoundingProperty, value);
+        }
     }
 
     /// <inheritdoc cref="SliderMinWidthProperty"/>
     public double SliderMinWidth
     {
-        get => GetValue(SliderMinWidthProperty);
-        set => SetValue(SliderMinWidthProperty, value);
+        get
+        {
+            return GetValue(SliderMinWidthProperty);
+        }
+        set
+        {
+            SetValue(SliderMinWidthProperty, value);
+        }
     }
 
     /// <inheritdoc cref="ValueFormatProperty"/>
     public string? ValueFormat
     {
-        get => GetValue(ValueFormatProperty);
-        set => SetValue(ValueFormatProperty, value);
+        get
+        {
+            return GetValue(ValueFormatProperty);
+        }
+        set
+        {
+            SetValue(ValueFormatProperty, value);
+        }
     }
 
     /// <inheritdoc cref="ShowIconBackgroundProperty"/>
     public bool ShowIconBackground
     {
-        get => GetValue(ShowIconBackgroundProperty);
-        set => SetValue(ShowIconBackgroundProperty, value);
+        get
+        {
+            return GetValue(ShowIconBackgroundProperty);
+        }
+        set
+        {
+            SetValue(ShowIconBackgroundProperty, value);
+        }
     }
 }

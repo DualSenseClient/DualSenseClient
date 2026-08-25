@@ -57,7 +57,7 @@ public sealed class DualSenseClientLogger
     /// <summary>
     /// The active log sink that receives all log entries.
     /// </summary>
-    private static ILogSink _sink = new ConsoleLogSink(useColors: true);
+    private static ILogSink _sink = new ConsoleLogSink(true);
 
     /// <summary>
     /// Gets or sets the minimum <see cref="LogLevel"/> below which log entries are silently dropped.
@@ -69,8 +69,14 @@ public sealed class DualSenseClientLogger
     /// </remarks>
     public static LogLevel MinimumLevel
     {
-        get => _minimumLevel;
-        set => _minimumLevel = value;
+        get
+        {
+            return _minimumLevel;
+        }
+        set
+        {
+            _minimumLevel = value;
+        }
     }
 
     /// <summary>
@@ -253,7 +259,7 @@ public sealed class DualSenseClientLogger
         }
 
         string normalized = text.Trim();
-        if (Enum.TryParse<LogLevel>(normalized, ignoreCase: true, out level) && Enum.IsDefined(level) && level != LogLevel.None)
+        if (Enum.TryParse<LogLevel>(normalized, true, out level) && Enum.IsDefined(level) && level != LogLevel.None)
         {
             return true;
         }
@@ -341,7 +347,7 @@ public sealed class DualSenseClientLogger
         [CallerFilePath] string sourceFilePath = "",
         [CallerLineNumber] int sourceLine = 0,
         [CallerMemberName] string sourceMemberName = "")
-        => Write(LogLevel.Trace, Category, message, exception: null, sourceFilePath, sourceLine, sourceMemberName);
+        => Write(LogLevel.Trace, Category, message, null, sourceFilePath, sourceLine, sourceMemberName);
 
     /// <summary>
     /// Logs a message at <see cref="LogLevel.Debug"/> with automatic caller context capture.
@@ -355,7 +361,7 @@ public sealed class DualSenseClientLogger
         [CallerFilePath] string sourceFilePath = "",
         [CallerLineNumber] int sourceLine = 0,
         [CallerMemberName] string sourceMemberName = "")
-        => Write(LogLevel.Debug, Category, message, exception: null, sourceFilePath, sourceLine, sourceMemberName);
+        => Write(LogLevel.Debug, Category, message, null, sourceFilePath, sourceLine, sourceMemberName);
 
     /// <summary>
     /// Logs a message at <see cref="LogLevel.Info"/> with automatic caller context capture.
@@ -369,7 +375,7 @@ public sealed class DualSenseClientLogger
         [CallerFilePath] string sourceFilePath = "",
         [CallerLineNumber] int sourceLine = 0,
         [CallerMemberName] string sourceMemberName = "")
-        => Write(LogLevel.Info, Category, message, exception: null, sourceFilePath, sourceLine, sourceMemberName);
+        => Write(LogLevel.Info, Category, message, null, sourceFilePath, sourceLine, sourceMemberName);
 
     /// <summary>
     /// Logs a message at <see cref="LogLevel.Warning"/> with automatic caller context capture.
@@ -383,7 +389,7 @@ public sealed class DualSenseClientLogger
         [CallerFilePath] string sourceFilePath = "",
         [CallerLineNumber] int sourceLine = 0,
         [CallerMemberName] string sourceMemberName = "")
-        => Write(LogLevel.Warning, Category, message, exception: null, sourceFilePath, sourceLine, sourceMemberName);
+        => Write(LogLevel.Warning, Category, message, null, sourceFilePath, sourceLine, sourceMemberName);
 
     /// <summary>
     /// Logs a message at <see cref="LogLevel.Error"/> with automatic caller context capture.
@@ -480,7 +486,7 @@ public sealed class DualSenseClientLogger
     /// </summary>
     private void WriteCritical(string message, string sourceFileName, int sourceLine, string? sourceMemberName)
     {
-        Write(LogLevel.Critical, Category, message, exception: null,
+        Write(LogLevel.Critical, Category, message, null,
             sourceFileName, sourceLine, sourceMemberName ?? "");
     }
 

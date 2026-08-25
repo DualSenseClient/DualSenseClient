@@ -21,7 +21,7 @@ public class ProfileServiceTests
         {
             if (Directory.Exists(_tempDir))
             {
-                Directory.Delete(_tempDir, recursive: true);
+                Directory.Delete(_tempDir, true);
             }
         }
         catch
@@ -30,7 +30,13 @@ public class ProfileServiceTests
         }
     }
 
-    private string ProfilesPath => Path.Combine(_tempDir, "Config", "profiles.json");
+    private string ProfilesPath
+    {
+        get
+        {
+            return Path.Combine(_tempDir, "Config", "profiles.json");
+        }
+    }
 
     private ProfileService CreateService() => new ProfileService(profilesPath: ProfilesPath);
 

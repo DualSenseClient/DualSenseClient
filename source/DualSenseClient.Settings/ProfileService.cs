@@ -148,10 +148,7 @@ public sealed class ProfileService
     /// Gets a profile by name (case-insensitive), or <c>null</c> if not found.
     /// </summary>
     /// <param name="name">The profile name to look up.</param>
-    public Profile? GetProfile(string name)
-    {
-        return Settings.Profiles.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
-    }
+    public Profile? GetProfile(string name) => Settings.Profiles.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Creates a new profile with a unique name derived from <paramref name="baseName"/>

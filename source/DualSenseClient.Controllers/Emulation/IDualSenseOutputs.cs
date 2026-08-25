@@ -107,7 +107,13 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
     }
 
     /// <inheritdoc/>
-    public ConnectionType ConnectionType => _device.ConnectionType;
+    public ConnectionType ConnectionType
+    {
+        get
+        {
+            return _device.ConnectionType;
+        }
+    }
 
     /// <inheritdoc/>
     public void SetVibration(byte left, byte right)

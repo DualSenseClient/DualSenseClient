@@ -25,7 +25,7 @@ public sealed class SettingsService
     /// <summary>
     /// Synchronizes access to settings load/save operations.
     /// </summary>
-    private readonly Lock _lock = new();
+    private readonly Lock _lock = new Lock();
 
     /// <summary>
     /// Whether settings have been loaded from disk at least once.
@@ -107,10 +107,7 @@ public sealed class SettingsService
     /// Asynchronously loads settings from persistent storage.
     /// </summary>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public async Task<Settings> LoadSettingsAsync()
-    {
-        return await Task.Run(LoadSettings);
-    }
+    public async Task<Settings> LoadSettingsAsync() => await Task.Run(LoadSettings);
 
     /// <summary>
     /// Saves the current settings instance to persistent storage.
@@ -129,10 +126,7 @@ public sealed class SettingsService
     /// Asynchronously saves the current settings instance to persistent storage.
     /// </summary>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public async Task SaveSettingsAsync()
-    {
-        await Task.Run(SaveSettings);
-    }
+    public async Task SaveSettingsAsync() => await Task.Run(SaveSettings);
 
     /// <summary>
     /// Saves the provided settings instance to persistent storage.
@@ -154,8 +148,5 @@ public sealed class SettingsService
     /// </summary>
     /// <param name="settings">The settings instance to save.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public async Task SaveSettingsAsync(Settings settings)
-    {
-        await Task.Run(() => SaveSettings(settings));
-    }
+    public async Task SaveSettingsAsync(Settings settings) => await Task.Run(() => SaveSettings(settings));
 }

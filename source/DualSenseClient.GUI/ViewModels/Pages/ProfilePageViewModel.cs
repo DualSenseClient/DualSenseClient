@@ -85,33 +85,62 @@ public partial class ProfilePageViewModel : ObservableObject
     /// <summary>
     /// Whether a controller is selected and can be customized or assigned a profile.
     /// </summary>
-    public bool HasDevice => CurrentDevice is not null;
+    public bool HasDevice
+    {
+        get
+        {
+            return CurrentDevice is not null;
+        }
+    }
 
     /// <summary>
     /// Whether the selected controller's hardware supports full player-LED functionality.
     /// Generation 0x04 and above is restricted to Mirrored Only, in which case only the
     /// mirrored player presets are offered and the individual LED toggles are hidden.
     /// </summary>
-    public bool HasFullPlayerLedSupport => CurrentDevice?.Controller.FirmwareInfo?.IsValid == true
-                                           && CurrentDevice.Controller.FirmwareInfo.Value.HasFullPlayerLedSupport;
+    public bool HasFullPlayerLedSupport
+    {
+        get
+        {
+            return CurrentDevice?.Controller.FirmwareInfo?.IsValid == true
+                   && CurrentDevice.Controller.FirmwareInfo.Value.HasFullPlayerLedSupport;
+        }
+    }
 
     /// <summary>
     /// The Bluetooth MAC address of the selected controller, or empty when unavailable.
     /// </summary>
-    public string CurrentMac => CurrentDevice?.Controller.PairingInfo?.ClientMac ?? string.Empty;
+    public string CurrentMac
+    {
+        get
+        {
+            return CurrentDevice?.Controller.PairingInfo?.ClientMac ?? string.Empty;
+        }
+    }
 
     /// <summary>
     /// The HID device path of the selected controller, used as a binding fallback when the
     /// MAC address is unavailable.
     /// </summary>
-    public string CurrentDevicePath => CurrentDevice?.Controller.Device.Info.Path ?? string.Empty;
+    public string CurrentDevicePath
+    {
+        get
+        {
+            return CurrentDevice?.Controller.Device.Info.Path ?? string.Empty;
+        }
+    }
 
     /// <summary>
     /// The name of the profile the selected controller is currently using: the bound
     /// profile, or the default profile when unbound.
     /// </summary>
     private string CurrentUsedProfileName
-        => _controllerService.GetBoundProfileName(CurrentMac, CurrentDevicePath) ?? ProfileService.DefaultProfileName;
+    {
+        get
+        {
+            return _controllerService.GetBoundProfileName(CurrentMac, CurrentDevicePath) ?? ProfileService.DefaultProfileName;
+        }
+    }
 
     /// <summary>
     /// All saved profiles, shown in the profile list and editor.
@@ -126,7 +155,13 @@ public partial class ProfilePageViewModel : ObservableObject
     /// <summary>
     /// Whether any special actions exist.
     /// </summary>
-    public bool HasSpecialActions => SpecialActions.Count > 0;
+    public bool HasSpecialActions
+    {
+        get
+        {
+            return SpecialActions.Count > 0;
+        }
+    }
 
     /// <summary>
     /// The special action currently being edited, or <c>null</c> when none exists.
@@ -136,15 +171,18 @@ public partial class ProfilePageViewModel : ObservableObject
     /// <summary>
     /// Whether a special action is selected for editing.
     /// </summary>
-    public bool HasSelectedSpecialAction => SelectedSpecialAction is not null;
+    public bool HasSelectedSpecialAction
+    {
+        get
+        {
+            return SelectedSpecialAction is not null;
+        }
+    }
 
     /// <summary>
     /// Notifies the editor visibility when the selection changes.
     /// </summary>
-    partial void OnSelectedSpecialActionChanged(SpecialActionItem? value)
-    {
-        OnPropertyChanged(nameof(HasSelectedSpecialAction));
-    }
+    partial void OnSelectedSpecialActionChanged(SpecialActionItem? value) => OnPropertyChanged(nameof(HasSelectedSpecialAction));
 
     /// <summary>
     /// The profile currently being edited, or <c>null</c> when none exists.
@@ -155,7 +193,13 @@ public partial class ProfilePageViewModel : ObservableObject
     /// <summary>
     /// Whether a profile is selected for editing.
     /// </summary>
-    public bool HasSelectedProfile => SelectedProfile is not null;
+    public bool HasSelectedProfile
+    {
+        get
+        {
+            return SelectedProfile is not null;
+        }
+    }
 
     /// <summary>
     /// Options for the "assigned profile" dropdown: the name of every saved profile.
@@ -254,10 +298,7 @@ public partial class ProfilePageViewModel : ObservableObject
     /// Creates a new, empty profile and selects it for editing.
     /// </summary>
     [RelayCommand]
-    private void CreateProfile()
-    {
-        SelectedProfile = AddProfile(_profileService.CreateProfile(DefaultProfileName));
-    }
+    private void CreateProfile() => SelectedProfile = AddProfile(_profileService.CreateProfile(DefaultProfileName));
 
     /// <summary>
     /// Deletes the selected profile after confirmation, removing any controller bindings
@@ -405,10 +446,7 @@ public partial class ProfilePageViewModel : ObservableObject
     /// or the default when unbound) to push its current settings back to the controller.
     /// </summary>
     [RelayCommand]
-    private void ReapplyProfile()
-    {
-        ApplyBoundProfileToController();
-    }
+    private void ReapplyProfile() => ApplyBoundProfileToController();
 
     /// <summary>
     /// Deletes a special action after its delete button is pressed, and persists the change.

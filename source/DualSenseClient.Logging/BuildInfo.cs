@@ -38,7 +38,9 @@ public static class BuildInfo
         get
         {
             if (_banner is not null)
+            {
                 return _banner;
+            }
 
             Assembly assembly = Assembly.GetEntryAssembly() ?? Assembly.GetCallingAssembly();
             AssemblyName name = assembly.GetName();
@@ -51,7 +53,7 @@ public static class BuildInfo
             string branch = assembly.GetCustomAttributes(typeof(AssemblyMetadataAttribute), false)
                 .Cast<AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == "Branch")?.Value ?? "";
 
-            List<string> lines = new(4)
+            List<string> lines = new List<string>(4)
             {
                 $"{name.Name} v{version} ({config})"
             };
@@ -60,9 +62,15 @@ public static class BuildInfo
             {
                 string buildInfo = "";
                 if (!string.IsNullOrEmpty(branch))
+                {
                     buildInfo += branch;
+                }
+
                 if (!string.IsNullOrEmpty(commitSha))
+                {
                     buildInfo += $" @{commitSha[..Math.Min(commitSha.Length, 7)]}";
+                }
+
                 lines.Add($"Build: {buildInfo}");
             }
 

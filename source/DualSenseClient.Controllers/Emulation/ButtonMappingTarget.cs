@@ -108,7 +108,13 @@ public readonly struct ResolvedMappingTarget
     /// <summary>
     /// Whether the target sends nothing at all (an explicit "None" mapping).
     /// </summary>
-    public bool IsNone => ButtonFlags == 0 && Trigger == MappableTriggerSide.None && DPad == VirtualDPad.None;
+    public bool IsNone
+    {
+        get
+        {
+            return ButtonFlags == 0 && Trigger == MappableTriggerSide.None && DPad == VirtualDPad.None;
+        }
+    }
 
     /// <summary>
     /// A target that sends nothing.

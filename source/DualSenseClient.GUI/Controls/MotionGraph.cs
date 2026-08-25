@@ -82,8 +82,14 @@ public class MotionGraph : Control
     /// </summary>
     public MotionGraphAxis Axis
     {
-        get => GetValue(AxisProperty);
-        set => SetValue(AxisProperty, value);
+        get
+        {
+            return GetValue(AxisProperty);
+        }
+        set
+        {
+            SetValue(AxisProperty, value);
+        }
     }
 
     /// <summary>
@@ -91,8 +97,14 @@ public class MotionGraph : Control
     /// </summary>
     public IBrush? SeriesXBrush
     {
-        get => GetValue(SeriesXBrushProperty);
-        set => SetValue(SeriesXBrushProperty, value);
+        get
+        {
+            return GetValue(SeriesXBrushProperty);
+        }
+        set
+        {
+            SetValue(SeriesXBrushProperty, value);
+        }
     }
 
     /// <summary>
@@ -100,8 +112,14 @@ public class MotionGraph : Control
     /// </summary>
     public IBrush? SeriesYBrush
     {
-        get => GetValue(SeriesYBrushProperty);
-        set => SetValue(SeriesYBrushProperty, value);
+        get
+        {
+            return GetValue(SeriesYBrushProperty);
+        }
+        set
+        {
+            SetValue(SeriesYBrushProperty, value);
+        }
     }
 
     /// <summary>
@@ -109,8 +127,14 @@ public class MotionGraph : Control
     /// </summary>
     public IBrush? SeriesZBrush
     {
-        get => GetValue(SeriesZBrushProperty);
-        set => SetValue(SeriesZBrushProperty, value);
+        get
+        {
+            return GetValue(SeriesZBrushProperty);
+        }
+        set
+        {
+            SetValue(SeriesZBrushProperty, value);
+        }
     }
 
     /// <summary>
@@ -119,7 +143,10 @@ public class MotionGraph : Control
     /// </summary>
     public IReadOnlyList<MotionState>? Samples
     {
-        get => _samples;
+        get
+        {
+            return _samples;
+        }
         set
         {
             _samples = value;
@@ -141,7 +168,7 @@ public class MotionGraph : Control
         IReadOnlyList<MotionState>? samples = _samples;
         if (samples is null || samples.Count < 2)
         {
-            DrawZeroLine(context, bounds, valueRange: null);
+            DrawZeroLine(context, bounds, null);
             return;
         }
 
@@ -169,11 +196,11 @@ public class MotionGraph : Control
             max += 1;
         }
 
-        DrawZeroLine(context, plot, valueRange: (min, max));
+        DrawZeroLine(context, plot, (min, max));
 
-        DrawSeries(context, plot, SeriesXBrush, samples, count, startTimestamp, totalTicks, min, max, axis: 0);
-        DrawSeries(context, plot, SeriesYBrush, samples, count, startTimestamp, totalTicks, min, max, axis: 1);
-        DrawSeries(context, plot, SeriesZBrush, samples, count, startTimestamp, totalTicks, min, max, axis: 2);
+        DrawSeries(context, plot, SeriesXBrush, samples, count, startTimestamp, totalTicks, min, max, 0);
+        DrawSeries(context, plot, SeriesYBrush, samples, count, startTimestamp, totalTicks, min, max, 1);
+        DrawSeries(context, plot, SeriesZBrush, samples, count, startTimestamp, totalTicks, min, max, 2);
     }
 
     /// <summary>
@@ -184,8 +211,15 @@ public class MotionGraph : Control
         for (int axis = 0; axis < 3; axis++)
         {
             double value = GetValue(sample, axis);
-            if (value < min) min = value;
-            if (value > max) max = value;
+            if (value < min)
+            {
+                min = value;
+            }
+
+            if (value > max)
+            {
+                max = value;
+            }
         }
     }
 
@@ -282,7 +316,7 @@ public class MotionGraph : Control
             {
                 MotionState sample = samples[i];
                 long tick = unchecked((uint)(sample.Timestamp - startTimestamp));
-                double x = plot.Left + (tick / (double)totalTicks) * plot.Width;
+                double x = plot.Left + tick / (double)totalTicks * plot.Width;
                 double ratio = (GetValue(sample, axis) - min) / (max - min);
                 double y = plot.Bottom - ratio * plot.Height;
                 Point point = new Point(x, y);

@@ -53,8 +53,14 @@ public readonly struct SetStateData
     /// </summary>
     public ValidFlags ValidFlag0
     {
-        get => (ValidFlags)_raw[0];
-        init => _raw[0] = (byte)value;
+        get
+        {
+            return (ValidFlags)_raw[0];
+        }
+        init
+        {
+            _raw[0] = (byte)value;
+        }
     }
 
     /// <summary>
@@ -62,8 +68,14 @@ public readonly struct SetStateData
     /// </summary>
     public ValidFlags ValidFlag1
     {
-        get => (ValidFlags)_raw[1];
-        init => _raw[1] = (byte)value;
+        get
+        {
+            return (ValidFlags)_raw[1];
+        }
+        init
+        {
+            _raw[1] = (byte)value;
+        }
     }
 
     /// <summary>
@@ -71,8 +83,14 @@ public readonly struct SetStateData
     /// </summary>
     public byte RumbleRight
     {
-        get => _raw[2];
-        init => _raw[2] = value;
+        get
+        {
+            return _raw[2];
+        }
+        init
+        {
+            _raw[2] = value;
+        }
     }
 
     /// <summary>
@@ -80,8 +98,14 @@ public readonly struct SetStateData
     /// </summary>
     public byte RumbleLeft
     {
-        get => _raw[3];
-        init => _raw[3] = value;
+        get
+        {
+            return _raw[3];
+        }
+        init
+        {
+            _raw[3] = value;
+        }
     }
 
     /// <summary>
@@ -89,8 +113,14 @@ public readonly struct SetStateData
     /// </summary>
     public byte HeadphoneVolume
     {
-        get => _raw[4];
-        init => _raw[4] = value;
+        get
+        {
+            return _raw[4];
+        }
+        init
+        {
+            _raw[4] = value;
+        }
     }
 
     /// <summary>
@@ -98,8 +128,14 @@ public readonly struct SetStateData
     /// </summary>
     public byte SpeakerVolume
     {
-        get => _raw[5];
-        init => _raw[5] = value;
+        get
+        {
+            return _raw[5];
+        }
+        init
+        {
+            _raw[5] = value;
+        }
     }
 
     /// <summary>
@@ -107,8 +143,14 @@ public readonly struct SetStateData
     /// </summary>
     public byte MicVolume
     {
-        get => _raw[6];
-        init => _raw[6] = value;
+        get
+        {
+            return _raw[6];
+        }
+        init
+        {
+            _raw[6] = value;
+        }
     }
 
     /// <summary>
@@ -116,8 +158,14 @@ public readonly struct SetStateData
     /// </summary>
     public AudioControl AudioControl
     {
-        get => (AudioControl)_raw[7];
-        init => _raw[7] = (byte)value;
+        get
+        {
+            return (AudioControl)_raw[7];
+        }
+        init
+        {
+            _raw[7] = (byte)value;
+        }
     }
 
     /// <summary>
@@ -125,8 +173,14 @@ public readonly struct SetStateData
     /// </summary>
     public byte MuteLedMode
     {
-        get => _raw[8];
-        init => _raw[8] = value;
+        get
+        {
+            return _raw[8];
+        }
+        init
+        {
+            _raw[8] = value;
+        }
     }
 
     /// <summary>
@@ -134,8 +188,14 @@ public readonly struct SetStateData
     /// </summary>
     public byte PowerSaveControl
     {
-        get => _raw[9];
-        init => _raw[9] = value;
+        get
+        {
+            return _raw[9];
+        }
+        init
+        {
+            _raw[9] = value;
+        }
     }
 
     /// <summary>
@@ -143,8 +203,14 @@ public readonly struct SetStateData
     /// </summary>
     public TriggerEffectBlock R2TriggerEffect
     {
-        get => new TriggerEffectBlock(_raw, 10);
-        init => value.CopyTo(_raw, 10);
+        get
+        {
+            return new TriggerEffectBlock(_raw, 10);
+        }
+        init
+        {
+            value.CopyTo(_raw, 10);
+        }
     }
 
     /// <summary>
@@ -152,8 +218,14 @@ public readonly struct SetStateData
     /// </summary>
     public TriggerEffectBlock L2TriggerEffect
     {
-        get => new TriggerEffectBlock(_raw, 21);
-        init => value.CopyTo(_raw, 21);
+        get
+        {
+            return new TriggerEffectBlock(_raw, 21);
+        }
+        init
+        {
+            value.CopyTo(_raw, 21);
+        }
     }
 
     /// <summary>
@@ -161,7 +233,10 @@ public readonly struct SetStateData
     /// </summary>
     public uint HostTimestamp
     {
-        get => (uint)(_raw[32] | (_raw[33] << 8) | (_raw[34] << 16) | (_raw[35] << 24));
+        get
+        {
+            return (uint)(_raw[32] | (_raw[33] << 8) | (_raw[34] << 16) | (_raw[35] << 24));
+        }
         init
         {
             _raw[32] = (byte)value;
@@ -176,8 +251,14 @@ public readonly struct SetStateData
     /// </summary>
     public byte MotorPowerReduction
     {
-        get => _raw[36];
-        init => _raw[36] = value;
+        get
+        {
+            return _raw[36];
+        }
+        init
+        {
+            _raw[36] = value;
+        }
     }
 
     /// <summary>
@@ -185,8 +266,14 @@ public readonly struct SetStateData
     /// </summary>
     public byte AudioControl2
     {
-        get => _raw[37];
-        init => _raw[37] = value;
+        get
+        {
+            return _raw[37];
+        }
+        init
+        {
+            _raw[37] = value;
+        }
     }
 
     /// <summary>
@@ -194,8 +281,14 @@ public readonly struct SetStateData
     /// </summary>
     public ValidFlags ValidFlag2
     {
-        get => (ValidFlags)_raw[38];
-        init => _raw[38] = (byte)value;
+        get
+        {
+            return (ValidFlags)_raw[38];
+        }
+        init
+        {
+            _raw[38] = (byte)value;
+        }
     }
 
     /// <summary>
@@ -203,8 +296,14 @@ public readonly struct SetStateData
     /// </summary>
     public byte HapticLowPassFilter
     {
-        get => _raw[39];
-        init => _raw[39] = value;
+        get
+        {
+            return _raw[39];
+        }
+        init
+        {
+            _raw[39] = value;
+        }
     }
 
     /// <summary>
@@ -212,8 +311,14 @@ public readonly struct SetStateData
     /// </summary>
     public byte LightFadeAnimation
     {
-        get => _raw[41];
-        init => _raw[41] = value;
+        get
+        {
+            return _raw[41];
+        }
+        init
+        {
+            _raw[41] = value;
+        }
     }
 
     /// <summary>
@@ -221,8 +326,14 @@ public readonly struct SetStateData
     /// </summary>
     public byte LightBrightness
     {
-        get => _raw[42];
-        init => _raw[42] = value;
+        get
+        {
+            return _raw[42];
+        }
+        init
+        {
+            _raw[42] = value;
+        }
     }
 
     /// <summary>
@@ -230,8 +341,14 @@ public readonly struct SetStateData
     /// </summary>
     public PlayerLedMask PlayerLeds
     {
-        get => (PlayerLedMask)_raw[43];
-        init => _raw[43] = (byte)value;
+        get
+        {
+            return (PlayerLedMask)_raw[43];
+        }
+        init
+        {
+            _raw[43] = (byte)value;
+        }
     }
 
     /// <summary>
@@ -239,8 +356,14 @@ public readonly struct SetStateData
     /// </summary>
     public byte LedRed
     {
-        get => _raw[44];
-        init => _raw[44] = value;
+        get
+        {
+            return _raw[44];
+        }
+        init
+        {
+            _raw[44] = value;
+        }
     }
 
     /// <summary>
@@ -248,8 +371,14 @@ public readonly struct SetStateData
     /// </summary>
     public byte LedGreen
     {
-        get => _raw[45];
-        init => _raw[45] = value;
+        get
+        {
+            return _raw[45];
+        }
+        init
+        {
+            _raw[45] = value;
+        }
     }
 
     /// <summary>
@@ -257,8 +386,14 @@ public readonly struct SetStateData
     /// </summary>
     public byte LedBlue
     {
-        get => _raw[46];
-        init => _raw[46] = value;
+        get
+        {
+            return _raw[46];
+        }
+        init
+        {
+            _raw[46] = value;
+        }
     }
 
     /// <summary>

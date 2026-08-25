@@ -43,7 +43,13 @@ public sealed class CompositeLogSink : ILogSink, IDisposable
     /// <summary>
     /// Gets the read-only collection of child sinks.
     /// </summary>
-    public IReadOnlyList<ILogSink> Sinks => Array.AsReadOnly(_sinks);
+    public IReadOnlyList<ILogSink> Sinks
+    {
+        get
+        {
+            return Array.AsReadOnly(_sinks);
+        }
+    }
 
     /// <summary>
     /// Writes a log entry to every child sink. Exceptions from individual sinks are caught and discarded.

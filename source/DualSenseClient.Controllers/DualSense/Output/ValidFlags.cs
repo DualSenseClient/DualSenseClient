@@ -114,5 +114,5 @@ public enum ValidFlags : byte
     /// <summary>
     /// Enable improved rumble emulation.
     /// </summary>
-    EnableImprovedRumbleEmu = 1 << 2,
+    EnableImprovedRumbleEmu = 1 << 2
 }

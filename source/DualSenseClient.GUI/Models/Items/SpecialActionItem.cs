@@ -92,7 +92,13 @@ public sealed partial class BatteryLevelItem : ObservableObject
     /// <summary>
     /// The charge range label (e.g. "30-39%", "90-100%").
     /// </summary>
-    public string DisplayName => Level == 9 ? "90-100%" : $"{Level * 10}-{Level * 10 + 9}%";
+    public string DisplayName
+    {
+        get
+        {
+            return Level == 9 ? "90-100%" : $"{Level * 10}-{Level * 10 + 9}%";
+        }
+    }
 
     /// <summary>
     /// Red channel of this level's color (0-255).
@@ -132,7 +138,10 @@ public sealed partial class BatteryLevelItem : ObservableObject
     /// </summary>
     public Color Color
     {
-        get => Color.FromRgb(Channel(Red), Channel(Green), Channel(Blue));
+        get
+        {
+            return Color.FromRgb(Channel(Red), Channel(Green), Channel(Blue));
+        }
         set
         {
             if (_syncingColor)
@@ -160,7 +169,13 @@ public sealed partial class BatteryLevelItem : ObservableObject
     /// <summary>
     /// The level color as a brush, for the swatch.
     /// </summary>
-    public IBrush Brush => new SolidColorBrush(Color);
+    public IBrush Brush
+    {
+        get
+        {
+            return new SolidColorBrush(Color);
+        }
+    }
 
     /// <summary>
     /// Persists the new color.
@@ -315,7 +330,13 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     /// <summary>
     /// Whether the action is triggered by a touchpad gesture instead of a button combination.
     /// </summary>
-    public bool HasGesture => !string.IsNullOrEmpty(TouchpadGesture);
+    public bool HasGesture
+    {
+        get
+        {
+            return !string.IsNullOrEmpty(TouchpadGesture);
+        }
+    }
 
     /// <summary>
     /// Whether the current controller's hardware supports full player-LED functionality.
@@ -341,8 +362,14 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     /// </summary>
     public int SelectedTriggerIndex
     {
-        get => HasGesture ? 1 : 0;
-        set => TouchpadGesture = value == 1 ? Gesture : null;
+        get
+        {
+            return HasGesture ? 1 : 0;
+        }
+        set
+        {
+            TouchpadGesture = value == 1 ? Gesture : null;
+        }
     }
 
     /// <summary>
@@ -394,13 +421,16 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
 
             return 0;
         }
-        set => Gesture = value switch
+        set
         {
-            1 => TouchpadGestures.SwipeDown,
-            2 => TouchpadGestures.SwipeLeft,
-            3 => TouchpadGestures.SwipeRight,
-            _ => TouchpadGestures.SwipeUp
-        };
+            Gesture = value switch
+            {
+                1 => TouchpadGestures.SwipeDown,
+                2 => TouchpadGestures.SwipeLeft,
+                3 => TouchpadGestures.SwipeRight,
+                _ => TouchpadGestures.SwipeUp
+            };
+        }
     }
 
     /// <summary>
@@ -408,7 +438,10 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     /// </summary>
     public string Name
     {
-        get => Action.Name;
+        get
+        {
+            return Action.Name;
+        }
         set
         {
             string trimmed = value?.Trim() ?? string.Empty;
@@ -548,7 +581,10 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     /// </summary>
     public string? SoundPath
     {
-        get => Effect(SpecialActionTypes.PlaySound)?.Sound.Path;
+        get
+        {
+            return Effect(SpecialActionTypes.PlaySound)?.Sound.Path;
+        }
         set
         {
             SpecialActionEffect? effect = Effect(SpecialActionTypes.PlaySound);
@@ -590,8 +626,14 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     /// </summary>
     public int SelectedSoundOutputIndex
     {
-        get => string.Equals(SoundOutputDevice, SoundOutputDevices.Headset, StringComparison.OrdinalIgnoreCase) ? 1 : 0;
-        set => SoundOutputDevice = value == 1 ? SoundOutputDevices.Headset : SoundOutputDevices.Speaker;
+        get
+        {
+            return string.Equals(SoundOutputDevice, SoundOutputDevices.Headset, StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+        }
+        set
+        {
+            SoundOutputDevice = value == 1 ? SoundOutputDevices.Headset : SoundOutputDevices.Speaker;
+        }
     }
 
     /// <summary>
@@ -619,8 +661,14 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     /// </summary>
     public double SelectedBatteryRed
     {
-        get => SelectedBatteryLevelItem.Red;
-        set => SelectedBatteryLevelItem.Red = value;
+        get
+        {
+            return SelectedBatteryLevelItem.Red;
+        }
+        set
+        {
+            SelectedBatteryLevelItem.Red = value;
+        }
     }
 
     /// <summary>
@@ -628,8 +676,14 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     /// </summary>
     public double SelectedBatteryGreen
     {
-        get => SelectedBatteryLevelItem.Green;
-        set => SelectedBatteryLevelItem.Green = value;
+        get
+        {
+            return SelectedBatteryLevelItem.Green;
+        }
+        set
+        {
+            SelectedBatteryLevelItem.Green = value;
+        }
     }
 
     /// <summary>
@@ -637,8 +691,14 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     /// </summary>
     public double SelectedBatteryBlue
     {
-        get => SelectedBatteryLevelItem.Blue;
-        set => SelectedBatteryLevelItem.Blue = value;
+        get
+        {
+            return SelectedBatteryLevelItem.Blue;
+        }
+        set
+        {
+            SelectedBatteryLevelItem.Blue = value;
+        }
     }
 
     /// <summary>
@@ -646,50 +706,104 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     /// </summary>
     public Color SelectedBatteryColor
     {
-        get => SelectedBatteryLevelItem.Color;
-        set => SelectedBatteryLevelItem.Color = value;
+        get
+        {
+            return SelectedBatteryLevelItem.Color;
+        }
+        set
+        {
+            SelectedBatteryLevelItem.Color = value;
+        }
     }
 
     /// <summary>
     /// The level whose color the shared picker is editing (never out of range).
     /// </summary>
-    private BatteryLevelItem SelectedBatteryLevelItem => BatteryLevels[Math.Clamp(SelectedBatteryLevel, 0, BatteryLevels.Count - 1)];
+    private BatteryLevelItem SelectedBatteryLevelItem
+    {
+        get
+        {
+            return BatteryLevels[Math.Clamp(SelectedBatteryLevel, 0, BatteryLevels.Count - 1)];
+        }
+    }
 
     /// <summary>
     /// Whether the action has the set-lightbar-color effect enabled.
     /// </summary>
-    public bool IsColorAction => Effect(SpecialActionTypes.SetLightbarColor)?.Enabled ?? false;
+    public bool IsColorAction
+    {
+        get
+        {
+            return Effect(SpecialActionTypes.SetLightbarColor)?.Enabled ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the action has the set-player-LEDs effect enabled.
     /// </summary>
-    public bool IsPlayerLedsAction => Effect(SpecialActionTypes.SetPlayerLeds)?.Enabled ?? false;
+    public bool IsPlayerLedsAction
+    {
+        get
+        {
+            return Effect(SpecialActionTypes.SetPlayerLeds)?.Enabled ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the action has the play-sound effect enabled.
     /// </summary>
-    public bool IsSoundAction => Effect(SpecialActionTypes.PlaySound)?.Enabled ?? false;
+    public bool IsSoundAction
+    {
+        get
+        {
+            return Effect(SpecialActionTypes.PlaySound)?.Enabled ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the action has the show-battery-level effect enabled.
     /// </summary>
-    public bool IsBatteryAction => Effect(SpecialActionTypes.ShowBatteryLevel)?.Enabled ?? false;
+    public bool IsBatteryAction
+    {
+        get
+        {
+            return Effect(SpecialActionTypes.ShowBatteryLevel)?.Enabled ?? false;
+        }
+    }
 
     /// <summary>
     /// Whether the apply-while-held toggle is relevant: light and sound effects support it,
     /// but touchpad-triggered actions never use it.
     /// </summary>
-    public bool IsApplyWhileHeldVisible => !HasGesture && (IsColorAction || IsPlayerLedsAction || IsBatteryAction || IsSoundAction);
+    public bool IsApplyWhileHeldVisible
+    {
+        get
+        {
+            return !HasGesture && (IsColorAction || IsPlayerLedsAction || IsBatteryAction || IsSoundAction);
+        }
+    }
 
     /// <summary>
     /// Whether the duration field is relevant: the light effects support the timed restore.
     /// </summary>
-    public bool IsDurationVisible => IsColorAction || IsPlayerLedsAction || IsBatteryAction;
+    public bool IsDurationVisible
+    {
+        get
+        {
+            return IsColorAction || IsPlayerLedsAction || IsBatteryAction;
+        }
+    }
 
     /// <summary>
     /// Whether the haptic strength slider is shown (sound effects with haptics enabled).
     /// </summary>
-    public bool IsHapticVisible => IsSoundAction && HapticFeedback;
+    public bool IsHapticVisible
+    {
+        get
+        {
+            return IsSoundAction && HapticFeedback;
+        }
+    }
 
     /// <summary>
     /// The lightbar color of the set-lightbar-color effect, kept in sync with the channel
@@ -697,7 +811,10 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     /// </summary>
     public Color LightbarColor
     {
-        get => Color.FromRgb(Channel(LedRed), Channel(LedGreen), Channel(LedBlue));
+        get
+        {
+            return Color.FromRgb(Channel(LedRed), Channel(LedGreen), Channel(LedBlue));
+        }
         set
         {
             if (_syncingLightbarColor)

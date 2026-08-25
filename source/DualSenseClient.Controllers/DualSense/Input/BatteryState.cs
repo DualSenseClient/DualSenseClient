@@ -23,7 +23,13 @@ public readonly struct BatteryState : IEquatable<BatteryState>
     /// <summary>
     /// Battery level as a raw nibble value (0-10, where 10 is full).
     /// </summary>
-    public byte RawLevel => (byte)(Raw & 0x0F);
+    public byte RawLevel
+    {
+        get
+        {
+            return (byte)(Raw & 0x0F);
+        }
+    }
 
     /// <summary>
     /// Battery level as a percentage (0-100), or null if unknown.
@@ -72,7 +78,13 @@ public readonly struct BatteryState : IEquatable<BatteryState>
     /// <summary>
     /// Display-friendly battery percentage (100% when charging complete, -1 when unknown).
     /// </summary>
-    public int DisplayPercentage => Percentage ?? -1;
+    public int DisplayPercentage
+    {
+        get
+        {
+            return Percentage ?? -1;
+        }
+    }
 
     /// <summary>
     /// Returns true if the raw battery byte is equal.

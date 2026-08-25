@@ -21,7 +21,13 @@ public static class PathResolver
     /// <summary>
     /// Gets the resolved base directory path for the application.
     /// </summary>
-    public static string BaseDirectory => _baseDirectory;
+    public static string BaseDirectory
+    {
+        get
+        {
+            return _baseDirectory;
+        }
+    }
 
     /// <summary>
     /// Resolves the most appropriate base directory for the application at runtime.

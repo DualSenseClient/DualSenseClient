@@ -14,13 +14,37 @@ public class DualSenseDeviceProfileTests
 
         public byte[] PairingReport { get; init; } = [];
 
-        public ushort VendorId => 0x054C;
+        public ushort VendorId
+        {
+            get
+            {
+                return 0x054C;
+            }
+        }
 
-        public ushort ProductId => 0x0CE6;
+        public ushort ProductId
+        {
+            get
+            {
+                return 0x0CE6;
+            }
+        }
 
-        public string DevicePath => "test";
+        public string DevicePath
+        {
+            get
+            {
+                return "test";
+            }
+        }
 
-        public bool IsConnected => true;
+        public bool IsConnected
+        {
+            get
+            {
+                return true;
+            }
+        }
 
         public int Read(byte[] buffer, int offset, int count, int timeoutMs) => 0;
 
@@ -47,23 +71,77 @@ public class DualSenseDeviceProfileTests
 
     private sealed class StubHidDeviceInfo(ConnectionType busType) : IHidDeviceInfo
     {
-        public string Path => "test";
+        public string Path
+        {
+            get
+            {
+                return "test";
+            }
+        }
 
-        public ushort VendorId => 0x054C;
+        public ushort VendorId
+        {
+            get
+            {
+                return 0x054C;
+            }
+        }
 
-        public ushort ProductId => 0x0CE6;
+        public ushort ProductId
+        {
+            get
+            {
+                return 0x0CE6;
+            }
+        }
 
-        public string ProductName => "DualSense Test";
+        public string ProductName
+        {
+            get
+            {
+                return "DualSense Test";
+            }
+        }
 
-        public string Manufacturer => "Sony";
+        public string Manufacturer
+        {
+            get
+            {
+                return "Sony";
+            }
+        }
 
-        public int InterfaceNumber => 0;
+        public int InterfaceNumber
+        {
+            get
+            {
+                return 0;
+            }
+        }
 
-        public ushort UsagePage => 1;
+        public ushort UsagePage
+        {
+            get
+            {
+                return 1;
+            }
+        }
 
-        public HidUsageId Usage => HidUsageId.GamePad;
+        public HidUsageId Usage
+        {
+            get
+            {
+                return HidUsageId.GamePad;
+            }
+        }
 
-        public ConnectionType BusType => busType;
+        public ConnectionType BusType
+        {
+            get
+            {
+                return busType;
+            }
+        }
     }
 
     private static byte[] CreatePairingReport(string clientMac)

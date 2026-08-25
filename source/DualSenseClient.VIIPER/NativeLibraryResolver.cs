@@ -53,10 +53,7 @@ internal static class NativeLibraryResolver
     /// "libVIIPER" instead of searching the default locations.
     /// Called once from <see cref="LibVIIPER"/>'s static constructor.
     /// </summary>
-    public static void Register()
-    {
-        NativeLibrary.SetDllImportResolver(typeof(NativeLibraryResolver).Assembly, Resolve);
-    }
+    public static void Register() => NativeLibrary.SetDllImportResolver(typeof(NativeLibraryResolver).Assembly, Resolve);
 
     /// <summary>
     /// Resolves a native library to a handle, invoked by the runtime whenever an
@@ -69,10 +66,8 @@ internal static class NativeLibraryResolver
     /// The loaded native library handle when <paramref name="libraryName"/> is libVIIPER,
     /// otherwise <see cref="IntPtr.Zero"/> to let the runtime fall back to default resolution.
     /// </returns>
-    private static IntPtr Resolve(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
-    {
-        return libraryName == LibraryName ? NativeLibraryHandle.Value : IntPtr.Zero;
-    }
+    private static IntPtr Resolve(string libraryName, Assembly assembly, DllImportSearchPath? searchPath) =>
+        libraryName == LibraryName ? NativeLibraryHandle.Value : IntPtr.Zero;
 
     /// <summary>
     /// Extracts the native library matching the current platform from the assembly's

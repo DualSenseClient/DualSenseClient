@@ -21,7 +21,7 @@ public class ControllerInfoServiceTests
         {
             if (Directory.Exists(_tempDir))
             {
-                Directory.Delete(_tempDir, recursive: true);
+                Directory.Delete(_tempDir, true);
             }
         }
         catch
@@ -30,7 +30,13 @@ public class ControllerInfoServiceTests
         }
     }
 
-    private string ControllersPath => Path.Combine(_tempDir, "Config", "controllers.json");
+    private string ControllersPath
+    {
+        get
+        {
+            return Path.Combine(_tempDir, "Config", "controllers.json");
+        }
+    }
 
     private ControllerInfoService CreateService() => new ControllerInfoService(controllersPath: ControllersPath);
 

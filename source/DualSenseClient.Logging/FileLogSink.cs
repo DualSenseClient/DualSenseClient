@@ -134,8 +134,14 @@ public sealed class FileLogSink : ILogSink, IDisposable
     /// </summary>
     public bool IncludeTimestamp
     {
-        get => _includeTimestamp;
-        set => _includeTimestamp = value;
+        get
+        {
+            return _includeTimestamp;
+        }
+        set
+        {
+            _includeTimestamp = value;
+        }
     }
 
     /// <summary>
@@ -253,9 +259,9 @@ public sealed class FileLogSink : ILogSink, IDisposable
             _append ? FileMode.Append : FileMode.Create,
             FileAccess.Write,
             FileShare.Read,
-            bufferSize: 65536,
+            65536,
             FileOptions.SequentialScan);
-        _writer = new StreamWriter(fileStream, Encoding.UTF8, bufferSize: 65536)
+        _writer = new StreamWriter(fileStream, Encoding.UTF8, 65536)
         {
             AutoFlush = false
         };

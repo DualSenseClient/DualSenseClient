@@ -75,7 +75,7 @@ public class VirtualDualSenseControllerOutputTests
     [Test]
     public void V1GameOnV2Pad_TranslatesSelectorAndPassesEverythingElseThrough()
     {
-        SetStateData payload = VirtualDualSenseController.BuildOutputPayload(Output(RawReport(RichGamePayload())), vibrationV2: true);
+        SetStateData payload = VirtualDualSenseController.BuildOutputPayload(Output(RawReport(RichGamePayload())), true);
 
         byte[] expected = RichGamePayload();
         Assert.Multiple(() =>
@@ -119,7 +119,7 @@ public class VirtualDualSenseControllerOutputTests
         p[0] = 0x02 | 0x0C; // flag0: haptics select + trigger FFB only
         p[38] = 0x04; // flag2: v2 selector
 
-        SetStateData payload = VirtualDualSenseController.BuildOutputPayload(Output(RawReport(p)), vibrationV2: false);
+        SetStateData payload = VirtualDualSenseController.BuildOutputPayload(Output(RawReport(p)), false);
 
         Assert.Multiple(() =>
         {
@@ -138,7 +138,7 @@ public class VirtualDualSenseControllerOutputTests
         p[2] = 0x7F; // stale motor bytes that the pad must ignore
         p[3] = 0x7F;
 
-        SetStateData payload = VirtualDualSenseController.BuildOutputPayload(Output(RawReport(p)), vibrationV2: true);
+        SetStateData payload = VirtualDualSenseController.BuildOutputPayload(Output(RawReport(p)), true);
 
         Assert.Multiple(() =>
         {
@@ -156,7 +156,7 @@ public class VirtualDualSenseControllerOutputTests
         p[0] = 0x04; // only R2 allowed; L2 bit deliberately clear while its block bytes are present
         p[21] = 0x26;
 
-        SetStateData payload = VirtualDualSenseController.BuildOutputPayload(Output(RawReport(p)), vibrationV2: false);
+        SetStateData payload = VirtualDualSenseController.BuildOutputPayload(Output(RawReport(p)), false);
 
         Assert.Multiple(() =>
         {
@@ -181,7 +181,7 @@ public class VirtualDualSenseControllerOutputTests
             RawOutputReport = []
         };
 
-        SetStateData payload = VirtualDualSenseController.BuildOutputPayload(output, vibrationV2: true);
+        SetStateData payload = VirtualDualSenseController.BuildOutputPayload(output, true);
 
         Assert.Multiple(() =>
         {

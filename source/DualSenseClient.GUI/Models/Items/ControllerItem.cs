@@ -25,7 +25,13 @@ public sealed partial class ControllerItem : ObservableObject
     /// <summary>
     /// Physical transport (USB / Bluetooth).
     /// </summary>
-    public ConnectionType ConnectionType => Device.ConnectionType;
+    public ConnectionType ConnectionType
+    {
+        get
+        {
+            return Device.ConnectionType;
+        }
+    }
 
     /// <summary>
     /// Firmware and hardware info read from the controller, or <c>null</c> if

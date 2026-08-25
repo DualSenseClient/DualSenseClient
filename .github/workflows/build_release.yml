@@ -59,7 +59,7 @@ jobs:
         run: python scripts/fetch_native_libraries.py win-x64
 
       - name: Lint and verify formatting is clean
-        run: python scripts/lint.py --install --check
+        run: python scripts/lint.py --install --pin-version --check
 
       - name: Test
         run: dotnet test tests/DualSenseClient.Tests/DualSenseClient.Tests.csproj

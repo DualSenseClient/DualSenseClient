@@ -8,11 +8,29 @@ public class ControllerFactoryTests
 {
     private sealed class StubHidDevice : IHidDevice
     {
-        public ushort VendorId => 0x054C;
+        public ushort VendorId
+        {
+            get
+            {
+                return 0x054C;
+            }
+        }
 
-        public ushort ProductId => 0x0CE6;
+        public ushort ProductId
+        {
+            get
+            {
+                return 0x0CE6;
+            }
+        }
 
-        public string DevicePath => "stub";
+        public string DevicePath
+        {
+            get
+            {
+                return "stub";
+            }
+        }
 
         public int Read(byte[] buffer, int offset, int count, int timeoutMs) => 0;
 
@@ -28,7 +46,13 @@ public class ControllerFactoryTests
 
         public string GetProductName() => "Wireless Controller";
 
-        public bool IsConnected => true;
+        public bool IsConnected
+        {
+            get
+            {
+                return true;
+            }
+        }
 
         public void Dispose()
         {
@@ -37,23 +61,77 @@ public class ControllerFactoryTests
 
     private sealed class StubHidDeviceInfo(ushort vendorId, ushort productId) : IHidDeviceInfo
     {
-        public string Path => $"stub:{vendorId:X4}:{productId:X4}";
+        public string Path
+        {
+            get
+            {
+                return $"stub:{vendorId:X4}:{productId:X4}";
+            }
+        }
 
-        public ushort VendorId => vendorId;
+        public ushort VendorId
+        {
+            get
+            {
+                return vendorId;
+            }
+        }
 
-        public ushort ProductId => productId;
+        public ushort ProductId
+        {
+            get
+            {
+                return productId;
+            }
+        }
 
-        public string ProductName => "Wireless Controller";
+        public string ProductName
+        {
+            get
+            {
+                return "Wireless Controller";
+            }
+        }
 
-        public string Manufacturer => "Sony";
+        public string Manufacturer
+        {
+            get
+            {
+                return "Sony";
+            }
+        }
 
-        public int InterfaceNumber => 3;
+        public int InterfaceNumber
+        {
+            get
+            {
+                return 3;
+            }
+        }
 
-        public ushort UsagePage => 0x01;
+        public ushort UsagePage
+        {
+            get
+            {
+                return 0x01;
+            }
+        }
 
-        public HidUsageId Usage => HidUsageId.GamePad;
+        public HidUsageId Usage
+        {
+            get
+            {
+                return HidUsageId.GamePad;
+            }
+        }
 
-        public ConnectionType BusType => ConnectionType.Usb;
+        public ConnectionType BusType
+        {
+            get
+            {
+                return ConnectionType.Usb;
+            }
+        }
     }
 
     private sealed class StubHidEnumerator : IHidDeviceEnumerator
@@ -128,7 +206,7 @@ public class ControllerFactoryTests
     [Test]
     public void Create_BaseDualSenseIds_CreatesBaseDevice()
     {
-        using StubHidEnumerator enumerator = new();
+        using StubHidEnumerator enumerator = new StubHidEnumerator();
         using DualSenseDevice? device = ControllerFactory.Create(enumerator, new StubHidDeviceInfo(0x054C, 0x0CE6)) as DualSenseDevice;
 
         Assert.Multiple(() =>
@@ -142,7 +220,7 @@ public class ControllerFactoryTests
     [Test]
     public void Create_EdgeIds_CreatesEdgeDeviceWithVibrationV2()
     {
-        using StubHidEnumerator enumerator = new();
+        using StubHidEnumerator enumerator = new StubHidEnumerator();
         using DualSenseEdgeDevice? device = ControllerFactory.Create(enumerator, new StubHidDeviceInfo(0x054C, 0x0DF2)) as DualSenseEdgeDevice;
 
         Assert.Multiple(() =>

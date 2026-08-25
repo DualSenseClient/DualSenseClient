@@ -27,15 +27,27 @@ public readonly struct TriggerEffectBlock
     /// </summary>
     public TriggerEffectType Mode
     {
-        get => (TriggerEffectType)_raw[0];
-        init => _raw[0] = (byte)value;
+        get
+        {
+            return (TriggerEffectType)_raw[0];
+        }
+        init
+        {
+            _raw[0] = (byte)value;
+        }
     }
 
     /// <summary>
     /// Ten mode-dependent parameter bytes. The controller treats the block as an opaque
     /// array, so which parameters a mode reads varies by mode.
     /// </summary>
-    public Span<byte> Parameters => _raw.AsSpan(1);
+    public Span<byte> Parameters
+    {
+        get
+        {
+            return _raw.AsSpan(1);
+        }
+    }
 
     /// <summary>
     /// Copies this effect block into a target buffer at the given offset.

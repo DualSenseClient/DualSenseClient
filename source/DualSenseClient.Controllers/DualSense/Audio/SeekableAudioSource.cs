@@ -93,15 +93,27 @@ public sealed class SeekableAudioSource : IDisposable
     /// <summary>
     /// The file being played.
     /// </summary>
-    public string FileName => _fileName;
+    public string FileName
+    {
+        get
+        {
+            return _fileName;
+        }
+    }
 
     /// <summary>
     /// Current read position; seeking resets the resampling state.
     /// </summary>
     public TimeSpan CurrentTime
     {
-        get => TimeSpan.FromSeconds((double)_outputFrames / TargetSampleRate);
-        set => Seek(value);
+        get
+        {
+            return TimeSpan.FromSeconds((double)_outputFrames / TargetSampleRate);
+        }
+        set
+        {
+            Seek(value);
+        }
     }
 
     /// <summary>

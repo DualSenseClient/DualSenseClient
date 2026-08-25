@@ -80,7 +80,13 @@ public partial class InputMonitorPageViewModel : ObservableObject
     /// <summary>
     /// Whether a controller is selected and its input state can be displayed.
     /// </summary>
-    public bool HasDevice => CurrentDevice is not null;
+    public bool HasDevice
+    {
+        get
+        {
+            return CurrentDevice is not null;
+        }
+    }
 
     /// <summary>
     /// Creates the page ViewModel and subscribes to the shell's controller selection.

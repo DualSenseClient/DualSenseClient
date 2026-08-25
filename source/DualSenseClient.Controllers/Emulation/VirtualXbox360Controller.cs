@@ -46,7 +46,13 @@ public sealed class VirtualXbox360Controller : VirtualControllerBase
     }
 
     /// <inheritdoc/>
-    public override EmulationMode Mode => EmulationMode.Xbox360;
+    public override EmulationMode Mode
+    {
+        get
+        {
+            return EmulationMode.Xbox360;
+        }
+    }
 
     /// <summary>
     /// Translates physical input to the virtual Xbox 360 input state and pushes it.
@@ -85,10 +91,7 @@ public sealed class VirtualXbox360Controller : VirtualControllerBase
     /// left motor; the right motor maps to the right motor. Invoked on the
     /// libVIIPER callback thread.
     /// </summary>
-    private void OnRumble(nuint handle, byte leftMotor, byte rightMotor)
-    {
-        Outputs.SetVibration(leftMotor, rightMotor);
-    }
+    private void OnRumble(nuint handle, byte leftMotor, byte rightMotor) => Outputs.SetVibration(leftMotor, rightMotor);
 
     /// <inheritdoc/>
     public override void Dispose()

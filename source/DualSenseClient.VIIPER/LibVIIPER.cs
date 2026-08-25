@@ -35,7 +35,13 @@ public static class LibVIIPER
     /// Release tag of the embedded libVIIPER native library (e.g. "dev-snapshot"),
     /// or null if no version information was embedded.
     /// </summary>
-    public static string? NativeLibraryVersion => NativeLibraryResolver.NativeVersion;
+    public static string? NativeLibraryVersion
+    {
+        get
+        {
+            return NativeLibraryResolver.NativeVersion;
+        }
+    }
 
     /// <summary>
     /// Creates a new USB server running in the background.

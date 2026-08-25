@@ -21,27 +21,57 @@ public readonly struct ConnectionStatus : IEquatable<ConnectionStatus>
     /// <summary>
     /// Headphones are connected to the controller.
     /// </summary>
-    public bool Headphone => (Raw & 0x01) != 0;
+    public bool Headphone
+    {
+        get
+        {
+            return (Raw & 0x01) != 0;
+        }
+    }
 
     /// <summary>
     /// Microphone is connected to the controller.
     /// </summary>
-    public bool Mic => (Raw & 0x02) != 0;
+    public bool Mic
+    {
+        get
+        {
+            return (Raw & 0x02) != 0;
+        }
+    }
 
     /// <summary>
     /// Microphone is muted.
     /// </summary>
-    public bool MicMuted => (Raw & 0x04) != 0;
+    public bool MicMuted
+    {
+        get
+        {
+            return (Raw & 0x04) != 0;
+        }
+    }
 
     /// <summary>
     /// USB data connection is active.
     /// </summary>
-    public bool UsbData => (Raw & 0x08) != 0;
+    public bool UsbData
+    {
+        get
+        {
+            return (Raw & 0x08) != 0;
+        }
+    }
 
     /// <summary>
     /// USB power is connected.
     /// </summary>
-    public bool UsbPower => (Raw & 0x10) != 0;
+    public bool UsbPower
+    {
+        get
+        {
+            return (Raw & 0x10) != 0;
+        }
+    }
 
     /// <summary>
     /// Returns true if the raw connection byte is equal.

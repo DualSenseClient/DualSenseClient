@@ -35,7 +35,13 @@ public class NavigationService
     /// <summary>
     /// Tag of the page currently displayed in the content frame.
     /// </summary>
-    public string? CurrentPageTag => _currentPageTag;
+    public string? CurrentPageTag
+    {
+        get
+        {
+            return _currentPageTag;
+        }
+    }
 
     /// <summary>
     /// Raised after navigation completes with the new page tag.

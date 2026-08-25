@@ -31,7 +31,7 @@ public class ViiperDualShock4AudioCaptureTests
     [Test]
     public void Upsampler32To48_EveryTwoInputFramesYieldThreeOutputFrames()
     {
-        ViiperDualShock4AudioCapture.Upsampler32To48 upsampler = new();
+        ViiperDualShock4AudioCapture.Upsampler32To48 upsampler = new ViiperDualShock4AudioCapture.Upsampler32To48();
 
         float[] input = [0f, 0f, 1f, 1f];
         float[] output = new float[((int)(input.Length / 2 * 1.5) + 2) * 2];
@@ -44,7 +44,7 @@ public class ViiperDualShock4AudioCaptureTests
     [Test]
     public void Upsampler32To48_ConstantSignalStaysConstantAcrossChunks()
     {
-        ViiperDualShock4AudioCapture.Upsampler32To48 upsampler = new();
+        ViiperDualShock4AudioCapture.Upsampler32To48 upsampler = new ViiperDualShock4AudioCapture.Upsampler32To48();
         float[] chunk = [0.5f, 0.5f, 0.5f, 0.5f];
         float[] output = new float[8];
         float[] allOutput = new float[24];
@@ -70,7 +70,7 @@ public class ViiperDualShock4AudioCaptureTests
     [Test]
     public void Upsampler32To48_RampIsContinuousAcrossChunkBoundaries()
     {
-        ViiperDualShock4AudioCapture.Upsampler32To48 upsampler = new();
+        ViiperDualShock4AudioCapture.Upsampler32To48 upsampler = new ViiperDualShock4AudioCapture.Upsampler32To48();
         float[] output = new float[16];
         float[] allOutput = new float[32];
         int written = 0;
@@ -100,7 +100,7 @@ public class ViiperDualShock4AudioCaptureTests
     [Test]
     public void Upsampler32To48_LongRunProducesExactOneAndAHalfRatio()
     {
-        ViiperDualShock4AudioCapture.Upsampler32To48 upsampler = new();
+        ViiperDualShock4AudioCapture.Upsampler32To48 upsampler = new ViiperDualShock4AudioCapture.Upsampler32To48();
         const int frames = 1000;
         float[] input = new float[frames * 2];
         Array.Fill(input, 0.25f);

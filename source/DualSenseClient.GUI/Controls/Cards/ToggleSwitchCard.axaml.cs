@@ -36,7 +36,7 @@ public class ToggleSwitchCard : ContentControl
     /// </summary>
     public static readonly StyledProperty<bool> ShowIconBackgroundProperty = AvaloniaProperty.Register<CardHeader, bool>(
         nameof(ShowIconBackground),
-        defaultValue: false);
+        false);
 
     /// <summary>
     /// Whether the toggle is checked (two-way).
@@ -53,49 +53,91 @@ public class ToggleSwitchCard : ContentControl
     /// <inheritdoc cref="TitleProperty"/>
     public string? Title
     {
-        get => GetValue(TitleProperty);
-        set => SetValue(TitleProperty, value);
+        get
+        {
+            return GetValue(TitleProperty);
+        }
+        set
+        {
+            SetValue(TitleProperty, value);
+        }
     }
 
     /// <inheritdoc cref="DescriptionProperty"/>
     public string? Description
     {
-        get => GetValue(DescriptionProperty);
-        set => SetValue(DescriptionProperty, value);
+        get
+        {
+            return GetValue(DescriptionProperty);
+        }
+        set
+        {
+            SetValue(DescriptionProperty, value);
+        }
     }
 
     /// <inheritdoc cref="TooltipProperty"/>
     public string? Tooltip
     {
-        get => GetValue(TooltipProperty);
-        set => SetValue(TooltipProperty, value);
+        get
+        {
+            return GetValue(TooltipProperty);
+        }
+        set
+        {
+            SetValue(TooltipProperty, value);
+        }
     }
 
     /// <inheritdoc cref="IconProperty"/>
     public Symbol? Icon
     {
-        get => GetValue(IconProperty);
-        set => SetValue(IconProperty, value);
+        get
+        {
+            return GetValue(IconProperty);
+        }
+        set
+        {
+            SetValue(IconProperty, value);
+        }
     }
 
     /// <inheritdoc cref="ShowIconBackgroundProperty"/>
     public bool ShowIconBackground
     {
-        get => GetValue(ShowIconBackgroundProperty);
-        set => SetValue(ShowIconBackgroundProperty, value);
+        get
+        {
+            return GetValue(ShowIconBackgroundProperty);
+        }
+        set
+        {
+            SetValue(ShowIconBackgroundProperty, value);
+        }
     }
 
     /// <inheritdoc cref="IsCheckedProperty"/>
     public bool IsChecked
     {
-        get => GetValue(IsCheckedProperty);
-        set => SetValue(IsCheckedProperty, value);
+        get
+        {
+            return GetValue(IsCheckedProperty);
+        }
+        set
+        {
+            SetValue(IsCheckedProperty, value);
+        }
     }
 
     /// <inheritdoc cref="CommandProperty"/>
     public ICommand? Command
     {
-        get => GetValue(CommandProperty);
-        set => SetValue(CommandProperty, value);
+        get
+        {
+            return GetValue(CommandProperty);
+        }
+        set
+        {
+            SetValue(CommandProperty, value);
+        }
     }
 }

@@ -20,7 +20,7 @@ public sealed class SpecialActionEngineRegistry : IDisposable
     /// <summary>
     /// The engine per attached controller.
     /// </summary>
-    private readonly Dictionary<DualSenseDevice, SpecialActionEngine> _engines = new();
+    private readonly Dictionary<DualSenseDevice, SpecialActionEngine> _engines = new Dictionary<DualSenseDevice, SpecialActionEngine>();
 
     /// <summary>
     /// The current action configuration, applied to engines created after the last

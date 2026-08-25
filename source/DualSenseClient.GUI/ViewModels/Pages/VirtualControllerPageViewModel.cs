@@ -99,23 +99,53 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// <summary>
     /// Whether a controller is selected and its info can be displayed.
     /// </summary>
-    public bool HasDevice => CurrentDevice is not null;
+    public bool HasDevice
+    {
+        get
+        {
+            return CurrentDevice is not null;
+        }
+    }
 
     /// <summary>
     /// Whether the selected controller is a DualSense Edge, the only model with function
     /// keys and back paddles.
     /// </summary>
-    public bool IsEdgeController => CurrentDevice?.Controller.Device is DualSenseEdgeDevice;
+    public bool IsEdgeController
+    {
+        get
+        {
+            return CurrentDevice?.Controller.Device is DualSenseEdgeDevice;
+        }
+    }
 
-    private string CurrentMac => CurrentDevice?.Controller.PairingInfo?.ClientMac ?? string.Empty;
+    private string CurrentMac
+    {
+        get
+        {
+            return CurrentDevice?.Controller.PairingInfo?.ClientMac ?? string.Empty;
+        }
+    }
 
-    private string CurrentDevicePath => CurrentDevice?.Controller.Device.Info.Path ?? string.Empty;
+    private string CurrentDevicePath
+    {
+        get
+        {
+            return CurrentDevice?.Controller.Device.Info.Path ?? string.Empty;
+        }
+    }
 
     /// <summary>
     /// The concrete DualSense device of the selected controller, or <c>null</c> for
     /// non-DualSense devices.
     /// </summary>
-    private DualSenseDevice? CurrentDualSenseDevice => CurrentDevice?.Controller.Device as DualSenseDevice;
+    private DualSenseDevice? CurrentDualSenseDevice
+    {
+        get
+        {
+            return CurrentDevice?.Controller.Device as DualSenseDevice;
+        }
+    }
 
     // ── Controller illustration ────────────────────────────────
 
@@ -128,7 +158,13 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// The illustration skin rendered by the controller visualization, or empty when no
     /// controller is selected.
     /// </summary>
-    public string SkinName => Skins.Count > 0 ? Skins[Math.Clamp(_skinIndex, 0, Skins.Count - 1)] : string.Empty;
+    public string SkinName
+    {
+        get
+        {
+            return Skins.Count > 0 ? Skins[Math.Clamp(_skinIndex, 0, Skins.Count - 1)] : string.Empty;
+        }
+    }
 
     /// <summary>
     /// Backing field for <see cref="SkinIndex"/>.
@@ -142,7 +178,10 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// </summary>
     public int SkinIndex
     {
-        get => _skinIndex;
+        get
+        {
+            return _skinIndex;
+        }
         set
         {
             if (value < 0 || value >= Skins.Count || value == _skinIndex)
@@ -261,19 +300,37 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// Whether the selected controller's emulation mode is DualSense, the mode with a
     /// DualSense hardware variant.
     /// </summary>
-    public bool IsDualSenseEmulation => EmulationModeIndex == (int)EmulationMode.DualSense;
+    public bool IsDualSenseEmulation
+    {
+        get
+        {
+            return EmulationModeIndex == (int)EmulationMode.DualSense;
+        }
+    }
 
     /// <summary>
     /// Whether the selected controller's emulation mode is DualShock 4, the mode with a
     /// DualShock 4 hardware generation variant.
     /// </summary>
-    public bool IsDualShock4Emulation => EmulationModeIndex == (int)EmulationMode.DualShock4;
+    public bool IsDualShock4Emulation
+    {
+        get
+        {
+            return EmulationModeIndex == (int)EmulationMode.DualShock4;
+        }
+    }
 
     /// <summary>
     /// Whether the selected controller's emulation mode forwards host audio to the
     /// physical controller (DualSense or DualShock 4).
     /// </summary>
-    public bool IsAudioEmulation => EmulationModeIndex is (int)EmulationMode.DualSense or (int)EmulationMode.DualShock4;
+    public bool IsAudioEmulation
+    {
+        get
+        {
+            return EmulationModeIndex is (int)EmulationMode.DualSense or (int)EmulationMode.DualShock4;
+        }
+    }
 
     /// <summary>
     /// The last non-off emulation mode used on this page, restored when the toggle is
@@ -288,7 +345,10 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// </summary>
     public bool IsEmulationEnabled
     {
-        get => EmulationModeIndex != (int)EmulationMode.Off;
+        get
+        {
+            return EmulationModeIndex != (int)EmulationMode.Off;
+        }
         set
         {
             if (!HasDevice || !EmulationService.IsSupported)
@@ -318,7 +378,10 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// </summary>
     public int DualSenseVariantIndex
     {
-        get => !HasDevice ? 0 : (int)GetEmulationSettings().Variant.DualSense;
+        get
+        {
+            return !HasDevice ? 0 : (int)GetEmulationSettings().Variant.DualSense;
+        }
         set
         {
             if (!HasDevice)
@@ -350,7 +413,10 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// </summary>
     public int DualShock4VariantIndex
     {
-        get => !HasDevice ? 0 : (int)GetEmulationSettings().Variant.DualShock4;
+        get
+        {
+            return !HasDevice ? 0 : (int)GetEmulationSettings().Variant.DualShock4;
+        }
         set
         {
             if (!HasDevice)
@@ -380,7 +446,10 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// </summary>
     public int ForwardAudioOutputIndex
     {
-        get => !HasDevice ? 0 : (int)GetEmulationSettings().Forward.AudioOutput;
+        get
+        {
+            return !HasDevice ? 0 : (int)GetEmulationSettings().Forward.AudioOutput;
+        }
         set
         {
             if (!HasDevice)
@@ -412,7 +481,10 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// </summary>
     public int ForwardVolume
     {
-        get => !HasDevice ? 0 : GetEmulationSettings().Forward.Volume;
+        get
+        {
+            return !HasDevice ? 0 : GetEmulationSettings().Forward.Volume;
+        }
         set
         {
             if (!HasDevice)
@@ -443,7 +515,10 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// </summary>
     public int ForwardHapticStrength
     {
-        get => !HasDevice ? 0 : GetEmulationSettings().Forward.Haptics;
+        get
+        {
+            return !HasDevice ? 0 : GetEmulationSettings().Forward.Haptics;
+        }
         set
         {
             if (!HasDevice)
@@ -508,44 +583,84 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// without emulation support.
     /// </summary>
     public bool CanChangeEmulation
-        => EmulationService.IsSupported
-           && (CurrentDualSenseDevice is not { } device || !_emulation.GetStatus(device).IsCreating);
+    {
+        get
+        {
+            return EmulationService.IsSupported
+                   && (CurrentDualSenseDevice is not { } device || !_emulation.GetStatus(device).IsCreating);
+        }
+    }
 
     // ── Button remapping ────────────────────────────────────────
 
     /// <summary>
     /// All mappable source buttons in <see cref="ButtonType"/> declaration order.
     /// </summary>
-    public static IReadOnlyList<ButtonType> SourceButtons => ButtonMappingTable.Sources;
+    public static IReadOnlyList<ButtonType> SourceButtons
+    {
+        get
+        {
+            return ButtonMappingTable.Sources;
+        }
+    }
 
     /// <summary>
     /// The buttons currently selected on the illustration, exposed as a fresh list
     /// instance so the view's highlight refreshes on every change.
     /// </summary>
-    public IReadOnlyList<ButtonType> SelectedButtonTypes => _selectedButtons.ToList();
+    public IReadOnlyList<ButtonType> SelectedButtonTypes
+    {
+        get
+        {
+            return _selectedButtons.ToList();
+        }
+    }
 
     /// <summary>
     /// Human-readable summary of the pending selection, e.g. "Create + Options".
     /// </summary>
     public string SelectionSummary
-        => _selectedButtons.Count == 0 ? string.Empty : string.Join(" + ", _selectedButtons.Select(GetSourceDisplayName));
+    {
+        get
+        {
+            return _selectedButtons.Count == 0 ? string.Empty : string.Join(" + ", _selectedButtons.Select(GetSourceDisplayName));
+        }
+    }
 
     /// <summary>
     /// Whether at least one button is selected, enabling the assign controls.
     /// </summary>
-    public bool HasSelection => _selectedButtons.Count > 0;
+    public bool HasSelection
+    {
+        get
+        {
+            return _selectedButtons.Count > 0;
+        }
+    }
 
     /// <summary>
     /// Whether the pending selection is a combo (more than one key), which unlocks the
     /// solo-suppression option.
     /// </summary>
-    public bool IsComboSelection => _selectedButtons.Count > 1;
+    public bool IsComboSelection
+    {
+        get
+        {
+            return _selectedButtons.Count > 1;
+        }
+    }
 
     /// <summary>
     /// Whether the remapping editor is offered: a virtual controller mode other than Off
     /// is selected and changes are currently allowed.
     /// </summary>
-    public bool IsMappingEditorVisible => EmulationModeIndex != (int)EmulationMode.Off && CanChangeEmulation;
+    public bool IsMappingEditorVisible
+    {
+        get
+        {
+            return EmulationModeIndex != (int)EmulationMode.Off && CanChangeEmulation;
+        }
+    }
 
     /// <summary>
     /// The assignable targets for the current emulation mode (including the trailing
@@ -563,7 +678,12 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// The raw names currently picked as assignment targets.
     /// </summary>
     public IReadOnlyList<string> SelectedTargetNames
-        => [.. TargetOptions.Where(option => option.IsSelected).Select(option => option.Raw)];
+    {
+        get
+        {
+            return [.. TargetOptions.Where(option => option.IsSelected).Select(option => option.Raw)];
+        }
+    }
 
     /// <summary>
     /// Selects or deselects a target by raw name.
@@ -632,21 +752,38 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// Which virtual controller illustration the target picker renders for the current
     /// emulation mode.
     /// </summary>
-    public VirtualControllerKind TargetViewKind => EmulationModeIndex == (int)EmulationMode.Xbox360
-        ? VirtualControllerKind.Xbox360
-        : VirtualControllerKind.DualShock4;
+    public VirtualControllerKind TargetViewKind
+    {
+        get
+        {
+            return EmulationModeIndex == (int)EmulationMode.Xbox360
+                ? VirtualControllerKind.Xbox360
+                : VirtualControllerKind.DualShock4;
+        }
+    }
 
     /// <summary>
     /// Whether the clickable target controller illustration is offered: Xbox 360 and
     /// DualShock 4 modes have illustrations; DualSense mode falls back to the dropdown.
     /// </summary>
     public bool IsTargetPickerVisible
-        => IsMappingEditorVisible && EmulationModeIndex is (int)EmulationMode.Xbox360 or (int)EmulationMode.DualShock4;
+    {
+        get
+        {
+            return IsMappingEditorVisible && EmulationModeIndex is (int)EmulationMode.Xbox360 or (int)EmulationMode.DualShock4;
+        }
+    }
 
     /// <summary>
     /// Whether the plain target dropdown is shown instead of the illustration.
     /// </summary>
-    public bool IsTargetComboVisible => IsMappingEditorVisible && !IsTargetPickerVisible;
+    public bool IsTargetComboVisible
+    {
+        get
+        {
+            return IsMappingEditorVisible && !IsTargetPickerVisible;
+        }
+    }
 
     /// <summary>
     /// Raises change notifications for everything derived from the emulation mode's target
@@ -665,8 +802,14 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// </summary>
     public bool IsNoneTargetSelected
     {
-        get => FindTargetOption("None")?.IsSelected == true;
-        set => SetTargetSelected("None", value);
+        get
+        {
+            return FindTargetOption("None")?.IsSelected == true;
+        }
+        set
+        {
+            SetTargetSelected("None", value);
+        }
     }
 
     /// <summary>
@@ -689,7 +832,10 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// </summary>
     public int TriggerOutputIndex
     {
-        get => _triggerOutputIndex;
+        get
+        {
+            return _triggerOutputIndex;
+        }
         set
         {
             if (value is not 0 and not 1)
@@ -728,7 +874,10 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// </summary>
     public bool SuppressSolos
     {
-        get => _suppressSolos;
+        get
+        {
+            return _suppressSolos;
+        }
         set
         {
             if (_suppressSolos == value)
@@ -749,7 +898,13 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// <summary>
     /// Whether any custom binding exists for the current mode (enables reset-to-defaults).
     /// </summary>
-    public bool HasBindings => Bindings.Count > 0;
+    public bool HasBindings
+    {
+        get
+        {
+            return Bindings.Count > 0;
+        }
+    }
 
     /// <summary>
     /// Toggles a source button's membership in the pending selection (command wrapper for
@@ -917,7 +1072,12 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// Whether the selected controller's virtual DualSense presents an Edge.
     /// </summary>
     private bool IsEdgeVirtualController
-        => HasDevice && GetEmulationSettings().Variant.DualSense == DualSenseVariant.Edge;
+    {
+        get
+        {
+            return HasDevice && GetEmulationSettings().Variant.DualSense == DualSenseVariant.Edge;
+        }
+    }
 
     /// <summary>
     /// Rebuilds <see cref="TargetOptions"/> for the current emulation mode and resets the

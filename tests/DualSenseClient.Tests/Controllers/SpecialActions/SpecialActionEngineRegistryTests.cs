@@ -10,10 +10,38 @@ public class SpecialActionEngineRegistryTests
 {
     private sealed class SilentHidDevice : IHidDevice
     {
-        public ushort VendorId => 0x054C;
-        public ushort ProductId => 0x0CE6;
-        public string DevicePath => "test";
-        public bool IsConnected => true;
+        public ushort VendorId
+        {
+            get
+            {
+                return 0x054C;
+            }
+        }
+
+        public ushort ProductId
+        {
+            get
+            {
+                return 0x0CE6;
+            }
+        }
+
+        public string DevicePath
+        {
+            get
+            {
+                return "test";
+            }
+        }
+
+        public bool IsConnected
+        {
+            get
+            {
+                return true;
+            }
+        }
+
         public int Read(byte[] buffer, int offset, int count, int timeoutMs) => 0;
         public Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken ct) => Task.FromResult(0);
         public int Write(byte[] buffer, int offset, int count) => count;
@@ -32,21 +60,83 @@ public class SpecialActionEngineRegistryTests
 
     private sealed class StubHidDeviceInfo(string path) : IHidDeviceInfo
     {
-        public string Path => path;
-        public ushort VendorId => 0x054C;
-        public ushort ProductId => 0x0CE6;
-        public string ProductName => path;
-        public string Manufacturer => "Sony";
-        public int InterfaceNumber => 0;
-        public ushort UsagePage => 1;
-        public HidUsageId Usage => HidUsageId.GamePad;
-        public ConnectionType BusType => ConnectionType.Usb;
+        public string Path
+        {
+            get
+            {
+                return path;
+            }
+        }
+
+        public ushort VendorId
+        {
+            get
+            {
+                return 0x054C;
+            }
+        }
+
+        public ushort ProductId
+        {
+            get
+            {
+                return 0x0CE6;
+            }
+        }
+
+        public string ProductName
+        {
+            get
+            {
+                return path;
+            }
+        }
+
+        public string Manufacturer
+        {
+            get
+            {
+                return "Sony";
+            }
+        }
+
+        public int InterfaceNumber
+        {
+            get
+            {
+                return 0;
+            }
+        }
+
+        public ushort UsagePage
+        {
+            get
+            {
+                return 1;
+            }
+        }
+
+        public HidUsageId Usage
+        {
+            get
+            {
+                return HidUsageId.GamePad;
+            }
+        }
+
+        public ConnectionType BusType
+        {
+            get
+            {
+                return ConnectionType.Usb;
+            }
+        }
     }
 
     private static readonly FieldInfo ActionsField = typeof(SpecialActionEngine)
         .GetField("_actions", BindingFlags.NonPublic | BindingFlags.Instance)!;
 
-    private static DualSenseDevice CreateDevice(string path) => new(new SilentHidDevice(), new StubHidDeviceInfo(path));
+    private static DualSenseDevice CreateDevice(string path) => new DualSenseDevice(new SilentHidDevice(), new StubHidDeviceInfo(path));
 
     private static List<SpecialAction> ReadActions(SpecialActionEngine engine)
         => (List<SpecialAction>)ActionsField.GetValue(engine)!;
@@ -54,7 +144,7 @@ public class SpecialActionEngineRegistryTests
     [Test]
     public void GetOrCreate_ReturnsSameEngineForSameDevice()
     {
-        using SpecialActionEngineRegistry registry = new();
+        using SpecialActionEngineRegistry registry = new SpecialActionEngineRegistry();
         DualSenseDevice device = CreateDevice("first");
 
         SpecialActionEngine first = registry.GetOrCreate(device);
@@ -66,7 +156,7 @@ public class SpecialActionEngineRegistryTests
     [Test]
     public void GetOrCreate_ReturnsDistinctEnginePerDevice()
     {
-        using SpecialActionEngineRegistry registry = new();
+        using SpecialActionEngineRegistry registry = new SpecialActionEngineRegistry();
         DualSenseDevice first = CreateDevice("first");
         DualSenseDevice second = CreateDevice("second");
 
@@ -79,7 +169,7 @@ public class SpecialActionEngineRegistryTests
     [Test]
     public void GetOrCreate_AppliesProvidersToCreatedEngine()
     {
-        using SpecialActionEngineRegistry registry = new();
+        using SpecialActionEngineRegistry registry = new SpecialActionEngineRegistry();
         Func<DualSenseDevice, Profile?> profileProvider = _ => null;
         Func<DualSenseDevice, ISpecialActionSoundPlayer> soundFactory = _ => throw new InvalidOperationException();
         registry.ProfileProvider = profileProvider;
@@ -94,7 +184,7 @@ public class SpecialActionEngineRegistryTests
     [Test]
     public void GetOrCreate_AppliesConfiguredActionsToNewEngine()
     {
-        using SpecialActionEngineRegistry registry = new();
+        using SpecialActionEngineRegistry registry = new SpecialActionEngineRegistry();
         List<SpecialAction> actions = [new SpecialAction(), new SpecialAction()];
         registry.UpdateActions(actions);
 
@@ -106,7 +196,7 @@ public class SpecialActionEngineRegistryTests
     [Test]
     public void UpdateActions_PropagatesToExistingEngines()
     {
-        using SpecialActionEngineRegistry registry = new();
+        using SpecialActionEngineRegistry registry = new SpecialActionEngineRegistry();
         SpecialActionEngine engine = registry.GetOrCreate(CreateDevice("first"));
 
         registry.UpdateActions([new SpecialAction(), new SpecialAction()]);
@@ -117,7 +207,7 @@ public class SpecialActionEngineRegistryTests
     [Test]
     public void Remove_DisposesAndForgetsEngine()
     {
-        using SpecialActionEngineRegistry registry = new();
+        using SpecialActionEngineRegistry registry = new SpecialActionEngineRegistry();
         DualSenseDevice device = CreateDevice("first");
         SpecialActionEngine engine = registry.GetOrCreate(device);
 
@@ -129,7 +219,7 @@ public class SpecialActionEngineRegistryTests
     [Test]
     public void Remove_UnknownDevice_IsIgnored()
     {
-        using SpecialActionEngineRegistry registry = new();
+        using SpecialActionEngineRegistry registry = new SpecialActionEngineRegistry();
         DualSenseDevice device = CreateDevice("first");
         SpecialActionEngine engine = registry.GetOrCreate(device);
 
@@ -141,7 +231,7 @@ public class SpecialActionEngineRegistryTests
     [Test]
     public void Dispose_ForgetsAllEngines()
     {
-        SpecialActionEngineRegistry registry = new();
+        SpecialActionEngineRegistry registry = new SpecialActionEngineRegistry();
         SpecialActionEngine first = registry.GetOrCreate(CreateDevice("first"));
         SpecialActionEngine second = registry.GetOrCreate(CreateDevice("second"));
 

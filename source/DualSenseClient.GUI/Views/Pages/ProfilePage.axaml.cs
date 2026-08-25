@@ -188,9 +188,14 @@ public partial class ProfilePage : UserControl
     /// <summary>
     /// The JSON file type filter used by the import and export pickers.
     /// </summary>
-    private static FilePickerFileType SpecialActionJsonFileType =>
-        new FilePickerFileType(LocalizationService.GetText("ProfilePage.SpecialActions.Import.FileType"))
+    private static FilePickerFileType SpecialActionJsonFileType
+    {
+        get
         {
-            Patterns = ["*.json"]
-        };
+            return new FilePickerFileType(LocalizationService.GetText("ProfilePage.SpecialActions.Import.FileType"))
+            {
+                Patterns = ["*.json"]
+            };
+        }
+    }
 }

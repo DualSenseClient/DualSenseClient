@@ -132,10 +132,7 @@ public sealed class ControllerInfoService
     /// </summary>
     /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>
     /// <param name="devicePath">The controller's HID device path, or <c>null</c>/empty when unavailable.</param>
-    public ControllerInfo? GetControllerInfo(string? mac, string? devicePath)
-    {
-        return FindController(NormalizeMac(mac), NormalizePath(devicePath));
-    }
+    public ControllerInfo? GetControllerInfo(string? mac, string? devicePath) => FindController(NormalizeMac(mac), NormalizePath(devicePath));
 
     /// <summary>
     /// Gets the display name of a controller: its stored custom name, or

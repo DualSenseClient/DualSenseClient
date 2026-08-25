@@ -5,16 +5,10 @@ namespace DualSenseClient.Tests.Core;
 public class PathResolverTests
 {
     [Test]
-    public void BaseDirectory_IsNotNullOrEmpty()
-    {
-        Assert.That(PathResolver.BaseDirectory, Is.Not.Null.And.Not.Empty);
-    }
+    public void BaseDirectory_IsNotNullOrEmpty() => Assert.That(PathResolver.BaseDirectory, Is.Not.Null.And.Not.Empty);
 
     [Test]
-    public void BaseDirectory_IsAbsolute()
-    {
-        Assert.That(Path.IsPathRooted(PathResolver.BaseDirectory), Is.True);
-    }
+    public void BaseDirectory_IsAbsolute() => Assert.That(Path.IsPathRooted(PathResolver.BaseDirectory), Is.True);
 
     [Test]
     public void BaseDirectory_IsNotInTempDirectory()

@@ -48,10 +48,10 @@ public class LogEntryTests
     [Test]
     public void LogEntry_Equality_SameValuesAreEqual()
     {
-        DateTimeOffset timestamp = new(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        DateTimeOffset timestamp = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
-        LogEntry a = new(timestamp, LogLevel.Info, "Cat", "msg", "file.cs", 1, "Method");
-        LogEntry b = new(timestamp, LogLevel.Info, "Cat", "msg", "file.cs", 1, "Method");
+        LogEntry a = new LogEntry(timestamp, LogLevel.Info, "Cat", "msg", "file.cs", 1, "Method");
+        LogEntry b = new LogEntry(timestamp, LogLevel.Info, "Cat", "msg", "file.cs", 1, "Method");
 
         Assert.That(a, Is.EqualTo(b));
     }
@@ -59,10 +59,10 @@ public class LogEntryTests
     [Test]
     public void LogEntry_Equality_DifferentValuesAreNotEqual()
     {
-        DateTimeOffset timestamp = new(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        DateTimeOffset timestamp = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
-        LogEntry a = new(timestamp, LogLevel.Info, "Cat", "msg1", "file.cs", 1, "Method");
-        LogEntry b = new(timestamp, LogLevel.Info, "Cat", "msg2", "file.cs", 1, "Method");
+        LogEntry a = new LogEntry(timestamp, LogLevel.Info, "Cat", "msg1", "file.cs", 1, "Method");
+        LogEntry b = new LogEntry(timestamp, LogLevel.Info, "Cat", "msg2", "file.cs", 1, "Method");
 
         Assert.That(a, Is.Not.EqualTo(b));
     }

@@ -281,15 +281,27 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
     /// <summary>
     /// Whether the pump is currently running.
     /// </summary>
-    public bool IsActive => _cts is not null;
+    public bool IsActive
+    {
+        get
+        {
+            return _cts is not null;
+        }
+    }
 
     /// <summary>
     /// Speaker volume (0-255) applied to the controller's speaker/headset hardware.
     /// </summary>
     public byte SpeakerVolume
     {
-        get => _speakerVolume;
-        set => _speakerVolume = value;
+        get
+        {
+            return _speakerVolume;
+        }
+        set
+        {
+            _speakerVolume = value;
+        }
     }
 
     /// <summary>
@@ -297,8 +309,14 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
     /// </summary>
     public bool HapticsEnabled
     {
-        get => _hapticsEnabled;
-        set => _hapticsEnabled = value;
+        get
+        {
+            return _hapticsEnabled;
+        }
+        set
+        {
+            _hapticsEnabled = value;
+        }
     }
 
     /// <summary>
@@ -306,8 +324,14 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
     /// </summary>
     public float HapticStrength
     {
-        get => _hapticStrength;
-        set => _hapticStrength = Math.Clamp(value, 0f, 2f);
+        get
+        {
+            return _hapticStrength;
+        }
+        set
+        {
+            _hapticStrength = Math.Clamp(value, 0f, 2f);
+        }
     }
 
     /// <summary>
@@ -315,8 +339,14 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
     /// </summary>
     public bool PlayToHeadset
     {
-        get => _playToHeadset;
-        set => _playToHeadset = value;
+        get
+        {
+            return _playToHeadset;
+        }
+        set
+        {
+            _playToHeadset = value;
+        }
     }
 
     /// <summary>
@@ -721,13 +751,25 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
     /// <summary>
     /// The controller's output path selected by <see cref="PlayToHeadset"/>.
     /// </summary>
-    private AudioControl OutputControl => _playToHeadset ? AudioControl.OutputPathHeadphones : AudioControl.OutputPathSpeaker;
+    private AudioControl OutputControl
+    {
+        get
+        {
+            return _playToHeadset ? AudioControl.OutputPathHeadphones : AudioControl.OutputPathSpeaker;
+        }
+    }
 
     /// <summary>
     /// Headphone volume for the active route: the headset gets the slider value while
     /// the speaker route keeps the hardware default.
     /// </summary>
-    private byte HeadphoneVolume => _playToHeadset ? _speakerVolume : (byte)0x3F;
+    private byte HeadphoneVolume
+    {
+        get
+        {
+            return _playToHeadset ? _speakerVolume : (byte)0x3F;
+        }
+    }
 
     /// <summary>
     /// Builds the 47-byte output state embedded in both the init-prime and the per-tick

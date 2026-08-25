@@ -110,7 +110,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     /// so devices the application itself created and then excluded (virtual
     /// controllers) are never surfaced as phantom connections.
     /// </summary>
-    private readonly Dictionary<string, IHidDeviceInfo> _pendingConnected = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, IHidDeviceInfo> _pendingConnected = new Dictionary<string, IHidDeviceInfo>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Synchronizes access to the device watcher state.
@@ -412,7 +412,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                         SDL_hid_bus_type.SDL_HID_API_BUS_USB => ConnectionType.Usb,
                         SDL_hid_bus_type.SDL_HID_API_BUS_BLUETOOTH => ConnectionType.Bluetooth,
                         _ => ConnectionType.Unknown
-                    },
+                    }
                 });
             }
 

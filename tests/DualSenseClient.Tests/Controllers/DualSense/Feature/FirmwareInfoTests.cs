@@ -8,7 +8,7 @@ public class FirmwareInfoTests
     [Test]
     public void FirmwareInfo_ParsesHardwareInfo()
     {
-        FirmwareInfo info = new(CreateReport(0x01000208));
+        FirmwareInfo info = new FirmwareInfo(CreateReport(0x01000208));
 
         Assert.That(info.HardwareInfo, Is.EqualTo(0x01000208));
         Assert.That(info.ModelRevision, Is.EqualTo(0x0208));
@@ -19,7 +19,7 @@ public class FirmwareInfoTests
     [Test]
     public void FirmwareInfo_Generation3_HasFullPlayerLedSupport()
     {
-        FirmwareInfo info = new(CreateReport(0x01000308));
+        FirmwareInfo info = new FirmwareInfo(CreateReport(0x01000308));
 
         Assert.That(info.HardwareGeneration, Is.EqualTo(DualSenseHardwareGeneration.Generation3));
         Assert.That(info.HasFullPlayerLedSupport, Is.True);
@@ -28,7 +28,7 @@ public class FirmwareInfoTests
     [Test]
     public void FirmwareInfo_Generation4_IsRestrictedToMirroredOnly()
     {
-        FirmwareInfo info = new(CreateReport(0x01000408));
+        FirmwareInfo info = new FirmwareInfo(CreateReport(0x01000408));
 
         Assert.That(info.HardwareGeneration, Is.EqualTo(DualSenseHardwareGeneration.Generation4));
         Assert.That(info.HasFullPlayerLedSupport, Is.False);
@@ -37,7 +37,7 @@ public class FirmwareInfoTests
     [Test]
     public void FirmwareInfo_UnknownGeneration_HasNoPlayerLedSupport()
     {
-        FirmwareInfo info = new(new byte[16]);
+        FirmwareInfo info = new FirmwareInfo(new byte[16]);
 
         Assert.That(info.IsValid, Is.False);
         Assert.That(info.HardwareInfo, Is.EqualTo(0));

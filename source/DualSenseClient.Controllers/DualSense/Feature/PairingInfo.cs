@@ -25,19 +25,37 @@ public readonly struct PairingInfo
     /// Whether the buffer holds a valid 0x09 pairing info report. Requires at least
     /// the 16 bytes covering both MAC addresses.
     /// </summary>
-    public bool IsValid => _raw.Length >= 16 && _raw[0] == 0x09;
+    public bool IsValid
+    {
+        get
+        {
+            return _raw.Length >= 16 && _raw[0] == 0x09;
+        }
+    }
 
     /// <summary>
     /// Controller (client) Bluetooth MAC address (bytes 1-6, little-endian), formatted
     /// as XX:XX:XX:XX:XX:XX, or empty when the report is invalid.
     /// </summary>
-    public string ClientMac => IsValid ? FormatMac(1) : string.Empty;
+    public string ClientMac
+    {
+        get
+        {
+            return IsValid ? FormatMac(1) : string.Empty;
+        }
+    }
 
     /// <summary>
     /// Host Bluetooth MAC address (bytes 10-15, little-endian), formatted as
     /// XX:XX:XX:XX:XX:XX, or empty when the report is invalid.
     /// </summary>
-    public string HostMac => IsValid ? FormatMac(10) : string.Empty;
+    public string HostMac
+    {
+        get
+        {
+            return IsValid ? FormatMac(10) : string.Empty;
+        }
+    }
 
     /// <summary>
     /// Formats the 6 MAC bytes at <paramref name="offset"/> as XX:XX:XX:XX:XX:XX.

@@ -63,7 +63,10 @@ public abstract class VirtualControllerBase : IVirtualController
     /// <summary>
     /// Initializes a new virtual controller with the given feedback target.
     /// </summary>
-    protected VirtualControllerBase(IDualSenseOutputs outputs) => Outputs = outputs;
+    protected VirtualControllerBase(IDualSenseOutputs outputs)
+    {
+        Outputs = outputs;
+    }
 
     /// <inheritdoc/>
     public abstract EmulationMode Mode { get; }

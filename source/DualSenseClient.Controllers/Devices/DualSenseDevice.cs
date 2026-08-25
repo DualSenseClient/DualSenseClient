@@ -80,14 +80,26 @@ public class DualSenseDevice : ControllerDevice
     private int _disposed;
 
     /// <inheritdoc/>
-    public override ControllerType ControllerType => ControllerType.DualSense;
+    public override ControllerType ControllerType
+    {
+        get
+        {
+            return ControllerType.DualSense;
+        }
+    }
 
     /// <summary>
     /// Whether this controller is a DualSense Edge, which has the extra Fn
     /// buttons and back paddles. Base DualSense hardware returns <c>false</c>;
     /// <see cref="DualSenseEdgeDevice"/> overrides this.
     /// </summary>
-    public virtual bool IsEdge => false;
+    public virtual bool IsEdge
+    {
+        get
+        {
+            return false;
+        }
+    }
 
     /// <summary>
     /// Whether this controller uses the "vibration v2" rumble encoding: firmware update
@@ -95,18 +107,29 @@ public class DualSenseDevice : ControllerDevice
     /// kernel's <c>dualsense_use_vibration_v2</c> gate. When <c>false</c>, the v1
     /// encoding (flag 0 bit 0) is used instead.
     /// </summary>
-    public bool UsesVibrationV2 =>
-        IsEdge ||
-        (FirmwareInfo?.IsValid == true && FirmwareInfo.Value.UpdateVersionValue >= ((2 << 8) | 21));
+    public bool UsesVibrationV2
+    {
+        get
+        {
+            return IsEdge ||
+                   (FirmwareInfo?.IsValid == true && FirmwareInfo.Value.UpdateVersionValue >= ((2 << 8) | 21));
+        }
+    }
 
     /// <inheritdoc/>
-    public override int MaxOutputReportLength => ConnectionType switch
+    public override int MaxOutputReportLength
     {
-        ConnectionType.Bluetooth => 78,
-        ConnectionType.Usb => 63,
-        ConnectionType.Unknown => throw new ArgumentOutOfRangeException($"Unknown connection type: {ConnectionType}"),
-        _ => throw new ArgumentOutOfRangeException($"Unknown connection type: {ConnectionType}")
-    };
+        get
+        {
+            return ConnectionType switch
+            {
+                ConnectionType.Bluetooth => 78,
+                ConnectionType.Usb => 63,
+                ConnectionType.Unknown => throw new ArgumentOutOfRangeException($"Unknown connection type: {ConnectionType}"),
+                _ => throw new ArgumentOutOfRangeException($"Unknown connection type: {ConnectionType}")
+            };
+        }
+    }
 
     /// <summary>
     /// Firmware and hardware information read from feature report 0x20 on connect.
@@ -121,7 +144,13 @@ public class DualSenseDevice : ControllerDevice
     public PairingInfo? PairingInfo { get; private set; }
 
     /// <inheritdoc/>
-    protected override string? BluetoothMacAddress => PairingInfo?.ClientMac;
+    protected override string? BluetoothMacAddress
+    {
+        get
+        {
+            return PairingInfo?.ClientMac;
+        }
+    }
 
     /// <summary>
     /// Current state of input, or null before the first report is received.
@@ -398,10 +427,7 @@ public class DualSenseDevice : ControllerDevice
     /// Reports whether the given payload is byte-identical to the previously sent
     /// Bluetooth payload. Caller must hold <see cref="_outputSync"/>.
     /// </summary>
-    private bool IsDuplicateBluetoothPayload(SetStateData payload)
-    {
-        return _hasLastBluetoothPayload && payload.AsSpan().SequenceEqual(_lastBluetoothPayload);
-    }
+    private bool IsDuplicateBluetoothPayload(SetStateData payload) => _hasLastBluetoothPayload && payload.AsSpan().SequenceEqual(_lastBluetoothPayload);
 
     /// <summary>
     /// Stores the given payload as the last successfully sent Bluetooth payload.

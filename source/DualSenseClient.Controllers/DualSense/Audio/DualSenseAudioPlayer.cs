@@ -280,37 +280,66 @@ public sealed class DualSenseAudioPlayer : IDisposable
     /// </summary>
     private bool _playToHaptics;
 
-    private AudioControl OutputControl =>
-        (_playToSpeaker, _playToHeadset) switch
+    private AudioControl OutputControl
+    {
+        get
         {
-            (true, true) => AudioControl.OutputPathBoth,
-            (true, false) => AudioControl.OutputPathSpeaker,
-            _ => AudioControl.OutputPathHeadphones
-        };
+            return (_playToSpeaker, _playToHeadset) switch
+            {
+                (true, true) => AudioControl.OutputPathBoth,
+                (true, false) => AudioControl.OutputPathSpeaker,
+                _ => AudioControl.OutputPathHeadphones
+            };
+        }
+    }
 
     /// <summary>
     /// Headphone volume for the active route. The single volume slider drives whichever
     /// destination is selected, so the headset gets the slider value while the speaker
     /// route keeps the hardware default.
     /// </summary>
-    private byte HeadphoneVolume => _playToHeadset ? _speakerVolume : (byte)0x3F;
+    private byte HeadphoneVolume
+    {
+        get
+        {
+            return _playToHeadset ? _speakerVolume : (byte)0x3F;
+        }
+    }
 
     /// <summary>
     /// Whether the wrapped controller is connected over Bluetooth, the only transport
     /// that carries the <c>0x35</c>/<c>0x32</c> audio reports.
     /// </summary>
-    private bool IsBluetooth => _device?.ConnectionType == ConnectionType.Bluetooth;
+    private bool IsBluetooth
+    {
+        get
+        {
+            return _device?.ConnectionType == ConnectionType.Bluetooth;
+        }
+    }
 
     /// <summary>
     /// Whether the writer loop is currently consuming the source.
     /// </summary>
-    public bool IsPlaying => _cts is not null;
+    public bool IsPlaying
+    {
+        get
+        {
+            return _cts is not null;
+        }
+    }
 
     /// <summary>
     /// Whether the writer loop task is still running. A loop that was just stopped may
     /// briefly outlive <see cref="IsPlaying"/> while it finishes its current frame.
     /// </summary>
-    public bool IsWriterActive => _loopTask is { IsCompleted: false };
+    public bool IsWriterActive
+    {
+        get
+        {
+            return _loopTask is { IsCompleted: false };
+        }
+    }
 
     /// <summary>
     /// Current playback position (the source's read cursor).
@@ -1062,10 +1091,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
     /// <summary>
     /// Clamps a requested position to be non-negative.
     /// </summary>
-    private static TimeSpan ClampPosition(TimeSpan position)
-    {
-        return position < TimeSpan.Zero ? TimeSpan.Zero : position;
-    }
+    private static TimeSpan ClampPosition(TimeSpan position) => position < TimeSpan.Zero ? TimeSpan.Zero : position;
 
     /// <summary>
     /// Raises <see cref="PositionChanged"/>.

@@ -5,10 +5,7 @@ namespace DualSenseClient.Tests.Logging;
 public class CompositeLogSinkTests
 {
     [Test]
-    public void Constructor_ThrowsOnNull()
-    {
-        Assert.Throws<ArgumentNullException>(() => new CompositeLogSink(null!));
-    }
+    public void Constructor_ThrowsOnNull() => Assert.Throws<ArgumentNullException>(() => new CompositeLogSink(null!));
 
     [Test]
     public void Constructor_ThrowsOnNullElement()
@@ -22,10 +19,10 @@ public class CompositeLogSinkTests
     [Test]
     public void Sinks_ReturnsChildSinks()
     {
-        RecordingSink sink1 = new();
-        RecordingSink sink2 = new();
+        RecordingSink sink1 = new RecordingSink();
+        RecordingSink sink2 = new RecordingSink();
 
-        CompositeLogSink composite = new(sink1, sink2);
+        CompositeLogSink composite = new CompositeLogSink(sink1, sink2);
 
         Assert.That(composite.Sinks, Has.Count.EqualTo(2));
         Assert.That(composite.Sinks, Does.Contain(sink1));
@@ -35,18 +32,11 @@ public class CompositeLogSinkTests
     [Test]
     public void Write_DispatchesToAllChildren()
     {
-        RecordingSink sink1 = new();
-        RecordingSink sink2 = new();
+        RecordingSink sink1 = new RecordingSink();
+        RecordingSink sink2 = new RecordingSink();
 
-        CompositeLogSink composite = new(sink1, sink2);
-        LogEntry entry = new(
-            DateTimeOffset.UtcNow,
-            LogLevel.Info,
-            "Cat",
-            "msg",
-            "file.cs",
-            1,
-            "Method");
+        CompositeLogSink composite = new CompositeLogSink(sink1, sink2);
+        LogEntry entry = new LogEntry(DateTimeOffset.UtcNow, LogLevel.Info, "Cat", "msg", "file.cs", 1, "Method");
 
         composite.Write(in entry);
 
@@ -59,18 +49,11 @@ public class CompositeLogSinkTests
     [Test]
     public void Write_ExceptionInChild_DoesNotAffectOthers()
     {
-        ThrowingSink thrower = new();
-        RecordingSink recorder = new();
+        ThrowingSink thrower = new ThrowingSink();
+        RecordingSink recorder = new RecordingSink();
 
-        CompositeLogSink composite = new(thrower, recorder);
-        LogEntry entry = new(
-            DateTimeOffset.UtcNow,
-            LogLevel.Info,
-            "Cat",
-            "msg",
-            "file.cs",
-            1,
-            "Method");
+        CompositeLogSink composite = new CompositeLogSink(thrower, recorder);
+        LogEntry entry = new LogEntry(DateTimeOffset.UtcNow, LogLevel.Info, "Cat", "msg", "file.cs", 1, "Method");
 
         Assert.DoesNotThrow(() => composite.Write(in entry));
         Assert.That(recorder.LastEntry.HasValue, Is.True);
@@ -79,10 +62,10 @@ public class CompositeLogSinkTests
     [Test]
     public void Dispose_DisposesDisposableChildren()
     {
-        DisposableRecordingSink disposable1 = new();
-        DisposableRecordingSink disposable2 = new();
+        DisposableRecordingSink disposable1 = new DisposableRecordingSink();
+        DisposableRecordingSink disposable2 = new DisposableRecordingSink();
 
-        CompositeLogSink composite = new(disposable1, disposable2);
+        CompositeLogSink composite = new CompositeLogSink(disposable1, disposable2);
         composite.Dispose();
 
         Assert.That(disposable1.Disposed, Is.True);
@@ -92,8 +75,8 @@ public class CompositeLogSinkTests
     [Test]
     public void Dispose_OnlyDisposesOnce()
     {
-        DisposableRecordingSink disposable = new();
-        CompositeLogSink composite = new(disposable);
+        DisposableRecordingSink disposable = new DisposableRecordingSink();
+        CompositeLogSink composite = new CompositeLogSink(disposable);
 
         composite.Dispose();
         composite.Dispose();
@@ -104,10 +87,10 @@ public class CompositeLogSinkTests
     [Test]
     public void Dispose_ExceptionInChild_DoesNotAffectOthers()
     {
-        ThrowingDisposable thrower = new();
-        DisposableRecordingSink recorder = new();
+        ThrowingDisposable thrower = new ThrowingDisposable();
+        DisposableRecordingSink recorder = new DisposableRecordingSink();
 
-        CompositeLogSink composite = new(thrower, recorder);
+        CompositeLogSink composite = new CompositeLogSink(thrower, recorder);
 
         Assert.DoesNotThrow(() => composite.Dispose());
         Assert.That(recorder.Disposed, Is.True);
@@ -117,10 +100,7 @@ public class CompositeLogSinkTests
     {
         public LogEntry? LastEntry { get; private set; }
 
-        public void Write(in LogEntry entry)
-        {
-            LastEntry = entry;
-        }
+        public void Write(in LogEntry entry) => LastEntry = entry;
     }
 
     private class DisposableRecordingSink : ILogSink, IDisposable

@@ -22,12 +22,24 @@ internal class AppSplashScreen : IFAApplicationSplashScreen
     /// <summary>
     /// The name of the application to display during the splash screen
     /// </summary>
-    public string AppName => null!;
+    public string AppName
+    {
+        get
+        {
+            return null!;
+        }
+    }
 
     /// <summary>
     /// The desired image to be shown during the splash screen
     /// </summary>
-    public IImage AppIcon => null!;
+    public IImage AppIcon
+    {
+        get
+        {
+            return null!;
+        }
+    }
 
     /// <summary>
     /// The view providing the status message and progress bar during startup.
@@ -43,7 +55,13 @@ internal class AppSplashScreen : IFAApplicationSplashScreen
     /// Specifies the minimum showtime (in milliseconds) for the splash screen.
     /// Set to 0 to allow the splash to transition as soon as <see cref="RunTasks"/> completes.
     /// </summary>
-    public int MinimumShowTime => 0;
+    public int MinimumShowTime
+    {
+        get
+        {
+            return 0;
+        }
+    }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AppSplashScreen"/> class

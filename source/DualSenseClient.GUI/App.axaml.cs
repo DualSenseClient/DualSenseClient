@@ -29,7 +29,13 @@ public partial class App : Application
     /// <summary>
     /// Gets the main application window, or <c>null</c> if not running as a desktop app.
     /// </summary>
-    public static Window? MainWindow => Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop ? desktop.MainWindow : null;
+    public static Window? MainWindow
+    {
+        get
+        {
+            return Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop ? desktop.MainWindow : null;
+        }
+    }
 
     /// <summary>
     /// Gets the dependency injection service provider for the application.
@@ -55,10 +61,7 @@ public partial class App : Application
     /// <summary>
     /// Loads the XAML resources for this application.
     /// </summary>
-    public override void Initialize()
-    {
-        AvaloniaXamlLoader.Load(this);
-    }
+    public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     /// <summary>
     /// Called when the Avalonia framework has completed initialization.

@@ -103,7 +103,13 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
     }
 
     /// <inheritdoc/>
-    public override EmulationMode Mode => EmulationMode.DualSense;
+    public override EmulationMode Mode
+    {
+        get
+        {
+            return EmulationMode.DualSense;
+        }
+    }
 
     /// <summary>
     /// Translates physical input to the virtual DualSense input state and pushes it.
@@ -314,10 +320,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
     /// Forwards the game's low-latency rear haptics payload to subscribers. Invoked on
     /// the libVIIPER callback thread.
     /// </summary>
-    private void OnRealtimeHaptics(nuint handle, DSOutputState output)
-    {
-        RealtimeHapticsReceived?.Invoke(output);
-    }
+    private void OnRealtimeHaptics(nuint handle, DSOutputState output) => RealtimeHapticsReceived?.Invoke(output);
 
     /// <inheritdoc/>
     public override void Dispose()

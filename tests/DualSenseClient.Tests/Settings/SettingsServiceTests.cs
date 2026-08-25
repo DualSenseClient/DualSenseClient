@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DualSenseClient.Logging;
+using DualSenseClient.Settings;
 using SettingsModel = DualSenseClient.Settings.Settings;
 
 namespace DualSenseClient.Tests.Settings;
@@ -23,7 +24,7 @@ public class SettingsServiceTests
         {
             if (Directory.Exists(_tempDir))
             {
-                Directory.Delete(_tempDir, recursive: true);
+                Directory.Delete(_tempDir, true);
             }
         }
         catch
@@ -36,7 +37,7 @@ public class SettingsServiceTests
     public void Constructor_CreatesConfigDirectory()
     {
         string settingsPath = Path.Combine(_tempDir, "subdir", "config.json");
-        new DualSenseClient.Settings.SettingsService(settingsPath: settingsPath);
+        new SettingsService(settingsPath: settingsPath);
         Assert.That(Directory.Exists(Path.GetDirectoryName(settingsPath)), Is.True);
     }
 
@@ -44,7 +45,7 @@ public class SettingsServiceTests
     public void Constructor_CustomPath_Used()
     {
         string settingsPath = Path.Combine(_tempDir, "custom", "config.json");
-        DualSenseClient.Settings.SettingsService service = new(settingsPath: settingsPath);
+        SettingsService service = new SettingsService(settingsPath: settingsPath);
         _ = service.Settings;
         Assert.That(File.Exists(settingsPath), Is.True);
     }
@@ -53,7 +54,7 @@ public class SettingsServiceTests
     public void LoadSettings_ReturnsDefaults_WhenNoFile()
     {
         string settingsPath = Path.Combine(_tempDir, "config.json");
-        DualSenseClient.Settings.SettingsService service = new(settingsPath: settingsPath);
+        SettingsService service = new SettingsService(settingsPath: settingsPath);
 
         SettingsModel settings = service.Settings;
 
@@ -70,7 +71,7 @@ public class SettingsServiceTests
     public void LoadSettings_LoadsFromJson()
     {
         string settingsPath = Path.Combine(_tempDir, "config.json");
-        SettingsModel saved = new();
+        SettingsModel saved = new SettingsModel();
         saved.Debug.LogLevel = LogLevel.Warning;
         saved.Ui.Language = "de";
         saved.Ui.CloseToTray = false;
@@ -80,7 +81,7 @@ public class SettingsServiceTests
         string json = JsonSerializer.Serialize(saved, CreateJsonOptions());
         File.WriteAllText(settingsPath, json);
 
-        DualSenseClient.Settings.SettingsService service = new(settingsPath: settingsPath);
+        SettingsService service = new SettingsService(settingsPath: settingsPath);
         SettingsModel loaded = service.Settings;
 
         Assert.That(loaded.Debug.LogLevel, Is.EqualTo(LogLevel.Warning));
@@ -96,7 +97,7 @@ public class SettingsServiceTests
         string settingsPath = Path.Combine(_tempDir, "config.json");
         File.WriteAllText(settingsPath, "not valid json {{{");
 
-        DualSenseClient.Settings.SettingsService service = new(settingsPath: settingsPath);
+        SettingsService service = new SettingsService(settingsPath: settingsPath);
         SettingsModel loaded = service.Settings;
 
         Assert.That(loaded, Is.Not.Null);
@@ -109,7 +110,7 @@ public class SettingsServiceTests
         string settingsPath = Path.Combine(_tempDir, "config.json");
         File.WriteAllText(settingsPath, "corrupt {{{");
 
-        DualSenseClient.Settings.SettingsService service = new(settingsPath: settingsPath);
+        SettingsService service = new SettingsService(settingsPath: settingsPath);
         SettingsModel loaded = service.Settings;
 
         Assert.That(loaded, Is.Not.Null);
@@ -120,7 +121,7 @@ public class SettingsServiceTests
     public void SaveSettings_WritesJsonToDisk()
     {
         string settingsPath = Path.Combine(_tempDir, "config.json");
-        DualSenseClient.Settings.SettingsService service = new(settingsPath: settingsPath);
+        SettingsService service = new SettingsService(settingsPath: settingsPath);
         SettingsModel settings = service.Settings;
         settings.Debug.LogLevel = LogLevel.Trace;
 
@@ -134,7 +135,7 @@ public class SettingsServiceTests
     public void SaveSettings_CreatesBackup()
     {
         string settingsPath = Path.Combine(_tempDir, "config.json");
-        DualSenseClient.Settings.SettingsService service = new(settingsPath: settingsPath);
+        SettingsService service = new SettingsService(settingsPath: settingsPath);
         _ = service.Settings;
 
         service.SaveSettings();
@@ -147,7 +148,7 @@ public class SettingsServiceTests
     public void SaveSettings_FiresSettingsChangedEvent()
     {
         string settingsPath = Path.Combine(_tempDir, "config.json");
-        DualSenseClient.Settings.SettingsService service = new(settingsPath: settingsPath);
+        SettingsService service = new SettingsService(settingsPath: settingsPath);
         _ = service.Settings;
 
         bool eventFired = false;
@@ -162,17 +163,17 @@ public class SettingsServiceTests
     public void SaveSettings_WithParameter_ReplacesAndPersists()
     {
         string settingsPath = Path.Combine(_tempDir, "config.json");
-        DualSenseClient.Settings.SettingsService service = new(settingsPath: settingsPath);
+        SettingsService service = new SettingsService(settingsPath: settingsPath);
         _ = service.Settings;
 
-        SettingsModel newSettings = new();
+        SettingsModel newSettings = new SettingsModel();
         newSettings.Ui.Language = "fr";
         service.SaveSettings(newSettings);
 
         string json = File.ReadAllText(settingsPath);
         Assert.That(json, Does.Contain("fr"));
 
-        SettingsModel reloaded = new DualSenseClient.Settings.SettingsService(settingsPath: settingsPath).Settings;
+        SettingsModel reloaded = new SettingsService(settingsPath: settingsPath).Settings;
         Assert.That(reloaded.Ui.Language, Is.EqualTo("fr"));
     }
 
@@ -180,7 +181,7 @@ public class SettingsServiceTests
     public async Task LoadSettingsAsync_ReturnsSettings()
     {
         string settingsPath = Path.Combine(_tempDir, "config.json");
-        DualSenseClient.Settings.SettingsService service = new(settingsPath: settingsPath);
+        SettingsService service = new SettingsService(settingsPath: settingsPath);
 
         SettingsModel loaded = await service.LoadSettingsAsync();
 
@@ -192,7 +193,7 @@ public class SettingsServiceTests
     public async Task SaveSettingsAsync_WritesToDisk()
     {
         string settingsPath = Path.Combine(_tempDir, "config.json");
-        DualSenseClient.Settings.SettingsService service = new(settingsPath: settingsPath);
+        SettingsService service = new SettingsService(settingsPath: settingsPath);
         service.Settings.Debug.LogLevel = LogLevel.Error;
 
         await service.SaveSettingsAsync();

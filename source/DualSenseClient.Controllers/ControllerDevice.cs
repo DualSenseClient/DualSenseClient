@@ -96,10 +96,22 @@ public abstract class ControllerDevice(IHidDevice device, IHidDeviceInfo info) :
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("ControllerDevice");
 
     /// <inheritdoc/>
-    public IHidDeviceInfo Info => info;
+    public IHidDeviceInfo Info
+    {
+        get
+        {
+            return info;
+        }
+    }
 
     /// <inheritdoc/>
-    public ConnectionType ConnectionType => info.BusType;
+    public ConnectionType ConnectionType
+    {
+        get
+        {
+            return info.BusType;
+        }
+    }
 
     /// <inheritdoc/>
     public abstract ControllerType ControllerType { get; }
@@ -125,7 +137,13 @@ public abstract class ControllerDevice(IHidDevice device, IHidDeviceInfo info) :
     private volatile int _pollingRateHz;
 
     /// <inheritdoc/>
-    public int PollingRateHz => _pollingRateHz;
+    public int PollingRateHz
+    {
+        get
+        {
+            return _pollingRateHz;
+        }
+    }
 
     /// <summary>
     /// Counts a received input report and recomputes the polling rate once per
@@ -252,7 +270,13 @@ public abstract class ControllerDevice(IHidDevice device, IHidDeviceInfo info) :
     /// The controller's Bluetooth MAC address (XX:XX:XX:XX:XX:XX), or <c>null</c>
     /// when it is unknown. Only meaningful for controllers connected over Bluetooth.
     /// </summary>
-    protected virtual string? BluetoothMacAddress => null;
+    protected virtual string? BluetoothMacAddress
+    {
+        get
+        {
+            return null;
+        }
+    }
 
     /// <inheritdoc/>
     public bool DisconnectController()
@@ -275,8 +299,5 @@ public abstract class ControllerDevice(IHidDevice device, IHidDeviceInfo info) :
     }
 
     /// <inheritdoc/>
-    public virtual void Dispose()
-    {
-        device.Dispose();
-    }
+    public virtual void Dispose() => device.Dispose();
 }

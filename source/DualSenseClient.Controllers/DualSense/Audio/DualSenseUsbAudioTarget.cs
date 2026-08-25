@@ -131,7 +131,13 @@ public sealed class DualSenseUsbAudioTarget : IDisposable
     /// <summary>
     /// Whether the render target is currently open.
     /// </summary>
-    public bool IsActive => _player is not null;
+    public bool IsActive
+    {
+        get
+        {
+            return _player is not null;
+        }
+    }
 
     /// <summary>
     /// Finds the physical DualSense render endpoint and opens it, preferring exclusive
@@ -197,7 +203,7 @@ public sealed class DualSenseUsbAudioTarget : IDisposable
                 {
                     for (int i = 0; i < FramesPerBlock; i++)
                     {
-                        int o = (i * 4);
+                        int o = i * 4;
                         _quadScratch[o] = interleavedQuad[offset + i * 4] / 32768f;
                         _quadScratch[o + 1] = interleavedQuad[offset + i * 4 + 1] / 32768f;
                         _quadScratch[o + 2] = interleavedQuad[offset + i * 4 + 2] / 32768f;

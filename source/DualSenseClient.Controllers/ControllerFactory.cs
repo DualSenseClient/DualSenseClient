@@ -32,7 +32,12 @@ public static class ControllerFactory
     /// Gets the set of (VendorId, ProductId) pairs this factory recognizes.
     /// </summary>
     public static IEnumerable<(ushort VendorId, ushort ProductId)> KnownDeviceIds
-        => KnownDevices.Keys.Select(k => (VendorId: k.Vid, ProductId: k.Pid));
+    {
+        get
+        {
+            return KnownDevices.Keys.Select(k => (VendorId: k.Vid, ProductId: k.Pid));
+        }
+    }
 
     /// <summary>
     /// Resolves the <see cref="ControllerType"/> for a given device without opening it.

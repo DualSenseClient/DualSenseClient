@@ -27,7 +27,13 @@ public sealed class ControllerConnectionEventArgs : EventArgs
     /// <summary>
     /// The physical transport (USB or Bluetooth).
     /// </summary>
-    public ConnectionType ConnectionType => Info.BusType;
+    public ConnectionType ConnectionType
+    {
+        get
+        {
+            return Info.BusType;
+        }
+    }
 
     /// <summary>
     /// The live controller instance, or <c>null</c> on disconnect when the device is no longer openable.

@@ -18,7 +18,13 @@ public class CustomCard : ContentControl
     /// </summary>
     public string? Tooltip
     {
-        get => GetValue(TooltipProperty);
-        set => SetValue(TooltipProperty, value);
+        get
+        {
+            return GetValue(TooltipProperty);
+        }
+        set
+        {
+            SetValue(TooltipProperty, value);
+        }
     }
 }

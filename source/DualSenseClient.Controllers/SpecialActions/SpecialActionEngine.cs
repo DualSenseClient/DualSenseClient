@@ -188,7 +188,8 @@ public sealed class SpecialActionEngine : IDisposable
     /// Output fields held by active light actions, keyed by action id and mapped to the
     /// applied fields and the fire sequence (the most recently fired action wins per field).
     /// </summary>
-    private readonly Dictionary<Guid, (OutputStateOverride Applied, long Sequence)> _outputOverrides = new();
+    private readonly Dictionary<Guid, (OutputStateOverride Applied, long Sequence)> _outputOverrides =
+        new Dictionary<Guid, (OutputStateOverride Applied, long Sequence)>();
 
     /// <summary>
     /// Monotonic counter ordering light action fires, so the most recent fire wins when
@@ -438,8 +439,10 @@ public sealed class SpecialActionEngine : IDisposable
             }
 
             _lastGesture = Math.Abs(dx) > Math.Abs(dy)
-                ? (dx < 0 ? TouchpadGestures.SwipeLeft : TouchpadGestures.SwipeRight)
-                : (dy < 0 ? TouchpadGestures.SwipeUp : TouchpadGestures.SwipeDown);
+                ? dx < 0 ? TouchpadGestures.SwipeLeft : TouchpadGestures.SwipeRight
+                : dy < 0
+                    ? TouchpadGestures.SwipeUp
+                    : TouchpadGestures.SwipeDown;
             EvaluateCombos();
         }
     }
@@ -663,7 +666,7 @@ public sealed class SpecialActionEngine : IDisposable
         HashSet<ButtonType> combo = new HashSet<ButtonType>();
         foreach (string name in action.Buttons)
         {
-            if (!Enum.TryParse(name, ignoreCase: true, out ButtonType button))
+            if (!Enum.TryParse(name, true, out ButtonType button))
             {
                 return null;
             }
@@ -814,11 +817,12 @@ public sealed class SpecialActionEngine : IDisposable
     /// Merges two applied-field snapshots: fields set by <paramref name="newer"/> win,
     /// fields it leaves unset keep the <paramref name="older"/> values.
     /// </summary>
-    private static OutputStateOverride Combine(OutputStateOverride older, OutputStateOverride newer) => new()
-    {
-        LightbarColor = newer.LightbarColor ?? older.LightbarColor,
-        PlayerLeds = newer.PlayerLeds ?? older.PlayerLeds
-    };
+    private static OutputStateOverride Combine(OutputStateOverride older, OutputStateOverride newer) =>
+        new OutputStateOverride
+        {
+            LightbarColor = newer.LightbarColor ?? older.LightbarColor,
+            PlayerLeds = newer.PlayerLeds ?? older.PlayerLeds
+        };
 
     /// <summary>
     /// Reverts a while-held or timed light action by re-applying the profile resolved via

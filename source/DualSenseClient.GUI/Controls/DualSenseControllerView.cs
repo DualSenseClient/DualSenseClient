@@ -253,8 +253,14 @@ public sealed class DualSenseControllerView : Canvas
     /// </summary>
     public IControllerMonitorState? State
     {
-        get => GetValue(StateProperty);
-        set => SetValue(StateProperty, value);
+        get
+        {
+            return GetValue(StateProperty);
+        }
+        set
+        {
+            SetValue(StateProperty, value);
+        }
     }
 
     /// <summary>
@@ -262,8 +268,14 @@ public sealed class DualSenseControllerView : Canvas
     /// </summary>
     public string SkinName
     {
-        get => GetValue(SkinNameProperty);
-        set => SetValue(SkinNameProperty, value);
+        get
+        {
+            return GetValue(SkinNameProperty);
+        }
+        set
+        {
+            SetValue(SkinNameProperty, value);
+        }
     }
 
     /// <summary>
@@ -271,8 +283,14 @@ public sealed class DualSenseControllerView : Canvas
     /// </summary>
     public double Scale
     {
-        get => GetValue(ScaleProperty);
-        set => SetValue(ScaleProperty, value);
+        get
+        {
+            return GetValue(ScaleProperty);
+        }
+        set
+        {
+            SetValue(ScaleProperty, value);
+        }
     }
 
     /// <summary>
@@ -280,8 +298,14 @@ public sealed class DualSenseControllerView : Canvas
     /// </summary>
     public bool ShowMovement
     {
-        get => GetValue(ShowMovementProperty);
-        set => SetValue(ShowMovementProperty, value);
+        get
+        {
+            return GetValue(ShowMovementProperty);
+        }
+        set
+        {
+            SetValue(ShowMovementProperty, value);
+        }
     }
 
     /// <summary>
@@ -289,8 +313,14 @@ public sealed class DualSenseControllerView : Canvas
     /// </summary>
     public bool ShowButtonPresses
     {
-        get => GetValue(ShowButtonPressesProperty);
-        set => SetValue(ShowButtonPressesProperty, value);
+        get
+        {
+            return GetValue(ShowButtonPressesProperty);
+        }
+        set
+        {
+            SetValue(ShowButtonPressesProperty, value);
+        }
     }
 
     /// <summary>
@@ -298,8 +328,14 @@ public sealed class DualSenseControllerView : Canvas
     /// </summary>
     public bool ShowLightbarLeds
     {
-        get => GetValue(ShowLightbarLedsProperty);
-        set => SetValue(ShowLightbarLedsProperty, value);
+        get
+        {
+            return GetValue(ShowLightbarLedsProperty);
+        }
+        set
+        {
+            SetValue(ShowLightbarLedsProperty, value);
+        }
     }
 
     /// <summary>
@@ -307,8 +343,14 @@ public sealed class DualSenseControllerView : Canvas
     /// </summary>
     public bool ShowStats
     {
-        get => GetValue(ShowStatsProperty);
-        set => SetValue(ShowStatsProperty, value);
+        get
+        {
+            return GetValue(ShowStatsProperty);
+        }
+        set
+        {
+            SetValue(ShowStatsProperty, value);
+        }
     }
 
     /// <summary>
@@ -317,8 +359,14 @@ public sealed class DualSenseControllerView : Canvas
     /// </summary>
     public IReadOnlyList<ButtonType> SelectedButtons
     {
-        get => GetValue(SelectedButtonsProperty);
-        set => SetValue(SelectedButtonsProperty, value);
+        get
+        {
+            return GetValue(SelectedButtonsProperty);
+        }
+        set
+        {
+            SetValue(SelectedButtonsProperty, value);
+        }
     }
 
     /// <summary>
@@ -326,8 +374,14 @@ public sealed class DualSenseControllerView : Canvas
     /// </summary>
     public bool IsButtonSelectionEnabled
     {
-        get => GetValue(IsButtonSelectionEnabledProperty);
-        set => SetValue(IsButtonSelectionEnabledProperty, value);
+        get
+        {
+            return GetValue(IsButtonSelectionEnabledProperty);
+        }
+        set
+        {
+            SetValue(IsButtonSelectionEnabledProperty, value);
+        }
     }
 
     /// <summary>
@@ -471,7 +525,7 @@ public sealed class DualSenseControllerView : Canvas
     /// <summary>
     /// All static overlay sprites (pressed-driven visibility).
     /// </summary>
-    private readonly List<OverlaySprite> _overlays = new();
+    private readonly List<OverlaySprite> _overlays = new List<OverlaySprite>();
 
     /// <summary>
     /// Placement and press-overlay sprite of one selectable button's selection marker, in
@@ -482,7 +536,7 @@ public sealed class DualSenseControllerView : Canvas
     /// <summary>
     /// Press-overlay markers for the currently selected remapping buttons, by button.
     /// </summary>
-    private readonly Dictionary<ButtonType, Image> _selectionHighlights = new();
+    private readonly Dictionary<ButtonType, Image> _selectionHighlights = new Dictionary<ButtonType, Image>();
 
     /// <summary>
     /// The pressed-state overlay sprite of each selectable button (offsets from the base
@@ -494,25 +548,25 @@ public sealed class DualSenseControllerView : Canvas
     private static readonly IReadOnlyDictionary<ButtonType, SelectionSprite> SelectionSprites =
         new Dictionary<ButtonType, SelectionSprite>
         {
-            [ButtonType.Cross] = new("Cross", 470.6, 112.9, 112, 95),
-            [ButtonType.Circle] = new("Circle", 583.5, 18.8, 110, 105),
-            [ButtonType.Square] = new("Square", 363.0, 22.9, 110, 99),
-            [ButtonType.Triangle] = new("Triangle", 476.0, -71.3, 112, 105),
-            [ButtonType.DPadUp] = new("DPad_Up", -473.3, -37.6, 93, 108),
-            [ButtonType.DPadDown] = new("DPad_Down", -473.3, 80.7, 93, 104),
-            [ButtonType.DPadLeft] = new("DPad_Left", -545.9, 21.5, 114, 87),
-            [ButtonType.DPadRight] = new("DPad_Right", -400.7, 21.5, 114, 87),
-            [ButtonType.L1] = new("L1_Active", -471.9, -260.8, 221, 130),
-            [ButtonType.R1] = new("R1_Active", 471.9, -262.2, 221, 130),
-            [ButtonType.L2] = new("L2_Active", -462.6, -330.1, 200, 152),
-            [ButtonType.R2] = new("R2_Active", 464.0, -333.1, 202, 149),
-            [ButtonType.L3] = new("AnalogStick_Click", -238.0, 195.0, 196, 171),
-            [ButtonType.R3] = new("AnalogStick_Click", 242.0, 195.0, 196, 171),
-            [ButtonType.Create] = new("Create", -359.0, -121.0, 52, 71),
-            [ButtonType.Options] = new("Options", 359.0, -121.0, 55, 74),
-            [ButtonType.PS] = new("PS", 2.7, 166.7, 97, 54),
-            [ButtonType.Mute] = new("Mute", 4.0, 225.9, 75, 16),
-            [ButtonType.TouchPad] = new("Touchpad_Click", 0, TouchpadCenterOffsetY, TouchSurfaceWidth, TouchSurfaceHeight)
+            [ButtonType.Cross] = new SelectionSprite("Cross", 470.6, 112.9, 112, 95),
+            [ButtonType.Circle] = new SelectionSprite("Circle", 583.5, 18.8, 110, 105),
+            [ButtonType.Square] = new SelectionSprite("Square", 363.0, 22.9, 110, 99),
+            [ButtonType.Triangle] = new SelectionSprite("Triangle", 476.0, -71.3, 112, 105),
+            [ButtonType.DPadUp] = new SelectionSprite("DPad_Up", -473.3, -37.6, 93, 108),
+            [ButtonType.DPadDown] = new SelectionSprite("DPad_Down", -473.3, 80.7, 93, 104),
+            [ButtonType.DPadLeft] = new SelectionSprite("DPad_Left", -545.9, 21.5, 114, 87),
+            [ButtonType.DPadRight] = new SelectionSprite("DPad_Right", -400.7, 21.5, 114, 87),
+            [ButtonType.L1] = new SelectionSprite("L1_Active", -471.9, -260.8, 221, 130),
+            [ButtonType.R1] = new SelectionSprite("R1_Active", 471.9, -262.2, 221, 130),
+            [ButtonType.L2] = new SelectionSprite("L2_Active", -462.6, -330.1, 200, 152),
+            [ButtonType.R2] = new SelectionSprite("R2_Active", 464.0, -333.1, 202, 149),
+            [ButtonType.L3] = new SelectionSprite("AnalogStick_Click", -238.0, 195.0, 196, 171),
+            [ButtonType.R3] = new SelectionSprite("AnalogStick_Click", 242.0, 195.0, 196, 171),
+            [ButtonType.Create] = new SelectionSprite("Create", -359.0, -121.0, 52, 71),
+            [ButtonType.Options] = new SelectionSprite("Options", 359.0, -121.0, 55, 74),
+            [ButtonType.PS] = new SelectionSprite("PS", 2.7, 166.7, 97, 54),
+            [ButtonType.Mute] = new SelectionSprite("Mute", 4.0, 225.9, 75, 16),
+            [ButtonType.TouchPad] = new SelectionSprite("Touchpad_Click", 0, TouchpadCenterOffsetY, TouchSurfaceWidth, TouchSurfaceHeight)
         };
 
     /// <summary>
@@ -674,10 +728,7 @@ public sealed class DualSenseControllerView : Canvas
     /// <summary>
     /// Updates the cursor when button selection is toggled.
     /// </summary>
-    private void OnButtonSelectionEnabledChanged()
-    {
-        Cursor = IsButtonSelectionEnabled ? new Cursor(StandardCursorType.Hand) : Cursor.Default;
-    }
+    private void OnButtonSelectionEnabledChanged() => Cursor = IsButtonSelectionEnabled ? new Cursor(StandardCursorType.Hand) : Cursor.Default;
 
     /// <summary>
     /// Hit-tests a pointer press against the selectable buttons' sprite rectangles and
@@ -763,29 +814,29 @@ public sealed class DualSenseControllerView : Canvas
 
         if (_leftStick is { } leftStick && ShowMovement)
         {
-            Canvas.SetLeft(leftStick, CenteredX(-240.7, 173, StickOffset(state.LeftStickX), scale));
-            Canvas.SetTop(leftStick, CenteredY(227.2, 147, StickOffset(state.LeftStickY), scale));
+            SetLeft(leftStick, CenteredX(-240.7, 173, StickOffset(state.LeftStickX), scale));
+            SetTop(leftStick, CenteredY(227.2, 147, StickOffset(state.LeftStickY), scale));
         }
 
         if (_rightStick is { } rightStick && ShowMovement)
         {
-            Canvas.SetLeft(rightStick, CenteredX(242.0, 175, StickOffset(state.RightStickX), scale));
-            Canvas.SetTop(rightStick, CenteredY(228.6, 148, StickOffset(state.RightStickY), scale));
+            SetLeft(rightStick, CenteredX(242.0, 175, StickOffset(state.RightStickX), scale));
+            SetTop(rightStick, CenteredY(228.6, 148, StickOffset(state.RightStickY), scale));
         }
 
         if (_leftTrigger is { } leftTrigger)
         {
-            double top = CenteredY(-330.1, 152, 0, scale) + (state.L2 / 255.0) * TriggerTravel * scale;
+            double top = CenteredY(-330.1, 152, 0, scale) + state.L2 / 255.0 * TriggerTravel * scale;
             if (ShowMovement)
             {
-                Canvas.SetTop(leftTrigger, top);
+                SetTop(leftTrigger, top);
             }
 
             if (_leftTriggerActive is { } leftTriggerActive)
             {
                 if (ShowMovement)
                 {
-                    Canvas.SetTop(leftTriggerActive, top);
+                    SetTop(leftTriggerActive, top);
                 }
 
                 leftTriggerActive.IsVisible = ShowButtonPresses && state.L2Click;
@@ -794,17 +845,17 @@ public sealed class DualSenseControllerView : Canvas
 
         if (_rightTrigger is { } rightTrigger)
         {
-            double top = CenteredY(-333.1, 149, 0, scale) + (state.R2 / 255.0) * TriggerTravel * scale;
+            double top = CenteredY(-333.1, 149, 0, scale) + state.R2 / 255.0 * TriggerTravel * scale;
             if (ShowMovement)
             {
-                Canvas.SetTop(rightTrigger, top);
+                SetTop(rightTrigger, top);
             }
 
             if (_rightTriggerActive is { } rightTriggerActive)
             {
                 if (ShowMovement)
                 {
-                    Canvas.SetTop(rightTriggerActive, top);
+                    SetTop(rightTriggerActive, top);
                 }
 
                 rightTriggerActive.IsVisible = ShowButtonPresses && state.R2Click;
@@ -880,7 +931,7 @@ public sealed class DualSenseControllerView : Canvas
     /// </summary>
     private TextBlock CreateTagLabel()
     {
-        var label = new TextBlock
+        TextBlock label = new TextBlock
         {
             FontSize = TouchLabelFontSize,
             Foreground = Brushes.White,
@@ -902,8 +953,8 @@ public sealed class DualSenseControllerView : Canvas
         double width = label.DesiredSize.Width;
         double height = label.DesiredSize.Height;
         double left = Math.Clamp((BaseCenterX + centerOffsetX) * scale - width / 2, 0, Math.Max(0, (BaseWidth - TouchLabelMargin) * scale - width));
-        Canvas.SetLeft(label, left);
-        Canvas.SetTop(label, (BaseCenterY + centerOffsetY) * scale - height / 2);
+        SetLeft(label, left);
+        SetTop(label, (BaseCenterY + centerOffsetY) * scale - height / 2);
     }
 
     /// <summary>
@@ -945,10 +996,10 @@ public sealed class DualSenseControllerView : Canvas
         lastY = y;
 
         double half = TouchDotSize / 2;
-        double centerX = Math.Clamp(TouchSurfaceLeft + (x / 1919.0) * TouchSurfaceWidth, TouchSurfaceLeft + half, TouchSurfaceRight - half);
-        double centerY = Math.Clamp(TouchSurfaceTop + (y / 1079.0) * TouchSurfaceHeight, TouchSurfaceTop + half, TouchSurfaceBottom - half);
-        Canvas.SetLeft(dot, (centerX - half) * scale);
-        Canvas.SetTop(dot, (centerY - half) * scale);
+        double centerX = Math.Clamp(TouchSurfaceLeft + x / 1919.0 * TouchSurfaceWidth, TouchSurfaceLeft + half, TouchSurfaceRight - half);
+        double centerY = Math.Clamp(TouchSurfaceTop + y / 1079.0 * TouchSurfaceHeight, TouchSurfaceTop + half, TouchSurfaceBottom - half);
+        SetLeft(dot, (centerX - half) * scale);
+        SetTop(dot, (centerY - half) * scale);
 
         if (label is null || !ShowStats)
         {
@@ -959,14 +1010,14 @@ public sealed class DualSenseControllerView : Canvas
         label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         double labelWidth = label.DesiredSize.Width;
         double left = Math.Clamp(centerX * scale - labelWidth / 2, 0, Math.Max(0, (BaseWidth - TouchLabelMargin) * scale - labelWidth));
-        Canvas.SetLeft(label, left);
-        Canvas.SetTop(label, (centerY + half + TouchLabelOffsetY) * scale);
+        SetLeft(label, left);
+        SetTop(label, (centerY + half + TouchLabelOffsetY) * scale);
     }
 
     /// <summary>
     /// Maps an 8-bit axis value to a signed travel offset.
     /// </summary>
-    private static double StickOffset(int value) => ((value - 128) / 128.0) * StickTravel;
+    private static double StickOffset(int value) => (value - 128) / 128.0 * StickTravel;
 
     /// <summary>
     /// Reads the state's lightbar RGB as byte channels, clamped to the valid range.
@@ -1001,10 +1052,8 @@ public sealed class DualSenseControllerView : Canvas
     /// <summary>
     /// Adds a full-size sprite image to the canvas and exposes it through <paramref name="image"/>.
     /// </summary>
-    private void AddSprite(string skin, string name, double offsetX, double offsetY, double width, double height, out Image? image)
-    {
-        image = AddImage(_illustrations.GetSprite(skin, name), CenteredX(offsetX, width, 0, _scale), CenteredY(offsetY, height, 0, _scale), width, height);
-    }
+    private void AddSprite(string skin, string name, double offsetX, double offsetY, double width, double height, out Image? image) => image =
+        AddImage(_illustrations.GetSprite(skin, name), CenteredX(offsetX, width, 0, _scale), CenteredY(offsetY, height, 0, _scale), width, height);
 
     /// <summary>
     /// Adds a pressed-driven overlay sprite to the canvas and tracks it for updates.
@@ -1022,7 +1071,7 @@ public sealed class DualSenseControllerView : Canvas
     /// </summary>
     private Image AddImage(Bitmap? bitmap, double left, double top, double width, double height)
     {
-        var image = new Image
+        Image image = new Image
         {
             Source = bitmap,
             Width = width * _scale,

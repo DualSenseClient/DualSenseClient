@@ -66,7 +66,10 @@ public sealed class ControllerScanner : IControllerScanner
     /// <summary>
     /// Creates a new <see cref="ControllerScanner"/> backed by the given HID enumerator.
     /// </summary>
-    public ControllerScanner(IHidDeviceEnumerator enumerator) => _enumerator = enumerator;
+    public ControllerScanner(IHidDeviceEnumerator enumerator)
+    {
+        _enumerator = enumerator;
+    }
 
     /// <inheritdoc/>
     public IReadOnlyList<IControllerDevice> Scan()

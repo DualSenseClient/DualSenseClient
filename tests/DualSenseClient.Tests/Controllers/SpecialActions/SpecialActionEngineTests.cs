@@ -15,10 +15,38 @@ public class SpecialActionEngineTests
     {
         public List<byte[]> Writes { get; } = new List<byte[]>();
 
-        public ushort VendorId => 0x054C;
-        public ushort ProductId => 0x0CE6;
-        public string DevicePath => "test";
-        public bool IsConnected => true;
+        public ushort VendorId
+        {
+            get
+            {
+                return 0x054C;
+            }
+        }
+
+        public ushort ProductId
+        {
+            get
+            {
+                return 0x0CE6;
+            }
+        }
+
+        public string DevicePath
+        {
+            get
+            {
+                return "test";
+            }
+        }
+
+        public bool IsConnected
+        {
+            get
+            {
+                return true;
+            }
+        }
+
         public int Read(byte[] buffer, int offset, int count, int timeoutMs) => 0;
         public Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken ct) => Task.FromResult(0);
 
@@ -45,15 +73,77 @@ public class SpecialActionEngineTests
 
     private sealed class StubHidDeviceInfo : IHidDeviceInfo
     {
-        public string Path => "test";
-        public ushort VendorId => 0x054C;
-        public ushort ProductId => 0x0CE6;
-        public string ProductName => "DualSense Test";
-        public string Manufacturer => "Sony";
-        public int InterfaceNumber => 0;
-        public ushort UsagePage => 1;
-        public HidUsageId Usage => HidUsageId.GamePad;
-        public ConnectionType BusType => ConnectionType.Usb;
+        public string Path
+        {
+            get
+            {
+                return "test";
+            }
+        }
+
+        public ushort VendorId
+        {
+            get
+            {
+                return 0x054C;
+            }
+        }
+
+        public ushort ProductId
+        {
+            get
+            {
+                return 0x0CE6;
+            }
+        }
+
+        public string ProductName
+        {
+            get
+            {
+                return "DualSense Test";
+            }
+        }
+
+        public string Manufacturer
+        {
+            get
+            {
+                return "Sony";
+            }
+        }
+
+        public int InterfaceNumber
+        {
+            get
+            {
+                return 0;
+            }
+        }
+
+        public ushort UsagePage
+        {
+            get
+            {
+                return 1;
+            }
+        }
+
+        public HidUsageId Usage
+        {
+            get
+            {
+                return HidUsageId.GamePad;
+            }
+        }
+
+        public ConnectionType BusType
+        {
+            get
+            {
+                return ConnectionType.Usb;
+            }
+        }
     }
 
     private static readonly MethodInfo ProcessInputReportMethod = typeof(DualSenseDevice)
@@ -152,7 +242,7 @@ public class SpecialActionEngineTests
     /// </summary>
     private static byte[] CreateTwoTouchReport(ushort x1, ushort y1, ushort x2, ushort y2)
     {
-        byte[] buffer = CreateTouchReport(x1, y1, trackingId: 1);
+        byte[] buffer = CreateTouchReport(x1, y1, 1);
         buffer[37] = 0x02;
         buffer[38] = (byte)(x2 & 0xFF);
         buffer[39] = (byte)(((y2 & 0x0F) << 4) | ((x2 >> 8) & 0x0F));
@@ -261,7 +351,7 @@ public class SpecialActionEngineTests
     /// </summary>
     private sealed class FakeSoundPlayer : ISpecialActionSoundPlayer
     {
-        public List<string> PlayedPaths { get; } = new();
+        public List<string> PlayedPaths { get; } = new List<string>();
         public SoundOutputTarget LastOutput { get; private set; }
         public byte LastVolume { get; private set; }
         public bool LastHaptics { get; private set; }
@@ -860,7 +950,7 @@ public class SpecialActionEngineTests
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         engine.ProfileProvider = _ => CreateRestoreProfile();
-        engine.UpdateActions([CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: true)]);
+        engine.UpdateActions([CreateLightbarAction(0xAA, 0xBB, 0xCC, true)]);
 
         FeedReport(device, CreateReport());
         FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
@@ -892,7 +982,7 @@ public class SpecialActionEngineTests
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         engine.ProfileProvider = _ => CreateRestoreProfile();
-        engine.UpdateActions([CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: true)]);
+        engine.UpdateActions([CreateLightbarAction(0xAA, 0xBB, 0xCC, true)]);
 
         FeedReport(device, CreateReport());
         FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
@@ -917,7 +1007,7 @@ public class SpecialActionEngineTests
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         engine.ProfileProvider = _ => CreateRestoreProfile();
-        engine.UpdateActions([CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: true)]);
+        engine.UpdateActions([CreateLightbarAction(0xAA, 0xBB, 0xCC, true)]);
 
         FeedReport(device, CreateReport());
         FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
@@ -936,7 +1026,7 @@ public class SpecialActionEngineTests
     public void OneShotLightbar_DoesNotSetLightbarColorOverride()
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
-        engine.UpdateActions([CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: false)]);
+        engine.UpdateActions([CreateLightbarAction(0xAA, 0xBB, 0xCC, false)]);
 
         FeedReport(device, CreateReport());
         FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
@@ -952,7 +1042,7 @@ public class SpecialActionEngineTests
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         engine.ProfileProvider = _ => CreateRestoreProfile();
-        SpecialAction action = CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: false);
+        SpecialAction action = CreateLightbarAction(0xAA, 0xBB, 0xCC, false);
         action.DurationMs = 300;
         engine.UpdateActions([action]);
 
@@ -972,7 +1062,7 @@ public class SpecialActionEngineTests
     public void ShowBatteryLevel_WhileHeld_SetsLightbarColorOverride_ClearedOnRelease()
     {
         (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
-        engine.UpdateActions([CreateBatteryAction(applyWhileHeld: true)]);
+        engine.UpdateActions([CreateBatteryAction(true)]);
 
         // Raw battery 0x04 = 45% -> level 4 -> default color (255, 200, 30).
         FeedReport(device, CreateReportWithBattery(0x04));
@@ -992,7 +1082,7 @@ public class SpecialActionEngineTests
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         engine.ProfileProvider = _ => CreateRestoreProfile();
-        engine.UpdateActions([CreateGestureLightbarAction(TouchpadGestures.SwipeRight, 0xAA, 0xBB, 0xCC, applyWhileHeld: true)]);
+        engine.UpdateActions([CreateGestureLightbarAction(TouchpadGestures.SwipeRight, 0xAA, 0xBB, 0xCC, true)]);
 
         SwipeRight(device);
         Assert.That(hid.Writes, Has.Count.EqualTo(1));
@@ -1080,7 +1170,7 @@ public class SpecialActionEngineTests
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         engine.ProfileProvider = _ => CreateRestoreProfile();
-        engine.UpdateActions([CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: false)]);
+        engine.UpdateActions([CreateLightbarAction(0xAA, 0xBB, 0xCC, false)]);
 
         FeedReport(device, CreateReport());
         FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
@@ -1099,7 +1189,7 @@ public class SpecialActionEngineTests
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         engine.ProfileProvider = _ => CreateRestoreProfile();
-        SpecialAction action = CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: true);
+        SpecialAction action = CreateLightbarAction(0xAA, 0xBB, 0xCC, true);
         action.HoldTimeMs = 200;
         engine.UpdateActions([action]);
 
@@ -1122,7 +1212,7 @@ public class SpecialActionEngineTests
     public void ProfileProvider_Null_DoesNotRestoreOnRelease()
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
-        engine.UpdateActions([CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: true)]);
+        engine.UpdateActions([CreateLightbarAction(0xAA, 0xBB, 0xCC, true)]);
 
         FeedReport(device, CreateReport());
         FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
@@ -1141,7 +1231,7 @@ public class SpecialActionEngineTests
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         engine.ProfileProvider = _ => CreateRestoreProfile();
-        engine.UpdateActions([CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: true)]);
+        engine.UpdateActions([CreateLightbarAction(0xAA, 0xBB, 0xCC, true)]);
 
         FeedReport(device, CreateReport());
         FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
@@ -1162,7 +1252,7 @@ public class SpecialActionEngineTests
         (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
         FakeSoundPlayer player = new FakeSoundPlayer();
         engine.SoundPlayerFactory = _ => player;
-        engine.UpdateActions([CreateSoundAction(@"C:\sounds\beep.mp3", applyWhileHeld: false)]);
+        engine.UpdateActions([CreateSoundAction(@"C:\sounds\beep.mp3", false)]);
 
         FeedReport(device, CreateReport());
         FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
@@ -1186,7 +1276,7 @@ public class SpecialActionEngineTests
         (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
         FakeSoundPlayer player = new FakeSoundPlayer();
         engine.SoundPlayerFactory = _ => player;
-        SpecialAction action = CreateSoundAction("beep.wav", applyWhileHeld: false);
+        SpecialAction action = CreateSoundAction("beep.wav", false);
         action.Effects[0].Sound.Volume = 0x7F;
         action.Effects[0].Haptics.Feedback = true;
         action.Effects[0].Haptics.Strength = 150;
@@ -1213,7 +1303,7 @@ public class SpecialActionEngineTests
         (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
         FakeSoundPlayer player = new FakeSoundPlayer();
         engine.SoundPlayerFactory = _ => player;
-        SpecialAction action = CreateSoundAction("beep.wav", applyWhileHeld: false);
+        SpecialAction action = CreateSoundAction("beep.wav", false);
         action.Effects[0].Sound.Output = SoundOutputDevices.Headset;
         engine.UpdateActions([action]);
 
@@ -1232,7 +1322,7 @@ public class SpecialActionEngineTests
         (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
         FakeSoundPlayer player = new FakeSoundPlayer();
         engine.SoundPlayerFactory = _ => player;
-        engine.UpdateActions([CreateSoundAction("beep.wav", applyWhileHeld: true)]);
+        engine.UpdateActions([CreateSoundAction("beep.wav", true)]);
 
         FeedReport(device, CreateReport());
         FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
@@ -1252,7 +1342,7 @@ public class SpecialActionEngineTests
         (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
         FakeSoundPlayer player = new FakeSoundPlayer();
         engine.SoundPlayerFactory = _ => player;
-        engine.UpdateActions([CreateSoundAction("beep.wav", applyWhileHeld: true)]);
+        engine.UpdateActions([CreateSoundAction("beep.wav", true)]);
 
         FeedReport(device, CreateReport());
         FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
@@ -1276,7 +1366,7 @@ public class SpecialActionEngineTests
         (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
         FakeSoundPlayer player = new FakeSoundPlayer();
         engine.SoundPlayerFactory = _ => player;
-        engine.UpdateActions([CreateSoundAction(null, applyWhileHeld: false)]);
+        engine.UpdateActions([CreateSoundAction(null, false)]);
 
         FeedReport(device, CreateReport());
         FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
@@ -1291,7 +1381,7 @@ public class SpecialActionEngineTests
     public void PlaySound_NoFactory_DoesNotThrow()
     {
         (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
-        engine.UpdateActions([CreateSoundAction("beep.wav", applyWhileHeld: false)]);
+        engine.UpdateActions([CreateSoundAction("beep.wav", false)]);
 
         Assert.DoesNotThrow(() =>
         {
@@ -1309,7 +1399,7 @@ public class SpecialActionEngineTests
         (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
         FakeSoundPlayer player = new FakeSoundPlayer();
         engine.SoundPlayerFactory = _ => player;
-        engine.UpdateActions([CreateSoundAction("beep.wav", applyWhileHeld: true)]);
+        engine.UpdateActions([CreateSoundAction("beep.wav", true)]);
 
         FeedReport(device, CreateReport());
         FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
@@ -1328,7 +1418,7 @@ public class SpecialActionEngineTests
         (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
         FakeSoundPlayer player = new FakeSoundPlayer();
         engine.SoundPlayerFactory = _ => player;
-        engine.UpdateActions([CreateSoundAction("beep.wav", applyWhileHeld: false)]);
+        engine.UpdateActions([CreateSoundAction("beep.wav", false)]);
 
         FeedReport(device, CreateReport());
         FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
@@ -1474,7 +1564,7 @@ public class SpecialActionEngineTests
         engine.ProfileProvider = _ => CreateRestoreProfile();
         FakeSoundPlayer player = new FakeSoundPlayer();
         engine.SoundPlayerFactory = _ => player;
-        SpecialAction action = CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: true);
+        SpecialAction action = CreateLightbarAction(0xAA, 0xBB, 0xCC, true);
         action.Effects.Add(new SpecialActionEffect
         {
             Type = SpecialActionTypes.PlaySound,
@@ -1512,7 +1602,7 @@ public class SpecialActionEngineTests
     public void ShowBatteryLevel_WritesColorForCurrentBattery()
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
-        engine.UpdateActions([CreateBatteryAction(applyWhileHeld: false)]);
+        engine.UpdateActions([CreateBatteryAction(false)]);
 
         // Raw battery 0x04 = discharging at 45% -> level 4 -> default color (255, 200, 30).
         FeedReport(device, CreateReportWithBattery(0x04));
@@ -1536,7 +1626,7 @@ public class SpecialActionEngineTests
     public void ShowBatteryLevel_FullBattery_UsesHighestLevel()
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
-        engine.UpdateActions([CreateBatteryAction(applyWhileHeld: false)]);
+        engine.UpdateActions([CreateBatteryAction(false)]);
 
         // Raw battery 0x0A = discharging at 100% -> level 9 (highest).
         FeedReport(device, CreateReportWithBattery(0x0A));
@@ -1558,7 +1648,7 @@ public class SpecialActionEngineTests
     public void ShowBatteryLevel_LowBattery_UsesLowestLevel()
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
-        engine.UpdateActions([CreateBatteryAction(applyWhileHeld: false)]);
+        engine.UpdateActions([CreateBatteryAction(false)]);
 
         // Raw battery 0x00 = discharging at 5% -> level 0 (lowest).
         FeedReport(device, CreateReportWithBattery(0x00));
@@ -1580,7 +1670,7 @@ public class SpecialActionEngineTests
     public void ShowBatteryLevel_UnknownBattery_Skips()
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
-        engine.UpdateActions([CreateBatteryAction(applyWhileHeld: false)]);
+        engine.UpdateActions([CreateBatteryAction(false)]);
         int executions = 0;
         engine.ActionExecuted += (_, _) => executions++;
 
@@ -1602,7 +1692,7 @@ public class SpecialActionEngineTests
     public void ShowBatteryLevel_CustomColors_Used()
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
-        SpecialAction action = CreateBatteryAction(applyWhileHeld: false);
+        SpecialAction action = CreateBatteryAction(false);
         action.Effects[0].BatteryColors = Enumerable.Range(0, 10)
             .Select(i => new BatteryLevelColor
             {
@@ -1632,7 +1722,7 @@ public class SpecialActionEngineTests
     public void ShowBatteryLevel_PartialCustomColors_FallBackToDefaults()
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
-        SpecialAction action = CreateBatteryAction(applyWhileHeld: false);
+        SpecialAction action = CreateBatteryAction(false);
         action.Effects[0].BatteryColors =
         [
             new BatteryLevelColor
@@ -1665,7 +1755,7 @@ public class SpecialActionEngineTests
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         engine.ProfileProvider = _ => CreateRestoreProfile();
-        engine.UpdateActions([CreateBatteryAction(applyWhileHeld: true)]);
+        engine.UpdateActions([CreateBatteryAction(true)]);
 
         // Raw battery 0x04 = 45% -> level 4 -> default color (255, 200, 30).
         FeedReport(device, CreateReportWithBattery(0x04));
@@ -1719,7 +1809,7 @@ public class SpecialActionEngineTests
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         engine.ProfileProvider = _ => CreateRestoreProfile();
-        SpecialAction action = CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: false);
+        SpecialAction action = CreateLightbarAction(0xAA, 0xBB, 0xCC, false);
         action.DurationMs = 300;
         engine.UpdateActions([action]);
 
@@ -1745,7 +1835,7 @@ public class SpecialActionEngineTests
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         engine.ProfileProvider = _ => CreateRestoreProfile();
-        SpecialAction action = CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: false);
+        SpecialAction action = CreateLightbarAction(0xAA, 0xBB, 0xCC, false);
         action.DurationMs = 2000;
         engine.UpdateActions([action]);
 
@@ -1771,7 +1861,7 @@ public class SpecialActionEngineTests
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         engine.ProfileProvider = _ => CreateRestoreProfile();
-        SpecialAction action = CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: true);
+        SpecialAction action = CreateLightbarAction(0xAA, 0xBB, 0xCC, true);
         action.DurationMs = 300;
         engine.UpdateActions([action]);
 
@@ -1796,7 +1886,7 @@ public class SpecialActionEngineTests
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         engine.ProfileProvider = _ => CreateRestoreProfile();
-        SpecialAction action = CreateLightbarAction(0xAA, 0xBB, 0xCC, applyWhileHeld: false);
+        SpecialAction action = CreateLightbarAction(0xAA, 0xBB, 0xCC, false);
         action.DurationMs = 5000;
         engine.UpdateActions([action]);
 
@@ -2003,7 +2093,7 @@ public class SpecialActionEngineTests
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         engine.ProfileProvider = _ => CreateRestoreProfile();
-        engine.UpdateActions([CreateGestureLightbarAction(TouchpadGestures.SwipeRight, 0xAA, 0xBB, 0xCC, applyWhileHeld: true)]);
+        engine.UpdateActions([CreateGestureLightbarAction(TouchpadGestures.SwipeRight, 0xAA, 0xBB, 0xCC, true)]);
 
         SwipeRight(device);
         Assert.That(hid.Writes, Has.Count.EqualTo(1));

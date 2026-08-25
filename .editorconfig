@@ -56,15 +56,34 @@ resharper_csharp_use_file_scoped_namespaces = true
 dotnet_sort_system_directives_first = true
 dotnet_separate_import_directive_groups = false
 
-## Prefer var when the type is obvious; explicit when clarity is needed
-csharp_style_var_for_built_in_types = true:suggestion
-csharp_style_var_when_type_is_apparent = true:suggestion
-csharp_style_var_elsewhere = false:suggestion
+## Never use var; always write the explicit type
+csharp_style_var_for_built_in_types = false:error
+csharp_style_var_when_type_is_apparent = false:error
+csharp_style_var_elsewhere = false:error
 
-## Expression-bodied members when appropriate for simple methods/properties
+## Never use target-typed new()
+csharp_style_implicit_object_creation_when_type_is_apparent = false:error
+
+## JetBrains-specific keys so jb cleanupcode rewrites new() usages
+resharper_csharp_object_creation_when_type_evident = explicitly_typed
+resharper_csharp_object_creation_when_type_not_evident = explicitly_typed
+
+## Expression-bodied members when appropriate for simple methods
 csharp_style_expression_bodied_methods = when_on_single_line:suggestion
-csharp_style_expression_bodied_properties = when_on_single_line:suggestion
+
+## Never use expression bodies for properties/accessors; always block bodies
+csharp_style_expression_bodied_properties = false:error
+csharp_style_expression_bodied_accessors = false:error
 csharp_style_expression_bodied_constructors = false:suggestion
+
+## JetBrains-specific keys so jb cleanupcode rewrites accessor/property bodies
+resharper_csharp_accessor_owner_body = accessors_with_block_body
+
+## Constructors and local functions: always block bodies.
+## Methods are left at the jb default - it has no line-aware value matching
+## when_on_single_line above.
+resharper_csharp_constructor_or_destructor_body = block_body
+resharper_csharp_local_function_body = block_body
 
 csharp_prefer_braces = true:suggestion
 csharp_style_pattern_matching_over_is_with_cast_check = true:suggestion
@@ -79,6 +98,15 @@ resharper_csharp_wrap_object_and_collection_initializer_style = chop_always
 resharper_csharp_place_simple_initializer_on_single_line = false
 
 # --- Naming Conventions (docs/CONTRIBUTING.md > Naming Conventions) ---
+
+## Constants: PascalCase without underscore prefix
+## (must be declared before private_fields - first matching rule wins)
+dotnet_naming_rule.constants_pascalcase.severity = suggestion
+dotnet_naming_rule.constants_pascalcase.symbols = constants
+dotnet_naming_rule.constants_pascalcase.style = pascalcase
+
+dotnet_naming_symbols.constants.applicable_kinds = field
+dotnet_naming_symbols.constants.applicable_modifiers = const
 
 ## Private instance/static fields: _camelCase (e.g. _settings, _isRunning)
 dotnet_naming_rule.private_fields_underscore_camelcase.severity = suggestion

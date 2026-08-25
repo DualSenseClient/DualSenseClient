@@ -60,10 +60,10 @@ public sealed class DualSenseSpecialActionSoundPlayer : ISpecialActionSoundPlaye
         // must not touch this session when the previous writer exits late.
         _resetRoutePending = false;
         _player.ApplyOptions(
-            desktop: false,
-            speaker: output == SoundOutputTarget.Speaker,
-            headset: output == SoundOutputTarget.Headset,
-            haptics: hapticFeedback,
+            false,
+            output == SoundOutputTarget.Speaker,
+            output == SoundOutputTarget.Headset,
+            hapticFeedback,
             speakerVolume,
             hapticStrength / 100f);
         _player.OpenFile(path);

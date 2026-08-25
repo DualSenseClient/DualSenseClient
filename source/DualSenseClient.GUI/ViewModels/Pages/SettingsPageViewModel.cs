@@ -63,7 +63,13 @@ public partial class SettingsPageViewModel : ObservableObject
     /// <summary>
     /// Application version string including the build commit, shown in the page header.
     /// </summary>
-    public string ApplicationVersion => AppInfo.VersionWithCommit;
+    public string ApplicationVersion
+    {
+        get
+        {
+            return AppInfo.VersionWithCommit;
+        }
+    }
 
     /// <summary>
     /// Index of the currently selected language in <see cref="AppLanguages"/>.
@@ -186,7 +192,7 @@ public partial class SettingsPageViewModel : ObservableObject
         LogLevel.Warning,
         LogLevel.Error,
         LogLevel.Critical,
-        LogLevel.None,
+        LogLevel.None
     ];
 
     /// <summary>

@@ -72,7 +72,13 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
     }
 
     /// <inheritdoc/>
-    public override EmulationMode Mode => EmulationMode.DualShock4;
+    public override EmulationMode Mode
+    {
+        get
+        {
+            return EmulationMode.DualShock4;
+        }
+    }
 
     /// <summary>
     /// Translates physical input to the virtual DualShock 4 input state and pushes it.

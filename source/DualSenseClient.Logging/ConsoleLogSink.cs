@@ -101,7 +101,7 @@ public sealed class ConsoleLogSink : ILogSink
             LogLevel.Warning => ConsoleColor.Yellow,
             LogLevel.Error => ConsoleColor.Red,
             LogLevel.Critical => ConsoleColor.DarkRed,
-            _ => ConsoleColor.White,
+            _ => ConsoleColor.White
         };
     }
 }

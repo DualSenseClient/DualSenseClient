@@ -10,7 +10,7 @@ public class JsonFileStoreTests
 {
     private string _tempDir = null!;
 
-    private readonly JsonSerializerOptions _options = new()
+    private readonly JsonSerializerOptions _options = new JsonSerializerOptions
     {
         WriteIndented = true,
         Converters =
@@ -33,7 +33,7 @@ public class JsonFileStoreTests
         {
             if (Directory.Exists(_tempDir))
             {
-                Directory.Delete(_tempDir, recursive: true);
+                Directory.Delete(_tempDir, true);
             }
         }
         catch
@@ -45,7 +45,7 @@ public class JsonFileStoreTests
     public void FilePath_ReturnsConstructorPath()
     {
         string path = Path.Combine(_tempDir, "data.json");
-        JsonFileStore<SettingsModel> store = new(path);
+        JsonFileStore<SettingsModel> store = new JsonFileStore<SettingsModel>(path);
         Assert.That(store.FilePath, Is.EqualTo(path));
     }
 
@@ -53,7 +53,7 @@ public class JsonFileStoreTests
     public void Item_DefaultsToNewInstance()
     {
         string path = Path.Combine(_tempDir, "data.json");
-        JsonFileStore<SettingsModel> store = new(path);
+        JsonFileStore<SettingsModel> store = new JsonFileStore<SettingsModel>(path);
         Assert.That(store.Item, Is.Not.Null);
         Assert.That(store.Item.Ui.Language, Is.EqualTo("en"));
     }
@@ -62,7 +62,7 @@ public class JsonFileStoreTests
     public void Save_WritesJsonToDisk()
     {
         string path = Path.Combine(_tempDir, "data.json");
-        JsonFileStore<SettingsModel> store = new(path);
+        JsonFileStore<SettingsModel> store = new JsonFileStore<SettingsModel>(path);
         store.Item.Ui.Language = "fr";
         store.Save();
 
@@ -74,13 +74,13 @@ public class JsonFileStoreTests
     public void Load_ReadsFromDisk()
     {
         string path = Path.Combine(_tempDir, "data.json");
-        SettingsModel saved = new();
+        SettingsModel saved = new SettingsModel();
         saved.Ui.Language = "ja";
         saved.Debug.LogLevel = LogLevel.Critical;
         string json = JsonSerializer.Serialize(saved, _options);
         File.WriteAllText(path, json);
 
-        JsonFileStore<SettingsModel> store = new(path);
+        JsonFileStore<SettingsModel> store = new JsonFileStore<SettingsModel>(path);
         store.Load();
 
         Assert.That(store.Item.Ui.Language, Is.EqualTo("ja"));
@@ -91,7 +91,7 @@ public class JsonFileStoreTests
     public void Load_NoFile_ResetsToDefaults()
     {
         string path = Path.Combine(_tempDir, "data.json");
-        JsonFileStore<SettingsModel> store = new(path);
+        JsonFileStore<SettingsModel> store = new JsonFileStore<SettingsModel>(path);
         store.Item.Ui.Language = "de";
         store.Load();
 
@@ -104,7 +104,7 @@ public class JsonFileStoreTests
         string path = Path.Combine(_tempDir, "data.json");
         File.WriteAllText(path, "not valid json {{{");
 
-        JsonFileStore<SettingsModel> store = new(path);
+        JsonFileStore<SettingsModel> store = new JsonFileStore<SettingsModel>(path);
         store.Load();
 
         Assert.That(store.Item, Is.Not.Null);
@@ -115,12 +115,12 @@ public class JsonFileStoreTests
     public void Save_ThenLoad_RoundTrips()
     {
         string path = Path.Combine(_tempDir, "data.json");
-        JsonFileStore<SettingsModel> store = new(path);
+        JsonFileStore<SettingsModel> store = new JsonFileStore<SettingsModel>(path);
         store.Item.Ui.Language = "es";
         store.Item.Debug.LogLevel = LogLevel.Warning;
         store.Save();
 
-        JsonFileStore<SettingsModel> store2 = new(path);
+        JsonFileStore<SettingsModel> store2 = new JsonFileStore<SettingsModel>(path);
         store2.Load();
 
         Assert.That(store2.Item.Ui.Language, Is.EqualTo("es"));
@@ -139,7 +139,7 @@ public class JsonFileStoreTests
     public async Task SaveAsync_WritesToDisk()
     {
         string path = Path.Combine(_tempDir, "data.json");
-        JsonFileStore<SettingsModel> store = new(path);
+        JsonFileStore<SettingsModel> store = new JsonFileStore<SettingsModel>(path);
         store.Item.Ui.Language = "pt";
 
         await store.SaveAsync();
@@ -152,11 +152,11 @@ public class JsonFileStoreTests
     public async Task LoadAsync_ReadsFromDisk()
     {
         string path = Path.Combine(_tempDir, "data.json");
-        SettingsModel saved = new();
+        SettingsModel saved = new SettingsModel();
         saved.Ui.Language = "ko";
         File.WriteAllText(path, JsonSerializer.Serialize(saved, _options));
 
-        JsonFileStore<SettingsModel> store = new(path);
+        JsonFileStore<SettingsModel> store = new JsonFileStore<SettingsModel>(path);
         await store.LoadAsync();
 
         Assert.That(store.Item.Ui.Language, Is.EqualTo("ko"));
@@ -166,12 +166,12 @@ public class JsonFileStoreTests
     public void CanStoreCustomType()
     {
         string path = Path.Combine(_tempDir, "custom.json");
-        JsonFileStore<TestModel> store = new(path);
+        JsonFileStore<TestModel> store = new JsonFileStore<TestModel>(path);
         store.Item.Name = "test";
         store.Item.Value = 42;
         store.Save();
 
-        JsonFileStore<TestModel> store2 = new(path);
+        JsonFileStore<TestModel> store2 = new JsonFileStore<TestModel>(path);
         store2.Load();
 
         Assert.That(store2.Item.Name, Is.EqualTo("test"));
