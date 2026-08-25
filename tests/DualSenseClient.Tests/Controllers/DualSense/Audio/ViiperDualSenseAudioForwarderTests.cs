@@ -361,7 +361,8 @@ public class ViiperDualSenseAudioForwarderTests
 
         forwarder.UpdateGameOutputState(new SetStateData
         {
-            ValidFlag0 = ValidFlags.UseRumbleNotHaptics | ValidFlags.EnableRumbleEmulation,
+            ValidFlag0 = ValidFlags.UseRumbleNotHaptics | ValidFlags.EnableRumbleEmulation
+                                                        | ValidFlags.AllowRightTriggerFfb | ValidFlags.AllowLeftTriggerFfb,
             ValidFlag2 = ValidFlags.EnableImprovedRumbleEmu,
             RumbleLeft = 0x90,
             RumbleRight = 0x40,
@@ -402,6 +403,36 @@ public class ViiperDualSenseAudioForwarderTests
             Assert.That(state[5], Is.EqualTo(0x50), "the speaker volume must be overridden");
             Assert.That(state[7], Is.EqualTo((byte)AudioControl.OutputPathSpeaker), "the audio control must be overridden");
             Assert.That(state[37], Is.EqualTo(0x02), "audio control 2 must be overridden");
+        });
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void UpdateGameOutputState_GameDisabledTriggerBitsStayClearInTheEmbeddedState()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        // The game stopped driving the triggers: its allow bits are clear, so the pad
+        // must retain its current effect instead of re-applying stale block bytes.
+        forwarder.UpdateGameOutputState(new SetStateData
+        {
+            ValidFlag0 = ValidFlags.AllowSpeakerVolume,
+            R2TriggerEffect = new TriggerEffectBlock([0x26, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 0)
+        });
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => fake.ReportCount >= 8 && fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
+
+        byte[] state = fake.LastStateBlock;
+        Assert.Multiple(() =>
+        {
+            Assert.That(state[0] & 0x0C, Is.Zero, "the game's cleared trigger allow bits must pass through unchanged");
+            Assert.That(state[10], Is.EqualTo(0x26), "the block bytes still ride the state block");
         });
 
         forwarder.Stop();

@@ -731,13 +731,14 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
 
     /// <summary>
     /// Builds the 47-byte output state embedded in both the init-prime and the per-tick
-    /// combined <c>0x36</c> report: the game's output state (rumble bytes, adaptive
-    /// triggers, lightbar, player LEDs) overridden by the forwarder's audio
-    /// configuration. The rumble-mode bits are cleared â€” while the audio lane is open
-    /// the pad ignores the motor bytes (and switching modes mid-stream breaks audio),
-    /// so rumble is driven through the haptics PCM instead â€” while the trigger enable
-    /// bits stay set so the pad applies the embedded trigger blocks (with a bit cleared
-    /// it retains the previous effect). Caller must hold <see cref="_sync"/>.
+    /// combined <c>0x36</c> report: the game's output state overridden by the
+    /// forwarder's audio configuration. The rumble-mode bits are cleared — while the
+    /// audio lane is open the pad ignores the motor bytes (and switching modes
+    /// mid-stream breaks audio), so rumble is driven through the haptics PCM instead.
+    /// Every other field rides through exactly as the game wrote it, including the
+    /// trigger FFB allow bits: with a bit set the pad applies the embedded block each
+    /// tick; with a bit clear the pad retains its effect, matching real hardware.
+    /// Caller must hold <see cref="_sync"/>.
     /// </summary>
     private SetStateData CreateAudioState()
     {
@@ -746,7 +747,6 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
         // Recompute the flags from the game's bytes every tick: the `with` expression
         // below writes through the shared raw buffer, so the merge must be idempotent.
         ValidFlags flag0 = (game.ValidFlag0 & ~(ValidFlags.EnableRumbleEmulation | ValidFlags.UseRumbleNotHaptics))
-                           | ValidFlags.AllowRightTriggerFfb | ValidFlags.AllowLeftTriggerFfb
                            | ValidFlags.AllowSpeakerVolume | ValidFlags.AllowHeadphoneVolume
                            | ValidFlags.AllowAudioControl;
         ValidFlags flag1 = game.ValidFlag1 | ValidFlags.AllowAudioControl2;
