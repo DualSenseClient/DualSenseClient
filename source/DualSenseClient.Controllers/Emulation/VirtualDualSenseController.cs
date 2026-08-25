@@ -1,6 +1,5 @@
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.DualSense.Output;
-using DualSenseClient.Controllers.DualSense.Triggers;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings.Sections;
 using DualSenseClient.VIIPER;
@@ -214,35 +213,101 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
     /// </summary>
     private void OnOutputState(nuint handle, DSOutputState output)
     {
-        byte[] rawReport = output.RawOutputReport is { Length: 48 } raw ? raw : [];
+        SetStateData payload = BuildOutputPayload(output, _vibrationV2);
+        Outputs.SendOutputState(payload);
+        OutputStateReceived?.Invoke(payload);
+    }
 
-        SetStateData payload = new SetStateData
+    /// <summary>
+    /// Rebuilds the physical controller's output payload from the game's exact USB
+    /// output report (the 47 bytes following report ID 0x02), so every feature the game
+    /// addresses on the virtual controller — adaptive triggers, rumble, lightbar,
+    /// player LEDs, mute LED and its validity bits, volumes, audio control, motor power
+    /// reduction, haptic low-pass filter, brightness/fade — arrives 1:1 over USB or
+    /// Bluetooth. Two adjustments are applied:
+    /// <list type="bullet">
+    /// <item>The motor bytes always carry libVIIPER's retained decoded values, so
+    /// partial reports that do not mention rumble still publish the last requested
+    /// magnitudes to subscribers (the audio forwarder's rumble synthesis relies on
+    /// this). The pad-side selector bits below decide whether they are applied.</item>
+    /// <item>The rumble-mode selector bits are translated between the encodings:
+    /// games select v1 (flag 0 bit 0) or v2 (flag 2 bit 2) against the virtual
+    /// device's firmware; the physical pad may require the other encoding. When the
+    /// game did not touch rumble at all, all selector bits are cleared so the pad
+    /// retains its motors — mirroring real hardware.</item>
+    /// </list>
+    /// The trigger FFB allow bits pass through exactly as the game wrote them: with a
+    /// bit set the pad applies the block riding the report; with a bit clear it retains
+    /// its effect — the same semantics a real DualSense connected directly to the game
+    /// would exhibit.
+    /// </summary>
+    public static SetStateData BuildOutputPayload(DSOutputState output, bool vibrationV2)
+    {
+        byte[] raw = output.RawOutputReport;
+        if (raw is not { Length: 48 } || raw[0] != 0x02)
+        {
+            return BuildFallbackPayload(output);
+        }
+
+        byte[] bytes = new byte[SetStateData.PayloadSize];
+        Buffer.BlockCopy(raw, 1, bytes, 0, SetStateData.PayloadSize);
+
+        // Retained magnitudes for subscribers; gated pad-side by the selector bits.
+        bytes[2] = output.RumbleSmall;
+        bytes[3] = output.RumbleLarge;
+
+        SetStateData payload = new SetStateData(bytes, 0);
+        bool rumbleSelected = (payload.ValidFlag0 & ValidFlags.EnableRumbleEmulation) != 0
+                              || (payload.ValidFlag2 & ValidFlags.EnableImprovedRumbleEmu) != 0;
+        ValidFlags flag0 = payload.ValidFlag0;
+        ValidFlags flag2 = payload.ValidFlag2;
+        if (rumbleSelected)
+        {
+            flag0 |= ValidFlags.UseRumbleNotHaptics;
+            if (vibrationV2)
+            {
+                flag0 &= ~ValidFlags.EnableRumbleEmulation;
+                flag2 |= ValidFlags.EnableImprovedRumbleEmu;
+            }
+            else
+            {
+                flag0 |= ValidFlags.EnableRumbleEmulation;
+                flag2 &= ~ValidFlags.EnableImprovedRumbleEmu;
+            }
+        }
+        else
+        {
+            flag0 &= ~(ValidFlags.UseRumbleNotHaptics | ValidFlags.EnableRumbleEmulation);
+            flag2 &= ~ValidFlags.EnableImprovedRumbleEmu;
+        }
+
+        return payload with
+        {
+            ValidFlag0 = flag0,
+            ValidFlag2 = flag2
+        };
+    }
+
+    /// <summary>
+    /// Defensive fallback for callbacks whose raw report is missing or malformed:
+    /// reconstructs the previously supported subset from the decoded fields.
+    /// </summary>
+    private static SetStateData BuildFallbackPayload(DSOutputState output)
+    {
+        return new SetStateData
         {
             ValidFlag0 = ValidFlags.UseRumbleNotHaptics
-                         | (_vibrationV2 ? ValidFlags.None : ValidFlags.EnableRumbleEmulation)
-                         // The trigger blocks always ride this report, so their enable
-                         // bits stay set: with a bit cleared the pad ignores the block
-                         // and retains the previous effect, leaving a trigger stuck
-                         // after the game disables it (mirrors dualsensectl).
                          | ValidFlags.AllowRightTriggerFfb
                          | ValidFlags.AllowLeftTriggerFfb,
-            ValidFlag2 = _vibrationV2 ? ValidFlags.EnableImprovedRumbleEmu : ValidFlags.None,
+            ValidFlag1 = ValidFlags.AllowLedColor | ValidFlags.AllowPlayerIndicators | ValidFlags.AllowMuteLight,
             RumbleLeft = output.RumbleLarge,
             RumbleRight = output.RumbleSmall,
-            ValidFlag1 = ValidFlags.AllowLedColor | ValidFlags.AllowPlayerIndicators | ValidFlags.AllowMuteLight,
             MuteLedMode = output.MicLed,
-            LightFadeAnimation = 0x02,
-            LightBrightness = output.LightbarBrightness,
             PlayerLeds = (PlayerLedMask)output.PlayerLeds,
             LedRed = output.LedRed,
             LedGreen = output.LedGreen,
-            LedBlue = output.LedBlue,
-            R2TriggerEffect = rawReport.Length == 48 ? new TriggerEffectBlock(rawReport, 11) : TriggerEffectBuilder.Off(),
-            L2TriggerEffect = rawReport.Length == 48 ? new TriggerEffectBlock(rawReport, 22) : TriggerEffectBuilder.Off()
+            LedBlue = output.LedBlue
         };
-
-        Outputs.SendOutputState(payload);
-        OutputStateReceived?.Invoke(payload);
     }
 
     /// <summary>
