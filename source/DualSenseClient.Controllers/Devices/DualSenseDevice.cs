@@ -46,6 +46,23 @@ public class DualSenseDevice : ControllerDevice
     private byte _outputSequence;
 
     /// <summary>
+    /// Serializes output-state sends and guards the Bluetooth dedupe state.
+    /// </summary>
+    private readonly Lock _outputSync = new Lock();
+
+    /// <summary>
+    /// The last payload written over Bluetooth, used to skip duplicate reports: games
+    /// tend to rewrite an unchanged state every frame, and each suppressed report
+    /// frees interrupt-channel bandwidth for input (lower latency) on Bluetooth.
+    /// </summary>
+    private readonly byte[] _lastBluetoothPayload = new byte[SetStateData.PayloadSize];
+
+    /// <summary>
+    /// Whether <see cref="_lastBluetoothPayload"/> holds a successfully sent payload.
+    /// </summary>
+    private bool _hasLastBluetoothPayload;
+
+    /// <summary>
     /// Builds the Bluetooth-only audio (<c>0x35</c>) and haptics (<c>0x32</c>) reports.
     /// The rolling sequence and packet counters live here, so the builder must only be
     /// touched by the audio writer thread (guarded by <see cref="_audioWriteLock"/>).
@@ -315,7 +332,10 @@ public class DualSenseDevice : ControllerDevice
     /// <summary>
     /// Sends output state (rumble, lightbar, player LEDs, trigger effects) to the
     /// controller, framed for the active transport (USB report ID 0x02 or Bluetooth
-    /// report ID 0x31 with a rolling sequence tag and CRC32).
+    /// report ID 0x31 with a rolling sequence tag and CRC32). Over Bluetooth a payload
+    /// byte-identical to the previously sent one is skipped: the controller retains its
+    /// output state, so resending unchanged state only consumes interrupt-channel
+    /// bandwidth.
     /// </summary>
     /// <param name="payload">The output state to send.</param>
     public void SendOutputState(SetStateData payload)
@@ -347,13 +367,50 @@ public class DualSenseDevice : ControllerDevice
             }
         }
 
-        OutputReport report = ConnectionType == ConnectionType.Bluetooth
-            ? OutputReport.ForBluetooth(payload, (byte)(_outputSequence & 0x0F))
-            : OutputReport.ForUsb(payload);
-        _outputSequence = (byte)((_outputSequence + 1) & 0x0F);
+        lock (_outputSync)
+        {
+            bool bluetooth = ConnectionType == ConnectionType.Bluetooth;
+            if (!bluetooth || !IsDuplicateBluetoothPayload(payload))
+            {
+                OutputReport report = bluetooth
+                    ? OutputReport.ForBluetooth(payload, (byte)(_outputSequence & 0x0F))
+                    : OutputReport.ForUsb(payload);
+                _outputSequence = (byte)((_outputSequence + 1) & 0x0F);
 
-        _log.Debug($"Sending output report 0x{report.Raw[0]:X2} ({report.Length} byte(s))");
-        SendOutput(report.Raw, 0, report.Length);
+                _log.Debug($"Sending output report 0x{report.Raw[0]:X2} ({report.Length} byte(s))");
+                SendOutput(report.Raw, 0, report.Length);
+
+                // Recorded only after a successful write so a failed send is retried
+                // on the next identical payload instead of being deduped away.
+                if (bluetooth)
+                {
+                    RememberBluetoothPayload(payload);
+                }
+            }
+            else
+            {
+                _log.Trace("Skipping duplicate Bluetooth output report");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reports whether the given payload is byte-identical to the previously sent
+    /// Bluetooth payload. Caller must hold <see cref="_outputSync"/>.
+    /// </summary>
+    private bool IsDuplicateBluetoothPayload(SetStateData payload)
+    {
+        return _hasLastBluetoothPayload && payload.AsSpan().SequenceEqual(_lastBluetoothPayload);
+    }
+
+    /// <summary>
+    /// Stores the given payload as the last successfully sent Bluetooth payload.
+    /// Caller must hold <see cref="_outputSync"/>.
+    /// </summary>
+    private void RememberBluetoothPayload(SetStateData payload)
+    {
+        payload.CopyTo(_lastBluetoothPayload, 0);
+        _hasLastBluetoothPayload = true;
     }
 
     /// <summary>

@@ -267,4 +267,9 @@ public readonly struct SetStateData
     /// <param name="target">Destination buffer.</param>
     /// <param name="offset">Offset to write the payload at.</param>
     public void CopyTo(byte[] target, int offset) => Buffer.BlockCopy(_raw, 0, target, offset, PayloadSize);
+
+    /// <summary>
+    /// Returns the raw 47-byte payload as a read-only span.
+    /// </summary>
+    public ReadOnlySpan<byte> AsSpan() => _raw;
 }

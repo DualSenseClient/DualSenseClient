@@ -15,6 +15,10 @@ public class DualSenseDeviceOutputTests
 
         public int LastWriteCount { get; private set; }
 
+        public int WriteCount { get; private set; }
+
+        public bool FailWrites { get; set; }
+
         public ushort VendorId => 0x054C;
 
         public ushort ProductId => 0x0CE6;
@@ -29,9 +33,15 @@ public class DualSenseDeviceOutputTests
 
         public int Write(byte[] buffer, int offset, int count)
         {
+            if (FailWrites)
+            {
+                throw new IOException("simulated write failure");
+            }
+
             LastWrite = (byte[])buffer.Clone();
             LastWriteOffset = offset;
             LastWriteCount = count;
+            WriteCount++;
             return count;
         }
 
@@ -164,16 +174,96 @@ public class DualSenseDeviceOutputTests
         CapturingHidDevice hid = new CapturingHidDevice();
         using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Bluetooth));
 
-        SetStateData payload = new SetStateData();
         for (int i = 0; i < 16; i++)
         {
-            device.SendOutputState(payload);
+            // Every payload differs so the dedupe does not suppress the sends.
+            device.SendOutputState(new SetStateData
+            {
+                RumbleRight = (byte)(i + 1)
+            });
         }
 
         Assert.That(hid.LastWrite![1], Is.EqualTo(0xF0)); // 16th send → sequence 15
 
-        device.SendOutputState(payload);
+        device.SendOutputState(new SetStateData
+        {
+            RumbleRight = 17
+        });
         Assert.That(hid.LastWrite[1], Is.EqualTo(0x00)); // wraps back to sequence 0
+    }
+
+    [Test]
+    public void Bluetooth_DuplicatePayload_IsSkipped()
+    {
+        CapturingHidDevice hid = new CapturingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Bluetooth));
+        SetStateData payload = new SetStateData
+        {
+            RumbleRight = 0x55,
+            LedRed = 0x10,
+            LedGreen = 0x20,
+            LedBlue = 0x30
+        };
+
+        device.SendOutputState(payload);
+        device.SendOutputState(payload);
+        device.SendOutputState(payload);
+
+        Assert.That(hid.WriteCount, Is.EqualTo(1), "byte-identical Bluetooth reports must be suppressed");
+    }
+
+    [Test]
+    public void Bluetooth_ChangedPayload_IsSent()
+    {
+        CapturingHidDevice hid = new CapturingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Bluetooth));
+
+        device.SendOutputState(new SetStateData
+        {
+            RumbleRight = 0x55
+        });
+        device.SendOutputState(new SetStateData
+        {
+            RumbleRight = 0x55,
+            RumbleLeft = 0x11
+        });
+
+        Assert.That(hid.WriteCount, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void Bluetooth_FailedSendIsNotDedupedAway()
+    {
+        CapturingHidDevice hid = new CapturingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Bluetooth));
+
+        SetStateData payload = new SetStateData
+        {
+            RumbleRight = 0x55
+        };
+        hid.FailWrites = true;
+        Assert.Throws<IOException>(() => device.SendOutputState(payload));
+
+        hid.FailWrites = false;
+        device.SendOutputState(payload);
+
+        Assert.That(hid.WriteCount, Is.EqualTo(1), "a payload whose send failed must be retried instead of deduped");
+    }
+
+    [Test]
+    public void Usb_DuplicatePayload_IsStillSent()
+    {
+        CapturingHidDevice hid = new CapturingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Usb));
+        SetStateData payload = new SetStateData
+        {
+            RumbleRight = 0x55
+        };
+
+        device.SendOutputState(payload);
+        device.SendOutputState(payload);
+
+        Assert.That(hid.WriteCount, Is.EqualTo(2), "the dedupe must only apply to the bandwidth-constrained Bluetooth transport");
     }
 
     [Test]
