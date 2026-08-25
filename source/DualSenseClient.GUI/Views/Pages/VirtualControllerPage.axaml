@@ -66,12 +66,14 @@
                                           Maximum="255"
                                           TickFrequency="1"
                                           Title="{DynamicResource VirtualControllerPage.Emulation.ForwardVolume}"
+                                          Description="{DynamicResource VirtualControllerPage.Emulation.ForwardVolume.Description}"
                                           Value="{Binding ForwardVolume}"
                                           IsVisible="{Binding IsAudioEmulation}" />
                         <cards:SliderCard Minimum="0"
                                           Maximum="200"
                                           TickFrequency="1"
                                           Title="{DynamicResource VirtualControllerPage.Emulation.ForwardHaptics}"
+                                          Description="{DynamicResource VirtualControllerPage.Emulation.ForwardHaptics.Description}"
                                           Value="{Binding ForwardHapticStrength}"
                                           IsVisible="{Binding IsAudioEmulation}" />
                     </StackPanel>

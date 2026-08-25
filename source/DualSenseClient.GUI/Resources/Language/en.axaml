@@ -198,7 +198,9 @@
     <sys:String x:Key="VirtualControllerPage.Emulation.AudioOutput.Speaker">Speaker</sys:String>
     <sys:String x:Key="VirtualControllerPage.Emulation.AudioOutput.Headset">Headset</sys:String>
     <sys:String x:Key="VirtualControllerPage.Emulation.ForwardVolume">Audio Volume</sys:String>
+    <sys:String x:Key="VirtualControllerPage.Emulation.ForwardVolume.Description">Volume of the desktop sounds forwarded to the controller. Only applies while the virtual audio output is selected as the default playback device.</sys:String>
     <sys:String x:Key="VirtualControllerPage.Emulation.ForwardHaptics">Haptic Strength</sys:String>
+    <sys:String x:Key="VirtualControllerPage.Emulation.ForwardHaptics.Description">Strength of the vibration generated from forwarded desktop sounds. Only applies while the virtual audio output is selected as the default playback device.</sys:String>
     <sys:String x:Key="VirtualControllerPage.Emulation.Status.Idle">No virtual controller is active.</sys:String>
     <sys:String x:Key="VirtualControllerPage.Emulation.Status.Running">Virtual controller active: {mode}</sys:String>
     <sys:String x:Key="VirtualControllerPage.Emulation.Status.RunningEdge">Virtual controller active: DualSense Edge</sys:String>
