@@ -16,6 +16,7 @@ DualSense Client
 </p>
 
 <p align="center">
+  <a href="https://dualsenseclient.github.io/DualSenseClient/"><img src="https://shieldcn.dev/badge/Documentation-Online.svg?color=0070D1&variant=ghost&font=fira-code&theme=zinc" alt="Documentation"></a>
   <a href="https://github.com/DualSenseClient/DualSenseClient/releases/latest"><img src="https://shieldcn.dev/github/DualSenseClient/DualSenseClient/release.svg?label=Stable&color=0070D1&variant=ghost&font=fira-code&theme=zinc" alt="Stable Release"></a>
   <a href="https://github.com/DualSenseClient/DualSenseClient/releases"><img src="https://shieldcn.dev/badge/dynamic/json.svg?url=https%3A%2F%2Fimg.shields.io%2Fgithub%2Fv%2Frelease%2FDualSenseClient%2FDualSenseClient.json%3Finclude_prereleases&query=%24.value&label=Nightly&color=0070D1&variant=ghost&font=fira-code&theme=zinc" alt="Nightly Release"></a>
 </p>
