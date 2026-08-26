@@ -10,14 +10,19 @@ DualSense Client
 ---
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Platform-Windows%20%26%20Linux-blue" alt="Platform">
-  <a href="https://github.com/DualSenseClient/DualSenseClient/blob/main/LICENSE"><img src="https://img.shields.io/github/license/DualSenseClient/DualSenseClient?color=green" alt="License"></a>
-  <a href="https://github.com/DualSenseClient/DualSenseClient/actions/workflows/build_release.yml"><img src="https://img.shields.io/github/actions/workflow/status/DualSenseClient/DualSenseClient/build_release.yml?label=Build&logo=github" alt="Build Status"></a>
+  <img src="https://shieldcn.dev/badge/Platform-Windows_%26_Linux.svg?color=0070D1&variant=ghost&font=fira-code&theme=zinc" alt="Platform">
+  <a href="https://github.com/DualSenseClient/DualSenseClient/blob/main/LICENSE"><img src="https://shieldcn.dev/github/DualSenseClient/DualSenseClient/license.svg?color=0070D1&variant=ghost&font=fira-code&theme=zinc" alt="License"></a>
+  <a href="https://github.com/DualSenseClient/DualSenseClient/actions/workflows/build_release.yml"><img src="https://shieldcn.dev/github/DualSenseClient/DualSenseClient/ci.svg?label=Build&logo=github&color=0070D1&variant=ghost&font=fira-code&theme=zinc" alt="Build Status"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/DualSenseClient/DualSenseClient/releases/latest"><img src="https://img.shields.io/github/v/release/DualSenseClient/DualSenseClient?label=Latest%20Release" alt="Latest Release"></a>
-  <a href="https://github.com/DualSenseClient/DualSenseClient/releases"><img src="https://img.shields.io/github/v/release/DualSenseClient/DualSenseClient?include_prereleases&label=Pre-Release&color=orange" alt="Pre-Release"></a>
+  <a href="https://github.com/DualSenseClient/DualSenseClient/releases/latest"><img src="https://shieldcn.dev/github/DualSenseClient/DualSenseClient/release.svg?label=Stable&color=0070D1&variant=ghost&font=fira-code&theme=zinc" alt="Stable Release"></a>
+  <a href="https://github.com/DualSenseClient/DualSenseClient/releases"><img src="https://shieldcn.dev/badge/dynamic/json.svg?url=https%3A%2F%2Fimg.shields.io%2Fgithub%2Fv%2Frelease%2FDualSenseClient%2FDualSenseClient.json%3Finclude_prereleases&query=%24.value&label=Nightly&color=0070D1&variant=ghost&font=fira-code&theme=zinc" alt="Nightly Release"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/sponsors/shazzaam7"><img src="https://shieldcn.dev/badge/Sponsor-GitHub_Sponsors.svg?color=0070D1&variant=ghost&font=fira-code&theme=zinc&logo=githubsponsors" alt="Github Sponsors"></a>
+  <a href="https://ko-fi.com/shazzaam"><img src="https://shieldcn.dev/badge/Sponsor-Ko--fi.svg?color=0070D1&variant=ghost&font=fira-code&theme=zinc&logo=kofi" alt="Ko-fi"></a>
 </p>
 
 ---
@@ -102,8 +107,8 @@ DualSense Client
 - **PlayStation 5 DualSense controller** (wired USB or Bluetooth connection)
 - **HidHide** (optional, Windows only) — driver for hiding physical controllers from other applications; see [nefarius/HidHide](https://github.com/nefarius/HidHide)
 - **USB/IP** (optional, virtual controller emulation only) — libVIIPER is bundled with the app; it only needs the USB/IP driver to attach virtual devices:
-  - Windows: [usbip-win2](https://github.com/vadimgrn/usbip-win2)
-  - Linux: install `usbip` (Arch: `sudo pacman -S usbip`; Ubuntu/Debian: `sudo apt install linux-tools-generic`)
+    - Windows: [usbip-win2](https://github.com/vadimgrn/usbip-win2)
+    - Linux: install `usbip` (Arch: `sudo pacman -S usbip`; Ubuntu/Debian: `sudo apt install linux-tools-generic`)
 
 ### Installation
 
@@ -158,15 +163,15 @@ Requires the .NET 10 SDK. Releases are produced automatically by CI for Windows 
 
 - [Avalonia](https://avaloniaui.net/) — Cross-platform .NET UI framework
 - [Fluent Avalonia](https://github.com/amwx/FluentAvalonia) — Fluent Design System for Avalonia
+- [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet) — MVVM framework with source generators
+- [Microsoft.Extensions.DependencyInjection](https://github.com/dotnet/runtime) — Dependency injection container
 - [Fluent Icons](https://github.com/davidxuang/FluentIcons) — Fluent icon set for modern interfaces
 - [SDL3](https://github.com/libsdl-org/SDL) (via [ppy.SDL3-CS](https://github.com/ppy/SDL3-CS)) — Cross-platform HID access for USB and Bluetooth
 - [Tmds.DBus](https://github.com/tmds/Tmds.DBus) — D-Bus client for BlueZ integration on Linux (Bluetooth disconnect; Windows uses the native Bluetooth radio driver via P/Invoke)
 - [Concentus](https://github.com/lostromb/concentus) — Opus audio encoding for Bluetooth haptics
 - [SoundFlow](https://github.com/LSXPrime/SoundFlow) — Audio playback with FFmpeg codec support
-- [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet) — MVVM framework with source generators
-- [Microsoft.Extensions.DependencyInjection](https://github.com/dotnet/runtime) — Dependency injection container
-- [Nefarius.Drivers.HidHide](https://github.com/nefarius/Nefarius.Drivers.HidHide) — .NET bindings for the HidHide driver
 - [libVIIPER](https://github.com/DualSenseClient/VIIPER) — Virtual controller emulation backend, stream protocol, and haptics
+- [Nefarius.Drivers.HidHide](https://github.com/nefarius/Nefarius.Drivers.HidHide) — .NET bindings for the HidHide driver
 
 ### Research
 
@@ -175,17 +180,16 @@ The DualSense protocol, audio, and haptics implementations were developed using 
 - [Linux kernel hid-playstation driver](https://github.com/torvalds/linux/blob/master/drivers/hid/hid-playstation.c) — Protocol reference, report layouts, calibration, and battery logic
 - [dualsense-tester](https://github.com/daidr/dualsense-tester) — Input/output report field maps and trigger effect logic
 - [vds](https://github.com/hurryman2212/vds) — Output report structs and Bluetooth audio/haptics implementation
-- [HidHide](https://github.com/nefarius/HidHide) — Driver for hiding physical controllers from other applications
 - [VIIPER](https://github.com/hbashton/VIIPER) — Virtual DualSense emulation, stream protocol, and haptics (base for libVIIPER)
+- [HidHide](https://github.com/nefarius/HidHide) — Driver for hiding physical controllers from other applications
+- [DS4Windows](https://github.com/hbashton/DS4Windows) — DualSense integration and emulation
 - [SAxense](https://github.com/egormanga/SAxense) — Bluetooth audio/haptics packet framing
 - [DS5Dongle](https://github.com/awalol/DS5Dongle) — Bluetooth audio reports, feature reports, and firmware info
 - [dualsense-bt-haptics](https://github.com/awalol/dualsense-bt-haptics) — Bluetooth haptics and speaker playback in C#
-- [DS4Windows](https://github.com/hbashton/DS4Windows) — DualSense integration and emulation
+- [ViGEmBus (simple_ds5_support fork)](https://github.com/awalol/ViGEmBus/tree/simple_ds5_support) — Virtual DualSense identity and feature report handling
 - [HIDMaestro](https://github.com/hifihedgehog/HIDMaestro) — Real-device USB descriptors and profiles
 - [PadForge](https://github.com/hifihedgehog/PadForge) — Output report framing and audio passthrough
-- [ViGEmBus (simple_ds5_support fork)](https://github.com/awalol/ViGEmBus/tree/simple_ds5_support) — Virtual DualSense identity and feature report handling
 - [LinuxAudio4Dualsense5](https://github.com/GeorgLegato/LinuxAudio4Dualsense5) — Working Bluetooth audio/haptics producer profile
-- [SoundFlow](https://github.com/LSXPrime/SoundFlow) — Audio engine research and playback behavior
 
 ### Inspiration
 

@@ -28,16 +28,11 @@ code quality and consistency across the project.
 
 ## Project Structure
 
-The project is organized into six projects:
+The solution follows a multi-project layout: each distinct concern lives in its own library project under `source/`, named `DualSenseClient.<Area>` (e.g., `DualSenseClient.Core`, `DualSenseClient.Hid`, `DualSenseClient.Settings`). **DualSenseClient.GUI** is the main application project containing Views, ViewModels, and UI-related logic; everything else is a supporting library.
 
-- **DualSenseClient.GUI**: Main application project containing Views, ViewModels, and UI-related logic
-- **DualSenseClient.Core**: Core library containing shared models, enums, and utilities
-- **DualSenseClient.Controllers**: Controller handling, DualSense protocol, and audio/haptics
-- **DualSenseClient.Hid**: SDL3-based HID device access
-- **DualSenseClient.Settings**: JSON-based settings persistence with backup recovery
-- **DualSenseClient.Logging**: Custom logging infrastructure with file and console sinks
+For the current list of projects, see the solution file or the `source/` directory.
 
-All shared logic should be placed in the appropriate library project to facilitate easier implementation of features across different UI platforms.
+All shared logic should be placed in the appropriate library project to facilitate easier implementation of features across different UI platforms. When introducing a new concern, create a new `DualSenseClient.<Area>` project rather than growing an existing one.
 
 ---
 
@@ -124,8 +119,7 @@ All shared logic should be placed in the appropriate library project to facilita
 ### File Organization
 
 - Place shared models, enums, and utilities in **DualSenseClient.Core**
-- Place settings-related code in **DualSenseClient.Settings**
-- Place logging-related code in **DualSenseClient.Logging**
+- Place code in the library project matching its concern (e.g., settings persistence in **DualSenseClient.Settings**, logging in **DualSenseClient.Logging**, device transport in **DualSenseClient.Hid** or **DualSenseClient.Bluetooth**)
 - Keep Views lightweight, delegating logic to ViewModels and services
 - Organize files by feature/namespace rather than type when possible
 
@@ -210,20 +204,18 @@ The rules in this section are encoded in the root `.editorconfig` and enforced b
 
 ### Unit Testing
 
-The project uses **NUnit** as the testing framework. Tests are located in `tests/DualSenseClient.Tests/` and are organized by component:
+The project uses **NUnit** as the testing framework. Tests are located in `tests/DualSenseClient.Tests/` and are organized by component: each folder corresponds to one `DualSenseClient.<Area>` source project:
 
 ```
 tests/DualSenseClient.Tests/
-├── Logging/      # Tests for logging infrastructure
-├── Settings/     # Tests for settings persistence
-├── Controllers/  # Tests for the DualSense protocol and audio/haptics
-├── Hid/          # Tests for HID enumeration
-└── Core/         # Tests for shared utilities (PathResolver, etc.)
+├── <Area>/        # One folder per source project, e.g. Core/, Hid/, Logging/, ...
+└── ...
 ```
 
 #### Writing Tests
 
 - Place tests in the folder matching the component being tested (e.g., `Logging/` for `DualSenseClient.Logging` source)
+- When testing a new `DualSenseClient.<Area>` project, create a folder named after it
 - Name test files `{ClassName}Tests.cs` (e.g., `FileLogSinkTests.cs`)
 - Use `[SetUp]` and `[TearDown]` for test initialization and cleanup (especially for file-based tests using temp directories)
 - Follow the `MethodName_Scenario_ExpectedResult` naming convention where clarity is needed
