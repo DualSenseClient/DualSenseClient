@@ -81,6 +81,39 @@ public static class LibVIIPER
     [return: MarshalAs(UnmanagedType.I1)]
     public static extern bool RemoveUSBBus(nuint serverHandle, uint busID);
 
+    /// <summary>
+    /// Controls how devices created with <c>autoAttachLocalhost</c> are attached on Windows:
+    /// via the native usbip-win2 IOCTL (true, default) or by shelling out to usbip.exe (false).
+    /// Has no effect on non-Windows hosts.
+    /// </summary>
+    /// <param name="serverHandle">Handle to the USB server.</param>
+    /// <param name="useNativeIoctl">True to attach via the native IOCTL.</param>
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    public static extern bool SetUSBAutoAttachWindowsNative(nuint serverHandle, [MarshalAs(UnmanagedType.I1)] bool useNativeIoctl);
+
+    /// <summary>
+    /// Reads live device telemetry (the same DeviceSpecificArgs as the bus/{id}/list API) as JSON.
+    /// Call once with <paramref name="buffer"/> = null to obtain the required size (including the null terminator),
+    /// then again with an adequately sized buffer. Returns 0 for an invalid handle.
+    /// Works with any device handle from any family.
+    /// </summary>
+    /// <param name="deviceHandle">Handle to any device created by this library.</param>
+    /// <param name="buffer">Output buffer for the null-terminated JSON, or null to query the required size.</param>
+    /// <param name="bufferSize">Size of the output buffer in bytes.</param>
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
+    public static extern nuint GetDeviceTelemetry(nuint deviceHandle, byte[]? buffer, nuint bufferSize);
+
+    /// <summary>
+    /// Reads aggregate USB/IP endpoint scheduling diagnostics for all currently attached connections as JSON.
+    /// Same two-call buffer pattern as <see cref="GetDeviceTelemetry"/>; returns 0 for an invalid handle.
+    /// </summary>
+    /// <param name="serverHandle">Handle to the USB server.</param>
+    /// <param name="buffer">Output buffer for the null-terminated JSON, or null to query the required size.</param>
+    /// <param name="bufferSize">Size of the output buffer in bytes.</param>
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
+    public static extern nuint GetUSBEndpointDiagnostics(nuint serverHandle, byte[]? buffer, nuint bufferSize);
+
     // ── DualSense ────────────────────────────────────────────────────
 
     /// <summary>
