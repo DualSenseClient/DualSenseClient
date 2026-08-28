@@ -174,6 +174,25 @@ public static class LibVIIPER
         [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct, DSMetaState[]? meta);
 
     /// <summary>
+    /// Creates a DualSense family device selected by a registered device type name.
+    /// In addition to the classic variants this reaches the events and raw-input aliases
+    /// (e.g. "dualsensecombinedaudioduplexv5rawinputevents", case-insensitive).
+    /// </summary>
+    /// <param name="serverHandle">Handle to the USB server.</param>
+    /// <param name="outDeviceHandle">Output parameter for the created device handle.</param>
+    /// <param name="busID">ID of the bus to add the device to.</param>
+    /// <param name="autoAttachLocalhost">If true, automatically attach to the USBIP client on this machine.</param>
+    /// <param name="idVendor">Optional USB vendor ID (0 = default).</param>
+    /// <param name="idProduct">Optional USB product ID (0 = default).</param>
+    /// <param name="meta">Optional initial device metadata, or null to use defaults.</param>
+    /// <param name="deviceType">Registered DualSense device type name (case-insensitive).</param>
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    public static extern bool CreateDualSenseDeviceByType(nuint serverHandle, out nuint outDeviceHandle, uint busID,
+        [MarshalAs(UnmanagedType.I1)] bool autoAttachLocalhost, ushort idVendor, ushort idProduct, DSMetaState[]? meta,
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string deviceType);
+
+    /// <summary>
     /// Updates the input state of the DualSense device associated with the given handle.
     /// </summary>
     /// <param name="deviceHandle">Handle to the DualSense device.</param>
@@ -181,6 +200,19 @@ public static class LibVIIPER
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
     public static extern bool SetDualSenseDeviceState(nuint deviceHandle, DSDeviceState state);
+
+    /// <summary>
+    /// Updates the input state together with physical raw-input metadata, mirroring the
+    /// 53-byte V5RawInput wire payload as one atomic unit.
+    /// Pass a zero-initialized <paramref name="raw"/> (Valid = 0) to behave exactly like
+    /// <see cref="SetDualSenseDeviceState"/>.
+    /// </summary>
+    /// <param name="deviceHandle">Handle to the DualSense device.</param>
+    /// <param name="state">New input state to set on the device.</param>
+    /// <param name="raw">Physical raw-input metadata accompanying the state.</param>
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    public static extern bool SetDualSenseDeviceStateRaw(nuint deviceHandle, DSDeviceState state, ref DSRawInputMetadata raw);
 
     /// <summary>
     /// Updates the meta (identity/battery/sensor) state at runtime.
@@ -218,6 +250,18 @@ public static class LibVIIPER
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
     public static extern bool SetDualSenseRealtimeHapticsCallback(nuint deviceHandle, DSRealtimeHapticsCallback? callback);
+
+    /// <summary>
+    /// Sets a callback invoked once per 480-frame speaker generation of the V5 transport.
+    /// Each invocation pairs the native feedback output state with exactly that generation's
+    /// speaker PCM: two S16LE channels (front stereo) at 48 kHz, 1920 bytes.
+    /// The buffer is only valid during the call.
+    /// </summary>
+    /// <param name="deviceHandle">Handle to the DualSense device.</param>
+    /// <param name="callback">Callback receiving the full output state and its paired PCM buffer, or null to clear.</param>
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    public static extern bool SetDualSenseAtomicAudioHapticsCallback(nuint deviceHandle, DSAtomicAudioHapticsCallback? callback);
 
     /// <summary>
     /// Sets a callback invoked when the haptics audio interface is reset or its alternate setting changes.
@@ -436,6 +480,16 @@ public static class LibVIIPER
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
     public static extern bool SetNS2ProDeviceState(nuint deviceHandle, NS2ProDeviceState state);
+
+    /// <summary>
+    /// Updates the meta (identity/battery) state at runtime.
+    /// Fields left at their zero value keep the current value.
+    /// </summary>
+    /// <param name="deviceHandle">Handle to the NS2Pro device.</param>
+    /// <param name="meta">Updated metadata, or null to change nothing.</param>
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    public static extern bool SetNS2ProMetaState(nuint deviceHandle, NS2ProMetaState[]? meta);
 
     /// <summary>
     /// Sets a callback invoked when the host sends output (rumble/LED) commands to the device.
