@@ -379,7 +379,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
             for (SDL_hid_device_info* cur = devices; cur != null; cur = cur->next)
             {
                 string path = cur->path != null ? Utf8ToString(cur->path) : string.Empty;
-                string name = PtrToStringWchar(cur->product_string);
+                string name = HidWchar.PtrToString(cur->product_string);
 
                 HidUsageId usage = (HidUsageId)cur->usage;
                 if (usage == HidUsageId.Unknown)
@@ -399,7 +399,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                     VendorId = cur->vendor_id,
                     ProductId = cur->product_id,
                     ProductName = name,
-                    Manufacturer = PtrToStringWchar(cur->manufacturer_string),
+                    Manufacturer = HidWchar.PtrToString(cur->manufacturer_string),
                     InterfaceNumber = cur->interface_number,
                     UsagePage = cur->usage_page,
                     Usage = usage,
@@ -435,50 +435,6 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                 throw new HidException("SDL_hid_init failed");
             }
         }
-    }
-
-    /// <summary>
-    /// Converts a native <c>wchar_t*</c> (SDL hidapi) to a managed string, handling
-    /// platform wchar_t size: 2 bytes UTF-16 on Windows, 4 bytes UTF-32 on Linux/macOS.
-    /// </summary>
-    private static unsafe string PtrToStringWchar(IntPtr ptr)
-    {
-        if (ptr == IntPtr.Zero)
-        {
-            return string.Empty;
-        }
-
-        if (OperatingSystem.IsWindows())
-        {
-            return Marshal.PtrToStringUni(ptr) ?? string.Empty;
-        }
-
-        // Linux/macOS: wchar_t is 4 bytes UTF-32.
-        int* p = (int*)ptr;
-        int len = 0;
-        while (p[len] != 0)
-        {
-            len++;
-        }
-
-        if (len == 0)
-        {
-            return string.Empty;
-        }
-
-        StringBuilder sb = new StringBuilder(len);
-        for (int i = 0; i < len; i++)
-        {
-            int cp = p[i];
-            if (cp < 0 || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF))
-            {
-                continue;
-            }
-
-            sb.Append(char.ConvertFromUtf32(cp));
-        }
-
-        return sb.ToString();
     }
 
     /// <summary>

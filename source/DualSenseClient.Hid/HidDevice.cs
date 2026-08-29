@@ -127,7 +127,7 @@ public sealed class HidDevice : IHidDevice
         {
             if (serial != null)
             {
-                serialPtr = StringToWcharPtr(serial);
+                serialPtr = HidWchar.StringToPtr(serial);
             }
 
             _device = SDL3.SDL_hid_open(vendorId, productId, serialPtr);
@@ -299,41 +299,10 @@ public sealed class HidDevice : IHidDevice
         }
         else
         {
-            // On Linux/macOS wchar_t is 4 bytes (UTF-32), while C# char is 2 bytes (UTF-16).
-            // SDL writes wchar_t, so we must provide a 4-byte-per-char buffer and decode.
+            // On Linux wchar_t is 4 bytes (UTF-32).
             int* buf = stackalloc int[maxChars];
             int len = SDL3.SDL_hid_get_product_string(device, (IntPtr)buf, (nuint)maxChars);
-            if (len > 0)
-            {
-                if (len > maxChars)
-                {
-                    len = maxChars;
-                }
-
-                StringBuilder sb = new StringBuilder(len);
-                for (int i = 0; i < len; i++)
-                {
-                    int cp = buf[i];
-                    if (cp == 0)
-                    {
-                        break;
-                    }
-
-                    // Skip invalid codepoints (surrogates, out-of-range) instead of crashing.
-                    if (cp < 0 || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF))
-                    {
-                        continue;
-                    }
-
-                    sb.Append(char.ConvertFromUtf32(cp));
-                }
-
-                name = sb.Length > 0 ? sb.ToString() : "Unknown";
-            }
-            else
-            {
-                name = "Unknown";
-            }
+            name = HidWchar.BufferToString(buf, len);
         }
 
         if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
@@ -390,54 +359,6 @@ public sealed class HidDevice : IHidDevice
             _log.Trace($"IsConnected on '{DevicePath}': false (all zeros)");
             return false;
         }
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────
-
-    /// <summary>
-    /// Marshals a managed string to a native <c>wchar_t*</c> for SDL hidapi.
-    /// Windows: 2-byte UTF-16 via CoTaskMemUni; Linux/macOS: 4-byte UTF-32.
-    /// Caller must free with <see cref="Marshal.FreeCoTaskMem"/>.
-    /// </summary>
-    private static unsafe IntPtr StringToWcharPtr(string s)
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            return Marshal.StringToCoTaskMemUni(s);
-        }
-
-        // Linux/macOS: wchar_t is 4 bytes UTF-32. Convert UTF-16 string to codepoints.
-        // Count runes to allocate.
-        int runeCount = 0;
-        for (int i = 0; i < s.Length; i++)
-        {
-            if (char.IsHighSurrogate(s[i]) && i + 1 < s.Length && char.IsLowSurrogate(s[i + 1]))
-            {
-                runeCount++;
-                i++;
-            }
-            else
-            {
-                runeCount++;
-            }
-        }
-
-        IntPtr ptr = Marshal.AllocCoTaskMem((runeCount + 1) * 4);
-        int* p = (int*)ptr;
-        int idx = 0;
-        for (int i = 0; i < s.Length; i++)
-        {
-            int cp = char.ConvertToUtf32(s, i);
-            if (char.IsSurrogatePair(s, i))
-            {
-                i++;
-            }
-
-            p[idx++] = cp;
-        }
-
-        p[idx] = 0;
-        return ptr;
     }
 
     // ── Dispose ─────────────────────────────────────────────────
