@@ -127,7 +127,7 @@ public sealed class HidDevice : IHidDevice
         {
             if (serial != null)
             {
-                serialPtr = Marshal.StringToCoTaskMemUni(serial);
+                serialPtr = StringToWcharPtr(serial);
             }
 
             _device = SDL3.SDL_hid_open(vendorId, productId, serialPtr);
@@ -390,6 +390,54 @@ public sealed class HidDevice : IHidDevice
             _log.Trace($"IsConnected on '{DevicePath}': false (all zeros)");
             return false;
         }
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Marshals a managed string to a native <c>wchar_t*</c> for SDL hidapi.
+    /// Windows: 2-byte UTF-16 via CoTaskMemUni; Linux/macOS: 4-byte UTF-32.
+    /// Caller must free with <see cref="Marshal.FreeCoTaskMem"/>.
+    /// </summary>
+    private static unsafe IntPtr StringToWcharPtr(string s)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return Marshal.StringToCoTaskMemUni(s);
+        }
+
+        // Linux/macOS: wchar_t is 4 bytes UTF-32. Convert UTF-16 string to codepoints.
+        // Count runes to allocate.
+        int runeCount = 0;
+        for (int i = 0; i < s.Length; i++)
+        {
+            if (char.IsHighSurrogate(s[i]) && i + 1 < s.Length && char.IsLowSurrogate(s[i + 1]))
+            {
+                runeCount++;
+                i++;
+            }
+            else
+            {
+                runeCount++;
+            }
+        }
+
+        IntPtr ptr = Marshal.AllocCoTaskMem((runeCount + 1) * 4);
+        int* p = (int*)ptr;
+        int idx = 0;
+        for (int i = 0; i < s.Length; i++)
+        {
+            int cp = char.ConvertToUtf32(s, i);
+            if (char.IsSurrogatePair(s, i))
+            {
+                i++;
+            }
+
+            p[idx++] = cp;
+        }
+
+        p[idx] = 0;
+        return ptr;
     }
 
     // ── Dispose ─────────────────────────────────────────────────
