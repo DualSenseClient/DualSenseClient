@@ -8,6 +8,10 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <InternalsVisibleTo Include="DualSenseClient.Tests"/>
+    </ItemGroup>
+
+    <ItemGroup>
       <PackageReference Include="ppy.SDL3-CS" Version="2026.722.0" />
     </ItemGroup>
 
