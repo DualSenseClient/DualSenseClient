@@ -281,20 +281,37 @@ public abstract class ControllerDevice(IHidDevice device, IHidDeviceInfo info) :
     /// <inheritdoc/>
     public bool DisconnectController()
     {
+        // Use the cached enumeration name instead of querying the live HID device.
+        // GetProductName() calls SDL_hid_get_product_string which can fail or crash
+        // when the device is mid-disconnect / already disposed; Info.ProductName is
+        // stable and was captured at enumeration time.
+        string productName = Info.ProductName;
+        if (string.IsNullOrEmpty(productName))
+        {
+            try
+            {
+                productName = GetProductName();
+            }
+            catch
+            {
+                productName = "Unknown controller";
+            }
+        }
+
         if (ConnectionType != ConnectionType.Bluetooth)
         {
-            _log.Warning($"{GetProductName()} is not connected via Bluetooth, nothing to disconnect");
+            _log.Warning($"{productName} is not connected via Bluetooth, nothing to disconnect");
             return false;
         }
 
         string? mac = BluetoothMacAddress;
         if (string.IsNullOrEmpty(mac))
         {
-            _log.Warning($"Could not read the Bluetooth MAC address of {GetProductName()}");
+            _log.Warning($"Could not read the Bluetooth MAC address of {productName}");
             return false;
         }
 
-        _log.Info($"Disconnecting Bluetooth controller {GetProductName()} ({mac})");
+        _log.Info($"Disconnecting Bluetooth controller {productName} ({mac})");
         return BluetoothService.Disconnect(mac);
     }
 

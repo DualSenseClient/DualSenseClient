@@ -281,10 +281,66 @@ public sealed class HidDevice : IHidDevice
     {
         ObjectDisposedException.ThrowIf(_disposed == 1, this);
 
-        char* buf = stackalloc char[256];
-        int len = SDL3.SDL_hid_get_product_string(_device, (IntPtr)buf, 256);
-        string name = len > 0 ? new string(buf, 0, len) : "Unknown";
-        _log.Trace($"GetProductName on '{DevicePath}': \"{name}\"");
+        // Snapshot the handle to avoid racing with Dispose() which nulls _device.
+        SDL_hid_device* device = _device;
+        if (device == null)
+        {
+            throw new ObjectDisposedException(nameof(HidDevice));
+        }
+
+        const int maxChars = 256;
+        string name;
+
+        if (OperatingSystem.IsWindows())
+        {
+            char* buf = stackalloc char[maxChars];
+            int len = SDL3.SDL_hid_get_product_string(device, (IntPtr)buf, (nuint)maxChars);
+            name = len > 0 ? new string(buf, 0, Math.Min(len, maxChars)) : "Unknown";
+        }
+        else
+        {
+            // On Linux/macOS wchar_t is 4 bytes (UTF-32), while C# char is 2 bytes (UTF-16).
+            // SDL writes wchar_t, so we must provide a 4-byte-per-char buffer and decode.
+            int* buf = stackalloc int[maxChars];
+            int len = SDL3.SDL_hid_get_product_string(device, (IntPtr)buf, (nuint)maxChars);
+            if (len > 0)
+            {
+                if (len > maxChars)
+                {
+                    len = maxChars;
+                }
+
+                StringBuilder sb = new StringBuilder(len);
+                for (int i = 0; i < len; i++)
+                {
+                    int cp = buf[i];
+                    if (cp == 0)
+                    {
+                        break;
+                    }
+
+                    // Skip invalid codepoints (surrogates, out-of-range) instead of crashing.
+                    if (cp < 0 || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF))
+                    {
+                        continue;
+                    }
+
+                    sb.Append(char.ConvertFromUtf32(cp));
+                }
+
+                name = sb.Length > 0 ? sb.ToString() : "Unknown";
+            }
+            else
+            {
+                name = "Unknown";
+            }
+        }
+
+        if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
+        {
+            _log.Trace($"GetProductName on '{DevicePath}': \"{name}\"");
+        }
+
         return name;
     }
 
