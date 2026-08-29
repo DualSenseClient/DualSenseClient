@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
+using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.Hid;
@@ -75,6 +76,18 @@ public partial class MainViewModel : ObservableObject, IDisposable
         get
         {
             return SelectedItem?.Device.ConnectionType == ConnectionType.Bluetooth;
+        }
+    }
+
+    /// <summary>
+    /// Whether the virtual controller page is available on this platform. Hidden on
+    /// Linux where emulation is not supported.
+    /// </summary>
+    public bool IsVirtualControllerVisible
+    {
+        get
+        {
+            return EmulationService.IsSupported;
         }
     }
 

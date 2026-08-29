@@ -119,9 +119,10 @@
                         <ic:SymbolIconSource Symbol="Options" />
                     </controls:FANavigationViewItem.IconSource>
                 </controls:FANavigationViewItem>
-                <!-- Virtual controller page -->
+                <!-- Virtual controller page (hidden on Linux where emulation is unsupported) -->
                 <controls:FANavigationViewItem Content="{DynamicResource MainWindow.VirtualController}"
-                                               Tag="VirtualControllerPage">
+                                               Tag="VirtualControllerPage"
+                                               IsVisible="{Binding IsVirtualControllerVisible}">
                     <controls:FANavigationViewItem.IconSource>
                         <ic:SymbolIconSource Symbol="Joystick" />
                     </controls:FANavigationViewItem.IconSource>
