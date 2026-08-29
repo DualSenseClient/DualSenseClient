@@ -36,7 +36,28 @@ public class PathResolverTests
     public void GetFullPath_RelativePath_CombinesWithBaseDirectory()
     {
         string result = PathResolver.GetFullPath("some/relative/path");
-        Assert.That(result, Is.EqualTo(Path.Combine(PathResolver.BaseDirectory, "some/relative/path")));
+        Assert.That(result, Is.EqualTo(Path.Combine(PathResolver.BaseDirectory, "some", "relative", "path")));
+    }
+
+    [Test]
+    public void GetFullPath_BackslashSeparators_NormalizedToPlatformSeparator()
+    {
+        string result = PathResolver.GetFullPath(@"Logs\DualSenseClient.log");
+        Assert.That(result, Is.EqualTo(Path.Combine(PathResolver.BaseDirectory, "Logs", "DualSenseClient.log")));
+    }
+
+    [Test]
+    public void GetFullPath_ForwardSlashSeparators_NormalizedToPlatformSeparator()
+    {
+        string result = PathResolver.GetFullPath("Logs/DualSenseClient.log");
+        Assert.That(result, Is.EqualTo(Path.Combine(PathResolver.BaseDirectory, "Logs", "DualSenseClient.log")));
+    }
+
+    [Test]
+    public void GetFullPath_MultipleSegments_NormalizesSeparatorsInEachSegment()
+    {
+        string result = PathResolver.GetFullPath(@"Logs\Data", @"settings\config.json");
+        Assert.That(result, Is.EqualTo(Path.Combine(PathResolver.BaseDirectory, "Logs", "Data", "settings", "config.json")));
     }
 
     [Test]

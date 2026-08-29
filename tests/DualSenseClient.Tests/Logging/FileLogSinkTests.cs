@@ -44,6 +44,21 @@ public class FileLogSinkTests
     }
 
     [Test]
+    public void Constructor_MixedSeparators_NormalizesForwardSlashes()
+    {
+        using FileLogSink sink = new FileLogSink($"{_tempDir}/subdir/app.log");
+        Assert.That(Directory.Exists(Path.Combine(_tempDir, "subdir")), Is.True);
+    }
+
+    [Test]
+    public void Constructor_MixedSeparators_NormalizesBackslashes()
+    {
+        using FileLogSink sink = new FileLogSink($"{_tempDir}{Path.DirectorySeparatorChar}subdir\\app.log", rotateDaily: false);
+        string expectedFile = Path.Combine(_tempDir, "subdir", "app.log");
+        Assert.That(File.Exists(expectedFile), Is.True);
+    }
+
+    [Test]
     public void Write_CreatesLogFile()
     {
         string path = Path.Combine(_tempDir, "app.log");

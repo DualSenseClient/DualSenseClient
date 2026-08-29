@@ -129,7 +129,12 @@ public static class PathResolver
     /// </summary>
     /// <param name="path">A path relative to the application's base directory.</param>
     /// <returns>The absolute path.</returns>
-    public static string GetFullPath(string path) => Path.IsPathRooted(path) ? path : Path.Combine(_baseDirectory, path);
+    public static string GetFullPath(string path)
+    {
+        string normalizedPath = path.Replace('\\', Path.DirectorySeparatorChar)
+            .Replace('/', Path.DirectorySeparatorChar);
+        return Path.IsPathRooted(normalizedPath) ? normalizedPath : Path.Combine(_baseDirectory, normalizedPath);
+    }
 
     /// <summary>
     /// Combines multiple relative path segments into a single absolute path
@@ -137,8 +142,15 @@ public static class PathResolver
     /// </summary>
     /// <param name="relativePaths">An ordered set of relative path segments.</param>
     /// <returns>The resulting absolute path.</returns>
-    public static string GetFullPath(params string[] relativePaths) => Path.Combine(new[]
+    public static string GetFullPath(params string[] relativePaths)
     {
-        _baseDirectory
-    }.Concat(relativePaths).ToArray());
+        string[] normalized = relativePaths
+            .Select(p => p.Replace('\\', Path.DirectorySeparatorChar)
+                .Replace('/', Path.DirectorySeparatorChar))
+            .ToArray();
+        return Path.Combine(new[]
+        {
+            _baseDirectory
+        }.Concat(normalized).ToArray());
+    }
 }

@@ -101,14 +101,20 @@ public sealed class FileLogSink : ILogSink, IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-        _baseName = Path.GetFileNameWithoutExtension(path);
-        _extension = Path.GetExtension(path);
+        // Normalize path separators for cross-platform compatibility.
+        // On Linux, '\' is a valid filename character (but invalid on NTFS),
+        // so a Windows-style path like "Logs\app.log" would not be split correctly.
+        string normalizedPath = path.Replace('\\', Path.DirectorySeparatorChar)
+            .Replace('/', Path.DirectorySeparatorChar);
+
+        _baseName = Path.GetFileNameWithoutExtension(normalizedPath);
+        _extension = Path.GetExtension(normalizedPath);
         if (string.IsNullOrEmpty(_extension))
         {
             _extension = ".log";
         }
 
-        string? directory = Path.GetDirectoryName(path);
+        string? directory = Path.GetDirectoryName(normalizedPath);
         _directory = string.IsNullOrEmpty(directory) ? "." : directory;
         if (!Directory.Exists(_directory))
         {
