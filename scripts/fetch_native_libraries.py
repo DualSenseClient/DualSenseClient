@@ -17,7 +17,8 @@ import zipfile
 from pathlib import Path
 
 REPO = "DualSenseClient/VIIPER"
-TAG = "dev-snapshot"
+TAG = "v1.0.0"
+DEV_TAG = "dev-snapshot"
 DESTINATION = Path("source") / "DualSenseClient.VIIPER" / "native"
 
 PLATFORMS = {
@@ -91,6 +92,13 @@ def main() -> int:
     )
     parser.add_argument("--repo", default=REPO, help="GitHub repository (owner/name)")
     parser.add_argument("--tag", default=TAG, help="Release tag to download from")
+    parser.add_argument(
+        "--dev",
+        dest="tag",
+        action="store_const",
+        const=DEV_TAG,
+        help=f"Download the dev release instead ({DEV_TAG}); overrides --tag",
+    )
     parser.add_argument(
         "--output", type=Path, default=DESTINATION, help="Output directory"
     )
