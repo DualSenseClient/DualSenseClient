@@ -36,6 +36,27 @@ internal static unsafe class HidStringMarshal
     }
 
     /// <summary>
+    /// Converts a null-terminated UTF-8 byte pointer into a managed <see cref="string"/>.
+    /// </summary>
+    /// <param name="ptr">Pointer to a null-terminated UTF-8 string, or <c>null</c>.</param>
+    /// <returns>The decoded string, or <see cref="string.Empty"/> if the pointer is <c>null</c>.</returns>
+    public static string Utf8ToString(byte* ptr)
+    {
+        if (ptr == null)
+        {
+            return string.Empty;
+        }
+
+        int len = 0;
+        while (len < MaxStringLength && ptr[len] != 0)
+        {
+            len++;
+        }
+
+        return len > 0 ? Encoding.UTF8.GetString(ptr, len) : string.Empty;
+    }
+
+    /// <summary>
     /// Decodes a native <c>wchar_t</c> buffer filled by <c>hid_get_*_string</c>.
     /// </summary>
     /// <param name="buffer">Pointer to the native buffer.</param>

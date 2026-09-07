@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using System.Text;
 using DualSenseClient.Hid.Interop;
 using DualSenseClient.Logging;
 
@@ -314,7 +313,11 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
         if (btDevices.Count > 0)
         {
             ConcurrentDictionary<string, bool> connected = new ConcurrentDictionary<string, bool>();
-            Parallel.ForEach(btDevices, device =>
+            ParallelOptions options = new ParallelOptions
+            {
+                MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount)
+            };
+            Parallel.ForEach(btDevices, options, device =>
             {
                 if (!IsDeviceConnected(device.Path))
                 {
@@ -325,15 +328,6 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                 connected.TryAdd(device.Path, true);
             });
 
-            /*
-            foreach (IHidDeviceInfo device in btDevices)
-            {
-                if (connected.ContainsKey(device.Path))
-                {
-                    result.Add(device);
-                }
-            }
-            */
             result.AddRange(btDevices.Where(device => connected.ContainsKey(device.Path)));
         }
 
@@ -377,7 +371,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
             int count = 0;
             for (HidDeviceInfoNative* cur = devices; cur != null; cur = cur->Next)
             {
-                string path = cur->Path != null ? Utf8ToString(cur->Path) : string.Empty;
+                string path = HidStringMarshal.Utf8ToString(cur->Path);
                 string name = HidStringMarshal.PtrToString(cur->ProductString);
 
                 HidUsageId usage = (HidUsageId)cur->Usage;
@@ -402,12 +396,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                     InterfaceNumber = cur->InterfaceNumber,
                     UsagePage = cur->UsagePage,
                     Usage = usage,
-                    BusType = cur->BusType switch
-                    {
-                        HidBusType.Usb => ConnectionType.Usb,
-                        HidBusType.Bluetooth => ConnectionType.Bluetooth,
-                        _ => ConnectionType.Unknown
-                    }
+                    BusType = HidObjectMapper.ToConnectionType(cur->BusType)
                 });
             }
 
@@ -434,28 +423,9 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                 _log.Error($"hid_init failed: {error}");
                 throw new HidException($"hid_init failed: {error}");
             }
-        }
-    }
 
-    /// <summary>
-    /// Converts a null-terminated UTF-8 byte pointer into a managed <see cref="string"/>.
-    /// </summary>
-    /// <param name="ptr">Pointer to a null-terminated UTF-8 string, or <c>null</c>.</param>
-    /// <returns>The decoded string, or <see cref="string.Empty"/> if the pointer is <c>null</c>.</returns>
-    private static unsafe string Utf8ToString(byte* ptr)
-    {
-        if (ptr == null)
-        {
-            return string.Empty;
+            _log.Debug($"HIDAPI native library version: {HidApi.NativeLibraryVersion ?? "unknown"}");
         }
-
-        int len = 0;
-        while (ptr[len] != 0)
-        {
-            len++;
-        }
-
-        return len > 0 ? Encoding.UTF8.GetString(ptr, len) : string.Empty;
     }
 
     /// <summary>
