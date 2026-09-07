@@ -29,7 +29,7 @@ The app uses the controller's standard HID protocol — the same interfaces used
 
 ### Do I need to install drivers?
 
-No driver is required just to connect a controller over USB or Bluetooth — HID access is provided through SDL3/hidapi. Optional components that do need drivers or packages:
+No driver is required just to connect a controller over USB or Bluetooth — HID access is provided through HIDAPI (bundled on Windows; system libhidapi-hidraw on Linux). Optional components that do need drivers or packages:
 
 - **[HidHide](https://github.com/nefarius/HidHide)** (Windows only) for [controller hiding](guides/controller-hiding.md)
 - **[USB/IP](https://github.com/vadimgrn/usbip-win2)** for [virtual controller emulation](guides/virtual-controller.md)

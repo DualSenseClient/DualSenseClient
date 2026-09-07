@@ -30,7 +30,7 @@ DualSense Client
 
 ## Overview
 
-**DualSense Client** is an open-source management tool for the **PlayStation 5 DualSense Controller** on Windows and Linux. It provides lightbar and LED control, profile management, real-time input monitoring, rumble and adaptive trigger output, and audio playback to the controller's speaker and haptics. It can also create virtual controllers (Xbox 360, DualShock 4, or DualSense) through the embedded libVIIPER backend, and hide physical controllers from other applications via HidHide. Built with .NET 10 and Avalonia, it connects over USB or Bluetooth through HIDAPI (Provided by SDL3) with no drivers required.
+**DualSense Client** is an open-source management tool for the **PlayStation 5 DualSense Controller** on Windows and Linux. It provides lightbar and LED control, profile management, real-time input monitoring, rumble and adaptive trigger output, and audio playback to the controller's speaker and haptics. It can also create virtual controllers (Xbox 360, DualShock 4, or DualSense) through the embedded libVIIPER backend, and hide physical controllers from other applications via HidHide. Built with .NET 10 and Avalonia, it connects over USB or Bluetooth through HIDAPI with no drivers required.
 
 ## Supported Controllers
 
@@ -167,7 +167,7 @@ Requires the .NET 10 SDK. Releases are produced automatically by CI for Windows 
 - [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet) — MVVM framework with source generators
 - [Microsoft.Extensions.DependencyInjection](https://github.com/dotnet/runtime) — Dependency injection container
 - [Fluent Icons](https://github.com/davidxuang/FluentIcons) — Fluent icon set for modern interfaces
-- [SDL3](https://github.com/libsdl-org/SDL) (via [ppy.SDL3-CS](https://github.com/ppy/SDL3-CS)) — Cross-platform HID access for USB and Bluetooth
+- [HIDAPI](https://github.com/libusb/hidapi) — Cross-platform HID access for USB and Bluetooth (native binary bundled on Windows; system libhidapi-hidraw on Linux)
 - [Tmds.DBus](https://github.com/tmds/Tmds.DBus) — D-Bus client for BlueZ integration on Linux (Bluetooth disconnect; Windows uses the native Bluetooth radio driver via P/Invoke)
 - [Concentus](https://github.com/lostromb/concentus) — Opus audio encoding for Bluetooth haptics
 - [SoundFlow](https://github.com/LSXPrime/SoundFlow) — Audio playback with FFmpeg codec support

@@ -10,6 +10,7 @@
 === "Linux"
 
     - No .NET installation required (self-contained build)
+    - HIDAPI system library for controller access (Ubuntu/Debian: `sudo apt install libhidapi-hidraw0`)
 
 Optional components:
 

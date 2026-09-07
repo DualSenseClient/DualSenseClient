@@ -4,7 +4,7 @@
 
 It can also create virtual controllers (Xbox 360, DualShock 4, or DualSense) through the embedded libVIIPER backend, and hide physical controllers from other applications via HidHide.
 
-Built with .NET and Avalonia, it connects over USB or Bluetooth through HIDAPI (provided by SDL3) with no drivers required.
+Built with .NET and Avalonia, it connects over USB or Bluetooth through HIDAPI with no drivers required.
 
 ![DualSense Client main window](assets/images/overview.png)
 

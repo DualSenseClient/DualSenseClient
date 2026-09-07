@@ -12,7 +12,7 @@ namespace DualSenseClient.Controllers.Devices;
 
 /// <summary>
 /// Concrete controller implementation for the Sony DualSense (PS5) controller.
-/// Opens and communicates with the DualSense over USB or Bluetooth via SDL3 HID.
+/// Opens and communicates with the DualSense over USB or Bluetooth via HIDAPI.
 /// </summary>
 public class DualSenseDevice : ControllerDevice
 {
