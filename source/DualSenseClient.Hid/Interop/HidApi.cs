@@ -128,6 +128,15 @@ internal static unsafe class HidApi
     internal static extern int GetProductString(HidDeviceHandle* device, IntPtr str, nuint maxlen);
 
     /// <summary>
+    /// Gets device info for an open device. The returned pointer is owned by the
+    /// device and must not be freed; it stays valid until <see cref="Close"/>.
+    /// </summary>
+    /// <param name="device">Open device handle.</param>
+    /// <returns>Pointer to the device info, or <c>null</c> on failure.</returns>
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "hid_get_device_info", ExactSpelling = true)]
+    internal static extern HidDeviceInfoNative* GetDeviceInfo(HidDeviceHandle* device);
+
+    /// <summary>
     /// Closes a HID device.
     /// </summary>
     /// <param name="device">Open device handle.</param>

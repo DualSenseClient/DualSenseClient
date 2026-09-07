@@ -109,7 +109,14 @@ public sealed class HidDevice : IHidDevice
             throw new HidException($"hid_open_path failed for '{path}': {error}");
         }
 
-        _log.Debug($"Opened HID device '{path}'");
+        HidDeviceInfoNative* info = HidApi.GetDeviceInfo(_device);
+        if (info != null)
+        {
+            VendorId = info->VendorId;
+            ProductId = info->ProductId;
+        }
+
+        _log.Debug($"Opened HID device '{path}' (VID=0x{VendorId:X4}, PID=0x{ProductId:X4})");
     }
 
     // ── Read ────────────────────────────────────────────────────
