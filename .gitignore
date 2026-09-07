@@ -9,6 +9,7 @@ obj/
 
 # Fetched native libraries (see scripts/fetch_native_libraries.py)
 source/DualSenseClient.VIIPER/native/
+source/DualSenseClient.Hid/native/
 
 # Generated documentation site (see mkdocs.yml)
 /site/
