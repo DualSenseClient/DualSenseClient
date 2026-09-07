@@ -1,12 +1,12 @@
 ﻿using System.Runtime.InteropServices;
 using System.Text;
+using DualSenseClient.Hid.Interop;
 using DualSenseClient.Logging;
-using SDL;
 
 namespace DualSenseClient.Hid;
 
 /// <summary>
-/// Provides read/write access to a HID device over SDL3.
+/// Provides read/write access to a HID device over HIDAPI.
 /// </summary>
 public interface IHidDevice : IDisposable
 {
@@ -63,7 +63,7 @@ public interface IHidDevice : IDisposable
 }
 
 /// <summary>
-/// SDL3-backed HID device implementation.
+/// HIDAPI-backed HID device implementation.
 /// </summary>
 public sealed class HidDevice : IHidDevice
 {
@@ -73,9 +73,9 @@ public sealed class HidDevice : IHidDevice
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("HidDevice");
 
     /// <summary>
-    /// The unmanaged SDL HID device handle, or <c>null</c> when the device is closed.
+    /// The unmanaged native HID device handle, or <c>null</c> when the device is closed.
     /// </summary>
-    private unsafe SDL_hid_device* _device;
+    private unsafe HidDeviceHandle* _device;
 
     /// <summary>
     /// Non-zero once the device has been disposed.
@@ -86,7 +86,7 @@ public sealed class HidDevice : IHidDevice
     /// Opens a HID device by its platform path.
     /// </summary>
     /// <param name="path">The platform device path.</param>
-    /// <exception cref="HidException">Thrown when SDL_hid_open_path fails.</exception>
+    /// <exception cref="HidException">Thrown when hid_open_path fails.</exception>
     internal unsafe HidDevice(string path)
     {
         DevicePath = path;
@@ -100,53 +100,16 @@ public sealed class HidDevice : IHidDevice
 
         pathPtr[byteCount] = 0;
 
-        _device = SDL3.SDL_hid_open_path(pathPtr);
+        _device = HidApi.OpenPath(pathPtr);
 
         if (_device == null)
         {
-            _log.Error($"SDL_hid_open_path failed for '{path}'");
-            throw new HidException($"SDL_hid_open_path failed for '{path}'");
+            string error = HidApi.GetError();
+            _log.Error($"hid_open_path failed for '{path}': {error}");
+            throw new HidException($"hid_open_path failed for '{path}': {error}");
         }
 
         _log.Debug($"Opened HID device '{path}'");
-    }
-
-    /// <summary>
-    /// Opens a HID device by vendor ID, product ID, and optional serial number.
-    /// </summary>
-    /// <param name="vendorId">USB vendor ID.</param>
-    /// <param name="productId">USB product ID.</param>
-    /// <param name="serial">Optional serial number to disambiguate identical devices.</param>
-    /// <exception cref="HidException">Thrown when SDL_hid_open fails.</exception>
-    internal unsafe HidDevice(ushort vendorId, ushort productId, string? serial = null)
-    {
-        DevicePath = string.Empty;
-
-        IntPtr serialPtr = IntPtr.Zero;
-        try
-        {
-            if (serial != null)
-            {
-                serialPtr = Marshal.StringToCoTaskMemUni(serial);
-            }
-
-            _device = SDL3.SDL_hid_open(vendorId, productId, serialPtr);
-        }
-        finally
-        {
-            if (serialPtr != IntPtr.Zero)
-            {
-                Marshal.FreeCoTaskMem(serialPtr);
-            }
-        }
-
-        if (_device == null)
-        {
-            _log.Error($"SDL_hid_open({vendorId:X4}, {productId:X4}) failed");
-            throw new HidException($"SDL_hid_open({vendorId:X4}, {productId:X4}) failed");
-        }
-
-        _log.Debug($"Opened HID device {vendorId:X4}:{productId:X4}");
     }
 
     // ── Read ────────────────────────────────────────────────────
@@ -157,11 +120,17 @@ public sealed class HidDevice : IHidDevice
         ObjectDisposedException.ThrowIf(_disposed == 1, this);
 
         int result;
+        string error = string.Empty;
         unsafe
         {
             fixed (byte* buf = &buffer[offset])
             {
-                result = SDL3.SDL_hid_read_timeout(_device, buf, (nuint)count, timeoutMs);
+                result = HidApi.ReadTimeout(_device, buf, (nuint)count, timeoutMs);
+            }
+
+            if (result < 0)
+            {
+                error = HidApi.GetError(_device);
             }
         }
 
@@ -169,8 +138,8 @@ public sealed class HidDevice : IHidDevice
         {
             // A failed read is the normal symptom of a disconnected controller;
             // the read loop reports it at the appropriate level.
-            _log.Debug($"SDL_hid_read_timeout failed on '{DevicePath}'");
-            throw new HidException("SDL_hid_read_timeout failed");
+            _log.Debug($"hid_read_timeout failed on '{DevicePath}': {error}");
+            throw new HidException("hid_read_timeout failed");
         }
 
         if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
@@ -200,18 +169,24 @@ public sealed class HidDevice : IHidDevice
         ObjectDisposedException.ThrowIf(_disposed == 1, this);
 
         int result;
+        string error = string.Empty;
         unsafe
         {
             fixed (byte* buf = &buffer[offset])
             {
-                result = SDL3.SDL_hid_write(_device, buf, (nuint)count);
+                result = HidApi.Write(_device, buf, (nuint)count);
+            }
+
+            if (result < 0)
+            {
+                error = HidApi.GetError(_device);
             }
         }
 
         if (result < 0)
         {
-            _log.Error($"SDL_hid_write failed on '{DevicePath}'");
-            throw new HidException("SDL_hid_write failed");
+            _log.Error($"hid_write failed on '{DevicePath}': {error}");
+            throw new HidException($"hid_write failed: {error}");
         }
 
         if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
@@ -233,18 +208,24 @@ public sealed class HidDevice : IHidDevice
         buffer[0] = reportId;
 
         int result;
+        string error = string.Empty;
         unsafe
         {
             fixed (byte* buf = buffer)
             {
-                result = SDL3.SDL_hid_get_feature_report(_device, buf, (nuint)bufferSize);
+                result = HidApi.GetFeatureReport(_device, buf, (nuint)bufferSize);
+            }
+
+            if (result < 0)
+            {
+                error = HidApi.GetError(_device);
             }
         }
 
         if (result < 0)
         {
-            _log.Error($"SDL_hid_get_feature_report(0x{reportId:X2}) failed on '{DevicePath}'");
-            throw new HidException($"SDL_hid_get_feature_report(0x{reportId:X2}) failed");
+            _log.Error($"hid_get_feature_report(0x{reportId:X2}) failed on '{DevicePath}': {error}");
+            throw new HidException($"hid_get_feature_report(0x{reportId:X2}) failed: {error}");
         }
 
         _log.Trace($"GetFeatureReport(0x{reportId:X2}) returned {result} byte(s) from '{DevicePath}'");
@@ -257,18 +238,24 @@ public sealed class HidDevice : IHidDevice
         ObjectDisposedException.ThrowIf(_disposed == 1, this);
 
         int result;
+        string error = string.Empty;
         unsafe
         {
             fixed (byte* buf = &buffer[offset])
             {
-                result = SDL3.SDL_hid_send_feature_report(_device, buf, (nuint)count);
+                result = HidApi.SendFeatureReport(_device, buf, (nuint)count);
+            }
+
+            if (result < 0)
+            {
+                error = HidApi.GetError(_device);
             }
         }
 
         if (result < 0)
         {
-            _log.Error($"SDL_hid_send_feature_report failed on '{DevicePath}'");
-            throw new HidException("SDL_hid_send_feature_report failed");
+            _log.Error($"hid_send_feature_report failed on '{DevicePath}': {error}");
+            throw new HidException($"hid_send_feature_report failed: {error}");
         }
 
         _log.Trace($"SendFeatureReport wrote {count} byte(s) to '{DevicePath}'");
@@ -281,9 +268,26 @@ public sealed class HidDevice : IHidDevice
     {
         ObjectDisposedException.ThrowIf(_disposed == 1, this);
 
-        char* buf = stackalloc char[256];
-        int len = SDL3.SDL_hid_get_product_string(_device, (IntPtr)buf, 256);
-        string name = len > 0 ? new string(buf, 0, len) : "Unknown";
+        string name;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            char* buf = stackalloc char[256];
+            int result = HidApi.GetProductString(_device, (IntPtr)buf, 256);
+            name = result < 0 ? string.Empty : HidStringMarshal.BufferToString((IntPtr)buf, result);
+        }
+        else
+        {
+            // Linux wchar_t is 4 bytes (UTF-32), unlike Windows UTF-16.
+            int* buf = stackalloc int[256];
+            int result = HidApi.GetProductString(_device, (IntPtr)buf, 256);
+            name = result < 0 ? string.Empty : HidStringMarshal.BufferToString((IntPtr)buf, result);
+        }
+
+        if (string.IsNullOrEmpty(name))
+        {
+            name = "Unknown";
+        }
+
         _log.Trace($"GetProductName on '{DevicePath}': \"{name}\"");
         return name;
     }
@@ -312,7 +316,7 @@ public sealed class HidDevice : IHidDevice
             {
                 fixed (byte* buf = buffer)
                 {
-                    read = SDL3.SDL_hid_read_timeout(_device, buf, (nuint)buffer.Length, 200);
+                    read = HidApi.ReadTimeout(_device, buf, (nuint)buffer.Length, 200);
                 }
             }
 
@@ -352,7 +356,7 @@ public sealed class HidDevice : IHidDevice
         {
             if (_device != null)
             {
-                SDL3.SDL_hid_close(_device);
+                HidApi.Close(_device);
             }
 
             _device = null;

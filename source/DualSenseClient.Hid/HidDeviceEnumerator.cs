@@ -1,13 +1,12 @@
 ﻿using System.Collections.Concurrent;
-using System.Runtime.InteropServices;
 using System.Text;
+using DualSenseClient.Hid.Interop;
 using DualSenseClient.Logging;
-using SDL;
 
 namespace DualSenseClient.Hid;
 
 /// <summary>
-/// Enumerates HID devices and opens them via SDL3.
+/// Enumerates HID devices and opens them via HIDAPI.
 /// </summary>
 public interface IHidDeviceEnumerator : IDisposable
 {
@@ -36,9 +35,9 @@ public interface IHidDeviceEnumerator : IDisposable
     IHidDevice OpenDevice(string path);
 
     /// <summary>
-    /// Starts a background watcher that polls <c>SDL_hid_device_change_count</c>
-    /// at the given interval and raises <see cref="DeviceConnected"/> /
-    /// <see cref="DeviceDisconnected"/> when the device list changes.
+    /// Starts a background watcher that re-enumerates devices at the given interval
+    /// and raises <see cref="DeviceConnected"/> / <see cref="DeviceDisconnected"/>
+    /// when the device list changes.
     /// </summary>
     void StartWatching(int intervalMs = 1000);
 
@@ -74,7 +73,7 @@ public interface IHidDeviceEnumerator : IDisposable
 }
 
 /// <summary>
-/// SDL3-backed HID device enumerator.
+/// HIDAPI-backed HID device enumerator.
 /// </summary>
 public class HidDeviceEnumerator : IHidDeviceEnumerator
 {
@@ -84,7 +83,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("HidDeviceEnumerator");
 
     /// <summary>
-    /// Check to see if SDL Hid is initialized
+    /// Check to see if HIDAPI is initialized
     /// </summary>
     private int _initialized;
 
@@ -360,7 +359,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     }
 
     /// <summary>
-    /// Calls into SDL3 to enumerate HID devices matching the given VID/PID filter.
+    /// Calls into HIDAPI to enumerate HID devices matching the given VID/PID filter.
     /// </summary>
     /// <param name="vendorId">Optional USB vendor ID to filter by.</param>
     /// <param name="productId">Optional USB product ID to filter by.</param>
@@ -373,70 +372,67 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
 
         unsafe
         {
-            SDL_hid_device_info* devices = SDL3.SDL_hid_enumerate(vendorId ?? 0, productId ?? 0);
+            HidDeviceInfoNative* devices = HidApi.Enumerate(vendorId ?? 0, productId ?? 0);
 
             int count = 0;
-            for (SDL_hid_device_info* cur = devices; cur != null; cur = cur->next)
+            for (HidDeviceInfoNative* cur = devices; cur != null; cur = cur->Next)
             {
-                string path = cur->path != null ? Utf8ToString(cur->path) : string.Empty;
-                string name = cur->product_string != IntPtr.Zero
-                    ? Marshal.PtrToStringUni(cur->product_string) ?? string.Empty
-                    : string.Empty;
+                string path = cur->Path != null ? Utf8ToString(cur->Path) : string.Empty;
+                string name = HidStringMarshal.PtrToString(cur->ProductString);
 
-                HidUsageId usage = (HidUsageId)cur->usage;
+                HidUsageId usage = (HidUsageId)cur->Usage;
                 if (usage == HidUsageId.Unknown)
                 {
                     _log.Trace(
-                        $"  Skipped {name} (VID=0x{cur->vendor_id:X4}, PID=0x{cur->product_id:X4}, usage=0x{cur->usage:X4}) — not a gamepad or joystick");
+                        $"  Skipped {name} (VID=0x{cur->VendorId:X4}, PID=0x{cur->ProductId:X4}, usage=0x{cur->Usage:X4}) — not a gamepad or joystick");
                     continue;
                 }
 
                 count++;
                 _log.Debug(
-                    $"  [{count}] {name} (VID=0x{cur->vendor_id:X4}, PID=0x{cur->product_id:X4}, bus={cur->bus_type}, usagePage=0x{cur->usage_page:X4}, usage=0x{cur->usage:X4}, path={path})");
+                    $"  [{count}] {name} (VID=0x{cur->VendorId:X4}, PID=0x{cur->ProductId:X4}, bus={cur->BusType}, usagePage=0x{cur->UsagePage:X4}, usage=0x{cur->Usage:X4}, path={path})");
 
                 result.Add(new HidDeviceInfo
                 {
                     Path = path,
-                    VendorId = cur->vendor_id,
-                    ProductId = cur->product_id,
+                    VendorId = cur->VendorId,
+                    ProductId = cur->ProductId,
                     ProductName = name,
-                    Manufacturer = cur->manufacturer_string != IntPtr.Zero
-                        ? Marshal.PtrToStringUni(cur->manufacturer_string) ?? string.Empty
-                        : string.Empty,
-                    InterfaceNumber = cur->interface_number,
-                    UsagePage = cur->usage_page,
+                    Manufacturer = HidStringMarshal.PtrToString(cur->ManufacturerString),
+                    InterfaceNumber = cur->InterfaceNumber,
+                    UsagePage = cur->UsagePage,
                     Usage = usage,
-                    BusType = cur->bus_type switch
+                    BusType = cur->BusType switch
                     {
-                        SDL_hid_bus_type.SDL_HID_API_BUS_USB => ConnectionType.Usb,
-                        SDL_hid_bus_type.SDL_HID_API_BUS_BLUETOOTH => ConnectionType.Bluetooth,
+                        HidBusType.Usb => ConnectionType.Usb,
+                        HidBusType.Bluetooth => ConnectionType.Bluetooth,
                         _ => ConnectionType.Unknown
                     }
                 });
             }
 
-            _log.Debug($"SDL_hid_enumerate returned {count} device(s)");
-            SDL3.SDL_hid_free_enumeration(devices);
+            _log.Debug($"hid_enumerate returned {count} device(s)");
+            HidApi.FreeEnumeration(devices);
         }
 
         return result;
     }
 
     /// <summary>
-    /// Ensures the SDL HID subsystem has been initialized.
+    /// Ensures the HIDAPI subsystem has been initialized.
     /// Safe to call multiple times; only the first call performs initialization.
     /// </summary>
-    /// <exception cref="HidException">Thrown when SDL_hid_init fails.</exception>
+    /// <exception cref="HidException">Thrown when hid_init fails.</exception>
     private void EnsureInitialized()
     {
         if (Interlocked.Exchange(ref _initialized, 1) == 0)
         {
-            _log.Debug("Initializing SDL HID subsystem");
-            if (SDL3.SDL_hid_init() != 0)
+            _log.Debug("Initializing HIDAPI subsystem");
+            if (HidApi.Init() != 0)
             {
-                _log.Error("SDL_hid_init failed");
-                throw new HidException("SDL_hid_init failed");
+                string error = HidApi.GetError();
+                _log.Error($"hid_init failed: {error}");
+                throw new HidException($"hid_init failed: {error}");
             }
         }
     }
@@ -499,8 +495,8 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
 
         if (Interlocked.Exchange(ref _initialized, 0) == 1)
         {
-            _log.Debug("Shutting down SDL HID subsystem");
-            SDL3.SDL_hid_exit();
+            _log.Debug("Shutting down HIDAPI subsystem");
+            HidApi.Exit();
         }
     }
 }
