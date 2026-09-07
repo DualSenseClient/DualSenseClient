@@ -78,7 +78,7 @@ public partial class App : Application
             DualSenseClientLogger.Configure(logLevel,
                 new CompositeLogSink(
                     new ConsoleLogSink(),
-                    new FileLogSink(PathResolver.GetFullPath(@"Logs\DualSenseClient.log"))
+                    new FileLogSink(PathResolver.GetFullPath("Logs", "DualSenseClient.log"))
                 )
             );
 
