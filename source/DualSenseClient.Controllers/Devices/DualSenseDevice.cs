@@ -305,7 +305,7 @@ public class DualSenseDevice : ControllerDevice
         {
             try
             {
-                int result = ReadInput(buffer, 0, buffer.Length, -1);
+                int result = ReadInput(buffer, 0, buffer.Length, 25);
 
                 if (ct.IsCancellationRequested)
                 {
@@ -314,9 +314,13 @@ public class DualSenseDevice : ControllerDevice
 
                 // Timeout (0) just means no report arrived in time; a dead link
                 // surfaces as an HidException below, so keep waiting instead of
-                // treating idleness as a disconnect.
+                // treating idleness as a disconnect. Yield briefly: a blocking read
+                // (like the -1 timeout above) never returns 0 spuriously, so this only
+                // triggers for non-blocking transports and test doubles - without the
+                // yield, those would spin this above-normal thread at 100% CPU.
                 if (result == 0)
                 {
+                    Thread.Sleep(1);
                     continue;
                 }
 
