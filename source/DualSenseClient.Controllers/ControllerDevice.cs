@@ -166,7 +166,7 @@ public abstract class ControllerDevice(IHidDevice device, IHidDeviceInfo info) :
     }
 
     /// <inheritdoc/>
-    public bool IsConnected
+    public virtual bool IsConnected
     {
         get
         {

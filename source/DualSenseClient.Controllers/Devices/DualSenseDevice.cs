@@ -101,6 +101,30 @@ public class DualSenseDevice : ControllerDevice
         }
     }
 
+    /// <inheritdoc/>
+    /// <remarks>
+    /// Probed with feature report 0x09: a live control transfer that never
+    /// consumes queued input reports, unlike the base input-read probe.
+    /// </remarks>
+    public override bool IsConnected
+    {
+        get
+        {
+            try
+            {
+                return GetFeatureReport(0x09, 20).Length > 0;
+            }
+            catch (HidException)
+            {
+                return false;
+            }
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
+        }
+    }
+
     /// <summary>
     /// Whether this controller uses the "vibration v2" rumble encoding: firmware update
     /// version >= 2.21 for a base DualSense, always for a DualSense Edge. Mirrors the
@@ -283,11 +307,17 @@ public class DualSenseDevice : ControllerDevice
             {
                 int result = ReadInput(buffer, 0, buffer.Length, -1);
 
-                // Result <= 0 means device is disconnected aka it's not sending anything.
-                if (result <= 0)
+                if (ct.IsCancellationRequested)
                 {
-                    _log.Warning($"Read returned {result} bytes, disconnecting");
                     break;
+                }
+
+                // Timeout (0) just means no report arrived in time; a dead link
+                // surfaces as an HidException below, so keep waiting instead of
+                // treating idleness as a disconnect.
+                if (result == 0)
+                {
+                    continue;
                 }
 
                 ProcessInputReport(buffer);
@@ -802,12 +832,15 @@ public class DualSenseDevice : ControllerDevice
         }
 
         _cts.Cancel();
-        base.Dispose();
 
+        // Join BEFORE closing the handle: hid_close while the read thread is
+        // blocked in hid_read_timeout corrupts the pending native I/O and AVs.
         if (!_readThread.Join(TimeSpan.FromSeconds(2)))
         {
             _log.Warning("Read loop did not stop cleanly on dispose");
         }
+
+        base.Dispose();
 
         _cts.Dispose();
     }
