@@ -47,5 +47,8 @@
         <Compile Update="Views\Pages\VirtualControllerPage.axaml.cs">
           <DependentUpon>VirtualControllerPage.axaml</DependentUpon>
         </Compile>
+        <Compile Update="Views\NotificationPopupWindow.axaml.cs">
+          <DependentUpon>NotificationPopupWindow.axaml</DependentUpon>
+        </Compile>
     </ItemGroup>
 </Project>

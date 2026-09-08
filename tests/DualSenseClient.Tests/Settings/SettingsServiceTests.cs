@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
+using DualSenseClient.Settings.Sections;
 using SettingsModel = DualSenseClient.Settings.Settings;
 
 namespace DualSenseClient.Tests.Settings;
@@ -65,6 +66,14 @@ public class SettingsServiceTests
         Assert.That(settings.Ui.CloseToTray, Is.True);
         Assert.That(settings.Ui.StartInTray, Is.False);
         Assert.That(settings.Ui.ShowBatteryPercentage, Is.True);
+        Assert.That(settings.Ui.Notifications.Enabled, Is.True);
+        Assert.That(settings.Ui.Notifications.NotifyOnConnection, Is.True);
+        Assert.That(settings.Ui.Notifications.NotifyOnLowBattery, Is.True);
+        Assert.That(settings.Ui.Notifications.NotifyOnCharge, Is.True);
+        Assert.That(settings.Ui.Notifications.LowBatteryThreshold, Is.EqualTo(15));
+        Assert.That(settings.Ui.Notifications.ChargeThreshold, Is.EqualTo(100));
+        Assert.That(settings.Ui.Notifications.Position, Is.EqualTo(NotificationPosition.BottomRight));
+        Assert.That(settings.Ui.Notifications.Duration, Is.EqualTo(3));
     }
 
     [Test]
@@ -89,6 +98,53 @@ public class SettingsServiceTests
         Assert.That(loaded.Ui.CloseToTray, Is.False);
         Assert.That(loaded.Ui.StartInTray, Is.True);
         Assert.That(loaded.Ui.ShowBatteryPercentage, Is.False);
+    }
+
+    [Test]
+    public void LoadSettings_MissingNotificationKeys_FallsBackToDefaults()
+    {
+        string settingsPath = Path.Combine(_tempDir, "config.json");
+        File.WriteAllText(settingsPath, """{"ui": {"language": "en"}, "debug": {}}""");
+
+        SettingsService service = new SettingsService(settingsPath: settingsPath);
+        SettingsModel loaded = service.Settings;
+
+        Assert.That(loaded.Ui.Notifications.Enabled, Is.True);
+        Assert.That(loaded.Ui.Notifications.NotifyOnConnection, Is.True);
+        Assert.That(loaded.Ui.Notifications.NotifyOnLowBattery, Is.True);
+        Assert.That(loaded.Ui.Notifications.NotifyOnCharge, Is.True);
+        Assert.That(loaded.Ui.Notifications.LowBatteryThreshold, Is.EqualTo(15));
+        Assert.That(loaded.Ui.Notifications.ChargeThreshold, Is.EqualTo(100));
+        Assert.That(loaded.Ui.Notifications.Position, Is.EqualTo(NotificationPosition.BottomRight));
+        Assert.That(loaded.Ui.Notifications.Duration, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void LoadSettings_InvalidNotificationPosition_FallsBackToDefault()
+    {
+        string settingsPath = Path.Combine(_tempDir, "config.json");
+        File.WriteAllText(settingsPath, """{"ui": {"notifications": {"notificationPosition": "Diagonal"}}}""");
+
+        SettingsService service = new SettingsService(settingsPath: settingsPath);
+        SettingsModel loaded = service.Settings;
+
+        Assert.That(loaded.Ui.Notifications.Position, Is.EqualTo(NotificationPosition.BottomRight));
+    }
+
+    [Test]
+    public void SaveSettings_PersistsNotificationPositionAsString()
+    {
+        string settingsPath = Path.Combine(_tempDir, "config.json");
+        SettingsService service = new SettingsService(settingsPath: settingsPath);
+        service.Settings.Ui.Notifications.Position = NotificationPosition.TopLeft;
+
+        service.SaveSettings();
+
+        string json = File.ReadAllText(settingsPath);
+        Assert.That(json, Does.Contain("TopLeft"));
+
+        SettingsModel reloaded = new SettingsService(settingsPath: settingsPath).Settings;
+        Assert.That(reloaded.Ui.Notifications.Position, Is.EqualTo(NotificationPosition.TopLeft));
     }
 
     [Test]

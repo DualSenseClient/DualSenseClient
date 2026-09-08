@@ -4,7 +4,6 @@
                        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                        xmlns:windowing="using:FluentAvalonia.UI.Windowing"
-                       xmlns:controls="using:FluentAvalonia.UI.Controls"
                        mc:Ignorable="d"
                        d:DesignWidth="800"
                        d:DesignHeight="600"
@@ -18,14 +17,7 @@
     <Design.DataContext>
         <vm:MainWindowViewModel />
     </Design.DataContext>
-    <Grid>
-        <!-- The shell view is created after the splash screen's preloading starts;
-             see LoadMainContent. -->
-        <ContentControl x:Name="MainContent" />
-        <controls:FAInfoBar x:Name="InfoBar"
-                            HorizontalAlignment="Stretch"
-                            VerticalAlignment="Bottom"
-                            Background="{Binding Severity, RelativeSource={RelativeSource Self}, Converter={StaticResource InfoBarSeverityToBackgroundConverter}}"
-                            IsClosable="True" />
-    </Grid>
+    <!-- The shell view is created after the splash screen's preloading starts;
+         see LoadMainContent. -->
+    <ContentControl x:Name="MainContent" />
 </windowing:FAAppWindow>

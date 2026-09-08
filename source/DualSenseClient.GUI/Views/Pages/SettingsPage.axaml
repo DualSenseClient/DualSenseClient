@@ -3,6 +3,7 @@
              xmlns:vm="using:DualSenseClient.GUI.ViewModels.Pages"
              xmlns:cards="clr-namespace:DualSenseClient.GUI.Controls.Cards"
              xmlns:fic="using:FluentIcons.Common"
+             xmlns:ic="using:FluentIcons.Avalonia.Fluent"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
@@ -101,6 +102,74 @@
                                             Title="{DynamicResource SettingsPage.Window.BatteryPercentage.Title}"
                                             Description="{DynamicResource SettingsPage.Window.BatteryPercentage.Description}"
                                             IsChecked="{Binding ShowBatteryPercentage}" />
+                </StackPanel>
+            </Expander>
+            <!-- Notifications -->
+            <Expander>
+                <Expander.Header>
+                    <cards:CardHeader Title="{DynamicResource SettingsPage.Notifications.Title}"
+                                      Description="{DynamicResource SettingsPage.Notifications.Description}"
+                                      Icon="{x:Static fic:Symbol.Alert}"
+                                      MinHeight="64" />
+                </Expander.Header>
+                <StackPanel Spacing="8">
+                    <!-- Enable Notifications -->
+                    <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.Alert}"
+                                            Title="{DynamicResource SettingsPage.Notifications.Enable.Title}"
+                                            Description="{DynamicResource SettingsPage.Notifications.Enable.Description}"
+                                            IsChecked="{Binding Notifications}" />
+                    <!-- Position -->
+                    <cards:ComboBoxCard Icon="{x:Static fic:Symbol.TargetEdit}"
+                                        Title="{DynamicResource SettingsPage.Notifications.Position.Title}"
+                                        Description="{DynamicResource SettingsPage.Notifications.Position.Description}"
+                                        ItemsSource="{Binding NotificationPositionOptions}"
+                                        SelectedIndex="{Binding SelectedNotificationPositionIndex}" />
+                    <!-- Duration -->
+                    <cards:NumberBoxCard Icon="{x:Static fic:Symbol.AlertSnooze}"
+                                         Title="{DynamicResource SettingsPage.Notifications.Duration.Title}"
+                                         Description="{DynamicResource SettingsPage.Notifications.Duration.Description}"
+                                         Minimum="1"
+                                         Maximum="30"
+                                         Value="{Binding NotificationDurationSeconds}" />
+                    <!-- Connection Notifications -->
+                    <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.PlugConnected}"
+                                            Title="{DynamicResource SettingsPage.Notifications.Connection.Title}"
+                                            Description="{DynamicResource SettingsPage.Notifications.Connection.Description}"
+                                            IsChecked="{Binding NotifyOnConnection}" />
+                    <!-- Low Battery Notifications -->
+                    <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.BatteryWarning}"
+                                            Title="{DynamicResource SettingsPage.Notifications.LowBattery.Title}"
+                                            Description="{DynamicResource SettingsPage.Notifications.LowBattery.Description}"
+                                            IsChecked="{Binding NotifyOnLowBattery}" />
+                    <!-- Low Battery Threshold -->
+                    <cards:NumberBoxCard Icon="{x:Static fic:Symbol.BatteryWarning}"
+                                         Title="{DynamicResource SettingsPage.Notifications.LowThreshold.Title}"
+                                         Description="{DynamicResource SettingsPage.Notifications.LowThreshold.Description}"
+                                         Minimum="5"
+                                         Maximum="50"
+                                         Value="{Binding LowBatteryThreshold}" />
+                    <!-- Charge Notifications -->
+                    <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.BatteryCharge}"
+                                            Title="{DynamicResource SettingsPage.Notifications.Charge.Title}"
+                                            Description="{DynamicResource SettingsPage.Notifications.Charge.Description}"
+                                            IsChecked="{Binding NotifyOnCharge}" />
+                    <!-- Charge Threshold -->
+                    <cards:NumberBoxCard Icon="{x:Static fic:Symbol.BatteryCharge}"
+                                         Title="{DynamicResource SettingsPage.Notifications.ChargeThreshold.Title}"
+                                         Description="{DynamicResource SettingsPage.Notifications.ChargeThreshold.Description}"
+                                         Minimum="50"
+                                         Maximum="100"
+                                         Value="{Binding ChargeThreshold}" />
+                    <Button Command="{Binding TestNotificationCommand}"
+                            HorizontalAlignment="Right"
+                            Margin="0,0,14,0">
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="8">
+                            <ic:FluentIcon Icon="Megaphone"
+                                           IconVariant="Regular" />
+                            <TextBlock Text="{DynamicResource SettingsPage.Notifications.Test.Title}" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Expander>
             <!-- Debug Settings -->

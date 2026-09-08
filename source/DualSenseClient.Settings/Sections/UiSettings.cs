@@ -57,4 +57,10 @@ public class UiSettings
     /// </remarks>
     [JsonPropertyName("showBatteryPercentage")]
     public bool ShowBatteryPercentage { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the desktop notification popup settings.
+    /// </summary>
+    [JsonPropertyName("notifications")]
+    public NotificationSettings Notifications { get; set; } = new NotificationSettings();
 }

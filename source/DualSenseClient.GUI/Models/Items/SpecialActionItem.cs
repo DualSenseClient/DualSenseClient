@@ -486,10 +486,34 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
 
     /// <summary>
     /// Whether the show-battery-level effect is part of the action. It cannot be combined
-    /// with the set-lightbar-color or set-player-LEDs effects: enabling it disables those,
-    /// and enabling either of those disables it.
+    /// with the set-player-LEDs effect: enabling it disables that, and enabling that
+    /// disables it. It can be combined with the set-lightbar-color effect, which then
+    /// takes over the lightbar while the battery effect contributes its notification.
     /// </summary>
     [ObservableProperty] private bool _effectBattery;
+
+    /// <summary>
+    /// Whether the show-battery-level effect also shows the current charge in a desktop
+    /// notification popup.
+    /// </summary>
+    [ObservableProperty] private bool _batteryNotification;
+
+    /// <summary>
+    /// Whether the show-battery-level effect shows the current charge on the controller
+    /// lightbar.
+    /// </summary>
+    [ObservableProperty] private bool _batteryLightbar;
+
+    /// <summary>
+    /// Whether the battery lightbar editors (level colors) are visible.
+    /// </summary>
+    public bool IsBatteryLightbarVisible
+    {
+        get
+        {
+            return BatteryLightbar;
+        }
+    }
 
     /// <summary>
     /// Lightbar red channel (0-255), used by the set-lightbar-color effect.
@@ -861,6 +885,8 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
         _effectPlayerLeds = Effect(SpecialActionTypes.SetPlayerLeds)?.Enabled ?? false;
         _effectSound = Effect(SpecialActionTypes.PlaySound)?.Enabled ?? false;
         _effectBattery = Effect(SpecialActionTypes.ShowBatteryLevel)?.Enabled ?? false;
+        _batteryNotification = Effect(SpecialActionTypes.ShowBatteryLevel)?.ShowBatteryNotification ?? false;
+        _batteryLightbar = Effect(SpecialActionTypes.ShowBatteryLevel)?.ShowBatteryLightbar ?? true;
         _isEnabledForThisController = SpecialActionService.IsEnabledFor(action, controllerId);
         _ledRed = Effect(SpecialActionTypes.SetLightbarColor)?.Lightbar.Red ?? 0;
         _ledGreen = Effect(SpecialActionTypes.SetLightbarColor)?.Lightbar.Green ?? 0;
@@ -1048,12 +1074,27 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     }
 
     /// <summary>
+    /// Persists the battery notification toggle.
+    /// </summary>
+    partial void OnBatteryNotificationChanged(bool value) => Persist();
+
+    /// <summary>
+    /// Persists the battery lightbar toggle and refreshes the lightbar editor visibility.
+    /// </summary>
+    partial void OnBatteryLightbarChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsBatteryLightbarVisible));
+        Persist();
+    }
+
+    /// <summary>
     /// Adds, enables, or disables an effect of the given type (a type can appear at most
     /// once), then refreshes the parameter section visibility and persists. An effect that
     /// is turned off stays in the list with its parameters, so turning it back on restores
     /// the previous configuration. The show-battery-level effect conflicts with the
-    /// light-changing effects (set-lightbar-color and set-player-LEDs): enabling one
-    /// disables the other(s) so the lightbar can never be claimed twice.
+    /// set-player-LEDs effect: enabling one disables the other so the lightbar state stays
+    /// unambiguous. It can be combined with set-lightbar-color, which then takes over the
+    /// lightbar while the battery effect contributes its notification.
     /// </summary>
     private void SetEffect(string type, bool enabled)
     {
@@ -1079,10 +1120,9 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
         {
             if (type == SpecialActionTypes.ShowBatteryLevel)
             {
-                DisableEffect(SpecialActionTypes.SetLightbarColor);
                 DisableEffect(SpecialActionTypes.SetPlayerLeds);
             }
-            else if (type is SpecialActionTypes.SetLightbarColor or SpecialActionTypes.SetPlayerLeds)
+            else if (type == SpecialActionTypes.SetPlayerLeds)
             {
                 DisableEffect(SpecialActionTypes.ShowBatteryLevel);
             }
@@ -1431,6 +1471,8 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
         SpecialActionEffect? battery = Effect(SpecialActionTypes.ShowBatteryLevel);
         if (battery is not null)
         {
+            battery.ShowBatteryNotification = BatteryNotification;
+            battery.ShowBatteryLightbar = BatteryLightbar;
             battery.BatteryColors = BatteryLevels
                 .Select(l => new BatteryLevelColor
                 {

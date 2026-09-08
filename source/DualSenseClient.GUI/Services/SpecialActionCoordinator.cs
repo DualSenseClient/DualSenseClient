@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.SpecialActions;
@@ -49,6 +50,27 @@ public sealed class SpecialActionCoordinator : IDisposable
     private readonly SpecialActionEngineRegistry _engines;
 
     /// <summary>
+    /// Shows battery notifications raised by special actions.
+    /// </summary>
+    private readonly INotificationPopupService _popups;
+
+    /// <summary>
+    /// Guards <see cref="_subscribed"/> and <see cref="_stickyPopups"/>. Engine events arrive
+    /// from controller read-loop and timer threads.
+    /// </summary>
+    private readonly Lock _sync = new Lock();
+
+    /// <summary>
+    /// Engines with battery notification subscriptions, by controller.
+    /// </summary>
+    private readonly Dictionary<DualSenseDevice, SpecialActionEngine> _subscribed = new Dictionary<DualSenseDevice, SpecialActionEngine>();
+
+    /// <summary>
+    /// Open sticky battery notifications by special action id.
+    /// </summary>
+    private readonly Dictionary<Guid, Guid> _stickyPopups = new Dictionary<Guid, Guid>();
+
+    /// <summary>
     /// The controllers currently attached to an engine.
     /// </summary>
     private readonly HashSet<DualSenseDevice> _attached = new HashSet<DualSenseDevice>();
@@ -63,8 +85,9 @@ public sealed class SpecialActionCoordinator : IDisposable
     /// <param name="profileService">Stores the controller profiles.</param>
     /// <param name="audioEngine">The shared audio engine used to decode sound files.</param>
     /// <param name="engines">The per-controller engine registry, also used by the emulation output path.</param>
+    /// <param name="popups">Shows battery notifications raised by special actions.</param>
     public SpecialActionCoordinator(IControllerTracker tracker, SpecialActionService service, ControllerInfoService controllerService,
-        ProfileService profileService, AudioEngine audioEngine, SpecialActionEngineRegistry engines)
+        ProfileService profileService, AudioEngine audioEngine, SpecialActionEngineRegistry engines, INotificationPopupService popups)
     {
         _tracker = tracker;
         _service = service;
@@ -72,6 +95,7 @@ public sealed class SpecialActionCoordinator : IDisposable
         _profileService = profileService;
         _audioEngine = audioEngine;
         _engines = engines;
+        _popups = popups;
         _tracker.ControllersChanged += OnControllersChanged;
         _service.SpecialActionsChanged += OnSpecialActionsChanged;
 
@@ -104,14 +128,76 @@ public sealed class SpecialActionCoordinator : IDisposable
         {
             if (_attached.Add(device))
             {
-                _engines.GetOrCreate(device).Attach(device);
+                SpecialActionEngine engine = _engines.GetOrCreate(device);
+                engine.Attach(device);
+                engine.BatteryNotificationShown += OnBatteryNotificationShown;
+                engine.BatteryNotificationDismissed += OnBatteryNotificationDismissed;
+                lock (_sync)
+                {
+                    _subscribed[device] = engine;
+                }
             }
         }
 
         foreach (DualSenseDevice device in _attached.Where(device => !current.Contains(device)).ToList())
         {
             _attached.Remove(device);
+            // Removing disposes the engine, which dismisses its sticky notifications
+            // while still subscribed; unsubscribe afterwards.
             _engines.Remove(device);
+            lock (_sync)
+            {
+                if (_subscribed.Remove(device, out SpecialActionEngine? engine))
+                {
+                    engine.BatteryNotificationShown -= OnBatteryNotificationShown;
+                    engine.BatteryNotificationDismissed -= OnBatteryNotificationDismissed;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Shows a battery notification popup for a fired show-battery-level effect: sticky
+    /// while its action stays active, transient otherwise. May run on a controller
+    /// read-loop or engine timer thread.
+    /// </summary>
+    private void OnBatteryNotificationShown(object? sender, SpecialActionBatteryNotificationShownEventArgs e)
+    {
+        string displayName = _controllerService.GetDisplayName(e.Device.PairingInfo?.ClientMac, e.Device.Info.Path, e.Device.Info.ProductName);
+        string title = LocalizationService.GetText("Notification.Battery.Title");
+        string message = string.Format(LocalizationService.GetText("Notification.Battery.Message"), displayName, e.Percentage);
+
+        lock (_sync)
+        {
+            if (_stickyPopups.Remove(e.ActionId, out Guid previous))
+            {
+                _popups.DismissStickyNotification(previous);
+            }
+
+            if (e.Sticky)
+            {
+                _stickyPopups[e.ActionId] = _popups.ShowStickyNotification(title, message);
+            }
+            else
+            {
+                TimeSpan? duration = e.DurationMs > 0 ? TimeSpan.FromMilliseconds(e.DurationMs) : null;
+                _popups.ShowMessage(title, message, duration);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Dismisses a sticky battery notification whose action ended. May run on a
+    /// controller read-loop or engine timer thread.
+    /// </summary>
+    private void OnBatteryNotificationDismissed(object? sender, SpecialActionBatteryNotificationDismissedEventArgs e)
+    {
+        lock (_sync)
+        {
+            if (_stickyPopups.Remove(e.ActionId, out Guid stickyId))
+            {
+                _popups.DismissStickyNotification(stickyId);
+            }
         }
     }
 
@@ -135,6 +221,17 @@ public sealed class SpecialActionCoordinator : IDisposable
     {
         _tracker.ControllersChanged -= OnControllersChanged;
         _service.SpecialActionsChanged -= OnSpecialActionsChanged;
+        lock (_sync)
+        {
+            foreach ((DualSenseDevice _, SpecialActionEngine engine) in _subscribed)
+            {
+                engine.BatteryNotificationShown -= OnBatteryNotificationShown;
+                engine.BatteryNotificationDismissed -= OnBatteryNotificationDismissed;
+            }
+
+            _subscribed.Clear();
+        }
+
         _engines.Dispose();
     }
 }

@@ -426,6 +426,227 @@ public class SpecialActionEngineTests
     };
 
     /// <summary>
+    /// Creates a battery-level action on L1+R1 with the notification popup enabled.
+    /// </summary>
+    private static SpecialAction CreateBatteryNotificationAction(bool applyWhileHeld)
+    {
+        SpecialAction action = CreateBatteryAction(applyWhileHeld);
+        action.Effects[0].ShowBatteryNotification = true;
+        return action;
+    }
+
+    [Test]
+    public void BatteryNotification_OneShot_ShowsTransientWithPercentage()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
+        SpecialAction action = CreateBatteryNotificationAction(false);
+        engine.UpdateActions([action]);
+        List<SpecialActionBatteryNotificationShownEventArgs> shown = new List<SpecialActionBatteryNotificationShownEventArgs>();
+        List<SpecialActionBatteryNotificationDismissedEventArgs> dismissed = new List<SpecialActionBatteryNotificationDismissedEventArgs>();
+        engine.BatteryNotificationShown += (_, e) => shown.Add(e);
+        engine.BatteryNotificationDismissed += (_, e) => dismissed.Add(e);
+
+        // Raw battery 0x04 = discharging at 45%.
+        FeedReport(device, CreateReportWithBattery(0x04));
+        FeedReport(device, CreateReportWithBattery(0x04, ButtonType.L1, ButtonType.R1));
+
+        Assert.That(shown, Has.Count.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(shown[0].ActionId, Is.EqualTo(action.Id));
+            Assert.That(shown[0].Device, Is.SameAs(device));
+            Assert.That(shown[0].Percentage, Is.EqualTo(45));
+            Assert.That(shown[0].Sticky, Is.False);
+        });
+
+        // A one-shot action needs no dismissal on release.
+        FeedReport(device, CreateReport(ButtonType.L1));
+        FeedReport(device, CreateReport());
+        Assert.That(dismissed, Is.Empty);
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void BatteryNotification_ToggleOff_NoEvent()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
+        engine.UpdateActions([CreateBatteryAction(false)]);
+        List<SpecialActionBatteryNotificationShownEventArgs> shown = new List<SpecialActionBatteryNotificationShownEventArgs>();
+        List<SpecialActionBatteryNotificationDismissedEventArgs> dismissed = new List<SpecialActionBatteryNotificationDismissedEventArgs>();
+        engine.BatteryNotificationShown += (_, e) => shown.Add(e);
+        engine.BatteryNotificationDismissed += (_, e) => dismissed.Add(e);
+
+        FeedReport(device, CreateReportWithBattery(0x04));
+        FeedReport(device, CreateReportWithBattery(0x04, ButtonType.L1, ButtonType.R1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shown, Is.Empty);
+            Assert.That(dismissed, Is.Empty);
+        });
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void BatteryNotification_UnknownBattery_NoEvent()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
+        engine.UpdateActions([CreateBatteryNotificationAction(false)]);
+        List<SpecialActionBatteryNotificationShownEventArgs> shown = new List<SpecialActionBatteryNotificationShownEventArgs>();
+        engine.BatteryNotificationShown += (_, e) => shown.Add(e);
+
+        // Raw 0xFF = charging error, percentage unknown -> skipped like the lightbar.
+        FeedReport(device, CreateReportWithBattery(0xFF));
+        FeedReport(device, CreateReportWithBattery(0xFF, ButtonType.L1, ButtonType.R1));
+
+        Assert.That(shown, Is.Empty);
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void BatteryNotification_WhileHeld_StickyUntilRelease()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
+        SpecialAction action = CreateBatteryNotificationAction(true);
+        engine.UpdateActions([action]);
+        List<SpecialActionBatteryNotificationShownEventArgs> shown = new List<SpecialActionBatteryNotificationShownEventArgs>();
+        List<SpecialActionBatteryNotificationDismissedEventArgs> dismissed = new List<SpecialActionBatteryNotificationDismissedEventArgs>();
+        engine.BatteryNotificationShown += (_, e) => shown.Add(e);
+        engine.BatteryNotificationDismissed += (_, e) => dismissed.Add(e);
+
+        FeedReport(device, CreateReportWithBattery(0x04));
+        FeedReport(device, CreateReportWithBattery(0x04, ButtonType.L1, ButtonType.R1));
+
+        Assert.That(shown, Has.Count.EqualTo(1));
+        Assert.That(shown[0].Sticky, Is.True);
+
+        // Releasing a combination button ends the action and dismisses the popup.
+        FeedReport(device, CreateReport(ButtonType.L1));
+        FeedReport(device, CreateReport());
+
+        Assert.That(dismissed, Has.Count.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(dismissed[0].ActionId, Is.EqualTo(action.Id));
+            Assert.That(dismissed[0].Device, Is.SameAs(device));
+        });
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void BatteryNotification_TimedDuration_TransientWithActionDuration()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
+        SpecialAction action = CreateBatteryNotificationAction(false);
+        action.DurationMs = 2000;
+        engine.UpdateActions([action]);
+        List<SpecialActionBatteryNotificationShownEventArgs> shown = new List<SpecialActionBatteryNotificationShownEventArgs>();
+        List<SpecialActionBatteryNotificationDismissedEventArgs> dismissed = new List<SpecialActionBatteryNotificationDismissedEventArgs>();
+        engine.BatteryNotificationShown += (_, e) => shown.Add(e);
+        engine.BatteryNotificationDismissed += (_, e) => dismissed.Add(e);
+
+        FeedReport(device, CreateReportWithBattery(0x04));
+        FeedReport(device, CreateReportWithBattery(0x04, ButtonType.L1, ButtonType.R1));
+
+        Assert.That(shown, Has.Count.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(shown[0].Sticky, Is.False);
+            Assert.That(shown[0].DurationMs, Is.EqualTo(2000));
+            Assert.That(dismissed, Is.Empty);
+        });
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void BatteryNotification_Detach_DismissesSticky()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
+        engine.UpdateActions([CreateBatteryNotificationAction(true)]);
+        List<SpecialActionBatteryNotificationDismissedEventArgs> dismissed = new List<SpecialActionBatteryNotificationDismissedEventArgs>();
+        engine.BatteryNotificationDismissed += (_, e) => dismissed.Add(e);
+
+        FeedReport(device, CreateReportWithBattery(0x04));
+        FeedReport(device, CreateReportWithBattery(0x04, ButtonType.L1, ButtonType.R1));
+
+        engine.Dispose();
+
+        Assert.That(dismissed, Has.Count.EqualTo(1));
+
+        device.Dispose();
+    }
+
+    [Test]
+    public void BatteryNotification_LightbarDisabled_SkipsLightbar()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        SpecialAction action = CreateBatteryNotificationAction(false);
+        action.Effects[0].ShowBatteryLightbar = false;
+        engine.UpdateActions([action]);
+        List<SpecialActionBatteryNotificationShownEventArgs> shown = new List<SpecialActionBatteryNotificationShownEventArgs>();
+        engine.BatteryNotificationShown += (_, e) => shown.Add(e);
+
+        FeedReport(device, CreateReportWithBattery(0x04));
+        FeedReport(device, CreateReportWithBattery(0x04, ButtonType.L1, ButtonType.R1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shown, Has.Count.EqualTo(1));
+            Assert.That(hid.Writes, Is.Empty);
+        });
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void BatteryNotification_WithLightbarColor_LightbarWins()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        SpecialAction action = CreateBatteryNotificationAction(false);
+        action.Effects.Add(new SpecialActionEffect
+        {
+            Type = SpecialActionTypes.SetLightbarColor,
+            Lightbar = new LightbarSettings
+            {
+                Red = 1,
+                Green = 2,
+                Blue = 3
+            }
+        });
+        engine.UpdateActions([action]);
+        List<SpecialActionBatteryNotificationShownEventArgs> shown = new List<SpecialActionBatteryNotificationShownEventArgs>();
+        engine.BatteryNotificationShown += (_, e) => shown.Add(e);
+
+        // Raw battery 0x04 = 45%: the notification still fires, but the explicit
+        // lightbar color (1, 2, 3) wins over the battery level color (255, 200, 30).
+        FeedReport(device, CreateReportWithBattery(0x04));
+        FeedReport(device, CreateReportWithBattery(0x04, ButtonType.L1, ButtonType.R1));
+
+        Assert.That(shown, Has.Count.EqualTo(1));
+        byte[] report = hid.Writes[^1];
+        Assert.Multiple(() =>
+        {
+            Assert.That(report[45], Is.EqualTo(1));
+            Assert.That(report[46], Is.EqualTo(2));
+            Assert.That(report[47], Is.EqualTo(3));
+        });
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    /// <summary>
     /// Creates a gesture action with a disconnect effect for the given gesture.
     /// </summary>
     private static SpecialAction CreateGestureAction(string gesture) => new SpecialAction

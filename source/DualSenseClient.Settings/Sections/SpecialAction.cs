@@ -216,6 +216,24 @@ public class SpecialActionEffect
     public List<BatteryLevelColor>? BatteryColors { get; set; }
 
     /// <summary>
+    /// Gets or sets whether <see cref="SpecialActionTypes.ShowBatteryLevel"/> also shows
+    /// the current charge in a desktop notification popup. Works on its own or alongside
+    /// a set-lightbar-color effect (which then takes over the lightbar). Missing in
+    /// older files, which behaves as disabled.
+    /// </summary>
+    [JsonPropertyName("show_battery_notification")]
+    public bool ShowBatteryNotification { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether <see cref="SpecialActionTypes.ShowBatteryLevel"/> shows the
+    /// current charge on the controller lightbar using <see cref="BatteryColors"/>.
+    /// Disable for a notification-only effect. Missing in older files, which behaves as
+    /// enabled.
+    /// </summary>
+    [JsonPropertyName("show_battery_lightbar")]
+    public bool ShowBatteryLightbar { get; set; } = true;
+
+    /// <summary>
     /// Default lightbar colors for the 10 charge levels of
     /// <see cref="SpecialActionTypes.ShowBatteryLevel"/>: red at low charge fading
     /// through orange and yellow to green at full charge.

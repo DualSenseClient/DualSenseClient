@@ -9,7 +9,6 @@
     <sys:String x:Key="MainWindow.ScanDevices.Start">Scan for controllers</sys:String>
     <sys:String x:Key="MainWindow.ScanDevices.Stop">Stop scanning</sys:String>
     <sys:String x:Key="MainWindow.DisconnectController">Disconnect controller</sys:String>
-    <sys:String x:Key="MainWindow.DisconnectController.Success">{0} disconnected</sys:String>
     <sys:String x:Key="MainWindow.DisconnectController.Failed">{0} could not be disconnected</sys:String>
 
     <!-- Tray Icon -->
@@ -20,6 +19,20 @@
     <sys:String x:Key="Tray.Emulation">Virtual controller</sys:String>
     <sys:String x:Key="Tray.Disconnect">Disconnect</sys:String>
     <sys:String x:Key="Tray.NoControllers">No controllers connected</sys:String>
+
+    <!-- Notification Popups -->
+    <sys:String x:Key="Notification.Connected.Title">Controller connected</sys:String>
+    <sys:String x:Key="Notification.Connected.Message">{0} connected via {1}</sys:String>
+    <sys:String x:Key="Notification.Disconnected.Title">Controller disconnected</sys:String>
+    <sys:String x:Key="Notification.Disconnected.Message">{0} disconnected</sys:String>
+    <sys:String x:Key="Notification.LowBattery.Title">Low battery</sys:String>
+    <sys:String x:Key="Notification.LowBattery.Message">{0} battery is low ({1}%)</sys:String>
+    <sys:String x:Key="Notification.Charged.Title">Controller charged</sys:String>
+    <sys:String x:Key="Notification.Charged.Message">{0} charged to {1}%</sys:String>
+    <sys:String x:Key="Notification.Test.Title">Test notification</sys:String>
+    <sys:String x:Key="Notification.Test.Message">This is what notifications look like.</sys:String>
+    <sys:String x:Key="Notification.Battery.Title">Battery level</sys:String>
+    <sys:String x:Key="Notification.Battery.Message">{0}: {1}%</sys:String>
 
     <!-- Splash Screen -->
     <sys:String x:Key="SplashScreen.LoadingProfiles">Loading profiles...</sys:String>
@@ -287,9 +300,13 @@
     <sys:String x:Key="ProfilePage.SpecialActions.Effects.Sound">Play sound</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.Effects.Battery">Battery level</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.Battery">Battery level</sys:String>
-    <sys:String x:Key="ProfilePage.SpecialActions.Battery.Description">The lightbar shows the current charge in 10 levels; pick a color per level. Not available with lightbar color or player LEDs.</sys:String>
+    <sys:String x:Key="ProfilePage.SpecialActions.Battery.Description">Shows the current charge in 10 levels on the lightbar and/or in a notification popup; pick a color per level. Can be combined with a lightbar color, which takes over the lightbar. Not available with player LEDs.</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.Battery.Level">Charge level</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.Battery.Level.Description">The level whose color the picker edits</sys:String>
+    <sys:String x:Key="ProfilePage.SpecialActions.Battery.Notify">Show notification</sys:String>
+    <sys:String x:Key="ProfilePage.SpecialActions.Battery.Notify.Description">Also show the battery level in a desktop notification popup. Stays open while the combination is held when Apply while held is set.</sys:String>
+    <sys:String x:Key="ProfilePage.SpecialActions.Battery.Lightbar">Show on lightbar</sys:String>
+    <sys:String x:Key="ProfilePage.SpecialActions.Battery.Lightbar.Description">Show the charge level colors on the controller lightbar.</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.Battery.Reset">Reset colors</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.Color">Lightbar color</sys:String>
     <sys:String x:Key="ProfilePage.SpecialActions.Sound">Sound file</sys:String>
@@ -336,4 +353,31 @@
     <sys:String x:Key="SettingsPage.Window.StartInTray.Description">Start the application with its window hidden in the system tray</sys:String>
     <sys:String x:Key="SettingsPage.Window.BatteryPercentage.Title">Show Battery Percentage</sys:String>
     <sys:String x:Key="SettingsPage.Window.BatteryPercentage.Description">Show the controller battery percentage on the tray icon</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Title">Notifications</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Description">Desktop popups for connection and battery events</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Enable.Title">Notifications</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Enable.Description">Show desktop notification popups</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Connection.Title">Connection notifications</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Connection.Description">Show a popup when a controller connects or disconnects</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.LowBattery.Title">Low battery notifications</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.LowBattery.Description">Show a popup when a controller battery runs low</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Charge.Title">Charge notifications</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Charge.Description">Show a popup when a charging controller reaches its target</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.LowThreshold.Title">Low battery threshold</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.LowThreshold.Description">Battery percentage that triggers the low battery popup (5-50)</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.ChargeThreshold.Title">Charge threshold</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.ChargeThreshold.Description">Battery percentage that triggers the charge popup while charging (50-100)</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.Title">Position</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.Description">Where on the screen notification popups appear</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.TopLeft">Top left</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.TopCenter">Top middle</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.TopRight">Top right</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.MiddleLeft">Middle left</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.MiddleRight">Middle right</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.BottomLeft">Bottom left</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.BottomCenter">Bottom middle</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.BottomRight">Bottom right</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Duration.Title">Duration</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Duration.Description">Seconds each notification popup stays visible (1-30)</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Test.Title">Send test notification</sys:String>
 </ResourceDictionary>

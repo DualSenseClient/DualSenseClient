@@ -30,6 +30,87 @@ public sealed class SpecialActionExecutedEventArgs : EventArgs
 }
 
 /// <summary>
+/// Provides the battery notification raised when a show-battery-level effect with
+/// notifications enabled fires.
+/// </summary>
+public sealed class SpecialActionBatteryNotificationShownEventArgs : EventArgs
+{
+    /// <summary>
+    /// The id of the action that fired.
+    /// </summary>
+    public Guid ActionId { get; }
+
+    /// <summary>
+    /// The controller the action fired on.
+    /// </summary>
+    public DualSenseDevice Device { get; }
+
+    /// <summary>
+    /// The battery percentage to display.
+    /// </summary>
+    public int Percentage { get; }
+
+    /// <summary>
+    /// Whether the popup should stay open until
+    /// <see cref="SpecialActionEngine.BatteryNotificationDismissed"/> fires: true while
+    /// the action is held (apply-while-held), false otherwise (the popup auto-closes).
+    /// </summary>
+    public bool Sticky { get; }
+
+    /// <summary>
+    /// The action's show duration in milliseconds (<see cref="SpecialAction.DurationMs"/>):
+    /// the popup stays visible for this long when not sticky, or <c>0</c> to use the
+    /// application notification duration.
+    /// </summary>
+    public int DurationMs { get; }
+
+    /// <summary>
+    /// Creates a new event args instance.
+    /// </summary>
+    /// <param name="actionId">The id of the action that fired.</param>
+    /// <param name="device">The controller the action fired on.</param>
+    /// <param name="percentage">The battery percentage to display.</param>
+    /// <param name="sticky">Whether the popup should stay open until dismissed.</param>
+    /// <param name="durationMs">The action's show duration in milliseconds, or 0 for default.</param>
+    public SpecialActionBatteryNotificationShownEventArgs(Guid actionId, DualSenseDevice device, int percentage, bool sticky, int durationMs)
+    {
+        ActionId = actionId;
+        Device = device;
+        Percentage = percentage;
+        Sticky = sticky;
+        DurationMs = durationMs;
+    }
+}
+
+/// <summary>
+/// Provides the dismissal of a sticky battery notification when its action ends
+/// (trigger released, duration elapsed, configuration changed, or detached).
+/// </summary>
+public sealed class SpecialActionBatteryNotificationDismissedEventArgs : EventArgs
+{
+    /// <summary>
+    /// The id of the action that ended.
+    /// </summary>
+    public Guid ActionId { get; }
+
+    /// <summary>
+    /// The controller the action fired on.
+    /// </summary>
+    public DualSenseDevice Device { get; }
+
+    /// <summary>
+    /// Creates a new event args instance.
+    /// </summary>
+    /// <param name="actionId">The id of the action that ended.</param>
+    /// <param name="device">The controller the action fired on.</param>
+    public SpecialActionBatteryNotificationDismissedEventArgs(Guid actionId, DualSenseDevice device)
+    {
+        ActionId = actionId;
+        Device = device;
+    }
+}
+
+/// <summary>
 /// The controller output fields held by the active light actions of a
 /// <see cref="SpecialActionEngine"/>. Each field is non-<c>null</c> while at least one
 /// active action holds it, and carries the value of the most recently fired such action.
@@ -179,6 +260,12 @@ public sealed class SpecialActionEngine : IDisposable
     private readonly HashSet<Guid> _sustainedActive = new HashSet<Guid>();
 
     /// <summary>
+    /// Sticky battery notifications currently shown, keyed by action id and mapped to
+    /// the controller they fired on. Dismissed when the action ends.
+    /// </summary>
+    private readonly Dictionary<Guid, DualSenseDevice> _batteryNotifications = new Dictionary<Guid, DualSenseDevice>();
+
+    /// <summary>
     /// Timed light actions that are currently applied, keyed by action id and mapped to
     /// their restore deadline (after which the bound profile is re-applied).
     /// </summary>
@@ -222,6 +309,16 @@ public sealed class SpecialActionEngine : IDisposable
     /// Raised after an action has been executed.
     /// </summary>
     public event EventHandler<SpecialActionExecutedEventArgs>? ActionExecuted;
+
+    /// <summary>
+    /// Raised when a show-battery-level effect with notifications enabled fires.
+    /// </summary>
+    public event EventHandler<SpecialActionBatteryNotificationShownEventArgs>? BatteryNotificationShown;
+
+    /// <summary>
+    /// Raised when a sticky battery notification's action ends.
+    /// </summary>
+    public event EventHandler<SpecialActionBatteryNotificationDismissedEventArgs>? BatteryNotificationDismissed;
 
     /// <summary>
     /// Resolves the profile to revert to when a while-held light action ends. When this is
@@ -343,6 +440,11 @@ public sealed class SpecialActionEngine : IDisposable
             _playerLedOverrideCode = -1;
             if (_sustainedActive.Count > 0)
             {
+                foreach (Guid id in _sustainedActive.ToList())
+                {
+                    EndBatteryNotification(id);
+                }
+
                 _sustainedActive.Clear();
                 RestoreBaseState();
                 if (hadSustainedSound)
@@ -353,6 +455,11 @@ public sealed class SpecialActionEngine : IDisposable
 
             if (_timedActive.Count > 0)
             {
+                foreach (Guid id in _timedActive.Keys.ToList())
+                {
+                    EndBatteryNotification(id);
+                }
+
                 _timedActive.Clear();
                 RestoreBaseState();
             }
@@ -511,6 +618,7 @@ public sealed class SpecialActionEngine : IDisposable
                     if (_sustainedActive.Remove(action.Id))
                     {
                         EndOutputOverride(action.Id);
+                        EndBatteryNotification(action.Id);
                         if (action.Effects.Any(e => e.Enabled && e.Type == SpecialActionTypes.PlaySound))
                         {
                             StopSound();
@@ -564,6 +672,7 @@ public sealed class SpecialActionEngine : IDisposable
             if (_sustainedActive.Remove(action.Id))
             {
                 EndOutputOverride(action.Id);
+                EndBatteryNotification(action.Id);
                 if (action.Effects.Any(e => e.Enabled && e.Type == SpecialActionTypes.PlaySound))
                 {
                     StopSound();
@@ -646,6 +755,7 @@ public sealed class SpecialActionEngine : IDisposable
                 {
                     _timedActive.Remove(id);
                     EndOutputOverride(id);
+                    EndBatteryNotification(id);
                     RestoreBaseState();
                 }
             }
@@ -723,11 +833,12 @@ public sealed class SpecialActionEngine : IDisposable
             }
 
             OutputStateOverride applied = default;
+            bool lightbarTaken = effects.Any(e => e.Enabled && e.Type == SpecialActionTypes.SetLightbarColor);
             foreach (SpecialActionEffect effect in effects)
             {
                 if (effect.Enabled)
                 {
-                    applied = Combine(applied, ExecuteEffect(effect));
+                    applied = Combine(applied, ExecuteEffect(action.Id, effect, lightbarTaken));
                 }
             }
 
@@ -782,7 +893,12 @@ public sealed class SpecialActionEngine : IDisposable
     /// Executes a single effect on the attached controller and returns the output fields
     /// it applied (empty when the effect does not interact with the controller's output).
     /// </summary>
-    private OutputStateOverride ExecuteEffect(SpecialActionEffect effect)
+    /// <param name="actionId">The id of the firing action, for battery notification tracking.</param>
+    /// <param name="effect">The effect to execute.</param>
+    /// <param name="lightbarTaken">Whether an enabled set-lightbar-color effect in the same
+    /// action wins the lightbar, suppressing the battery effect's lightbar output (its
+    /// notification still fires).</param>
+    private OutputStateOverride ExecuteEffect(Guid actionId, SpecialActionEffect effect, bool lightbarTaken)
     {
         switch (effect.Type)
         {
@@ -805,7 +921,7 @@ public sealed class SpecialActionEngine : IDisposable
             case SpecialActionTypes.ShowBatteryLevel:
                 return new OutputStateOverride
                 {
-                    LightbarColor = ShowBatteryLevel(effect)
+                    LightbarColor = ShowBatteryLevel(actionId, effect, lightbarTaken).Color
                 };
             default:
                 _log.Warning($"Unknown special action effect type '{effect.Type}'");
@@ -891,32 +1007,75 @@ public sealed class SpecialActionEngine : IDisposable
     }
 
     /// <summary>
-    /// Shows the controller's current battery charge on the lightbar: the level is derived
-    /// from the latest reported battery percentage (10 levels, level 0 = lowest charge) and
-    /// the lightbar is set to that level's color (custom colors, or the effect defaults).
+    /// Shows the controller's current battery charge: on the lightbar (unless disabled via
+    /// <see cref="SpecialActionEffect.ShowBatteryLightbar"/> or taken over by an enabled
+    /// set-lightbar-color effect in the same action) and optionally in a battery
+    /// notification popup. The level is derived from the latest reported battery
+    /// percentage (10 levels, level 0 = lowest charge); the lightbar is set to that
+    /// level's color (custom colors, or the effect defaults).
     /// An unknown battery level is logged and skipped, so the lightbar is never corrupted.
-    /// Returns the applied color, or <c>null</c> when the level is unknown.
+    /// Returns the applied color (or <c>null</c> when suppressed or unknown) and the
+    /// percentage (or <c>-1</c> when unknown).
     /// </summary>
-    private (byte Red, byte Green, byte Blue)? ShowBatteryLevel(SpecialActionEffect effect)
+    private ((byte Red, byte Green, byte Blue)? Color, int Percentage) ShowBatteryLevel(Guid actionId, SpecialActionEffect effect, bool lightbarTaken)
     {
         if (_device!.InputReport is not { } report)
         {
             _log.Warning("No input report received yet; battery special action skipped");
-            return null;
+            return (null, -1);
         }
 
         int percentage = report.Battery.DisplayPercentage;
         if (percentage < 0)
         {
             _log.Warning("Battery level unknown; battery special action skipped");
-            return null;
+            return (null, -1);
         }
 
-        int level = Math.Min(percentage / 10, 9);
-        BatteryLevelColor color = effect.GetBatteryColor(level);
-        _log.Debug($"Showing battery level {level} ({percentage}%) with color {color.Red},{color.Green},{color.Blue}");
-        SendLightbarColor(color.Red, color.Green, color.Blue);
-        return (color.Red, color.Green, color.Blue);
+        (byte Red, byte Green, byte Blue)? color = null;
+        if (!lightbarTaken && effect.ShowBatteryLightbar)
+        {
+            int level = Math.Min(percentage / 10, 9);
+            BatteryLevelColor batteryColor = effect.GetBatteryColor(level);
+            _log.Debug($"Showing battery level {level} ({percentage}%) with color {batteryColor.Red},{batteryColor.Green},{batteryColor.Blue}");
+            color = SendLightbarColor(batteryColor.Red, batteryColor.Green, batteryColor.Blue);
+        }
+
+        if (effect.ShowBatteryNotification)
+        {
+            TrackBatteryNotification(actionId, _device, percentage);
+        }
+
+        return (color, percentage);
+    }
+
+    /// <summary>
+    /// Raises a battery notification for a fired action: sticky while the action is held
+    /// (apply-while-held), otherwise transient with the action's show duration (or the
+    /// application default when unset). Callers must hold <see cref="_lock"/>.
+    /// </summary>
+    private void TrackBatteryNotification(Guid actionId, DualSenseDevice device, int percentage)
+    {
+        bool sticky = _sustainedActive.Contains(actionId);
+        int durationMs = _actions.FirstOrDefault(a => a.Id == actionId)?.DurationMs ?? 0;
+        if (sticky)
+        {
+            _batteryNotifications[actionId] = device;
+        }
+
+        BatteryNotificationShown?.Invoke(this, new SpecialActionBatteryNotificationShownEventArgs(actionId, device, percentage, sticky, durationMs));
+    }
+
+    /// <summary>
+    /// Dismisses a tracked sticky battery notification when its action ends. No-op when
+    /// nothing is tracked for the action. Callers must hold <see cref="_lock"/>.
+    /// </summary>
+    private void EndBatteryNotification(Guid actionId)
+    {
+        if (_batteryNotifications.Remove(actionId, out DualSenseDevice? device) && device is not null)
+        {
+            BatteryNotificationDismissed?.Invoke(this, new SpecialActionBatteryNotificationDismissedEventArgs(actionId, device));
+        }
     }
 
     /// <summary>
@@ -1019,6 +1178,11 @@ public sealed class SpecialActionEngine : IDisposable
     /// </summary>
     private void DetachCore()
     {
+        foreach (Guid id in _batteryNotifications.Keys.ToList())
+        {
+            EndBatteryNotification(id);
+        }
+
         if (_device is not null)
         {
             _device.ButtonPressed -= OnButtonPressed;

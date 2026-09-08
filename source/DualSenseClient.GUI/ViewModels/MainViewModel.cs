@@ -40,9 +40,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly IControllerTracker _tracker;
 
     /// <summary>
-    /// Notification service used to surface connect/disconnect events.
+    /// Desktop popup service used for controller notifications.
     /// </summary>
-    private readonly INotificationService _notifications;
+    private readonly INotificationPopupService _popups;
 
     /// <summary>
     /// Profile service used to look up profiles by name.
@@ -112,15 +112,16 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// </summary>
     /// <param name="scanner">Scanner used to discover and watch controllers.</param>
     /// <param name="tracker">Tracker that owns the selected controller.</param>
-    /// <param name="notifications">Notification service for connect/disconnect events.</param>
+    /// <param name="popups">Desktop popup service for controller notifications.</param>
     /// <param name="profileService">Profile service used to look up profiles by name.</param>
     /// <param name="controllerService">Service storing persistent controller info and profile bindings.</param>
-    public MainViewModel(IControllerScanner scanner, IControllerTracker tracker, INotificationService notifications, ProfileService profileService,
+    public MainViewModel(IControllerScanner scanner, IControllerTracker tracker, INotificationPopupService popups,
+        ProfileService profileService,
         ControllerInfoService controllerService)
     {
         _scanner = scanner;
         _tracker = tracker;
-        _notifications = notifications;
+        _popups = popups;
         _profileService = profileService;
         _controllerService = controllerService;
         _tracker.ActiveControllerChanged += OnActiveControllerChanged;
@@ -165,13 +166,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public async Task DisconnectControllerAsync(IControllerDevice device)
     {
         bool disconnected = await Task.Run(device.DisconnectController);
-        if (disconnected)
+        if (!disconnected)
         {
-            _notifications.ShowSuccess(string.Format(LocalizationService.GetText("MainWindow.DisconnectController.Success"), device.Info.ProductName), 3);
-        }
-        else
-        {
-            _notifications.ShowWarning(string.Format(LocalizationService.GetText("MainWindow.DisconnectController.Failed"), device.Info.ProductName), 3);
+            _popups.ShowMessage(LocalizationService.GetText("MainWindow.Title"),
+                string.Format(LocalizationService.GetText("MainWindow.DisconnectController.Failed"), device.Info.ProductName));
         }
     }
 
@@ -345,7 +343,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
             }
 
             AddController(controller);
-            _notifications.ShowSuccess($"{controller.ConnectionType} controller connected: {controller.Info.ProductName}", 3);
+            string displayName = _controllerService.GetDisplayName((controller as DualSenseDevice)?.PairingInfo?.ClientMac, controller.Info.Path,
+                controller.Info.ProductName);
+            _popups.ShowConnection(displayName, controller.ConnectionType.ToString(), true);
             _log.Info($"Controller connected: {controller.Info.ProductName}");
 
             SelectedItem ??= Controllers[^1];
@@ -410,7 +410,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     _tracker.UntrackController(device);
                     device.Dispose();
                     Controllers.RemoveAt(i);
-                    _notifications.ShowWarning($"{e.Info.BusType} controller disconnected: {e.Info.ProductName}", 3);
+                    string displayName = _controllerService.GetDisplayName(null, e.Info.Path, e.Info.ProductName);
+                    _popups.ShowConnection(displayName, e.Info.BusType.ToString(), false);
                     _log.Info($"Controller disconnected: {e.Info.ProductName}");
                     break;
                 }

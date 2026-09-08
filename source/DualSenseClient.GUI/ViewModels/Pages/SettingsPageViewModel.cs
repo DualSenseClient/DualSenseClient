@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.Core.Models;
 using DualSenseClient.Core.Utilities;
@@ -10,6 +12,7 @@ using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
+using DualSenseClient.Settings.Sections;
 
 namespace DualSenseClient.GUI.ViewModels.Pages;
 
@@ -41,6 +44,11 @@ public partial class SettingsPageViewModel : ObservableObject
     /// Service used to apply theme changes at runtime.
     /// </summary>
     private readonly ThemeService _themeService;
+
+    /// <summary>
+    /// Popup service used to preview notifications.
+    /// </summary>
+    private readonly INotificationPopupService _popups;
 
     /// <summary>
     /// Logger instance.
@@ -305,6 +313,176 @@ public partial class SettingsPageViewModel : ObservableObject
         _settingsService.SaveSettings();
     }
 
+    // ─────────────────────────────────────────────────────────────── Notifications
+    /// <summary>
+    /// Whether desktop notification popups are shown at all.
+    /// Persisted to <see cref="Sections.NotificationSettings.Enabled"/>.
+    /// </summary>
+    [ObservableProperty] private bool notifications;
+
+    /// <summary>
+    /// Called after <see cref="Notifications"/> changes. Persists the choice to settings.
+    /// </summary>
+    partial void OnNotificationsChanged(bool oldValue, bool newValue)
+    {
+        if (_suppressUpdates || oldValue == newValue)
+        {
+            return;
+        }
+
+        _log.Info($"Notifications changed to '{newValue}'");
+        _settingsService.Settings.Ui.Notifications.Enabled = newValue;
+        _settingsService.SaveSettings();
+    }
+
+    /// <summary>
+    /// Whether a popup is shown when a controller connects or disconnects.
+    /// Persisted to <see cref="Sections.NotificationSettings.NotifyOnConnection"/>.
+    /// </summary>
+    [ObservableProperty] private bool notifyOnConnection;
+
+    /// <summary>
+    /// Called after <see cref="NotifyOnConnection"/> changes. Persists the choice to settings.
+    /// </summary>
+    partial void OnNotifyOnConnectionChanged(bool oldValue, bool newValue)
+    {
+        if (_suppressUpdates || oldValue == newValue)
+        {
+            return;
+        }
+
+        _log.Info($"Notify on connection changed to '{newValue}'");
+        _settingsService.Settings.Ui.Notifications.NotifyOnConnection = newValue;
+        _settingsService.SaveSettings();
+    }
+
+    /// <summary>
+    /// Whether a popup is shown when a controller's battery runs low.
+    /// Persisted to <see cref="Sections.NotificationSettings.NotifyOnLowBattery"/>.
+    /// </summary>
+    [ObservableProperty] private bool notifyOnLowBattery;
+
+    /// <summary>
+    /// Called after <see cref="NotifyOnLowBattery"/> changes. Persists the choice to settings.
+    /// </summary>
+    partial void OnNotifyOnLowBatteryChanged(bool oldValue, bool newValue)
+    {
+        if (_suppressUpdates || oldValue == newValue)
+        {
+            return;
+        }
+
+        _log.Info($"Notify on low battery changed to '{newValue}'");
+        _settingsService.Settings.Ui.Notifications.NotifyOnLowBattery = newValue;
+        _settingsService.SaveSettings();
+    }
+
+    /// <summary>
+    /// Whether a popup is shown when a charging controller reaches its target.
+    /// Persisted to <see cref="Sections.NotificationSettings.NotifyOnCharge"/>.
+    /// </summary>
+    [ObservableProperty] private bool notifyOnCharge;
+
+    /// <summary>
+    /// Called after <see cref="NotifyOnCharge"/> changes. Persists the choice to settings.
+    /// </summary>
+    partial void OnNotifyOnChargeChanged(bool oldValue, bool newValue)
+    {
+        if (_suppressUpdates || oldValue == newValue)
+        {
+            return;
+        }
+
+        _log.Info($"Notify on charge changed to '{newValue}'");
+        _settingsService.Settings.Ui.Notifications.NotifyOnCharge = newValue;
+        _settingsService.SaveSettings();
+    }
+
+    /// <summary>
+    /// Battery percentage triggering the low battery popup.
+    /// Persisted to <see cref="Sections.NotificationSettings.LowBatteryThreshold"/>.
+    /// </summary>
+    [ObservableProperty] private double lowBatteryThreshold;
+
+    /// <summary>
+    /// Called after <see cref="LowBatteryThreshold"/> changes. Persists the choice to settings.
+    /// </summary>
+    partial void OnLowBatteryThresholdChanged(double oldValue, double newValue)
+    {
+        if (_suppressUpdates || oldValue == newValue)
+        {
+            return;
+        }
+
+        int threshold = (int)Math.Round(newValue);
+        _log.Info($"Low battery threshold changed to '{threshold}'");
+        _settingsService.Settings.Ui.Notifications.LowBatteryThreshold = threshold;
+        _settingsService.SaveSettings();
+    }
+
+    /// <summary>
+    /// Battery percentage triggering the charge popup while charging.
+    /// Persisted to <see cref="Sections.NotificationSettings.ChargeThreshold"/>.
+    /// </summary>
+    [ObservableProperty] private double chargeThreshold;
+
+    /// <summary>
+    /// Called after <see cref="ChargeThreshold"/> changes. Persists the choice to settings.
+    /// </summary>
+    partial void OnChargeThresholdChanged(double oldValue, double newValue)
+    {
+        if (_suppressUpdates || oldValue == newValue)
+        {
+            return;
+        }
+
+        int threshold = (int)Math.Round(newValue);
+        _log.Info($"Charge threshold changed to '{threshold}'");
+        _settingsService.Settings.Ui.Notifications.ChargeThreshold = threshold;
+        _settingsService.SaveSettings();
+    }
+
+    /// <summary>
+    /// Notification positions in dropdown order, matching
+    /// <see cref="NotificationPositionOptions"/>.
+    /// </summary>
+    private static readonly NotificationPosition[] PositionOrder = Enum.GetValues<NotificationPosition>();
+
+    /// <summary>
+    /// Localized display names for <see cref="PositionOrder"/>, shown in the
+    /// position dropdown. Rebuilt in <see cref="LoadSettings"/>.
+    /// </summary>
+    public ObservableCollection<string> NotificationPositionOptions { get; set; } = [];
+
+    /// <summary>
+    /// Index into <see cref="NotificationPositionOptions"/> for the current
+    /// <see cref="Sections.NotificationSettings.NotificationPosition"/>.
+    /// When changed, persists the choice to settings.
+    /// </summary>
+    [ObservableProperty] private int selectedNotificationPositionIndex;
+
+    /// <summary>
+    /// Called after <see cref="SelectedNotificationPositionIndex"/> changes.
+    /// Persists the choice to settings.
+    /// </summary>
+    partial void OnSelectedNotificationPositionIndexChanged(int oldValue, int newValue)
+    {
+        if (_suppressUpdates || oldValue == newValue)
+        {
+            return;
+        }
+
+        if (newValue < 0 || newValue >= PositionOrder.Length)
+        {
+            return;
+        }
+
+        NotificationPosition position = PositionOrder[newValue];
+        _log.Info($"Notification position changed to '{position}'");
+        _settingsService.Settings.Ui.Notifications.Position = position;
+        _settingsService.SaveSettings();
+    }
+
     /// <summary>
     /// Initializes a new instance of <see cref="SettingsPageViewModel"/>.
     /// Resolves dependencies from the DI container and loads current settings into UI state.
@@ -313,6 +491,7 @@ public partial class SettingsPageViewModel : ObservableObject
     {
         _settingsService = App.Services.GetRequiredService<SettingsService>();
         _themeService = App.Services.GetRequiredService<ThemeService>();
+        _popups = App.Services.GetRequiredService<INotificationPopupService>();
         LoadSettings();
     }
 
@@ -392,5 +571,63 @@ public partial class SettingsPageViewModel : ObservableObject
         CloseToTray = _settingsService.Settings.Ui.CloseToTray;
         StartInTray = _settingsService.Settings.Ui.StartInTray;
         ShowBatteryPercentage = _settingsService.Settings.Ui.ShowBatteryPercentage;
+
+        // Notifications
+        Notifications = _settingsService.Settings.Ui.Notifications.Enabled;
+        NotifyOnConnection = _settingsService.Settings.Ui.Notifications.NotifyOnConnection;
+        NotifyOnLowBattery = _settingsService.Settings.Ui.Notifications.NotifyOnLowBattery;
+        NotifyOnCharge = _settingsService.Settings.Ui.Notifications.NotifyOnCharge;
+        LowBatteryThreshold = _settingsService.Settings.Ui.Notifications.LowBatteryThreshold;
+        ChargeThreshold = _settingsService.Settings.Ui.Notifications.ChargeThreshold;
+
+        // Notification position options (localized display names in enum order)
+        List<string> positionNames = PositionOrder.Select(p => LocalizationService.GetText($"SettingsPage.Notifications.Position.{p}")).ToList();
+        if (NotificationPositionOptions.Count == 0 || NotificationPositionOptions.Count != positionNames.Count)
+        {
+            NotificationPositionOptions = new ObservableCollection<string>(positionNames);
+            OnPropertyChanged(nameof(NotificationPositionOptions));
+        }
+        else
+        {
+            NotificationPositionOptions.Clear();
+            foreach (string name in positionNames)
+            {
+                NotificationPositionOptions.Add(name);
+            }
+        }
+
+        int positionIndex = Array.IndexOf(PositionOrder, _settingsService.Settings.Ui.Notifications.Position);
+        SelectedNotificationPositionIndex = positionIndex >= 0 ? positionIndex : Array.IndexOf(PositionOrder, NotificationPosition.BottomRight);
+        NotificationDurationSeconds = _settingsService.Settings.Ui.Notifications.Duration;
+    }
+
+    /// <summary>
+    /// Shows a sample notification popup so the user can preview the current
+    /// position and styling.
+    /// </summary>
+    [RelayCommand]
+    private void TestNotification() =>
+        _popups.ShowMessage(LocalizationService.GetText("Notification.Test.Title"), LocalizationService.GetText("Notification.Test.Message"));
+
+    /// <summary>
+    /// How long in seconds each notification popup stays visible.
+    /// Persisted to <see cref="Sections.NotificationSettings.NotificationDurationSeconds"/>.
+    /// </summary>
+    [ObservableProperty] private double notificationDurationSeconds;
+
+    /// <summary>
+    /// Called after <see cref="NotificationDurationSeconds"/> changes. Persists the choice to settings.
+    /// </summary>
+    partial void OnNotificationDurationSecondsChanged(double oldValue, double newValue)
+    {
+        if (_suppressUpdates || oldValue == newValue)
+        {
+            return;
+        }
+
+        int seconds = (int)Math.Round(newValue);
+        _log.Info($"Notification duration changed to '{seconds}'");
+        _settingsService.Settings.Ui.Notifications.Duration = seconds;
+        _settingsService.SaveSettings();
     }
 }

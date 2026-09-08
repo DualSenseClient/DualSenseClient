@@ -1,0 +1,64 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:fluentIcons="using:FluentIcons.Avalonia.Fluent"
+        mc:Ignorable="d"
+        d:DesignWidth="800"
+        d:DesignHeight="600"
+        x:Class="DualSenseClient.GUI.Views.NotificationPopupWindow"
+        Width="380"
+        Height="96"
+        WindowDecorations="None"
+        ShowInTaskbar="False"
+        Topmost="True"
+        CanResize="False"
+        WindowStartupLocation="Manual"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        Opacity="0">
+    <Grid>
+        <Border Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                BorderThickness="2"
+                CornerRadius="4"
+                Padding="12">
+            <Grid ColumnDefinitions="Auto,*"
+                  ColumnSpacing="12">
+                <Border Background="{DynamicResource SystemAccentColor}"
+                        CornerRadius="8"
+                        Width="48"
+                        Height="48"
+                        Padding="6"
+                        VerticalAlignment="Center">
+                    <Image Source="/Assets/icon-transparent.png" />
+                </Border>
+                <StackPanel Grid.Column="1"
+                            Spacing="4"
+                            VerticalAlignment="Center">
+                    <TextBlock x:Name="TitleBlock"
+                               FontWeight="SemiBold"
+                               FontSize="14"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                    <TextBlock x:Name="MessageBlock"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+        </Border>
+        <Button HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="2"
+                Padding="8,2"
+                Background="Transparent"
+                BorderThickness="0"
+                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                Click="OnCloseClicked">
+            <Button.Content>
+                <fluentIcons:SymbolIcon FontSize="14"
+                                        Symbol="Dismiss" />
+            </Button.Content>
+        </Button>
+    </Grid>
+</Window>

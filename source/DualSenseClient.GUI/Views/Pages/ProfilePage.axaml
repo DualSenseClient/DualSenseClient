@@ -521,63 +521,75 @@
                                             <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Battery.Description}"
                                                        FontSize="12"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <cards:ComboBoxCard Title="{DynamicResource ProfilePage.SpecialActions.Battery.Level}"
-                                                                Description="{DynamicResource ProfilePage.SpecialActions.Battery.Level.Description}"
-                                                                ComboBoxMinWidth="200"
-                                                                ItemsSource="{Binding BatteryLevels}"
-                                                                SelectedIndex="{Binding SelectedBatteryLevel}">
-                                                <cards:ComboBoxCard.ItemTemplate>
-                                                    <DataTemplate x:DataType="items:BatteryLevelItem">
-                                                        <StackPanel Orientation="Horizontal"
-                                                                    Spacing="8">
-                                                            <Border Width="14"
-                                                                    Height="14"
-                                                                    CornerRadius="7"
-                                                                    VerticalAlignment="Center"
-                                                                    Background="{Binding Brush}" />
-                                                            <TextBlock Text="{Binding DisplayName}"
-                                                                       VerticalAlignment="Center" />
-                                                        </StackPanel>
-                                                    </DataTemplate>
-                                                </cards:ComboBoxCard.ItemTemplate>
-                                            </cards:ComboBoxCard>
-                                            <Button Command="{Binding ResetBatteryColorsCommand}"
-                                                    HorizontalAlignment="Left">
-                                                <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Battery.Reset}" />
-                                            </Button>
-                                            <Grid ColumnDefinitions="Auto,*"
-                                                  ColumnSpacing="16">
-                                                <controls:ColorView Grid.Column="0"
-                                                                    Width="320"
-                                                                    Color="{Binding SelectedBatteryColor}"
-                                                                    IsColorSpectrumVisible="True"
-                                                                    IsColorPaletteVisible="True"
-                                                                    IsColorComponentsVisible="False"
-                                                                    IsColorPreviewVisible="True"
-                                                                    IsAlphaEnabled="False"
-                                                                    IsAlphaVisible="False" />
-                                                <Grid Grid.Column="1"
-                                                      RowDefinitions="Auto,*,Auto,*,Auto">
-                                                    <cards:SliderCard Grid.Row="0"
-                                                                      Minimum="0"
-                                                                      Maximum="255"
-                                                                      TickFrequency="1"
-                                                                      Title="{DynamicResource ProfilePage.Lightbar.Red}"
-                                                                      Value="{Binding SelectedBatteryRed}" />
-                                                    <cards:SliderCard Grid.Row="2"
-                                                                      Minimum="0"
-                                                                      Maximum="255"
-                                                                      TickFrequency="1"
-                                                                      Title="{DynamicResource ProfilePage.Lightbar.Green}"
-                                                                      Value="{Binding SelectedBatteryGreen}" />
-                                                    <cards:SliderCard Grid.Row="4"
-                                                                      Minimum="0"
-                                                                      Maximum="255"
-                                                                      TickFrequency="1"
-                                                                      Title="{DynamicResource ProfilePage.Lightbar.Blue}"
-                                                                      Value="{Binding SelectedBatteryBlue}" />
+                                            <StackPanel Orientation="Horizontal"
+                                                        Spacing="8">
+                                                <ToggleButton Content="{DynamicResource ProfilePage.SpecialActions.Battery.Notify}"
+                                                              IsChecked="{Binding BatteryNotification}"
+                                                              ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.Battery.Notify.Description}" />
+                                                <ToggleButton Content="{DynamicResource ProfilePage.SpecialActions.Battery.Lightbar}"
+                                                              IsChecked="{Binding BatteryLightbar}"
+                                                              ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.Battery.Lightbar.Description}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="8"
+                                                        IsVisible="{Binding IsBatteryLightbarVisible}">
+                                                <cards:ComboBoxCard Title="{DynamicResource ProfilePage.SpecialActions.Battery.Level}"
+                                                                    Description="{DynamicResource ProfilePage.SpecialActions.Battery.Level.Description}"
+                                                                    ComboBoxMinWidth="200"
+                                                                    ItemsSource="{Binding BatteryLevels}"
+                                                                    SelectedIndex="{Binding SelectedBatteryLevel}">
+                                                    <cards:ComboBoxCard.ItemTemplate>
+                                                        <DataTemplate x:DataType="items:BatteryLevelItem">
+                                                            <StackPanel Orientation="Horizontal"
+                                                                        Spacing="8">
+                                                                <Border Width="14"
+                                                                        Height="14"
+                                                                        CornerRadius="7"
+                                                                        VerticalAlignment="Center"
+                                                                        Background="{Binding Brush}" />
+                                                                <TextBlock Text="{Binding DisplayName}"
+                                                                           VerticalAlignment="Center" />
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </cards:ComboBoxCard.ItemTemplate>
+                                                </cards:ComboBoxCard>
+                                                <Button Command="{Binding ResetBatteryColorsCommand}"
+                                                        HorizontalAlignment="Left">
+                                                    <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Battery.Reset}" />
+                                                </Button>
+                                                <Grid ColumnDefinitions="Auto,*"
+                                                      ColumnSpacing="16">
+                                                    <controls:ColorView Grid.Column="0"
+                                                                        Width="320"
+                                                                        Color="{Binding SelectedBatteryColor}"
+                                                                        IsColorSpectrumVisible="True"
+                                                                        IsColorPaletteVisible="True"
+                                                                        IsColorComponentsVisible="False"
+                                                                        IsColorPreviewVisible="True"
+                                                                        IsAlphaEnabled="False"
+                                                                        IsAlphaVisible="False" />
+                                                    <Grid Grid.Column="1"
+                                                          RowDefinitions="Auto,*,Auto,*,Auto">
+                                                        <cards:SliderCard Grid.Row="0"
+                                                                          Minimum="0"
+                                                                          Maximum="255"
+                                                                          TickFrequency="1"
+                                                                          Title="{DynamicResource ProfilePage.Lightbar.Red}"
+                                                                          Value="{Binding SelectedBatteryRed}" />
+                                                        <cards:SliderCard Grid.Row="2"
+                                                                          Minimum="0"
+                                                                          Maximum="255"
+                                                                          TickFrequency="1"
+                                                                          Title="{DynamicResource ProfilePage.Lightbar.Green}"
+                                                                          Value="{Binding SelectedBatteryGreen}" />
+                                                        <cards:SliderCard Grid.Row="4"
+                                                                          Minimum="0"
+                                                                          Maximum="255"
+                                                                          TickFrequency="1"
+                                                                          Title="{DynamicResource ProfilePage.Lightbar.Blue}"
+                                                                          Value="{Binding SelectedBatteryBlue}" />
+                                                    </Grid>
                                                 </Grid>
-                                            </Grid>
+                                            </StackPanel>
                                         </StackPanel>
                                     </StackPanel>
                                 </cards:CustomCard>

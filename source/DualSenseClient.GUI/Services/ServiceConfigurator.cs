@@ -41,7 +41,7 @@ public abstract class ServiceConfigurator
 
         // Services
         services.AddSingleton<IMessageBoxService, MessageBoxService>();
-        services.AddSingleton<INotificationService, NotificationService>();
+        services.AddSingleton<INotificationPopupService, NotificationPopupService>();
         services.AddSingleton<ThemeService>();
         services.AddSingleton<NavigationService>();
         services.AddSingleton<TrayIconService>();
