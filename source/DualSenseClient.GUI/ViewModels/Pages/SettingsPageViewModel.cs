@@ -492,7 +492,15 @@ public partial class SettingsPageViewModel : ObservableObject
         _settingsService = App.Services.GetRequiredService<SettingsService>();
         _themeService = App.Services.GetRequiredService<ThemeService>();
         _popups = App.Services.GetRequiredService<INotificationPopupService>();
-        LoadSettings();
+        _suppressUpdates = true;
+        try
+        {
+            LoadSettings();
+        }
+        finally
+        {
+            _suppressUpdates = false;
+        }
     }
 
     /// <summary>
@@ -507,8 +515,14 @@ public partial class SettingsPageViewModel : ObservableObject
     public void RefreshSettings()
     {
         _suppressUpdates = true;
-        LoadSettings();
-        _suppressUpdates = false;
+        try
+        {
+            LoadSettings();
+        }
+        finally
+        {
+            _suppressUpdates = false;
+        }
     }
 
     /// <summary>

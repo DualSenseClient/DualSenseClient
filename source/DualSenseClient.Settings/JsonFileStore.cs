@@ -27,6 +27,25 @@ public class JsonFileStore<T> where T : class, new()
     private readonly Lock _lock = new Lock();
 
     /// <summary>
+    /// Whether a <see cref="Load"/> is currently in progress.
+    /// Checked by <see cref="Save"/> before taking <see cref="_lock"/> so a save
+    /// overlapping a load is skipped instead of blocking and then overwriting
+    /// freshly loaded data (or colliding on the file).
+    /// </summary>
+    private volatile bool _isLoading;
+
+    /// <summary>
+    /// Whether a <see cref="Load"/> is currently in progress.
+    /// </summary>
+    public bool IsLoading
+    {
+        get
+        {
+            return _isLoading;
+        }
+    }
+
+    /// <summary>
     /// The file path this store reads from and writes to.
     /// </summary>
     public string FilePath { get; }
@@ -90,31 +109,39 @@ public class JsonFileStore<T> where T : class, new()
     /// </summary>
     public void Load()
     {
-        lock (_lock)
+        _isLoading = true;
+        try
         {
-            try
+            lock (_lock)
             {
-                if (!File.Exists(FilePath))
+                try
                 {
-                    Item = new T();
-
-                    if (WriteDefaultsWhenMissing)
+                    if (!File.Exists(FilePath))
                     {
-                        SaveUnsafe();
+                        Item = new T();
+
+                        if (WriteDefaultsWhenMissing)
+                        {
+                            SaveUnsafe();
+                        }
+
+                        return;
                     }
 
-                    return;
+                    string json = File.ReadAllText(FilePath);
+                    Item = LenientJsonDeserializer.Deserialize<T>(json, _jsonOptions);
                 }
-
-                string json = File.ReadAllText(FilePath);
-                Item = LenientJsonDeserializer.Deserialize<T>(json, _jsonOptions);
+                catch (Exception ex)
+                {
+                    _log.Error($"Failed to load from '{FilePath}'");
+                    _log.LogExceptionDetails(ex);
+                    Item = new T();
+                }
             }
-            catch (Exception ex)
-            {
-                _log.Error($"Failed to load from '{FilePath}'");
-                _log.LogExceptionDetails(ex);
-                Item = new T();
-            }
+        }
+        finally
+        {
+            _isLoading = false;
         }
     }
 
@@ -129,8 +156,20 @@ public class JsonFileStore<T> where T : class, new()
     /// </summary>
     public void Save()
     {
+        if (_isLoading)
+        {
+            _log.Debug($"Skipped save to '{FilePath}' while loading is in progress");
+            return;
+        }
+
         lock (_lock)
         {
+            if (_isLoading)
+            {
+                _log.Debug($"Skipped save to '{FilePath}' while loading is in progress");
+                return;
+            }
+
             if (BackupBeforeSave)
             {
                 CreateBackup();
