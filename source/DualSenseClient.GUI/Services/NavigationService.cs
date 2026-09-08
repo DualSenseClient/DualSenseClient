@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using FluentAvalonia.UI.Controls;
+using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.GUI.Views.Pages;
 using DualSenseClient.Logging;
 
@@ -72,6 +73,15 @@ public class NavigationService
     /// </summary>
     public async Task NavigateToTag(string tag, FAFrame? contentFrame = null)
     {
+        // Virtual controller emulation is unsupported on Linux: never land on
+        // its page even via a stale programmatic navigation.
+        if (tag == "VirtualControllerPage" && !EmulationService.IsSupported)
+        {
+            _log.Debug("VirtualControllerPage requested on unsupported platform, redirecting to 'InfoPage'");
+            await NavigateToTag("InfoPage", contentFrame);
+            return;
+        }
+
         FAFrame? frame = contentFrame ?? _contentFrame;
         _currentPageTag = tag;
 

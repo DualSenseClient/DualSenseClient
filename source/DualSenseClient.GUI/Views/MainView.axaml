@@ -120,8 +120,16 @@
                     </controls:FANavigationViewItem.IconSource>
                 </controls:FANavigationViewItem>
                 <!-- Virtual controller page -->
-                <controls:FANavigationViewItem Content="{DynamicResource MainWindow.VirtualController}"
+                <!-- TODO: Disable hiding on Linux when libVIIPER is properly working -->
+                <controls:FANavigationViewItem x:Name="VirtualControllerNavItem"
+                                               Content="{DynamicResource MainWindow.VirtualController}"
                                                Tag="VirtualControllerPage">
+                    <controls:FANavigationViewItem.IsVisible>
+                        <OnPlatform Default="True">
+                            <On Options="Linux"
+                                Content="False" />
+                        </OnPlatform>
+                    </controls:FANavigationViewItem.IsVisible>
                     <controls:FANavigationViewItem.IconSource>
                         <ic:SymbolIconSource Symbol="Joystick" />
                     </controls:FANavigationViewItem.IconSource>
