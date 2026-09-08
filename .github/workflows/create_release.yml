@@ -74,7 +74,7 @@ jobs:
               $response = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases/latest" -Headers $headers -ErrorAction Stop
               $latestTag = $response.tag_name
             } else {
-              $release = gh release list --repo "${{ github.repository }}" --limit 1 --json tagName --jq '.[0].tagName'
+              $release = gh release list --repo "${{ github.repository }}" --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName'
               if ($LASTEXITCODE -ne 0) { throw "gh release list failed" }
               $latestTag = $release
             }
