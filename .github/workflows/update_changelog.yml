@@ -1,0 +1,41 @@
+name: Update changelog data
+permissions:
+  contents: write
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+# Releases published close together each rebuild the full file; last write wins.
+concurrency:
+  group: changelog-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - name: Build changelog.json from all releases
+        run: python3 scripts/build_changelog_data.py --repo "${{ github.repository }}" --output /tmp/changelog.json
+
+      - name: Publish to data branch
+        run: |
+          git fetch origin data:data 2>/dev/null || true
+          if git show-ref --verify --quiet refs/heads/data; then
+            git checkout data
+          else
+            git checkout --orphan data
+            git rm -rf . || true
+          fi
+          cp /tmp/changelog.json changelog.json
+          git add changelog.json
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "data: Update Changelog" || echo "No changes"
+          git push origin data
