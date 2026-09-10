@@ -67,6 +67,7 @@ nav:
       - Audio Playback: guides/audio.md
       - Light Control: guides/light-control.md
       - Profiles: guides/profiles.md
+      - Auto Profiles: guides/auto-profiles.md
       - Special Actions: guides/special-actions.md
       - Virtual Controller: guides/virtual-controller.md
       - Controller Hiding: guides/controller-hiding.md

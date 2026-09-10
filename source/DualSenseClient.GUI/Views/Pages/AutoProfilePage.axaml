@@ -1,0 +1,151 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DualSenseClient.GUI.ViewModels.Pages"
+             xmlns:sections="using:DualSenseClient.Settings.Sections"
+             xmlns:cards="clr-namespace:DualSenseClient.GUI.Controls.Cards"
+             xmlns:ic="using:FluentIcons.Avalonia.Fluent"
+             xmlns:fic="using:FluentIcons.Common"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignWidth="800"
+             d:DesignHeight="450"
+             x:Class="DualSenseClient.GUI.Views.Pages.AutoProfilePage"
+             x:DataType="vm:AutoProfilePageViewModel">
+    <Design.DataContext>
+        <vm:AutoProfilePageViewModel />
+    </Design.DataContext>
+    <ScrollViewer>
+        <StackPanel Spacing="16"
+                    Margin="24">
+            <!-- Empty state shown where focus tracking is unavailable -->
+            <cards:EmptyStateCard Title="{DynamicResource AutoProfilesPage.Unsupported.Title}"
+                                  Description="{DynamicResource AutoProfilesPage.Unsupported.Description}"
+                                  IsVisible="{Binding !IsSupported}" />
+
+            <StackPanel Spacing="16"
+                        IsVisible="{Binding IsSupported}">
+                <!-- Master switch -->
+                <Expander IsExpanded="True">
+                    <Expander.Header>
+                        <cards:CardHeader Title="{DynamicResource AutoProfilesPage.General.Title}"
+                                          Description="{DynamicResource AutoProfilesPage.General.Description}"
+                                          Icon="{x:Static fic:Symbol.TargetEdit}"
+                                          MinHeight="64" />
+                    </Expander.Header>
+                    <StackPanel Spacing="8">
+                        <cards:ToggleSwitchCard Title="{DynamicResource AutoProfilesPage.Enabled.Title}"
+                                                Description="{DynamicResource AutoProfilesPage.Enabled.Description}"
+                                                IsChecked="{Binding Enabled}" />
+                    </StackPanel>
+                </Expander>
+
+                <!-- Rule list -->
+                <Expander IsExpanded="True">
+                    <Expander.Header>
+                        <cards:CardHeader Title="{DynamicResource AutoProfilesPage.Rules.Title}"
+                                          Description="{DynamicResource AutoProfilesPage.Rules.Description}"
+                                          Icon="{x:Static fic:Symbol.Collections}"
+                                          MinHeight="64">
+                            <cards:CardHeader.ActionContent>
+                                <StackPanel Orientation="Horizontal"
+                                            Spacing="8">
+                                    <Button Command="{Binding AddRuleCommand}"
+                                            ToolTip.Tip="{DynamicResource AutoProfilesPage.Rules.New}">
+                                        <ic:FluentIcon Icon="Add"
+                                                       IconVariant="Regular" />
+                                    </Button>
+                                    <Button Command="{Binding DeleteRuleCommand}"
+                                            ToolTip.Tip="{DynamicResource AutoProfilesPage.Rules.Delete}">
+                                        <ic:FluentIcon Icon="Delete"
+                                                       IconVariant="Regular" />
+                                    </Button>
+                                </StackPanel>
+                            </cards:CardHeader.ActionContent>
+                        </cards:CardHeader>
+                    </Expander.Header>
+                    <StackPanel Spacing="8">
+                        <ListBox ItemsSource="{Binding Rules}"
+                                 SelectedItem="{Binding SelectedRule}"
+                                 MaxHeight="160">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="sections:AutoProfileRule">
+                                    <StackPanel Orientation="Horizontal"
+                                                Spacing="8"
+                                                ToolTip.Tip="{Binding Details}">
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   VerticalAlignment="Center"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding ProfileName}"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <TextBlock Text="{DynamicResource AutoProfilesPage.Rules.Empty}"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   IsVisible="{Binding !HasSelectedRule}" />
+
+                        <!-- Editor for the selected rule -->
+                        <StackPanel IsVisible="{Binding HasSelectedRule}"
+                                    Spacing="8">
+                            <cards:TextBoxCard Title="{DynamicResource AutoProfilesPage.Name.Title}"
+                                               Description="{DynamicResource AutoProfilesPage.Name.Description}"
+                                               Text="{Binding SelectedRuleName}" />
+                            <cards:CustomCard>
+                                <Grid ColumnDefinitions="*,Auto,Auto"
+                                      ColumnSpacing="8">
+                                    <cards:CardHeader Title="{DynamicResource AutoProfilesPage.Exe.Title}"
+                                                      Description="{DynamicResource AutoProfilesPage.Exe.Description}"
+                                                      VerticalAlignment="Center" />
+                                    <TextBox Grid.Column="1"
+                                             Text="{Binding SelectedExePattern}"
+                                             ToolTip.Tip="{Binding SelectedExePattern}"
+                                             VerticalAlignment="Center"
+                                             MinWidth="160"
+                                             MaxWidth="400" />
+                                    <Button Grid.Column="2"
+                                            Click="OnBrowseExeClick"
+                                            ToolTip.Tip="{DynamicResource AutoProfilesPage.Exe.Browse}"
+                                            VerticalAlignment="Center">
+                                        <ic:FluentIcon Icon="FolderOpen"
+                                                       IconVariant="Regular" />
+                                    </Button>
+                                </Grid>
+                            </cards:CustomCard>
+                            <cards:TextBoxCard Title="{DynamicResource AutoProfilesPage.RuleTitle.Title}"
+                                               Description="{DynamicResource AutoProfilesPage.RuleTitle.Description}"
+                                               Text="{Binding SelectedWindowTitle}" />
+                            <TextBlock Text="{DynamicResource AutoProfilesPage.Patterns.Hint}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" />
+                            <cards:ComboBoxCard x:Name="ControllerCard"
+                                                Title="{DynamicResource AutoProfilesPage.Controller.Title}"
+                                                Description="{DynamicResource AutoProfilesPage.Controller.Description}"
+                                                ItemsSource="{Binding ControllerOptions}"
+                                                SelectedIndex="{Binding SelectedControllerIndex}" />
+                            <cards:ComboBoxCard x:Name="ProfileCard"
+                                                Title="{DynamicResource AutoProfilesPage.Profile.Title}"
+                                                Description="{DynamicResource AutoProfilesPage.Profile.Description}"
+                                                ItemsSource="{Binding ProfileOptions}"
+                                                SelectedIndex="{Binding SelectedProfileIndex}" />
+                            <cards:ComboBoxCard Title="{DynamicResource AutoProfilesPage.Emulation.Title}"
+                                                Description="{DynamicResource AutoProfilesPage.Emulation.Description}"
+                                                ItemsSource="{Binding EmulationOptions}"
+                                                SelectedIndex="{Binding SelectedEmulationIndex}" />
+                            <TextBlock Text="{DynamicResource AutoProfilesPage.Rules.NoAction}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding IsRuleActionless}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Expander>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

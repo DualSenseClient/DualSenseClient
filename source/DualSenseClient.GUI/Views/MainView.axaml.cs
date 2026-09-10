@@ -1,3 +1,4 @@
+using System;
 using Avalonia;
 using Avalonia.Controls;
 using FluentAvalonia.UI.Controls;
@@ -38,6 +39,12 @@ public partial class MainView : UserControl
         if (!EmulationService.IsSupported)
         {
             NavigationView.MenuItems.Remove(VirtualControllerNavItem);
+        }
+
+        // Foreground-app auto profiles need Windows focus tracking
+        if (!OperatingSystem.IsWindows())
+        {
+            NavigationView.MenuItems.Remove(AutoProfilesNavItem);
         }
 
         _viewModel = App.Services.GetRequiredService<MainViewModel>();

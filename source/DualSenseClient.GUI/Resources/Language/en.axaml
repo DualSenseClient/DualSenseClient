@@ -40,6 +40,8 @@
     <sys:String x:Key="Notification.Changelog.Title">What's new</sys:String>
     <sys:String x:Key="Notification.Battery.Title">Battery level</sys:String>
     <sys:String x:Key="Notification.Battery.Message">{0}: {1}%</sys:String>
+    <sys:String x:Key="Notification.AutoProfile.Title">Auto profile switched</sys:String>
+    <sys:String x:Key="Notification.AutoProfile.Message">{0} is now using {1}</sys:String>
 
     <!-- Splash Screen -->
     <sys:String x:Key="SplashScreen.LoadingProfiles">Loading profiles...</sys:String>
@@ -99,6 +101,7 @@
     <!-- Input Monitor Page -->
     <sys:String x:Key="MainWindow.InputMonitor">Input Monitor</sys:String>
     <sys:String x:Key="MainWindow.Profile">Profile</sys:String>
+    <sys:String x:Key="MainWindow.AutoProfiles">Auto Profiles</sys:String>
     <sys:String x:Key="MainWindow.VirtualController">Virtual Controller</sys:String>
     <sys:String x:Key="InputMonitorPage.NoDevice.Title">No controller selected</sys:String>
     <sys:String x:Key="InputMonitorPage.NoDevice.Description">Select a controller from the title bar to monitor its live input state.</sys:String>
@@ -398,4 +401,37 @@
     <sys:String x:Key="SettingsPage.Notifications.Duration.Title">Duration</sys:String>
     <sys:String x:Key="SettingsPage.Notifications.Duration.Description">Seconds each notification popup stays visible (1-30)</sys:String>
     <sys:String x:Key="SettingsPage.Notifications.Test.Title">Send test notification</sys:String>
+
+    <!-- Auto Profiles Page -->
+    <sys:String x:Key="AutoProfilesPage.Unsupported.Title">Not supported on this platform</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Unsupported.Description">Foreground-app switching needs Windows focus tracking.</sys:String>
+    <sys:String x:Key="AutoProfilesPage.General.Title">Automatic switching</sys:String>
+    <sys:String x:Key="AutoProfilesPage.General.Description">Apply a profile and emulation mode based on the focused program</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Enabled.Title">Enable auto profiles</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Enabled.Description">Temporarily switch profile and virtual controller while a rule matches</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Rules.Title">Rules</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Rules.Description">First matching rule wins; empty patterns match anything of that kind</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Rules.New">Add rule</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Rules.Delete">Delete rule</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Rules.Empty">No rules yet. Add one to switch profiles per program.</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Name.Title">Rule name</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Name.Description">Shown in the rule list; empty shows the program path</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Exe.Title">Program</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Exe.Description">Executable path of the focused program</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Exe.Browse">Browse for a program</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Exe.Picker">Select a program</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Exe.FileType">Programs</sys:String>
+    <sys:String x:Key="AutoProfilesPage.RuleTitle.Title">Window title</sys:String>
+    <sys:String x:Key="AutoProfilesPage.RuleTitle.Description">Title of the focused window, or empty for any title</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Patterns.Hint">Program and window title are case-insensitive regular expressions, e.g. ^Level \d+$ or game\.exe$. An invalid expression matches literally instead. Escape backslashes as \\.</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Controller.Title">Controller</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Controller.Description">Which controller this rule applies to</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Controller.All">All controllers</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Profile.Title">Profile</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Profile.Description">Profile applied while the rule matches</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Profile.Unchanged">Leave unchanged</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Emulation.Title">Virtual controller</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Emulation.Description">Emulation mode applied while the rule matches</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Emulation.Unchanged">Leave unchanged</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Rules.NoAction">This rule leaves both profile and virtual controller unchanged, so it does nothing.</sys:String>
 </ResourceDictionary>

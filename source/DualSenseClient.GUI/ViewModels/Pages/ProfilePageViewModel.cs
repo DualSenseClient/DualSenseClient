@@ -63,6 +63,11 @@ public partial class ProfilePageViewModel : ObservableObject
     private readonly ControllerInfoService _controllerService;
 
     /// <summary>
+    /// Service storing the foreground-app auto profile rules referencing profiles by name.
+    /// </summary>
+    private readonly AutoProfileService _autoProfileService;
+
+    /// <summary>
     /// Service storing the global list of special actions.
     /// </summary>
     private readonly SpecialActionService _specialActionService;
@@ -277,6 +282,7 @@ public partial class ProfilePageViewModel : ObservableObject
         _mainViewModel = App.Services.GetRequiredService<MainViewModel>();
         _profileService = App.Services.GetRequiredService<ProfileService>();
         _controllerService = App.Services.GetRequiredService<ControllerInfoService>();
+        _autoProfileService = App.Services.GetRequiredService<AutoProfileService>();
         _specialActionService = App.Services.GetRequiredService<SpecialActionService>();
         _messageBox = App.Services.GetRequiredService<IMessageBoxService>();
         _mainViewModel.PropertyChanged += OnMainViewModelPropertyChanged;
@@ -325,6 +331,7 @@ public partial class ProfilePageViewModel : ObservableObject
         bool controllerWasUsing = HasDevice && string.Equals(CurrentUsedProfileName, name, StringComparison.OrdinalIgnoreCase);
         _profileService.DeleteProfile(name);
         _controllerService.RemoveProfileReferences(name);
+        _autoProfileService.RemoveProfileReferences(name);
         SelectedProfile = null;
         RebuildProfiles();
 
@@ -611,13 +618,14 @@ public partial class ProfilePageViewModel : ObservableObject
 
     /// <summary>
     /// Refreshes the assignment dropdown after a profile is renamed, and re-points the
-    /// controller assignments referencing the old name.
+    /// controller assignments and auto profile rules referencing the old name.
     /// </summary>
     private void OnProfileRenamed(object? sender, EventArgs e)
     {
         if (e is ProfileRenamedEventArgs args)
         {
             _controllerService.UpdateProfileName(args.OldName, args.NewName);
+            _autoProfileService.UpdateProfileName(args.OldName, args.NewName);
         }
 
         BuildAssignedProfileOptions();

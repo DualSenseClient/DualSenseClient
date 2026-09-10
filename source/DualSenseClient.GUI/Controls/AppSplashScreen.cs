@@ -117,10 +117,12 @@ internal class AppSplashScreen : IFAApplicationSplashScreen
         // services started afterwards read them.
         ProfileService profileService = App.Services.GetRequiredService<ProfileService>();
         ControllerInfoService controllerInfoService = App.Services.GetRequiredService<ControllerInfoService>();
+        AutoProfileService autoProfileService = App.Services.GetRequiredService<AutoProfileService>();
         await Task.Run(() =>
         {
             profileService.Load();
             controllerInfoService.Load();
+            autoProfileService.Load();
             // Drop the backup left by an in-app update (best-effort, never throws).
             UpdateInstaller.CleanupOld(Environment.ProcessPath);
         }, token);
@@ -131,6 +133,10 @@ internal class AppSplashScreen : IFAApplicationSplashScreen
             // Special action coordinator (created for its side effects: it attaches a
             // special actions engine to every tracked controller).
             _ = App.Services.GetRequiredService<SpecialActionCoordinator>();
+
+            // Auto profile coordinator (created for its side effects: it polls the
+            // focused program and temporarily applies the matching auto profile rule).
+            _ = App.Services.GetRequiredService<AutoProfileCoordinator>();
 
             // Emulation service (started for its side effects: it creates a virtual
             // controller for every tracked controller whose bound profile enables it).

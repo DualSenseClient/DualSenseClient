@@ -40,6 +40,8 @@ If no virtual device appears after enabling emulation, see [Virtual Controller D
 2. Open its device page (or the tray menu) and enable emulation with your preferred controller type
 3. Settings are applied per controller automatically on connection
 
+To switch the emulation mode automatically per program, use [Auto Profiles](auto-profiles.md).
+
 ![Virtual controller emulation options](../assets/images/virtual-controller.png)
 
 ## Button Remapping

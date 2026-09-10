@@ -22,3 +22,7 @@ When a bound controller connects, its profile is **applied automatically**. You 
 !!! tip
     Binding by MAC address means you can own multiple controllers with different lighting setups — for example one per player — and each gets its own look the moment it connects.
 
+## Switching Profiles Automatically
+
+To change profiles based on the focused program instead of the connected controller, use [Auto Profiles](auto-profiles.md) — for example a different profile (and virtual controller mode) per game.
+

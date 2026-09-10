@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.DualSense.Events;
 using DualSenseClient.Controllers.DualSense.Input;
@@ -66,6 +67,14 @@ public interface IEmulationService : IDisposable
     /// device. No-op when the controller has no active virtual controller.
     /// </summary>
     void ApplyButtonMappings(DualSenseDevice device);
+
+    /// <summary>
+    /// Temporarily overrides the given controller's emulation mode (e.g. for
+    /// foreground-app auto profiles) without touching its stored settings.
+    /// A <c>null</c> mode clears the override. Call <see cref="Refresh"/> afterwards
+    /// to recreate the virtual controller when the effective mode changed.
+    /// </summary>
+    void SetTemporaryEmulationMode(DualSenseDevice device, EmulationMode? mode);
 }
 
 /// <summary>
@@ -142,6 +151,16 @@ public sealed class EmulationService : IEmulationService
     private readonly Dictionary<DualSenseDevice, VirtualControllerEntry> _entries = new Dictionary<DualSenseDevice, VirtualControllerEntry>();
 
     /// <summary>
+    /// Temporary per-controller emulation mode overrides (foreground-app auto profiles).
+    /// Consulted by <see cref="GetEmulationSettings"/> before the stored settings.
+    /// Lock-free so <see cref="GetEmulationSettings"/> stays callable while
+    /// <see cref="_sync"/> is held (it is invoked from <see cref="Refresh"/> and
+    /// <see cref="ApplyButtonMappings"/> under that lock; <see cref="Lock"/> is not
+    /// re-entrant and must never be acquired twice on one thread).
+    /// </summary>
+    private readonly ConcurrentDictionary<DualSenseDevice, EmulationMode> _temporaryModes = new ConcurrentDictionary<DualSenseDevice, EmulationMode>();
+
+    /// <summary>
     /// The USB bus owned by <see cref="_serverHandle"/>, shared by all virtual controllers.
     /// </summary>
     private nuint? _serverHandle;
@@ -216,6 +235,7 @@ public sealed class EmulationService : IEmulationService
                 }
 
                 _entries.Clear();
+                _temporaryModes.Clear();
                 if (_serverHandle is { } serverHandle)
                 {
                     LibVIIPER.CloseUSBServer(serverHandle);
@@ -320,6 +340,26 @@ public sealed class EmulationService : IEmulationService
         }
     }
 
+    /// <inheritdoc/>
+    public void SetTemporaryEmulationMode(DualSenseDevice device, EmulationMode? mode)
+    {
+        // Rules are edited on the UI thread while the watcher reads them: ignore
+        // undefined values (e.g. torn reads) rather than recreating devices for them.
+        if (mode is not null && !Enum.IsDefined(mode.Value))
+        {
+            return;
+        }
+
+        if (mode is null)
+        {
+            _temporaryModes.TryRemove(device, out _);
+        }
+        else
+        {
+            _temporaryModes[device] = mode.Value;
+        }
+    }
+
     /// <summary>
     /// Resolves the controller's stored button mapping rules for the virtual controller's
     /// emulation mode and assigns them to it. Caller must hold <see cref="_sync"/>.
@@ -415,6 +455,7 @@ public sealed class EmulationService : IEmulationService
                 }
 
                 _entries.Remove(pair.Key);
+                _temporaryModes.TryRemove(pair.Key, out _);
                 DeviceDisposeUnsubscribe(pair.Key);
                 DisposeEntryLocked(pair.Value);
             }
@@ -711,11 +752,26 @@ public sealed class EmulationService : IEmulationService
     }
 
     /// <summary>
-    /// Gets the emulation settings stored for a controller (the emulation section of
-    /// the device info page), defaulting to emulation off.
+    /// Gets the effective emulation settings of a controller: its stored settings with
+    /// a temporary mode override applied when one is active. Returns a copy when
+    /// overridden so the stored object is never mutated.
     /// </summary>
     private EmulationSettings GetEmulationSettings(DualSenseDevice device)
-        => _controllerInfo.GetEmulationSettings(device.PairingInfo?.ClientMac, device.Info.Path);
+    {
+        EmulationSettings stored = _controllerInfo.GetEmulationSettings(device.PairingInfo?.ClientMac, device.Info.Path);
+        if (_temporaryModes.TryGetValue(device, out EmulationMode mode) && stored.Mode != mode)
+        {
+            return new EmulationSettings
+            {
+                Mode = mode,
+                Variant = stored.Variant,
+                Forward = stored.Forward,
+                Mappings = stored.Mappings
+            };
+        }
+
+        return stored;
+    }
 
     /// <summary>
     /// Creates the host-audio forwarder: Bluetooth audio reports to the physical

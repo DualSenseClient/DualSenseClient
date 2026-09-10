@@ -82,6 +82,15 @@ public class NavigationService
             return;
         }
 
+        // Foreground-app auto profiles need Windows focus tracking: never land on
+        // its page even via a stale programmatic navigation.
+        if (tag == "AutoProfilesPage" && !OperatingSystem.IsWindows())
+        {
+            _log.Debug("AutoProfilesPage requested on unsupported platform, redirecting to 'InfoPage'");
+            await NavigateToTag("InfoPage", contentFrame);
+            return;
+        }
+
         FAFrame? frame = contentFrame ?? _contentFrame;
         _currentPageTag = tag;
 
@@ -99,6 +108,9 @@ public class NavigationService
                 break;
             case "VirtualControllerPage":
                 frame?.Navigate(typeof(VirtualControllerPage));
+                break;
+            case "AutoProfilesPage":
+                frame?.Navigate(typeof(AutoProfilePage));
                 break;
             case "Settings":
                 frame?.Navigate(typeof(SettingsPage));

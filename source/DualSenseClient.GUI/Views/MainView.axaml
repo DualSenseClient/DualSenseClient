@@ -134,6 +134,20 @@
                         <ic:SymbolIconSource Symbol="Joystick" />
                     </controls:FANavigationViewItem.IconSource>
                 </controls:FANavigationViewItem>
+                <!-- Foreground-app auto profiles page (Windows only) -->
+                <controls:FANavigationViewItem x:Name="AutoProfilesNavItem"
+                                               Content="{DynamicResource MainWindow.AutoProfiles}"
+                                               Tag="AutoProfilesPage">
+                    <controls:FANavigationViewItem.IsVisible>
+                        <OnPlatform Default="True">
+                            <On Options="Linux"
+                                Content="False" />
+                        </OnPlatform>
+                    </controls:FANavigationViewItem.IsVisible>
+                    <controls:FANavigationViewItem.IconSource>
+                        <ic:SymbolIconSource Symbol="TargetEdit" />
+                    </controls:FANavigationViewItem.IconSource>
+                </controls:FANavigationViewItem>
             </controls:FANavigationView.MenuItems>
 
             <controls:FANavigationView.FooterMenuItems>

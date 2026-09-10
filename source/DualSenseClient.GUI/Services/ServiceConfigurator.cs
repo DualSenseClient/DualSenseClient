@@ -4,6 +4,7 @@ using DualSenseClient.Bluetooth;
 using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Controllers.SpecialActions;
+using DualSenseClient.Core.Foreground;
 using DualSenseClient.GUI.ViewModels;
 using DualSenseClient.GUI.ViewModels.Pages;
 using DualSenseClient.GUI.Views;
@@ -38,6 +39,7 @@ public abstract class ServiceConfigurator
         services.AddSingleton<ProfileService>();
         services.AddSingleton<ControllerInfoService>();
         services.AddSingleton<SpecialActionService>();
+        services.AddSingleton<AutoProfileService>();
 
         // Services
         services.AddSingleton<IMessageBoxService, MessageBoxService>();
@@ -46,6 +48,7 @@ public abstract class ServiceConfigurator
         services.AddSingleton<NavigationService>();
         services.AddSingleton<TrayIconService>();
         services.AddSingleton<SpecialActionCoordinator>();
+        services.AddSingleton<AutoProfileCoordinator>();
         services.AddSingleton<ControllerIllustrationService>();
 
         // Audio engine (SoundFlow/MiniAudio). One shared engine owns the WASAPI context,
@@ -67,6 +70,9 @@ public abstract class ServiceConfigurator
         services.AddSingleton<SpecialActionEngineRegistry>();
         services.AddSingleton<IControllerHidingService, HidHideService>();
 
+        // Platform
+        services.AddSingleton<IForegroundAppProvider, WindowsForegroundAppProvider>();
+
         // ViewModels
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<SettingsPageViewModel>();
@@ -74,6 +80,7 @@ public abstract class ServiceConfigurator
         services.AddSingleton<InputMonitorPageViewModel>();
         services.AddSingleton<ProfilePageViewModel>();
         services.AddSingleton<VirtualControllerPageViewModel>();
+        services.AddSingleton<AutoProfilePageViewModel>();
         services.AddSingleton<MainViewModel>();
 
         // Views
