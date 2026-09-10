@@ -16,7 +16,8 @@ IGNORE_PATTERNS = [
     re.compile(r"^chore: Update translation progress chart$"),
     re.compile(r"^ci(\(.*?\))?:"),
     re.compile(r"^\w+\(ci\):"),
-    re.compile(r"^docs?:"),
+    re.compile(r"^docs?(\(.*?\))?:"),
+    re.compile(r"^\w+\(docs?\):"),
     re.compile(r"^bump(:|$)"),
     re.compile(r"^test(:|$)"),
     re.compile(r"^init(:|$)"),
@@ -69,7 +70,7 @@ def build_changelog(since_sha: str) -> str:
         logger.info("No new commits found since %s", since_sha[:7])
         return "## Changelog\n\nNo new commits since last release."
 
-    logger.info("Filtering commits for user-facing changes (feat/fix only)...")
+    logger.info("Filtering out docs/internal commits...")
     entries: list[str] = []
     ignored_count = 0
     for commit_hash, subject in commits:
