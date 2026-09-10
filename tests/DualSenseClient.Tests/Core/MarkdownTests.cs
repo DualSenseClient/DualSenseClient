@@ -16,6 +16,16 @@ public class MarkdownTests
     }
 
     [Test]
+    public void ParseBlocks_SubHeading_ReturnsHeadingWords()
+    {
+        IReadOnlyList<Block> blocks = Markdown.ParseBlocks("### Features");
+
+        Assert.That(blocks.Count, Is.EqualTo(1));
+        Assert.That(blocks[0].Style, Is.EqualTo(BlockStyle.Heading));
+        Assert.That(blocks[0].Words.Select(w => w.Text), Is.EqualTo(["Features"]));
+    }
+
+    [Test]
     public void ParseBlocks_Bullet_KeepsTightParensAroundLink()
     {
         const string line = "- **feat(x): Cool thing** ([abc1234](https://example.com/c/abc))";

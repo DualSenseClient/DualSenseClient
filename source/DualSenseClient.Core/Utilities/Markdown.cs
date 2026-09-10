@@ -3,8 +3,8 @@ using System.Text.RegularExpressions;
 namespace DualSenseClient.Core.Utilities;
 
 /// <summary>
-/// Minimal markdown parsing for release notes: <c>## </c> headings,
-/// <c>- </c>/<c>* </c> bullets, <c>**bold**</c>, and <c>[text](url)</c> links.
+/// Minimal markdown parsing for release notes: <c># </c>..<c>###### </c>
+/// headings, <c>- </c>/<c>* </c> bullets, <c>**bold**</c>, and <c>[text](url)</c> links.
 /// Anything else yields plain paragraphs. Pure strings in, no UI dependencies,
 /// so callers render <see cref="Block"/>/<see cref="Word"/> however fits.
 /// </summary>
@@ -19,7 +19,7 @@ public enum BlockStyle
     Paragraph,
 
     /// <summary>
-    /// <c>## </c> heading.
+    /// <c># </c>..<c>###### </c> heading.
     /// </summary>
     Heading,
 
@@ -90,10 +90,16 @@ public static class Markdown
             }
 
             BlockStyle style = BlockStyle.Paragraph;
-            if (line.StartsWith("## ", StringComparison.Ordinal))
+            int hashes = 0;
+            while (hashes < line.Length && line[hashes] == '#')
+            {
+                hashes++;
+            }
+
+            if (hashes > 0 && hashes < line.Length && line[hashes] == ' ')
             {
                 style = BlockStyle.Heading;
-                line = line[3..].Trim();
+                line = line[(hashes + 1)..].Trim();
             }
             else if (line.StartsWith("- ", StringComparison.Ordinal) || line.StartsWith("* ", StringComparison.Ordinal))
             {
