@@ -28,6 +28,12 @@ IGNORE_PATTERNS = [
 ]
 
 PR_NUMBER_RE = re.compile(r"\s*\(#\d+\)$")
+TYPE_RE = re.compile(r"^(\w+)(\(.*?\))?:")
+GROUP_HEADINGS = (
+    ("feat", "### Features"),
+    ("fix", "### Bug Fixes"),
+)
+OTHER_HEADING = "### Other"
 REPOSITORY = "DualSenseClient/DualSenseClient"
 
 
@@ -57,6 +63,21 @@ def should_ignore(title: str) -> bool:
     return any(p.search(title) for p in IGNORE_PATTERNS)
 
 
+def display_title(title: str) -> str:
+    """Strip the conventional-commit type, keeping the scope.
+
+    e.g. "feat(ui): Add X" -> "ui: Add X", "fix: Crash" -> "Crash".
+    Non-conventional titles are returned unchanged.
+    """
+    match = TYPE_RE.match(title)
+    if not match:
+        return title
+    rest = title[match.end() :].strip()
+    if match.group(2):
+        return f"{match.group(2)[1:-1]}: {rest}"
+    return rest
+
+
 def build_changelog(since_sha: str) -> str:
     """Build the changelog markdown string."""
     if not since_sha:
@@ -71,8 +92,9 @@ def build_changelog(since_sha: str) -> str:
         return "## Changelog\n\nNo new commits since last release."
 
     logger.info("Filtering out docs/internal commits...")
-    entries: list[str] = []
+    groups: dict[str, list[str]] = {}
     ignored_count = 0
+    entry_count = 0
     for commit_hash, subject in commits:
         title = PR_NUMBER_RE.sub("", subject)
         if not title.strip() or should_ignore(title):
@@ -80,17 +102,30 @@ def build_changelog(since_sha: str) -> str:
             continue
         short = commit_hash[:7]
         url = f"https://github.com/{REPOSITORY}/commit/{commit_hash}"
-        entries.append(f"- **{title}** ([{short}]({url}))")
+        entry = f"- **{display_title(title)}** ([{short}]({url}))"
+        match = TYPE_RE.match(title)
+        group = match.group(1).lower() if match else "other"
+        groups.setdefault(group, []).append(entry)
+        entry_count += 1
 
     if ignored_count:
         logger.info("Skipped %d non-user-facing commits", ignored_count)
 
-    if not entries:
+    sections = []
+    for group, heading in GROUP_HEADINGS:
+        entries = groups.pop(group, None)
+        if entries:
+            sections.append(heading + "\n\n" + "\n".join(entries))
+    if groups:
+        rest = [e for key in sorted(groups) for e in groups[key]]
+        sections.append(OTHER_HEADING + "\n\n" + "\n".join(rest))
+
+    if not sections:
         logger.info("No user-facing changelog entries found")
         return "## Changelog\n\nNo new commits since last release."
 
-    logger.info("Generated %d changelog entries", len(entries))
-    return "## Changelog\n\n" + "\n".join(entries)
+    logger.info("Generated %d changelog entries", entry_count)
+    return "## Changelog\n\n" + "\n\n".join(sections)
 
 
 def main():
