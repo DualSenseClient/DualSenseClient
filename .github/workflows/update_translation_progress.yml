@@ -6,7 +6,11 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
+
+# Chart rebuilds the full file; last write wins.
+concurrency:
+  group: translation-progress-data
+  cancel-in-progress: false
 
 jobs:
   update_translation_progress:
@@ -29,79 +33,21 @@ jobs:
       - name: Generate translation chart
         run: python ./scripts/generate_translation_progress.py --chart
 
-      - name: Check for chart changes
-        id: git-check
+      - name: Publish to data branch
         shell: pwsh
         run: |
-          $currentHash = git hash-object assets/translation-progress.png
-          $headHash = git show HEAD:assets/translation-progress.png 2>$null | git hash-object --stdin
-
-          if ($currentHash -eq $headHash) {
-            echo "changed=false" >> $env:GITHUB_OUTPUT
-            Write-Host "No changes detected in translation progress chart"
+          Copy-Item assets/translation-progress.png $env:RUNNER_TEMP/translation-progress.png -Force
+          git fetch origin data:data 2>$null
+          git show-ref --verify --quiet refs/heads/data
+          if ($LASTEXITCODE -eq 0) {
+            git checkout data
           } else {
-            echo "changed=true" >> $env:GITHUB_OUTPUT
-            Write-Host "Translation progress chart has changed"
+            git checkout --orphan data
+            git rm -rf . 2>$null
           }
-
-      - name: Get current date
-        id: date
-        shell: pwsh
-        run: echo "date=$(Get-Date -Format 'yyyy-MM-dd')" >> $env:GITHUB_OUTPUT
-
-      - name: Create branch and commit
-        if: steps.git-check.outputs.changed == 'true'
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-
-          git checkout -b "translation-progress-${{ steps.date.outputs.date }}"
-
+          New-Item -ItemType Directory -Force -Path assets | Out-Null
+          Copy-Item $env:RUNNER_TEMP/translation-progress.png assets/translation-progress.png -Force
           git add assets/translation-progress.png
-          git commit -m "chore(localization): Update translation progress chart"
-
-      - name: Push branch
-        if: steps.git-check.outputs.changed == 'true'
-        run: git push origin "translation-progress-${{ steps.date.outputs.date }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create PR
-        if: steps.git-check.outputs.changed == 'true'
-        uses: actions/github-script@v9
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-            try {
-              await github.rest.pulls.create({
-                owner,
-                repo,
-                title: 'chore(localization): Update translation progress chart',
-                  head: 'translation-progress-${{ steps.date.outputs.date }}',
-                base: 'main',
-                body: 'Automated PR to update translation progress chart from CI workflow.'
-              });
-              console.log('PR created successfully');
-            } catch (e) {
-              if (e.status === 422) {
-                console.log('PR already exists, checking if we need to update...');
-                const prs = await github.rest.pulls.list({
-                  owner,
-                  repo,
-                head: 'translation-progress-${{ steps.date.outputs.date }}',
-                  base: 'main'
-                });
-                if (prs.data.length > 0) {
-                  const pr = prs.data[0];
-                  await github.rest.pulls.update({
-                    owner,
-                    repo,
-                    pull_number: pr.number,
-                    body: 'Automated PR to update translation progress chart from CI workflow.'
-                  });
-                  console.log('PR updated successfully');
-                }
-              } else {
-                throw e;
-              }
-            }
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "data: Update translation progress chart"
+          if ($LASTEXITCODE -ne 0) { echo "No changes" }
+          git push origin data
