@@ -132,7 +132,9 @@ jobs:
           $version = "${{ steps.version.outputs.version }}"
           $branch = "${{ steps.info.outputs.branch }}"
           $shaShort = "${{ steps.info.outputs.sha_short }}"
-          $compareUrl = "${{ github.server_url }}/${{ github.repository }}/compare/${{ env.LATEST_RELEASE_TAG }}...$shaShort"
+          $compareBase = git rev-list -n 1 "${{ env.LATEST_RELEASE_TAG }}" 2>$null
+          if ([string]::IsNullOrEmpty($compareBase)) { $compareBase = "${{ env.LATEST_RELEASE_TAG }}" } else { $compareBase = $compareBase.Substring(0, 7) }
+          $compareUrl = "${{ github.server_url }}/${{ github.repository }}/compare/$compareBase...$shaShort"
 
           $notes = @"
           This is an automated pre-release build containing the latest changes from the $branch branch.
