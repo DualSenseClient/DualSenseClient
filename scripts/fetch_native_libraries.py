@@ -22,7 +22,7 @@ import zipfile
 from pathlib import Path
 
 REPO = "DualSenseClient/VIIPER"
-TAG = "v1.0.0"
+TAG = "v1.0.1"
 DEV_TAG = "dev-snapshot"
 DESTINATION = Path("source") / "DualSenseClient.VIIPER" / "native"
 
