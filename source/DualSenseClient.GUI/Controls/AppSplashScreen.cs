@@ -1,15 +1,20 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media;
 using Avalonia.Threading;
 using FluentAvalonia.UI.Windowing;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.Controllers.Emulation;
+using DualSenseClient.Core.Utilities;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.GUI.ViewModels;
+using DualSenseClient.GUI.ViewModels.Pages;
 using DualSenseClient.GUI.Views;
 using DualSenseClient.HidHide;
+using DualSenseClient.Logging;
 using DualSenseClient.Settings;
+using DualSenseClient.Settings.Sections;
 
 namespace DualSenseClient.GUI.Controls;
 
@@ -19,6 +24,11 @@ namespace DualSenseClient.GUI.Controls;
 /// </summary>
 internal class AppSplashScreen : IFAApplicationSplashScreen
 {
+    /// <summary>
+    /// Logger instance.
+    /// </summary>
+    private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("AppSplashScreen");
+
     /// <summary>
     /// The name of the application to display during the splash screen
     /// </summary>
@@ -111,6 +121,8 @@ internal class AppSplashScreen : IFAApplicationSplashScreen
         {
             profileService.Load();
             controllerInfoService.Load();
+            // Drop the backup left by an in-app update (best-effort, never throws).
+            UpdateInstaller.CleanupOld(Environment.ProcessPath);
         }, token);
 
         _splashScreen.UpdateStatusMessage(LocalizationService.GetText("SplashScreen.StartingServices"));
@@ -140,6 +152,50 @@ internal class AppSplashScreen : IFAApplicationSplashScreen
         _splashScreen.UpdateStatusMessage(LocalizationService.GetText("SplashScreen.ScanningControllers"));
         await mainViewModel.InitializeScanningAsync(token);
 
+        _splashScreen.UpdateStatusMessage(LocalizationService.GetText("SplashScreen.CheckingUpdates"));
+        await CheckForUpdatesDailyAsync();
+
         await uiPreload;
+    }
+
+    /// <summary>
+    /// Checks GitHub for updates at most once per calendar day (like the daily log rotation),
+    /// when enabled in settings. A found update arms the release button and shows a clickable popup.
+    /// Never throws; failures are logged and skipped so startup is unaffected.
+    /// </summary>
+    private static async Task CheckForUpdatesDailyAsync()
+    {
+        try
+        {
+            SettingsService settingsService = App.Services.GetRequiredService<SettingsService>();
+            UpdateSettings updates = settingsService.Settings.Update;
+            if (!updates.AutomaticCheck || updates.LastUpdateCheck == DateOnly.FromDateTime(DateTime.Today))
+            {
+                return;
+            }
+
+            updates.LastUpdateCheck = DateOnly.FromDateTime(DateTime.Today);
+            settingsService.SaveSettings();
+
+            using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            UpdateChecker.ReleaseInfo? latest = await UpdateChecker.GetLatestAsync(updates.NightlyVersion, cts.Token);
+            if (latest is null
+                || !UpdateChecker.IsNewer(latest.Tag, AppInfo.Version, AppInfo.CommitShaShort, updates.NightlyVersion))
+            {
+                return;
+            }
+
+            App.Services.GetRequiredService<SettingsPageViewModel>().SetPendingUpdate(latest);
+
+            App.Services.GetRequiredService<INotificationPopupService>().ShowMessage(
+                LocalizationService.GetText("Notification.Update.Title"),
+                string.Format(LocalizationService.GetText("Notification.Update.Message"), latest.Tag),
+                url: latest.Url);
+        }
+        catch (Exception ex)
+        {
+            _log.Warning("Daily update check failed, skipping so startup is unaffected");
+            _log.LogExceptionDetails(ex);
+        }
     }
 }

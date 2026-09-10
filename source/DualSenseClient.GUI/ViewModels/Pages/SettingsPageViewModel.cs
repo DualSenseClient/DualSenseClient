@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -49,6 +53,11 @@ public partial class SettingsPageViewModel : ObservableObject
     /// Popup service used to preview notifications.
     /// </summary>
     private readonly INotificationPopupService _popups;
+
+    /// <summary>
+    /// Dialog service used to confirm the restart before applying an update.
+    /// </summary>
+    private readonly IMessageBoxService _messageBox;
 
     /// <summary>
     /// Logger instance.
@@ -483,6 +492,82 @@ public partial class SettingsPageViewModel : ObservableObject
         _settingsService.SaveSettings();
     }
 
+    // ─────────────────────────────────────────────────────────────── Updates
+    /// <summary>
+    /// Whether the app checks GitHub for updates once per calendar day at startup.
+    /// Persisted to <see cref="Sections.UpdateSettings.AutoCheckForUpdates"/>.
+    /// </summary>
+    [ObservableProperty] private bool autoCheckForUpdates;
+
+    /// <summary>
+    /// Called after <see cref="AutoCheckForUpdates"/> changes. Persists the choice to settings.
+    /// </summary>
+    partial void OnAutoCheckForUpdatesChanged(bool oldValue, bool newValue)
+    {
+        if (_suppressUpdates || oldValue == newValue)
+        {
+            return;
+        }
+
+        _log.Info($"Auto check for updates changed to '{newValue}'");
+        _settingsService.Settings.Update.AutomaticCheck = newValue;
+        _settingsService.SaveSettings();
+    }
+
+    /// <summary>
+    /// Whether update checks target nightly (pre-release) builds instead of stable releases.
+    /// Off means stable, on means nightly. Persisted to <see cref="Sections.UpdateSettings.IncludeNightlyUpdates"/>.
+    /// </summary>
+    [ObservableProperty] private bool includeNightlyUpdates;
+
+    /// <summary>
+    /// Called after <see cref="IncludeNightlyUpdates"/> changes. Persists the choice,
+    /// refreshes <see cref="ChannelLabel"/>, and drops the in-memory update from the other channel.
+    /// </summary>
+    partial void OnIncludeNightlyUpdatesChanged(bool oldValue, bool newValue)
+    {
+        if (_suppressUpdates || oldValue == newValue)
+        {
+            return;
+        }
+
+        _log.Info($"Update channel changed to '{(newValue ? "nightly" : "stable")}'");
+        _settingsService.Settings.Update.NightlyVersion = newValue;
+        _settingsService.SaveSettings();
+        OnPropertyChanged(nameof(ChannelLabel));
+        ClearPendingUpdate();
+    }
+
+    /// <summary>
+    /// The channel toggle title: Stable when off, Nightly when on.
+    /// </summary>
+    public string ChannelLabel
+    {
+        get
+        {
+            return LocalizationService.GetText(IncludeNightlyUpdates
+                ? "SettingsPage.Updates.Channel.Nightly"
+                : "SettingsPage.Updates.Channel.Stable");
+        }
+    }
+
+    /// <summary>
+    /// Whether the latest check found a newer release. While true the manual check button
+    /// is replaced by the release button, which always points at the latest release found.
+    /// In-memory only; a fresh check overwrites it.
+    /// </summary>
+    [ObservableProperty] private bool hasUpdate;
+
+    /// <summary>
+    /// The latest release found. In-memory only; a fresh check overwrites it.
+    /// </summary>
+    private UpdateChecker.ReleaseInfo? _pendingRelease;
+
+    /// <summary>
+    /// Whether a manual check is currently running. Disables the check button.
+    /// </summary>
+    [ObservableProperty] private bool isChecking;
+
     /// <summary>
     /// Initializes a new instance of <see cref="SettingsPageViewModel"/>.
     /// Resolves dependencies from the DI container and loads current settings into UI state.
@@ -492,6 +577,7 @@ public partial class SettingsPageViewModel : ObservableObject
         _settingsService = App.Services.GetRequiredService<SettingsService>();
         _themeService = App.Services.GetRequiredService<ThemeService>();
         _popups = App.Services.GetRequiredService<INotificationPopupService>();
+        _messageBox = App.Services.GetRequiredService<IMessageBoxService>();
         _suppressUpdates = true;
         try
         {
@@ -613,6 +699,11 @@ public partial class SettingsPageViewModel : ObservableObject
         int positionIndex = Array.IndexOf(PositionOrder, _settingsService.Settings.Ui.Notifications.Position);
         SelectedNotificationPositionIndex = positionIndex >= 0 ? positionIndex : Array.IndexOf(PositionOrder, NotificationPosition.BottomRight);
         NotificationDurationSeconds = _settingsService.Settings.Ui.Notifications.Duration;
+
+        // Updates
+        AutoCheckForUpdates = _settingsService.Settings.Update.AutomaticCheck;
+        IncludeNightlyUpdates = _settingsService.Settings.Update.NightlyVersion;
+        OnPropertyChanged(nameof(ChannelLabel));
     }
 
     /// <summary>
@@ -643,5 +734,160 @@ public partial class SettingsPageViewModel : ObservableObject
         _log.Info($"Notification duration changed to '{seconds}'");
         _settingsService.Settings.Ui.Notifications.Duration = seconds;
         _settingsService.SaveSettings();
+    }
+
+    /// <summary>
+    /// Records the latest release found by a check (called by manual and splash checks).
+    /// </summary>
+    public void SetPendingUpdate(UpdateChecker.ReleaseInfo release)
+    {
+        _pendingRelease = release;
+        HasUpdate = true;
+    }
+
+    /// <summary>
+    /// Drops the in-memory update, restoring the manual check button.
+    /// </summary>
+    private void ClearPendingUpdate()
+    {
+        HasUpdate = false;
+        _pendingRelease = null;
+    }
+
+    /// <summary>
+    /// Checks GitHub for updates now and shows a clickable popup when one is found.
+    /// Stamps the daily check date like the splash check does.
+    /// </summary>
+    [RelayCommand]
+    private async Task CheckForUpdatesAsync()
+    {
+        if (IsChecking)
+        {
+            return;
+        }
+
+        IsChecking = true;
+        try
+        {
+            using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            UpdateChecker.ReleaseInfo? latest = await UpdateChecker.GetLatestAsync(IncludeNightlyUpdates, cts.Token);
+            UpdateSettings updates = _settingsService.Settings.Update;
+            updates.LastUpdateCheck = DateOnly.FromDateTime(DateTime.Today);
+            _settingsService.SaveSettings();
+            if (latest is not null
+                && UpdateChecker.IsNewer(latest.Tag, AppInfo.Version, AppInfo.CommitShaShort, IncludeNightlyUpdates))
+            {
+                SetPendingUpdate(latest);
+                _popups.ShowMessage(
+                    LocalizationService.GetText("Notification.Update.Title"),
+                    string.Format(LocalizationService.GetText("Notification.Update.Message"), latest.Tag),
+                    url: latest.Url);
+            }
+            else
+            {
+                ClearPendingUpdate();
+            }
+        }
+        finally
+        {
+            IsChecking = false;
+        }
+    }
+
+    /// <summary>
+    /// Downloads the pending update, swaps it over the running executable, and restarts.
+    /// Falls back to the release page for read-only installs or missing assets.
+    /// </summary>
+    [RelayCommand]
+    private async Task ApplyUpdateAsync()
+    {
+        if (IsChecking || _pendingRelease is null)
+        {
+            return;
+        }
+
+        UpdateChecker.ReleaseInfo release = _pendingRelease;
+        string? exePath = Environment.ProcessPath;
+        UpdateTarget target = UpdateInstaller.Detect(exePath);
+        string? assetUrl = release.GetAssetUrl(target);
+        string? directory = string.IsNullOrEmpty(exePath) ? null : Path.GetDirectoryName(exePath);
+        if (string.IsNullOrEmpty(exePath) || string.IsNullOrEmpty(assetUrl)
+                                          || string.IsNullOrEmpty(directory) || !PathResolver.IsWritable(directory))
+        {
+            NotificationPopupService.OpenUrl(release.Url);
+            return;
+        }
+
+        IsChecking = true;
+        try
+        {
+            using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+            string tempDir = Directory.CreateTempSubdirectory("DualSenseClient-update-").FullName;
+            try
+            {
+                UpdateAsset updateAsset = UpdateInstaller.Target(target);
+                string downloadPath = Path.Combine(tempDir, updateAsset.FileName);
+                await UpdateInstaller.DownloadAsync(assetUrl, downloadPath, cts.Token);
+                if (!await UpdateInstaller.VerifyHashAsync(downloadPath, assetUrl, token: cts.Token))
+                {
+                    _log.Warning($"Update {release.Tag} failed hash verification");
+                    await _messageBox.ShowErrorAsync(
+                        LocalizationService.GetText("Notification.Update.Failed.Title"),
+                        LocalizationService.GetText("Notification.Update.Failed.Message"));
+                    return;
+                }
+
+                string newFile = downloadPath;
+                if (updateAsset.Entry is not null)
+                {
+                    newFile = Path.Combine(tempDir, updateAsset.Entry);
+                    UpdateInstaller.ExtractEntry(downloadPath, updateAsset.Entry, newFile);
+                }
+
+                if (updateAsset.MakeExecutable)
+                {
+                    UpdateInstaller.MakeExecutable(newFile);
+                }
+
+                UpdateInstaller.SwapExecutable(newFile, exePath);
+                _settingsService.Settings.Update.PendingChangelog = true;
+                _settingsService.SaveSettings();
+                _log.Info($"Update {release.Tag} installed, asking to restart");
+                await _messageBox.ShowInfoAsync(
+                    LocalizationService.GetText("Notification.Update.Restart.Title"),
+                    string.Format(LocalizationService.GetText("Notification.Update.Restart.Message"), release.Tag));
+
+                Process.Start(new ProcessStartInfo(exePath)
+                {
+                    UseShellExecute = true
+                });
+                App.IsExiting = true;
+                App.Desktop?.Shutdown();
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(tempDir, true);
+                }
+                catch (Exception ex)
+                {
+                    _log.Error($"Could not delete update temp directory '{tempDir}'");
+                    _log.LogExceptionDetails(ex);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.Warning($"Update {release.Tag} failed");
+            _log.LogExceptionDetails(ex);
+            await _messageBox.ShowErrorAsync(
+                LocalizationService.GetText("Notification.Update.Failed.Title"),
+                LocalizationService.GetText("Notification.Update.Failed.Message"));
+        }
+        finally
+        {
+            IsChecking = false;
+        }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,7 +34,7 @@ internal enum NotificationPopupKind
 /// <param name="Title">The bold title line.</param>
 /// <param name="Message">The descriptive message line.</param>
 /// <param name="Duration">How long the popup stays visible, or <c>null</c> for the configured duration.</param>
-internal sealed record NotificationPopupItem(string Title, string Message, TimeSpan? Duration = null);
+internal sealed record NotificationPopupItem(string Title, string Message, TimeSpan? Duration = null, string? Url = null);
 
 /// <summary>
 /// Shows desktop notification popups in a separate bottom-right window, so they
@@ -62,12 +63,13 @@ public interface INotificationPopupService
 
     /// <summary>
     /// Shows a popup with a custom title and message. No-op when notifications
-    /// are disabled.
+    /// are disabled. Safe to call from any thread.
     /// </summary>
     /// <param name="title">The bold title line.</param>
     /// <param name="message">The descriptive message line.</param>
     /// <param name="duration">How long the popup stays visible, or <c>null</c> for the configured duration.</param>
-    void ShowMessage(string title, string message, TimeSpan? duration = null);
+    /// <param name="url">Optional URL opened when the popup is clicked.</param>
+    void ShowMessage(string title, string message, TimeSpan? duration = null, string? url = null);
 
     /// <summary>
     /// Shows a sticky popup that stays open until <see cref="DismissStickyNotification"/>
@@ -215,14 +217,14 @@ public sealed class NotificationPopupService : INotificationPopupService
     }
 
     /// <inheritdoc/>
-    public void ShowMessage(string title, string message, TimeSpan? duration = null)
+    public void ShowMessage(string title, string message, TimeSpan? duration = null, string? url = null)
     {
         if (!_settingsService.Settings.Ui.Notifications.Enabled)
         {
             return;
         }
 
-        Enqueue(new NotificationPopupItem(title, message, duration));
+        Enqueue(new NotificationPopupItem(title, message, duration, url));
     }
 
     /// <inheritdoc/>
@@ -390,7 +392,7 @@ public sealed class NotificationPopupService : INotificationPopupService
             _isProcessing = true;
             while (_queue.TryDequeue(out NotificationPopupItem? item))
             {
-                await ShowPopupAsync(item.Title, item.Message, item.Duration ?? GetPopupDuration());
+                await ShowPopupAsync(item.Title, item.Message, item.Duration ?? GetPopupDuration(), item.Url);
             }
         }
         finally
@@ -405,7 +407,7 @@ public sealed class NotificationPopupService : INotificationPopupService
     /// user to dismiss it by clicking. Window work is marshaled to the UI thread;
     /// failures are logged and skipped so one bad popup never stalls the queue.
     /// </summary>
-    private async Task ShowPopupAsync(string title, string message, TimeSpan duration)
+    private async Task ShowPopupAsync(string title, string message, TimeSpan duration, string? url = null)
     {
         TaskCompletionSource<bool> closedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         NotificationPopupWindow? window = await Dispatcher.UIThread.InvokeAsync(() =>
@@ -415,6 +417,11 @@ public sealed class NotificationPopupService : INotificationPopupService
                 NotificationPopupWindow popup = new NotificationPopupWindow();
                 popup.SetContent(title, message);
                 popup.Placement = _settingsService.Settings.Ui.Notifications.Position;
+                if (!string.IsNullOrEmpty(url))
+                {
+                    popup.ClickAction = () => OpenUrl(url);
+                }
+
                 popup.Closed += (_, _) => closedTcs.TrySetResult(true);
                 popup.Show();
                 return popup;
@@ -447,6 +454,25 @@ public sealed class NotificationPopupService : INotificationPopupService
                 _log.Warning($"Failed to close notification popup: {ex.Message}");
             }
         });
+    }
+
+    /// <summary>
+    /// Opens a URL in the default browser. Failures are logged and ignored.
+    /// </summary>
+    internal static void OpenUrl(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(url)
+            {
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Warning($"Failed to open URL '{url}'");
+            _log.LogExceptionDetails(ex);
+        }
     }
 
     /// <summary>

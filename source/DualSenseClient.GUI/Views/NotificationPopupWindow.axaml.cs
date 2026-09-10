@@ -55,6 +55,12 @@ public partial class NotificationPopupWindow : Window
     public NotificationPosition Placement { get; set; } = NotificationPosition.BottomRight;
 
     /// <summary>
+    /// Gets or sets an optional action invoked when the popup is clicked,
+    /// before it closes (e.g. opening a release page).
+    /// </summary>
+    public Action? ClickAction { get; set; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="NotificationPopupWindow"/> class.
     /// </summary>
     public NotificationPopupWindow()
@@ -62,7 +68,7 @@ public partial class NotificationPopupWindow : Window
         InitializeComponent();
         Opened += OnOpened;
         Closing += OnClosing;
-        PointerPressed += OnPointerPressed;
+        ContentBorder.PointerPressed += OnPointerPressed;
     }
 
     /// <summary>
@@ -117,9 +123,13 @@ public partial class NotificationPopupWindow : Window
     }
 
     /// <summary>
-    /// Dismisses the popup when clicked anywhere.
+    /// Dismisses the popup when the content area is clicked, invoking <see cref="ClickAction"/> first.
     /// </summary>
-    private void OnPointerPressed(object? sender, PointerPressedEventArgs e) => Close();
+    private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        ClickAction?.Invoke();
+        Close();
+    }
 
     /// <summary>
     /// Dismisses the popup when the close button is clicked.

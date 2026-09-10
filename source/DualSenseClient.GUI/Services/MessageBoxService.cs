@@ -1,4 +1,13 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using DualSenseClient.Core.Utilities;
 using FluentAvalonia.UI.Controls;
 
 namespace DualSenseClient.GUI.Services;
@@ -50,6 +59,12 @@ public interface IMessageBoxService
     Task<FAContentDialogResult> ShowCustomDialogAsync(string title, string message,
         string primaryButtonText, string? secondaryButtonText = null, string? closeButtonText = null,
         MessageBoxDialogType dialogType = MessageBoxDialogType.ContentDialog);
+
+    /// <summary>
+    /// Shows a what's-new dialog with one collapsible section per release
+    /// (newest first, newest expanded). Release bodies render as markdown.
+    /// </summary>
+    Task ShowChangelogAsync(string title, IReadOnlyList<Changelog.Entry> releases, MessageBoxDialogType dialogType = MessageBoxDialogType.ContentDialog);
 }
 
 /// <summary>
@@ -91,6 +106,24 @@ public class MessageBoxService : IMessageBoxService
     }
 
     /// <summary>
+    /// Shows a what's-new dialog with one collapsible section per release
+    /// (newest first, newest expanded). Release bodies render as markdown.
+    /// </summary>
+    public async Task ShowChangelogAsync(string title, IReadOnlyList<Changelog.Entry> releases,
+        MessageBoxDialogType dialogType = MessageBoxDialogType.ContentDialog)
+    {
+        Control content = BuildChangelogContent(releases);
+        if (dialogType == MessageBoxDialogType.TaskDialog)
+        {
+            await ShowTaskDialogAsync(title, content);
+        }
+        else
+        {
+            await ShowContentDialogAsync(title, content);
+        }
+    }
+
+    /// <summary>
     /// Shows a custom message dialog with customizable buttons.
     /// </summary>
     public async Task<FAContentDialogResult> ShowCustomDialogAsync(string title, string message,
@@ -110,27 +143,27 @@ public class MessageBoxService : IMessageBoxService
     /// <summary>
     /// Shows a dialog with an OK button (used for info, warning, and error).
     /// </summary>
-    private async Task ShowDialogAsync(string title, string message, MessageBoxDialogType dialogType)
+    private async Task ShowDialogAsync(string title, object? content, MessageBoxDialogType dialogType)
     {
         if (dialogType == MessageBoxDialogType.TaskDialog)
         {
-            await ShowTaskDialogAsync(title, message);
+            await ShowTaskDialogAsync(title, content);
         }
         else
         {
-            await ShowContentDialogAsync(title, message);
+            await ShowContentDialogAsync(title, content);
         }
     }
 
     /// <summary>
     /// Shows a simple message dialog using ContentDialog.
     /// </summary>
-    private async Task ShowContentDialogAsync(string title, string message)
+    private async Task ShowContentDialogAsync(string title, object? content)
     {
         FAContentDialog dialog = new FAContentDialog
         {
             Title = title,
-            Content = message,
+            Content = content,
             PrimaryButtonText = LocalizationService.GetText("MessageBox.Ok"),
             DefaultButton = FAContentDialogButton.Primary
         };
@@ -192,12 +225,12 @@ public class MessageBoxService : IMessageBoxService
     /// <summary>
     /// Shows a simple message dialog using TaskDialog.
     /// </summary>
-    private async Task ShowTaskDialogAsync(string title, string message)
+    private async Task ShowTaskDialogAsync(string title, object? content)
     {
         FATaskDialog dialog = new FATaskDialog
         {
             Title = title,
-            Content = message,
+            Content = content,
             XamlRoot = App.MainWindow
         };
 
@@ -306,5 +339,125 @@ public class MessageBoxService : IMessageBoxService
         {
             return FAContentDialogResult.None;
         }
+    }
+
+    /// <summary>
+    /// Builds a scrollable list with one collapsible section per release
+    /// (newest first, newest expanded). Empty bodies show a placeholder line.
+    /// </summary>
+    private static Control BuildChangelogContent(IReadOnlyList<Changelog.Entry> releases)
+    {
+        StackPanel panel = new StackPanel
+        {
+            Spacing = 8
+        };
+
+        bool first = true;
+        foreach (Changelog.Entry release in releases)
+        {
+            string header = release.PublishedAt == DateTimeOffset.MinValue
+                ? release.Tag
+                : $"{release.Tag} ({release.PublishedAt:yyyy-MM-dd})";
+            string body = string.IsNullOrWhiteSpace(release.Body) ? "No release notes." : release.Body;
+            panel.Children.Add(new Expander
+            {
+                Header = header,
+                Content = BuildMarkdownContent(body),
+                IsExpanded = first
+            });
+            first = false;
+        }
+
+        return new ScrollViewer
+        {
+            Content = panel,
+            MaxHeight = 400,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+        };
+    }
+
+    /// <summary>
+    /// Builds a scrollable rendering of <see cref="Markdown"/> blocks. Each
+    /// paragraph is a <see cref="WrapPanel"/> of word-sized
+    /// <see cref="TextBlock"/>s with identical metrics, so links always sit
+    /// on the same baseline as the surrounding words.
+    /// </summary>
+    private static Control BuildMarkdownContent(string markdown)
+    {
+        StackPanel panel = new StackPanel
+        {
+            Spacing = 4
+        };
+
+        foreach (Block block in Markdown.ParseBlocks(markdown))
+        {
+            bool heading = block.Style == BlockStyle.Heading;
+            double fontSize = heading ? 16 : 14;
+            WrapPanel paragraph = new WrapPanel
+            {
+                Orientation = Orientation.Horizontal
+            };
+            foreach (Word word in block.Words)
+            {
+                paragraph.Children.Add(BuildWord(word, fontSize, heading));
+            }
+
+            panel.Children.Add(paragraph);
+        }
+
+        return new ScrollViewer
+        {
+            Content = panel,
+            MaxHeight = 400,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+        };
+    }
+
+    /// <summary>
+    /// Builds one word with explicit metrics. Words with a <see cref="Word.Url"/>
+    /// become underlined accent-colored links opening in the default browser.
+    /// </summary>
+    private static TextBlock BuildWord(Word word, double fontSize, bool heading)
+    {
+        TextBlock block = new TextBlock
+        {
+            Text = word.Text,
+            FontSize = fontSize,
+            FontWeight = heading || word.Bold ? FontWeight.Bold : FontWeight.Normal,
+            TextWrapping = TextWrapping.NoWrap
+        };
+
+        if (word.Url is not null && Uri.TryCreate(word.Url, UriKind.Absolute, out Uri? uri))
+        {
+            block.Foreground = new SolidColorBrush(GetLinkColor());
+            block.TextDecorations = TextDecorations.Underline;
+            block.Cursor = new Cursor(StandardCursorType.Hand);
+            ToolTip.SetTip(block, word.Url);
+            block.PointerPressed += (_, e) =>
+            {
+                if (e.GetCurrentPoint(block).Properties.IsLeftButtonPressed)
+                {
+                    NotificationPopupService.OpenUrl(uri.ToString());
+                }
+            };
+        }
+
+        return block;
+    }
+
+    /// <summary>
+    /// Returns the accent color of the active theme for link text.
+    /// Falls back to the default theme's accent when the resource is missing.
+    /// </summary>
+    private static Color GetLinkColor()
+    {
+        if (Application.Current is { } app
+            && app.TryGetResource("SystemAccentColor", app.ActualThemeVariant, out object? value)
+            && value is Color color)
+        {
+            return color;
+        }
+
+        return Color.Parse("#FF107C10");
     }
 }

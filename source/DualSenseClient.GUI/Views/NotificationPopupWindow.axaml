@@ -18,7 +18,8 @@
         TransparencyLevelHint="Transparent"
         Opacity="0">
     <Grid>
-        <Border Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+        <Border x:Name="ContentBorder"
+                Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                 BorderThickness="2"
                 CornerRadius="4"

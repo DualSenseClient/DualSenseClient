@@ -30,4 +30,10 @@ public class Settings
     /// </summary>
     [JsonPropertyName("ui")]
     public UiSettings Ui { get; set; } = new UiSettings();
+
+    /// <summary>
+    /// Gets or sets the update check settings (channel, daily auto-check).
+    /// </summary>
+    [JsonPropertyName("update")]
+    public UpdateSettings Update { get; set; } = new UpdateSettings();
 }

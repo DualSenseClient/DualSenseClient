@@ -97,7 +97,7 @@ public static class PathResolver
     /// </summary>
     /// <param name="path">The directory to probe.</param>
     /// <returns><c>true</c> if a probe file can be created and deleted; otherwise, <c>false</c>.</returns>
-    private static bool IsWritable(string path)
+    public static bool IsWritable(string path)
     {
         try
         {

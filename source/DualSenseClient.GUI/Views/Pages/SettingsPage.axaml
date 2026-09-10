@@ -22,9 +22,9 @@
                        FontSize="24"
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-            <StackPanel Orientation="Horizontal"
-                        Spacing="15"
-                        Margin="0,0,0,10">
+            <Grid ColumnDefinitions="Auto,*,Auto"
+                  ColumnSpacing="15"
+                  Margin="0,0,0,10">
                 <Border Width="80"
                         Height="80"
                         Padding="6"
@@ -35,7 +35,8 @@
                         VerticalAlignment="Center">
                     <Image Source="/Assets/icon-transparent.png" />
                 </Border>
-                <StackPanel Orientation="Vertical"
+                <StackPanel Grid.Column="1"
+                            Orientation="Vertical"
                             Spacing="5"
                             VerticalAlignment="Center">
                     <TextBlock Text="{DynamicResource SettingsPage.Header.AppName}"
@@ -53,7 +54,54 @@
                                          Margin="-10,0,0,0" />
                     </StackPanel>
                 </StackPanel>
-            </StackPanel>
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top">
+                    <Button Command="{Binding CheckForUpdatesCommand}"
+                            IsVisible="{Binding !HasUpdate}"
+                            IsEnabled="{Binding !IsChecking}">
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="8">
+                            <ic:FluentIcon Icon="ArrowDownload"
+                                           IconVariant="Regular" />
+                            <TextBlock Text="{DynamicResource SettingsPage.Updates.Check.Title}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding ApplyUpdateCommand}"
+                            IsVisible="{Binding HasUpdate}"
+                            IsEnabled="{Binding !IsChecking}"
+                            ToolTip.Tip="{DynamicResource SettingsPage.Updates.Open.Description}">
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="8">
+                            <ic:FluentIcon Icon="ArrowDownload"
+                                           IconVariant="Regular" />
+                            <TextBlock Text="{DynamicResource SettingsPage.Updates.Open.Title}" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- Updates -->
+            <Expander>
+                <Expander.Header>
+                    <cards:CardHeader Title="{DynamicResource SettingsPage.Updates.Title}"
+                                      Description="{DynamicResource SettingsPage.Updates.Description}"
+                                      Icon="{x:Static fic:Symbol.ArrowSync}"
+                                      MinHeight="64" />
+                </Expander.Header>
+                <StackPanel Spacing="8">
+                    <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.ArrowSync}"
+                                            Title="{Binding ChannelLabel}"
+                                            Description="{DynamicResource SettingsPage.Updates.Channel.Description}"
+                                            IsChecked="{Binding IncludeNightlyUpdates}" />
+                    <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.Clock}"
+                                            Title="{DynamicResource SettingsPage.Updates.AutoCheck.Title}"
+                                            Description="{DynamicResource SettingsPage.Updates.AutoCheck.Description}"
+                                            IsChecked="{Binding AutoCheckForUpdates}" />
+                </StackPanel>
+            </Expander>
 
             <!-- UI Settings -->
             <Expander>

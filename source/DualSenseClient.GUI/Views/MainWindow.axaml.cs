@@ -1,11 +1,18 @@
 using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using FluentAvalonia.UI.Windowing;
 using Microsoft.Extensions.DependencyInjection;
+using DualSenseClient.Core.Utilities;
 using DualSenseClient.GUI.Controls;
+using DualSenseClient.GUI.Services;
 using DualSenseClient.GUI.ViewModels;
+using DualSenseClient.Logging;
 using DualSenseClient.Settings;
+using DualSenseClient.Settings.Sections;
 
 namespace DualSenseClient.GUI.Views;
 
@@ -39,6 +46,11 @@ public partial class MainWindow : FAAppWindow
     private bool _mainContentLoaded;
 
     /// <summary>
+    /// Logger instance.
+    /// </summary>
+    private readonly DualSenseClientLogger _log = DualSenseClientLogger.For("MainWindow");
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="MainWindow"/> class.
     /// Resolves <see cref="MainWindowViewModel"/> and <see cref="SettingsService"/> from the DI container,
     /// assigns the splash screen, and extends the window content into the title bar so
@@ -55,6 +67,68 @@ public partial class MainWindow : FAAppWindow
         _closeToTray = _settingsService.Settings.Ui.CloseToTray;
         _settingsService.SettingsChanged += OnSettingsChanged;
         Closing += OnClosing;
+        Opened += OnFirstOpened;
+    }
+
+    /// <summary>
+    /// Shows the what's-new popup on first opening after an in-app update.
+    /// Never throws; failures are skipped so startup is unaffected.
+    /// </summary>
+    private async void OnFirstOpened(object? sender, EventArgs e)
+    {
+        try
+        {
+            Opened -= OnFirstOpened;
+            await ShowWhatsNewAsync();
+        }
+        catch (Exception ex)
+        {
+            _log.Warning("Failed to show what's-new popup");
+            _log.LogExceptionDetails(ex);
+        }
+    }
+
+    /// <summary>
+    /// Shows the aggregated changelog after an in-app update, covering the entries
+    /// newer than the last seen version. The changelog is only ever fetched here:
+    /// plain version mismatches (manual installs, downgrades) just re-stamp silently.
+    /// </summary>
+    private async Task ShowWhatsNewAsync()
+    {
+        try
+        {
+            UpdateSettings updates = _settingsService.Settings.Update;
+            string current = AppInfo.VersionWithCommit;
+            bool pending = updates.PendingChangelog;
+            string seen = updates.LastSeenVersion;
+            if (!pending && seen == current)
+            {
+                return;
+            }
+
+            updates.PendingChangelog = false;
+            updates.LastSeenVersion = current;
+            _settingsService.SaveSettings();
+            if (!pending || string.IsNullOrWhiteSpace(seen))
+            {
+                return;
+            }
+
+            using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            IReadOnlyList<Changelog.Entry>? releases = await Changelog.GetChangesSinceAsync(seen, updates.NightlyVersion, cts.Token);
+            if (releases is null || releases.Count == 0)
+            {
+                return;
+            }
+
+            await App.Services.GetRequiredService<IMessageBoxService>()
+                .ShowChangelogAsync(LocalizationService.GetText("Notification.Changelog.Title"), releases);
+        }
+        catch (Exception ex)
+        {
+            _log.Warning("Skipping what's-new popup");
+            _log.LogExceptionDetails(ex);
+        }
     }
 
     /// <summary>

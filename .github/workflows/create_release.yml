@@ -57,6 +57,16 @@ jobs:
           Compress-Archive -Path .\publish\desktop\* -DestinationPath .\DualSenseClient.zip
           Compress-Archive -Path .\publish\desktop-linux\* -DestinationPath .\DualSenseClient-linux.zip
 
+      - name: Write SHA256 checksums
+        shell: pwsh
+        run: |
+          foreach ($f in @("DualSenseClient.zip", "DualSenseClient-linux.zip")) {
+            $h = (Get-FileHash $f -Algorithm SHA256).Hash.ToLower()
+            "$h  $f" | Out-File -FilePath "$f.sha256" -Encoding ascii -NoNewline
+          }
+          $h = (Get-FileHash .\publish\appimage\DualSenseClient.AppImage -Algorithm SHA256).Hash.ToLower()
+          "$h  DualSenseClient.AppImage" | Out-File -FilePath "DualSenseClient.AppImage.sha256" -Encoding ascii -NoNewline
+
       - name: Get latest release info
         id: latest_release
         env:
@@ -151,7 +161,7 @@ jobs:
           $tag = "$versionPrefix$($maxN + 1).$shaShort"
 
           Write-Host "Creating pre-release $tag ..."
-          gh release create $tag DualSenseClient.zip DualSenseClient-linux.zip .\publish\appimage\DualSenseClient.AppImage --prerelease --title "DualSenseClient ($tag)" --notes "$notes" --target $branch
+          gh release create $tag DualSenseClient.zip DualSenseClient-linux.zip .\publish\appimage\DualSenseClient.AppImage DualSenseClient.zip.sha256 DualSenseClient-linux.zip.sha256 DualSenseClient.AppImage.sha256 --prerelease --title "DualSenseClient ($tag)" --notes "$notes" --target $branch
 
       - name: Create stable release
         if: "inputs.is_stable"
@@ -168,5 +178,5 @@ jobs:
           $notesArgs = if ([string]::IsNullOrEmpty($changelog)) { @("--generate-notes") } else { @("--notes", $changelog) }
 
           Write-Host "Creating stable draft release..."
-          gh release create $tag DualSenseClient.zip DualSenseClient-linux.zip .\publish\appimage\DualSenseClient.AppImage --draft @notesArgs --title "DualSenseClient ($tag)" --target $branch
+          gh release create $tag DualSenseClient.zip DualSenseClient-linux.zip .\publish\appimage\DualSenseClient.AppImage DualSenseClient.zip.sha256 DualSenseClient-linux.zip.sha256 DualSenseClient.AppImage.sha256 --draft @notesArgs --title "DualSenseClient ($tag)" --target $branch
           Write-Host "Stable draft release created! Go to GitHub to publish it."

@@ -31,6 +31,13 @@
     <sys:String x:Key="Notification.Charged.Message">{0} charged to {1}%</sys:String>
     <sys:String x:Key="Notification.Test.Title">Test notification</sys:String>
     <sys:String x:Key="Notification.Test.Message">This is what notifications look like.</sys:String>
+    <sys:String x:Key="Notification.Update.Title">Update available</sys:String>
+    <sys:String x:Key="Notification.Update.Message">Version {0} is available. Click to open the release page.</sys:String>
+    <sys:String x:Key="Notification.Update.Failed.Title">Update failed</sys:String>
+    <sys:String x:Key="Notification.Update.Failed.Message">The update could not be installed. Click to open the release page.</sys:String>
+    <sys:String x:Key="Notification.Update.Restart.Title">Restart to update</sys:String>
+    <sys:String x:Key="Notification.Update.Restart.Message">Version {0} is downloaded. The app will now restart to apply the update.</sys:String>
+    <sys:String x:Key="Notification.Changelog.Title">What's new</sys:String>
     <sys:String x:Key="Notification.Battery.Title">Battery level</sys:String>
     <sys:String x:Key="Notification.Battery.Message">{0}: {1}%</sys:String>
 
@@ -38,6 +45,7 @@
     <sys:String x:Key="SplashScreen.LoadingProfiles">Loading profiles...</sys:String>
     <sys:String x:Key="SplashScreen.StartingServices">Starting services...</sys:String>
     <sys:String x:Key="SplashScreen.ScanningControllers">Scanning for controllers...</sys:String>
+    <sys:String x:Key="SplashScreen.CheckingUpdates">Checking for updates...</sys:String>
 
     <!-- Device Info Page -->
     <sys:String x:Key="MainWindow.Devices">Device Info</sys:String>
@@ -330,6 +338,16 @@
     <!-- Settings Page -->
     <sys:String x:Key="SettingsPage.Header.AppName">DualSense Client</sys:String>
     <sys:String x:Key="SettingsPage.Header.Github">Github</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.Check.Title">Check for updates</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.Title">Updates</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.Description">Release channel and automatic update checks</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.Open.Title">Update</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.Open.Description">Updates the app to the latest version</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.Channel.Stable">Stable</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.Channel.Nightly">Nightly</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.Channel.Description">Stable follows versioned releases, nightly follows pre-release builds</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.AutoCheck.Title">Automatically check for updates</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.AutoCheck.Description">Check once per day during startup when enabled</sys:String>
     <sys:String x:Key="SettingsPage.Ui.Title">UI</sys:String>
     <sys:String x:Key="SettingsPage.Ui.Description">Language and theme settings</sys:String>
     <sys:String x:Key="SettingsPage.Ui.Language.Title">Language</sys:String>
