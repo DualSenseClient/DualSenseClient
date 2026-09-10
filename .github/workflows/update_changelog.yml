@@ -3,8 +3,6 @@ permissions:
   contents: write
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
 
 # Releases published close together each rebuild the full file; last write wins.

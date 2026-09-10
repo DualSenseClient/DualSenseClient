@@ -1,7 +1,7 @@
 name: Create release
 permissions:
   contents: write
-  actions: read
+  actions: write
 
 on:
   workflow_call:
@@ -123,6 +123,7 @@ jobs:
           "branch=$branch" >> $env:GITHUB_OUTPUT
 
       - name: Create pre-release
+        id: create_prerelease
         if: "!inputs.is_stable"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -166,6 +167,7 @@ jobs:
           gh release create $tag DualSenseClient.zip DualSenseClient-linux.zip .\publish\appimage\DualSenseClient.AppImage DualSenseClient.zip.sha256 DualSenseClient-linux.zip.sha256 DualSenseClient.AppImage.sha256 --prerelease --title "DualSenseClient ($tag)" --notes "$notes" --target $branch
 
       - name: Create stable release
+        id: create_stable
         if: "inputs.is_stable"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -182,3 +184,9 @@ jobs:
           Write-Host "Creating stable draft release..."
           gh release create $tag DualSenseClient.zip DualSenseClient-linux.zip .\publish\appimage\DualSenseClient.AppImage DualSenseClient.zip.sha256 DualSenseClient-linux.zip.sha256 DualSenseClient.AppImage.sha256 --draft @notesArgs --title "DualSenseClient ($tag)" --target $branch
           Write-Host "Stable draft release created! Go to GitHub to publish it."
+
+      - name: Trigger changelog data update
+        if: steps.create_prerelease.outcome == 'success' || steps.create_stable.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run update_changelog.yml --repo "${{ github.repository }}"
