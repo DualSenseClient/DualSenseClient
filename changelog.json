@@ -1,5 +1,19 @@
 [
  {
+  "tag": "v1.0.0-10.7917176",
+  "name": "DualSenseClient (v1.0.0-10.7917176)",
+  "publishedAt": "2026-09-10T21:24:26Z",
+  "prerelease": true,
+  "body": "### Features\n\n- **profiles: Add automatic profile switching per focused program** ([9f85489](https://github.com/DualSenseClient/DualSenseClient/commit/9f854891b07a23e359d4475c7a88431e025121a4))\n\n### Bug Fixes\n\n- **ui: Render all markdown heading levels in changelog popup** ([321fd9f](https://github.com/DualSenseClient/DualSenseClient/commit/321fd9f3fa594f9197f803479b5fc5c4326c5039))"
+ },
+ {
+  "tag": "v1.0.0-9.4816566",
+  "name": "DualSenseClient (v1.0.0-9.4816566)",
+  "publishedAt": "2026-09-10T08:01:47Z",
+  "prerelease": true,
+  "body": "- **feat(update): In-app updates with post-update changelog** ([4816566](https://github.com/DualSenseClient/DualSenseClient/commit/48165660b4a11ffb4c72c4980ff8aa262042896b))\n- **fix(settings): Skip save while load in progress, harden refresh suppression** ([3450526](https://github.com/DualSenseClient/DualSenseClient/commit/34505267e6da6f6082664fb57826005c4670cd85))"
+ },
+ {
   "tag": "v1.0.0-8.3b0de8b",
   "name": "DualSenseClient (v1.0.0-8.3b0de8b)",
   "publishedAt": "2026-09-08T16:42:12Z",
