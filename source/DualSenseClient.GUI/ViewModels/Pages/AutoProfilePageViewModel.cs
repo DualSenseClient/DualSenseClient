@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.GUI.Services;
+using DualSenseClient.HidHide;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
 using DualSenseClient.Settings.Sections;
@@ -14,7 +15,7 @@ namespace DualSenseClient.GUI.ViewModels.Pages;
 
 /// <summary>
 /// ViewModel for the foreground-app auto profiles page. Lists the rules mapping a
-/// focused program to a profile and emulation mode, and edits the selected rule.
+/// focused program to a profile, emulation mode, and hiding, and edits the selected rule.
 /// Rules are stored by <see cref="AutoProfileService"/> and applied temporarily by
 /// <see cref="AutoProfileCoordinator"/>; this page only edits and persists them.
 /// </summary>
@@ -46,6 +47,11 @@ public partial class AutoProfilePageViewModel : ObservableObject
     private readonly ControllerInfoService _controllers;
 
     /// <summary>
+    /// Service reporting whether the hiding backend is installed and operational.
+    /// </summary>
+    private readonly IControllerHidingService _hiding;
+
+    /// <summary>
     /// Whether foreground-app switching is available on this platform (Windows only).
     /// </summary>
     public bool IsSupported
@@ -53,6 +59,19 @@ public partial class AutoProfilePageViewModel : ObservableObject
         get
         {
             return OperatingSystem.IsWindows();
+        }
+    }
+
+    /// <summary>
+    /// Whether the hiding backend is installed and operational. The hiding
+    /// option is hidden while this is <c>false</c>. Re-evaluated on every
+    /// <see cref="Refresh"/>.
+    /// </summary>
+    public bool HidingAvailable
+    {
+        get
+        {
+            return _hiding.IsAvailable;
         }
     }
 
@@ -95,6 +114,7 @@ public partial class AutoProfilePageViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(SelectedWindowTitle))]
     [NotifyPropertyChangedFor(nameof(SelectedProfileIndex))]
     [NotifyPropertyChangedFor(nameof(SelectedEmulationIndex))]
+    [NotifyPropertyChangedFor(nameof(SelectedHideIndex))]
     [NotifyPropertyChangedFor(nameof(SelectedControllerIndex))]
     private AutoProfileRule? selectedRule;
 
@@ -182,7 +202,7 @@ public partial class AutoProfilePageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Whether the selected rule leaves both profile and emulation unchanged,
+    /// Whether the selected rule leaves profile, emulation, and hiding unchanged,
     /// making it a no-op. Shown as a hint in the editor.
     /// </summary>
     public bool IsRuleActionless
@@ -191,7 +211,8 @@ public partial class AutoProfilePageViewModel : ObservableObject
         {
             return SelectedRule is not null
                    && string.IsNullOrEmpty(SelectedRule.ProfileName)
-                   && SelectedRule.EmulationMode is null;
+                   && SelectedRule.EmulationMode is null
+                   && SelectedRule.HideController is null;
         }
     }
 
@@ -288,6 +309,56 @@ public partial class AutoProfilePageViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Hiding options for the selected rule: leave unchanged, hide, or show.
+    /// </summary>
+    public ObservableCollection<string> HideOptions { get; } =
+    [
+        LocalizationService.GetText("AutoProfilesPage.Hiding.Unchanged"),
+        LocalizationService.GetText("AutoProfilesPage.Hiding.Hide"),
+        LocalizationService.GetText("AutoProfilesPage.Hiding.Show")
+    ];
+
+    /// <summary>
+    /// The selected rule's hiding as an option index (0 leaves the state unchanged).
+    /// Setting it persists immediately.
+    /// </summary>
+    public int SelectedHideIndex
+    {
+        get
+        {
+            return SelectedRule?.HideController switch
+            {
+                true => 1,
+                false => 2,
+                _ => 0
+            };
+        }
+        set
+        {
+            if (SelectedRule is null)
+            {
+                return;
+            }
+
+            bool? hide = value switch
+            {
+                1 => true,
+                2 => false,
+                _ => null
+            };
+            if (SelectedRule.HideController == hide)
+            {
+                return;
+            }
+
+            SelectedRule.HideController = hide;
+            _rules.Save();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsRuleActionless));
+        }
+    }
+
+    /// <summary>
     /// Controller target options for the selected rule: "all controllers" plus every
     /// known controller.
     /// </summary>
@@ -362,6 +433,7 @@ public partial class AutoProfilePageViewModel : ObservableObject
         _rules = App.Services.GetRequiredService<AutoProfileService>();
         _profiles = App.Services.GetRequiredService<ProfileService>();
         _controllers = App.Services.GetRequiredService<ControllerInfoService>();
+        _hiding = App.Services.GetRequiredService<IControllerHidingService>();
         Refresh();
     }
 
@@ -396,6 +468,7 @@ public partial class AutoProfilePageViewModel : ObservableObject
 
         SelectedRule = selected is not null && Rules.Contains(selected) ? selected : Rules.FirstOrDefault();
         OnPropertyChanged(nameof(Enabled));
+        OnPropertyChanged(nameof(HidingAvailable));
     }
 
     /// <summary>

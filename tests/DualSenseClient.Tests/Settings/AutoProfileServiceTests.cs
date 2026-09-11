@@ -215,4 +215,25 @@ public class AutoProfileServiceTests
             Assert.That(match.EmulationMode, Is.EqualTo(EmulationMode.Xbox360));
         });
     }
+
+    [Test]
+    public void Rule_HideOnly_MatchesAndRoundTrips()
+    {
+        AutoProfileService service = CreateService();
+        service.AddRule(new AutoProfileRule
+        {
+            ExePattern = "game\\.exe",
+            HideController = true
+        });
+
+        AutoProfileService reloaded = CreateService();
+        AutoProfileRule? match = reloaded.FindMatch(@"C:\game.exe", "Title", null, null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(match, Is.Not.Null);
+            Assert.That(match!.HideController, Is.True);
+            Assert.That(match.IsActionless, Is.False);
+        });
+    }
 }

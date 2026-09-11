@@ -137,6 +137,11 @@
                                                 Description="{DynamicResource AutoProfilesPage.Emulation.Description}"
                                                 ItemsSource="{Binding EmulationOptions}"
                                                 SelectedIndex="{Binding SelectedEmulationIndex}" />
+                            <cards:ComboBoxCard Title="{DynamicResource AutoProfilesPage.Hiding.Title}"
+                                                Description="{DynamicResource AutoProfilesPage.Hiding.Description}"
+                                                ItemsSource="{Binding HideOptions}"
+                                                SelectedIndex="{Binding SelectedHideIndex}"
+                                                IsVisible="{Binding HidingAvailable}" />
                             <TextBlock Text="{DynamicResource AutoProfilesPage.Rules.NoAction}"
                                        FontSize="12"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"

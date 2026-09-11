@@ -1,6 +1,6 @@
 # Auto Profiles
 
-Auto Profiles switch your controller's **profile** and **virtual controller mode** automatically based on which program is focused. For example: a calm blue profile with no emulation on the desktop, and a game profile with Xbox 360 emulation when your game is in focus.
+Auto Profiles switch your controller's **profile**, **virtual controller mode**, and **hiding** automatically based on which program is focused. For example: a calm blue profile with no emulation on the desktop, and a game profile with Xbox 360 emulation when your game is in focus.
 
 ![Auto profiles page](../assets/images/auto-profiles.png)
 
@@ -9,7 +9,7 @@ Auto Profiles switch your controller's **profile** and **virtual controller mode
 
 ## How It Works
 
-Rules are evaluated **top-down, first match wins**, about once per second against the focused program. When a rule matches, its profile and emulation mode are applied **temporarily** — your stored per-controller bindings are never modified. When no rule matches (or Auto Profiles are disabled), each controller falls back to its bound profile and stored emulation settings.
+Rules are evaluated **top-down, first match wins**, about once per second against the focused program. When a rule matches, its profile, emulation mode, and hiding are applied **temporarily** — your stored per-controller bindings are never modified. When no rule matches (or Auto Profiles are disabled), each controller falls back to its bound profile and stored emulation settings, and the hidden state from before the rule is restored.
 
 A desktop notification is shown whenever the applied profile changes. Like other notifications, it follows the global notification toggle in Settings.
 
@@ -18,8 +18,8 @@ A desktop notification is shown whenever the applied profile changes. Like other
 1. Open the **Auto Profiles** page and press **+** to add a rule
 2. Give it a **name** (optional — the program path is shown when empty)
 3. Pick the **program** with the file picker (or type the path manually)
-4. Optionally set a **window title** filter, **controller** target, **profile**, and **virtual controller** mode
-5. Each dropdown starts at **"leave unchanged" / "All controllers"**, so a rule can switch the profile only, the virtual controller only, or both. A rule that leaves both unchanged does nothing (the page says so).
+4. Optionally set a **window title** filter, **controller** target, **profile**, **virtual controller** mode, and **hiding**
+5. Each dropdown starts at **"leave unchanged" / "All controllers"**, so a rule can switch any combination of profile, virtual controller, and hiding. A rule that leaves all three unchanged does nothing (the page says so). The hiding option is only shown when the [HidHide driver](controller-hiding.md) is available.
 
 ## Matching
 

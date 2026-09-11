@@ -435,5 +435,10 @@
     <sys:String x:Key="AutoProfilesPage.Emulation.Title">Virtual controller</sys:String>
     <sys:String x:Key="AutoProfilesPage.Emulation.Description">Emulation mode applied while the rule matches</sys:String>
     <sys:String x:Key="AutoProfilesPage.Emulation.Unchanged">Leave unchanged</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Rules.NoAction">This rule leaves both profile and virtual controller unchanged, so it does nothing.</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Hiding.Title">Hide controller</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Hiding.Description">Hiding applied while the rule matches</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Hiding.Unchanged">Leave unchanged</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Hiding.Hide">Hide</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Hiding.Show">Show</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Rules.NoAction">This rule leaves profile, virtual controller, and hiding unchanged, so it does nothing.</sys:String>
 </ResourceDictionary>

@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 namespace DualSenseClient.Settings.Sections;
 
 /// <summary>
-/// A foreground-app rule mapping one program to a profile and emulation mode.
+/// A foreground-app rule mapping one program to a profile, emulation mode, and hiding.
 /// An empty <see cref="ExePattern"/> and <see cref="WindowTitle"/> never matches;
 /// when only one is set, only that one is tested (AND when both are set).
 /// Both patterns are case-insensitive regular expressions (search semantics);
@@ -216,7 +216,14 @@ public class AutoProfileRule : INotifyPropertyChanged
     public EmulationMode? EmulationMode { get; set; }
 
     /// <summary>
-    /// Whether the rule leaves both profile and emulation unchanged, making it a
+    /// Gets or sets whether the controller is hidden while the rule matches,
+    /// or <c>null</c> to leave the hidden state unchanged.
+    /// </summary>
+    [JsonPropertyName("hide_controller")]
+    public bool? HideController { get; set; }
+
+    /// <summary>
+    /// Whether the rule leaves profile, emulation, and hiding unchanged, making it a
     /// no-op. The matcher skips such rules so they never shadow lower rules.
     /// </summary>
     [JsonIgnore]
@@ -224,7 +231,7 @@ public class AutoProfileRule : INotifyPropertyChanged
     {
         get
         {
-            return string.IsNullOrEmpty(_profileName) && EmulationMode is null;
+            return string.IsNullOrEmpty(_profileName) && EmulationMode is null && HideController is null;
         }
     }
 

@@ -8,8 +8,8 @@ namespace DualSenseClient.Settings;
 
 /// <summary>
 /// Service for managing foreground-app auto profile rules with JSON file persistence.
-/// Rules map a focused program (exe path and optional window title) to a profile and
-/// emulation mode per controller. The rules themselves are stored here; the per-controller
+/// Rules map a focused program (exe path and optional window title) to a profile,
+/// emulation mode, and hiding per controller. The rules themselves are stored here; the per-controller
 /// bindings they temporarily override live in <see cref="ControllerInfoService"/>.
 /// </summary>
 /// <remarks>
@@ -135,7 +135,7 @@ public sealed class AutoProfileService
     /// <summary>
     /// Finds the first actionable rule matching the foreground program for a controller
     /// (rules are evaluated in list order), or <c>null</c> when nothing matches.
-    /// Rules leaving both profile and emulation unchanged never match, so they cannot
+    /// Rules leaving profile, emulation, and hiding unchanged never match, so they cannot
     /// shadow lower rules.
     /// </summary>
     /// <param name="foregroundExe">Full executable path of the foreground process.</param>

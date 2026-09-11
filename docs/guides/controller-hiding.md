@@ -25,3 +25,6 @@ When you use [virtual controller emulation](virtual-controller.md), games may se
 !!! tip
     If a game misbehaves after hiding (for example it cannot see the controller at all), toggle the hide switch off again first — then check that the game is reading the virtual device rather than the physical one.
 
+!!! tip
+    Hiding can be automated per program with an [auto profile rule](auto-profiles.md#creating-a-rule) — for example, hide the physical controller only while your game is focused and show it again on the desktop. The rule's hiding option appears once HidHide is installed.
+
