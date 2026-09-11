@@ -1,10 +1,10 @@
 [
  {
-  "tag": "v1.0.0-10.7917176",
-  "name": "DualSenseClient (v1.0.0-10.7917176)",
-  "publishedAt": "2026-09-11T07:36:49Z",
+  "tag": "v1.0.0-10.e2e3f9c",
+  "name": "DualSenseClient (v1.0.0-10.e2e3f9c)",
+  "publishedAt": "2026-09-11T08:12:37Z",
   "prerelease": true,
-  "body": "### Features\n\n- **profiles: Add automatic profile switching per focused program** ([9f85489](https://github.com/DualSenseClient/DualSenseClient/commit/9f854891b07a23e359d4475c7a88431e025121a4))\n\n### Bug Fixes\n\n- **ui: Render all markdown heading levels in changelog popup** ([321fd9f](https://github.com/DualSenseClient/DualSenseClient/commit/321fd9f3fa594f9197f803479b5fc5c4326c5039))"
+  "body": "### Features\n\n- **profiles: Add automatic profile switching per focused program** ([9f85489](https://github.com/DualSenseClient/DualSenseClient/commit/9f854891b07a23e359d4475c7a88431e025121a4))\n\n### Bug Fixes\n\n- **update: Resolve latest nightly via changelog instead of API order** ([e2e3f9c](https://github.com/DualSenseClient/DualSenseClient/commit/e2e3f9c5f3fbb0261e60135c1794d2876bb134bd))\n- **ui: Render all markdown heading levels in changelog popup** ([321fd9f](https://github.com/DualSenseClient/DualSenseClient/commit/321fd9f3fa594f9197f803479b5fc5c4326c5039))"
  },
  {
   "tag": "v1.0.0-9.4816566",
