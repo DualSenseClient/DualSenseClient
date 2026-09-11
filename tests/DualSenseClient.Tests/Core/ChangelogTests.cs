@@ -19,6 +19,18 @@ public class ChangelogTests
     ];
 
     [Test]
+    public void SelectLatest_Nightly_ReturnsFirstPrerelease() =>
+        Assert.That(Changelog.SelectLatest(Mixed(), true)?.Tag, Is.EqualTo("v1.2.0-2.def5678"));
+
+    [Test]
+    public void SelectLatest_Stable_ReturnsFirstStable() =>
+        Assert.That(Changelog.SelectLatest(Mixed(), false)?.Tag, Is.EqualTo("v1.2.0"));
+
+    [Test]
+    public void SelectLatest_NoChannelEntry_ReturnsNull() =>
+        Assert.That(Changelog.SelectLatest([Stable("v1.2.0")], true), Is.Null);
+
+    [Test]
     public void SelectNewer_Stable_ReturnsNewerStableOnly()
     {
         IReadOnlyList<Changelog.Entry> newer = Changelog.SelectNewer(Mixed(), "v1.0.0 (abc1234)", false);

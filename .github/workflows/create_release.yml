@@ -84,9 +84,22 @@ jobs:
               $response = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases/latest" -Headers $headers -ErrorAction Stop
               $latestTag = $response.tag_name
             } else {
-              $release = gh release list --repo "${{ github.repository }}" --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName'
-              if ($LASTEXITCODE -ne 0) { throw "gh release list failed" }
-              $latestTag = $release
+              # Order-independent: pick the highest build number N from tags
+              # matching v<version>-<N>.<sha7>. The releases API offers no
+              # ordering guarantee, so `gh release list --limit 1` can return
+              # a stale tag (e.g. v1.0.0-9 listed above v1.0.0-10).
+              $tagVersion = "${{ steps.version.outputs.version }}"
+              $prefix = "v$tagVersion-"
+              $maxN = -1
+              $latestTag = ""
+              foreach ($t in (git tag --list "$prefix*")) {
+                $m = [regex]::Match($t, "^" + [regex]::Escape($prefix) + "(\d+)\.[0-9a-f]{7}$")
+                if ($m.Success -and [int]$m.Groups[1].Value -gt $maxN) {
+                  $maxN = [int]$m.Groups[1].Value
+                  $latestTag = $t
+                }
+              }
+              if ([string]::IsNullOrEmpty($latestTag)) { throw "No previous nightly tag found for prefix $prefix" }
             }
           } catch {
             Write-Host "No previous release found: $($_.Exception.Message)"

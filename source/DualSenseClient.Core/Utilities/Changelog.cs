@@ -73,6 +73,35 @@ public static class Changelog
     }
 
     /// <summary>
+    /// Fetches the aggregated changelog and returns the newest entry for the channel:
+    /// the newest pre-release for nightly, the newest stable release otherwise.
+    /// Entries are newest-first, so this is independent of releases API ordering.
+    /// Returns <c>null</c> when there is no channel entry or the file could not be read.
+    /// </summary>
+    public static async Task<Entry?> GetLatestAsync(bool nightly, CancellationToken token = default)
+    {
+        try
+        {
+            using JsonDocument doc = await _http.GetFromJsonAsync<JsonDocument>(_dataUrl, token)
+                                     ?? throw new InvalidOperationException("Empty changelog response.");
+            return SelectLatest(ReadEntries(doc.RootElement), nightly);
+        }
+        catch (Exception ex)
+        {
+            _log.Error("Changelog fetch failed");
+            _log.LogExceptionDetails(ex);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Selects the newest entry for the channel from newest-first <paramref name="entries"/>:
+    /// the first pre-release for nightly, the first stable release otherwise.
+    /// </summary>
+    public static Entry? SelectLatest(IReadOnlyList<Entry> entries, bool nightly) =>
+        entries.FirstOrDefault(e => e.Prerelease == nightly);
+
+    /// <summary>
     /// Selects the entries newer than <paramref name="previousVersion"/>, newest first.
     /// Stable compares versions; nightly compares the tag's trailing commit sha.
     /// Falls back to the newest entry when the previous version is unknown.
