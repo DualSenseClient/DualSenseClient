@@ -37,6 +37,8 @@
     <sys:String x:Key="Notification.Update.Failed.Message">The update could not be installed. Click to open the release page.</sys:String>
     <sys:String x:Key="Notification.Update.Restart.Title">Restart to update</sys:String>
     <sys:String x:Key="Notification.Update.Restart.Message">Version {0} is downloaded. The app will now restart to apply the update.</sys:String>
+    <sys:String x:Key="Notification.Update.Downloading.Title">Downloading update</sys:String>
+    <sys:String x:Key="Notification.Update.Downloading.Message">Downloading version {0}… {1:F0}%</sys:String>
     <sys:String x:Key="Notification.Changelog.Title">What's new</sys:String>
     <sys:String x:Key="Notification.Battery.Title">Battery level</sys:String>
     <sys:String x:Key="Notification.Battery.Message">{0}: {1}%</sys:String>

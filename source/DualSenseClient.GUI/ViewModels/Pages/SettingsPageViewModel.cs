@@ -7,8 +7,11 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Runtime.ExceptionServices;
+using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.Core.Models;
 using DualSenseClient.Core.Utilities;
@@ -827,7 +830,7 @@ public partial class SettingsPageViewModel : ObservableObject
             {
                 UpdateAsset updateAsset = UpdateInstaller.Target(target);
                 string downloadPath = Path.Combine(tempDir, updateAsset.FileName);
-                await UpdateInstaller.DownloadAsync(assetUrl, downloadPath, cts.Token);
+                await DownloadWithProgressAsync(release.Tag, assetUrl, downloadPath, cts.Token);
                 if (!await UpdateInstaller.VerifyHashAsync(downloadPath, assetUrl, token: cts.Token))
                 {
                     _log.Warning($"Update {release.Tag} failed hash verification");
@@ -888,6 +891,77 @@ public partial class SettingsPageViewModel : ObservableObject
         finally
         {
             IsChecking = false;
+        }
+    }
+
+    /// <summary>
+    /// Downloads the update asset behind a non-closable progress dialog.
+    /// The dialog covers the download only; verification and install stay silent.
+    /// </summary>
+    private static async Task DownloadWithProgressAsync(string tag, string assetUrl, string downloadPath, CancellationToken token)
+    {
+        string messageFormat = LocalizationService.GetText("Notification.Update.Downloading.Message");
+        TextBlock statusText = new TextBlock
+        {
+            Text = string.Format(messageFormat, tag, 0)
+        };
+        ProgressBar progressBar = new ProgressBar
+        {
+            Minimum = 0,
+            Maximum = 100,
+            IsIndeterminate = true
+        };
+        FAContentDialog dialog = new FAContentDialog
+        {
+            Title = LocalizationService.GetText("Notification.Update.Downloading.Title"),
+            Content = new StackPanel
+            {
+                Spacing = 8,
+                Children =
+                {
+                    statusText,
+                    progressBar
+                }
+            }
+        };
+
+        bool downloading = true;
+        dialog.Closing += (_, e) =>
+        {
+            if (downloading)
+            {
+                e.Cancel = true;
+            }
+        };
+
+        Exception? downloadError = null;
+        dialog.Opened += async (_, _) =>
+        {
+            try
+            {
+                Progress<double> progress = new Progress<double>(p =>
+                {
+                    progressBar.IsIndeterminate = false;
+                    progressBar.Value = p;
+                    statusText.Text = string.Format(messageFormat, tag, p);
+                });
+                await UpdateInstaller.DownloadAsync(assetUrl, downloadPath, progress, token);
+            }
+            catch (Exception ex)
+            {
+                downloadError = ex;
+            }
+            finally
+            {
+                downloading = false;
+                dialog.Hide();
+            }
+        };
+
+        await dialog.ShowAsync();
+        if (downloadError is not null)
+        {
+            ExceptionDispatchInfo.Capture(downloadError).Throw();
         }
     }
 }

@@ -102,12 +102,32 @@ public static class UpdateInstaller
     /// <summary>
     /// Downloads <paramref name="url"/> to <paramref name="destPath"/>.
     /// </summary>
-    public static async Task DownloadAsync(string url, string destPath, CancellationToken token = default)
+    public static async Task DownloadAsync(string url, string destPath, CancellationToken token = default) =>
+        await DownloadAsync(url, destPath, null, token);
+
+    /// <summary>
+    /// Downloads <paramref name="url"/> to <paramref name="destPath"/>, reporting 0-100
+    /// when the server sends a <c>Content-Length</c>. No reports when it does not.
+    /// </summary>
+    public static async Task DownloadAsync(string url, string destPath, IProgress<double>? progress, CancellationToken token = default)
     {
         using HttpResponseMessage response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, token);
         response.EnsureSuccessStatusCode();
+        long? total = response.Content.Headers.ContentLength;
+        await using Stream source = await response.Content.ReadAsStreamAsync(token);
         await using FileStream file = File.Create(destPath);
-        await response.Content.CopyToAsync(file, token);
+        byte[] buffer = new byte[81920];
+        long read = 0;
+        int n;
+        while ((n = await source.ReadAsync(buffer, token)) > 0)
+        {
+            await file.WriteAsync(buffer.AsMemory(0, n), token);
+            read += n;
+            if (total is > 0)
+            {
+                progress?.Report((double)read / total.Value * 100);
+            }
+        }
     }
 
     /// <summary>
