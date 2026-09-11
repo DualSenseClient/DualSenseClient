@@ -1,5 +1,12 @@
 [
  {
+  "tag": "v1.0.0-11.e2395c3",
+  "name": "DualSenseClient (v1.0.0-11.e2395c3)",
+  "publishedAt": "2026-09-11T08:50:01Z",
+  "prerelease": true,
+  "body": "### Features\n\n- **update: Download Progress Dialog** ([e2395c3](https://github.com/DualSenseClient/DualSenseClient/commit/e2395c3492d055bd98a24eeb7522ef447c868eee))"
+ },
+ {
   "tag": "v1.0.0-10.e2e3f9c",
   "name": "DualSenseClient (v1.0.0-10.e2e3f9c)",
   "publishedAt": "2026-09-11T08:12:37Z",
