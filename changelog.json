@@ -1,5 +1,12 @@
 [
  {
+  "tag": "v1.0.0-12.39ce5b9",
+  "name": "DualSenseClient (v1.0.0-12.39ce5b9)",
+  "publishedAt": "2026-09-12T16:35:02Z",
+  "prerelease": true,
+  "body": "### Features\n\n- **profiles: Add per-rule controller hiding to auto profiles** ([39ce5b9](https://github.com/DualSenseClient/DualSenseClient/commit/39ce5b93a03d8f522ec6775daa454713435d6238))"
+ },
+ {
   "tag": "v1.0.0-11.e2395c3",
   "name": "DualSenseClient (v1.0.0-11.e2395c3)",
   "publishedAt": "2026-09-11T08:50:01Z",
