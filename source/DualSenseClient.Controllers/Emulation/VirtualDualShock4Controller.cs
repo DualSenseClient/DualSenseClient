@@ -41,6 +41,11 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
     private readonly DS4OutputCallback _outputCallback;
 
     /// <summary>
+    /// Whether the initial battery meta state was pushed.
+    /// </summary>
+    private bool _metaInitialized;
+
+    /// <summary>
     /// Raised on the libVIIPER callback thread after the host's output state (rumble,
     /// lightbar, player LEDs) was forwarded to the physical controller. Subscribers
     /// must not block.
@@ -124,6 +129,52 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
         {
             _log.Error("Failed to set the virtual DualShock 4 device state");
         }
+
+        EnsureInitialMeta(report);
+    }
+
+    /// <inheritdoc/>
+    public override void PushBattery(BatteryState battery) => PushMeta(battery);
+
+    /// <summary>
+    /// Pushes battery meta state; zero-valued fields keep their
+    /// current values on the device side.
+    /// </summary>
+    private void PushMeta(BatteryState? battery)
+    {
+        if (DeviceHandle is not { } handle)
+        {
+            return;
+        }
+
+        DS4MetaState meta = new DS4MetaState();
+        if (battery is { } b)
+        {
+            meta.BatteryStatus = b.Raw;
+        }
+
+        if (!LibVIIPER.SetDS4MetaState(handle, new[]
+            {
+                meta
+            }))
+        {
+            _log.Error("Failed to set the virtual DualShock 4 meta state");
+        }
+    }
+
+    /// <summary>
+    /// Pushes the battery meta from the first received report so the
+    /// virtual device reports real values from the start.
+    /// </summary>
+    private void EnsureInitialMeta(InputReport report)
+    {
+        if (_metaInitialized)
+        {
+            return;
+        }
+
+        _metaInitialized = true;
+        PushMeta(report.Battery);
     }
 
     /// <summary>
@@ -131,7 +182,8 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
     /// The DS4 flash-LED feature has no DualSense equivalent and is ignored.
     /// Invoked on the libVIIPER callback thread.
     /// </summary>
-    private void OnOutput(nuint handle, byte rumbleSmall, byte rumbleLarge, byte ledRed, byte ledGreen, byte ledBlue, byte flashOn, byte flashOff)
+    private void OnOutput(nuint handle, byte updateFlags, byte rumbleSmall, byte rumbleLarge, byte ledRed, byte ledGreen, byte ledBlue, byte flashOn,
+        byte flashOff)
     {
         Outputs.SetVibration(rumbleLarge, rumbleSmall);
 

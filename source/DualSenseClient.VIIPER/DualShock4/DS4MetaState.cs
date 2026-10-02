@@ -32,9 +32,4 @@ public struct DS4MetaState
     /// 0 = use default.
     /// </summary>
     public double BatteryVoltage;
-
-    /// <summary>
-    /// NULL = use default (RFC3339 or "YYYY-MM-DD HH:MM:SS").
-    /// </summary>
-    [MarshalAs(UnmanagedType.LPUTF8Str)] public string? BuildTime;
 }

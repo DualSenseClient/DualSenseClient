@@ -245,7 +245,7 @@ public static class LibVIIPER
     /// Queues a microphone PCM frame captured from the host-facing mic stream.
     /// </summary>
     /// <param name="deviceHandle">Handle to the DS4 device.</param>
-    /// <param name="data">PCM frame; must be exactly 320 bytes.</param>
+    /// <param name="data">PCM frame; must be exactly 32 bytes (16 frames of mono S16LE @16kHz).</param>
     /// <param name="length">Length of the PCM frame.</param>
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
