@@ -6,27 +6,39 @@ namespace DualSenseClient.Tests.Controllers.Emulation;
 
 public class VirtualDualSenseControllerOutputTests
 {
-    /// <summary>
-    /// Builds a 48-byte USB output report (report ID 0x02 + 47-byte payload) from the
-    /// given payload bytes.
-    /// </summary>
-    private static byte[] RawReport(params byte[] payload)
+    private static DSOutputState Output(byte[] payload)
     {
         Assert.That(payload.Length, Is.EqualTo(47));
-        byte[] raw = new byte[48];
-        raw[0] = 0x02;
-        Buffer.BlockCopy(payload, 0, raw, 1, 47);
-        return raw;
-    }
-
-    private static DSOutputState Output(byte[] rawReport, byte rumbleSmall = 0xEE, byte rumbleLarge = 0xDD)
-    {
+        byte[] right = new byte[11];
+        byte[] left = new byte[11];
+        Buffer.BlockCopy(payload, 10, right, 0, 11);
+        Buffer.BlockCopy(payload, 21, left, 0, 11);
         return new DSOutputState
         {
-            RumbleSmall = rumbleSmall,
-            RumbleLarge = rumbleLarge,
-            RawOutputReport = rawReport,
-            BluetoothCombinedOutputReport = new byte[398]
+            Flags0 = payload[0],
+            Flags1 = payload[1],
+            RumbleSmall = payload[2],
+            RumbleLarge = payload[3],
+            VolumeHeadphones = payload[4],
+            VolumeSpeaker = payload[5],
+            VolumeMic = payload[6],
+            AudioControl = payload[7],
+            MuteLightMode = payload[8],
+            MuteControl = payload[9],
+            TriggerRight = right,
+            TriggerLeft = left,
+            HostTimestamp = (uint)(payload[32] | (payload[33] << 8) | (payload[34] << 16) | (payload[35] << 24)),
+            MotorPower = payload[36],
+            AudioControl2 = payload[37],
+            Flags3 = payload[38],
+            HapticFilter = payload[39],
+            UnkByte = payload[40],
+            LightFade = payload[41],
+            LightBrightness = payload[42],
+            PlayerLeds = payload[43],
+            LedRed = payload[44],
+            LedGreen = payload[45],
+            LedBlue = payload[46]
         };
     }
 
@@ -75,7 +87,7 @@ public class VirtualDualSenseControllerOutputTests
     [Test]
     public void V1GameOnV2Pad_TranslatesSelectorAndPassesEverythingElseThrough()
     {
-        SetStateData payload = VirtualDualSenseController.BuildOutputPayload(Output(RawReport(RichGamePayload())), true);
+        SetStateData payload = VirtualDualSenseController.BuildOutputPayload(Output(RichGamePayload()), true);
 
         byte[] expected = RichGamePayload();
         Assert.Multiple(() =>
@@ -88,8 +100,8 @@ public class VirtualDualSenseControllerOutputTests
             // Everything else rides through exactly as the game wrote it.
             Assert.That((byte)payload.ValidFlag0 & 0x0C, Is.EqualTo(0x0C), "the game's trigger allow bits must be preserved");
             Assert.That((byte)payload.ValidFlag0 & 0x30, Is.EqualTo(0x30), "the game's volume bits must be preserved");
-            Assert.That(payload.RumbleRight, Is.EqualTo(0xEE), "the motor bytes must carry libVIIPER's retained magnitudes");
-            Assert.That(payload.RumbleLeft, Is.EqualTo(0xDD));
+            Assert.That(payload.RumbleRight, Is.EqualTo(0xAA), "the game's motor bytes must ride through unchanged");
+            Assert.That(payload.RumbleLeft, Is.EqualTo(0xBB));
             Assert.That(payload.HeadphoneVolume, Is.EqualTo(0x11));
             Assert.That(payload.SpeakerVolume, Is.EqualTo(0x22));
             Assert.That(payload.MicVolume, Is.EqualTo(0x33));
@@ -119,7 +131,7 @@ public class VirtualDualSenseControllerOutputTests
         p[0] = 0x02 | 0x0C; // flag0: haptics select + trigger FFB only
         p[38] = 0x04; // flag2: v2 selector
 
-        SetStateData payload = VirtualDualSenseController.BuildOutputPayload(Output(RawReport(p)), false);
+        SetStateData payload = VirtualDualSenseController.BuildOutputPayload(Output(p), false);
 
         Assert.Multiple(() =>
         {
@@ -138,14 +150,15 @@ public class VirtualDualSenseControllerOutputTests
         p[2] = 0x7F; // stale motor bytes that the pad must ignore
         p[3] = 0x7F;
 
-        SetStateData payload = VirtualDualSenseController.BuildOutputPayload(Output(RawReport(p)), true);
+        SetStateData payload = VirtualDualSenseController.BuildOutputPayload(Output(p), true);
 
         Assert.Multiple(() =>
         {
             Assert.That((byte)payload.ValidFlag0 & 0x03, Is.Zero, "no selector bit may be set when the game did not touch rumble");
             Assert.That((byte)payload.ValidFlag2 & 0x04, Is.Zero);
-            Assert.That(payload.RumbleRight, Is.EqualTo(0xEE), "subscribers must still see libVIIPER's retained magnitudes");
-            Assert.That(payload.RumbleLeft, Is.EqualTo(0xDD));
+            Assert.That(payload.RumbleRight, Is.EqualTo(0x7F),
+                "the stale motor bytes ride through while the selector bits stay clear, so the pad ignores them");
+            Assert.That(payload.RumbleLeft, Is.EqualTo(0x7F));
         });
     }
 
@@ -156,7 +169,7 @@ public class VirtualDualSenseControllerOutputTests
         p[0] = 0x04; // only R2 allowed; L2 bit deliberately clear while its block bytes are present
         p[21] = 0x26;
 
-        SetStateData payload = VirtualDualSenseController.BuildOutputPayload(Output(RawReport(p)), false);
+        SetStateData payload = VirtualDualSenseController.BuildOutputPayload(Output(p), false);
 
         Assert.Multiple(() =>
         {
@@ -167,18 +180,22 @@ public class VirtualDualSenseControllerOutputTests
     }
 
     [Test]
-    public void MalformedRawReport_FallsBackToDecodedFields()
+    public void NullTriggerArrays_MapsFieldsOneToOne()
     {
         DSOutputState output = new DSOutputState
         {
+            Flags0 = 0x0C,
+            Flags1 = 0x14,
             RumbleSmall = 0x11,
             RumbleLarge = 0x22,
+            VolumeHeadphones = 0x33,
             LedRed = 1,
             LedGreen = 2,
             LedBlue = 3,
             PlayerLeds = 0x07,
-            MicLed = 0x02,
-            RawOutputReport = []
+            MuteLightMode = 0x02,
+            TriggerRight = null!,
+            TriggerLeft = null!
         };
 
         SetStateData payload = VirtualDualSenseController.BuildOutputPayload(output, true);
@@ -192,7 +209,8 @@ public class VirtualDualSenseControllerOutputTests
             Assert.That(payload.LedBlue, Is.EqualTo(3));
             Assert.That((byte)payload.PlayerLeds, Is.EqualTo(0x07));
             Assert.That(payload.MuteLedMode, Is.EqualTo(0x02));
-            Assert.That((byte)payload.ValidFlag0 & 0x0C, Is.EqualTo(0x0C), "the fallback keeps the trigger blocks alive");
+            Assert.That(payload.HeadphoneVolume, Is.EqualTo(0x33));
+            Assert.That((byte)payload.ValidFlag0 & 0x0C, Is.EqualTo(0x0C));
         });
     }
 }

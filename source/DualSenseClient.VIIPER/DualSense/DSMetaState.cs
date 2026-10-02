@@ -42,14 +42,4 @@ public struct DSMetaState
     /// NULL = use default (2-char code, e.g. "00", "Z1").
     /// </summary>
     [MarshalAs(UnmanagedType.LPUTF8Str)] public string? ShellColor;
-
-    /// <summary>
-    /// NULL = use default (RFC3339 or "YYYY-MM-DD HH:MM:SS").
-    /// </summary>
-    [MarshalAs(UnmanagedType.LPUTF8Str)] public string? BuildTime;
-
-    /// <summary>
-    /// 0 = use default (<see cref="DualSenseConnectionFlags"/>).
-    /// </summary>
-    public byte ConnectionStatus;
 }

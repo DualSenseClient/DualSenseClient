@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Logging;
@@ -39,13 +40,12 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
 
     /// <summary>
     /// Raised on the libVIIPER callback thread with the game's low-latency rear haptics
-    /// payload (the 398-byte combined Bluetooth report), after it was forwarded to the
-    /// physical controller. Subscribers must not block.
+    /// PCM (2ch S16LE @48kHz). Subscribers must not block; the buffer is a copy.
     /// </summary>
-    public event Action<DSOutputState>? RealtimeHapticsReceived;
+    public event Action<byte[]>? RealtimeHapticsReceived;
 
     /// <summary>
-    /// Whether the initial battery/connection meta state has been pushed yet.
+    /// Whether the initial battery meta state has been pushed yet.
     /// </summary>
     private bool _metaInitialized;
 
@@ -97,7 +97,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         }
 
         DeviceHandle = handle;
-        LibVIIPER.SetDualSenseOutputStateCallback(handle, _outputStateCallback);
+        LibVIIPER.SetDualSenseOutputCallback(handle, _outputStateCallback);
         LibVIIPER.SetDualSenseRealtimeHapticsCallback(handle, _realtimeHapticsCallback);
         _log.Info($"Virtual DualSense{(edge ? " Edge" : "")} created (handle=0x{handle:X})");
     }
@@ -162,16 +162,21 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
     }
 
     /// <inheritdoc/>
-    public override void PushBattery(BatteryState battery) => PushMeta(battery, null);
+    public override void PushBattery(BatteryState battery) => PushMeta(battery);
 
     /// <inheritdoc/>
-    public override void PushConnectionStatus(ConnectionStatus status) => PushMeta(null, status);
+    public override void PushConnectionStatus(ConnectionStatus status)
+    {
+        // New libVIIPER DSMetaState has no connection-status field; the virtual
+        // USB report carries headset/mic flags from the host, not the physical pad.
+        // Kept as a no-op to satisfy the interface.
+    }
 
     /// <summary>
-    /// Pushes battery and/or connection meta state; zero-valued fields keep their
+    /// Pushes battery meta state; zero-valued fields keep their
     /// current values on the device side.
     /// </summary>
-    private void PushMeta(BatteryState? battery, ConnectionStatus? status)
+    private void PushMeta(BatteryState? battery)
     {
         if (DeviceHandle is not { } handle)
         {
@@ -184,11 +189,6 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
             meta.BatteryStatus = b.Raw;
         }
 
-        if (status is { } c)
-        {
-            meta.ConnectionStatus = c.Raw;
-        }
-
         if (!LibVIIPER.SetDualSenseMetaState(handle, new[]
             {
                 meta
@@ -199,7 +199,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
     }
 
     /// <summary>
-    /// Pushes the battery/connection meta from the first received report so the
+    /// Pushes the battery meta from the first received report so the
     /// virtual device reports real values from the start.
     /// </summary>
     private void EnsureInitialMeta(InputReport report)
@@ -210,14 +210,14 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         }
 
         _metaInitialized = true;
-        PushMeta(report.Battery, report.Connection);
+        PushMeta(report.Battery);
     }
 
     /// <summary>
     /// Forwards host output (rumble, lightbar, player LEDs, triggers) to the physical
     /// controller. Invoked on the libVIIPER callback thread.
     /// </summary>
-    private void OnOutputState(nuint handle, DSOutputState output)
+    private void OnOutputState(nuint handle, in DSOutputState output)
     {
         SetStateData payload = BuildOutputPayload(output, _vibrationV2);
         Outputs.SendOutputState(payload);
@@ -225,17 +225,13 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
     }
 
     /// <summary>
-    /// Rebuilds the physical controller's output payload from the game's exact USB
-    /// output report (the 47 bytes following report ID 0x02), so every feature the game
-    /// addresses on the virtual controller — adaptive triggers, rumble, lightbar,
-    /// player LEDs, mute LED and its validity bits, volumes, audio control, motor power
-    /// reduction, haptic low-pass filter, brightness/fade — arrives 1:1 over USB or
-    /// Bluetooth. Two adjustments are applied:
+    /// Rebuilds the physical controller's output payload from the game's flat output
+    /// state (the 47-byte USB payload), so every feature the game addresses on the
+    /// virtual controller — adaptive triggers, rumble, lightbar, player LEDs, mute LED
+    /// and its validity bits, volumes, audio control, motor power reduction, haptic
+    /// low-pass filter, brightness/fade — arrives 1:1 over USB or Bluetooth.
+    /// Two adjustments are applied:
     /// <list type="bullet">
-    /// <item>The motor bytes always carry libVIIPER's retained decoded values, so
-    /// partial reports that do not mention rumble still publish the last requested
-    /// magnitudes to subscribers (the audio forwarder's rumble synthesis relies on
-    /// this). The pad-side selector bits below decide whether they are applied.</item>
     /// <item>The rumble-mode selector bits are translated between the encodings:
     /// games select v1 (flag 0 bit 0) or v2 (flag 2 bit 2) against the virtual
     /// device's firmware; the physical pad may require the other encoding. When the
@@ -249,18 +245,34 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
     /// </summary>
     public static SetStateData BuildOutputPayload(DSOutputState output, bool vibrationV2)
     {
-        byte[] raw = output.RawOutputReport;
-        if (raw is not { Length: 48 } || raw[0] != 0x02)
-        {
-            return BuildFallbackPayload(output);
-        }
-
         byte[] bytes = new byte[SetStateData.PayloadSize];
-        Buffer.BlockCopy(raw, 1, bytes, 0, SetStateData.PayloadSize);
-
-        // Retained magnitudes for subscribers; gated pad-side by the selector bits.
+        bytes[0] = output.Flags0;
+        bytes[1] = output.Flags1;
         bytes[2] = output.RumbleSmall;
         bytes[3] = output.RumbleLarge;
+        bytes[4] = output.VolumeHeadphones;
+        bytes[5] = output.VolumeSpeaker;
+        bytes[6] = output.VolumeMic;
+        bytes[7] = output.AudioControl;
+        bytes[8] = output.MuteLightMode;
+        bytes[9] = output.MuteControl;
+        (output.TriggerRight ?? Array.Empty<byte>()).CopyTo(bytes, 10);
+        (output.TriggerLeft ?? Array.Empty<byte>()).CopyTo(bytes, 21);
+        bytes[32] = (byte)output.HostTimestamp;
+        bytes[33] = (byte)(output.HostTimestamp >> 8);
+        bytes[34] = (byte)(output.HostTimestamp >> 16);
+        bytes[35] = (byte)(output.HostTimestamp >> 24);
+        bytes[36] = output.MotorPower;
+        bytes[37] = output.AudioControl2;
+        bytes[38] = output.Flags3;
+        bytes[39] = output.HapticFilter;
+        bytes[40] = output.UnkByte;
+        bytes[41] = output.LightFade;
+        bytes[42] = output.LightBrightness;
+        bytes[43] = output.PlayerLeds;
+        bytes[44] = output.LedRed;
+        bytes[45] = output.LedGreen;
+        bytes[46] = output.LedBlue;
 
         SetStateData payload = new SetStateData(bytes, 0);
         bool rumbleSelected = (payload.ValidFlag0 & ValidFlags.EnableRumbleEmulation) != 0
@@ -295,32 +307,21 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
     }
 
     /// <summary>
-    /// Defensive fallback for callbacks whose raw report is missing or malformed:
-    /// reconstructs the previously supported subset from the decoded fields.
+    /// Forwards the game's low-latency rear haptics PCM to subscribers. Invoked on
+    /// the libVIIPER callback thread; the native buffer is copied before dispatch.
     /// </summary>
-    private static SetStateData BuildFallbackPayload(DSOutputState output)
+    private void OnRealtimeHaptics(nuint handle, IntPtr pcm, nuint length)
     {
-        return new SetStateData
+        int byteCount = (int)length;
+        if (byteCount <= 0)
         {
-            ValidFlag0 = ValidFlags.UseRumbleNotHaptics
-                         | ValidFlags.AllowRightTriggerFfb
-                         | ValidFlags.AllowLeftTriggerFfb,
-            ValidFlag1 = ValidFlags.AllowLedColor | ValidFlags.AllowPlayerIndicators | ValidFlags.AllowMuteLight,
-            RumbleLeft = output.RumbleLarge,
-            RumbleRight = output.RumbleSmall,
-            MuteLedMode = output.MicLed,
-            PlayerLeds = (PlayerLedMask)output.PlayerLeds,
-            LedRed = output.LedRed,
-            LedGreen = output.LedGreen,
-            LedBlue = output.LedBlue
-        };
-    }
+            return;
+        }
 
-    /// <summary>
-    /// Forwards the game's low-latency rear haptics payload to subscribers. Invoked on
-    /// the libVIIPER callback thread.
-    /// </summary>
-    private void OnRealtimeHaptics(nuint handle, DSOutputState output) => RealtimeHapticsReceived?.Invoke(output);
+        byte[] copy = new byte[byteCount];
+        Marshal.Copy(pcm, copy, 0, byteCount);
+        RealtimeHapticsReceived?.Invoke(copy);
+    }
 
     /// <inheritdoc/>
     public override void Dispose()
@@ -331,7 +332,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         }
 
         _log.Info("Removing virtual DualSense device");
-        LibVIIPER.SetDualSenseOutputStateCallback(handle, null);
+        LibVIIPER.SetDualSenseOutputCallback(handle, null);
         LibVIIPER.SetDualSenseRealtimeHapticsCallback(handle, null);
         if (!LibVIIPER.RemoveDualSenseDevice(handle))
         {

@@ -4,7 +4,6 @@ using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.DualSense.Triggers;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Hid;
-using DualSenseClient.VIIPER.DualSense;
 
 namespace DualSenseClient.Tests.Controllers.DualSense.Audio;
 
@@ -83,24 +82,21 @@ public class ViiperDualSenseAudioForwarderTests
     private static readonly float[] AudioBlock = MakeAudioBlock(0.5f);
 
     /// <summary>
-    /// Builds a 398-byte vDS-style combined Bluetooth report carrying the given haptics
-    /// payload: <c>0x36</c> id, <c>0x91 0x07 0xFE</c> session block, <c>0x90 0x3F</c>
-    /// state block, haptics at offset 78.
+    /// Builds rear voice-coil PCM (2ch S16LE @48kHz) whose decimated s8 payload is
+    /// the given value on both channels: each frame is [0x00, value, 0x00, value].
     /// </summary>
-    private static DSOutputState MakeCombinedReport(byte[] haptics, byte reportId = 0x36)
+    private static byte[] MakeRearPcm(byte s8value, int frames = 48)
     {
-        byte[] combined = new byte[398];
-        combined[0] = reportId;
-        combined[2] = 0x91;
-        combined[3] = 0x07;
-        combined[4] = 0xFE;
-        combined[11] = 0x90;
-        combined[12] = 0x3F;
-        haptics.CopyTo(combined, 78);
-        return new DSOutputState
+        byte[] pcm = new byte[frames * 4];
+        for (int f = 0; f < frames; f++)
         {
-            BluetoothCombinedOutputReport = combined
-        };
+            pcm[f * 4] = 0x00;
+            pcm[f * 4 + 1] = s8value;
+            pcm[f * 4 + 2] = 0x00;
+            pcm[f * 4 + 3] = s8value;
+        }
+
+        return pcm;
     }
 
     /// <summary>
@@ -560,8 +556,7 @@ public class ViiperDualSenseAudioForwarderTests
     [Test]
     public void UpdateGameHaptics_ReplacesAudioDerivedHaptics()
     {
-        byte[] gameHaptics = new byte[64];
-        Array.Fill(gameHaptics, (byte)0x10);
+        byte[] gamePcm = MakeRearPcm(0x10);
 
         FakeAudioOutputs fake = new FakeAudioOutputs
         {
@@ -581,7 +576,7 @@ public class ViiperDualSenseAudioForwarderTests
         // preroll would otherwise age the payload past the 100 ms freshness window
         // under load, falling back to the audio-derived haptics. In the field the
         // callback fires continuously, so a post-prime delivery is the faithful shape.
-        forwarder.UpdateGameHaptics(MakeCombinedReport(gameHaptics));
+        forwarder.UpdateGameHaptics(gamePcm);
         WaitUntil(() => fake.LastHapticsFrame is { Length: 64 } && fake.LastHapticsFrame.All(b => b == 0x10), TimeSpan.FromSeconds(3));
 
         Assert.That(fake.LastHapticsFrame.All(b => b == 0x10), Is.True,
@@ -600,7 +595,7 @@ public class ViiperDualSenseAudioForwarderTests
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
-        forwarder.UpdateGameHaptics(MakeCombinedReport(new byte[64]));
+        forwarder.UpdateGameHaptics(MakeRearPcm(0x00));
         forwarder.FeedPcm(AudioBlock);
         WaitUntil(() => fake.ReportCount >= 12, TimeSpan.FromSeconds(3));
 
@@ -617,8 +612,7 @@ public class ViiperDualSenseAudioForwarderTests
     [Test]
     public void UpdateGameHaptics_StalePayloadFallsBackToAudioDerived()
     {
-        byte[] gameHaptics = new byte[64];
-        Array.Fill(gameHaptics, (byte)0x10);
+        byte[] gamePcm = MakeRearPcm(0x10);
 
         FakeAudioOutputs fake = new FakeAudioOutputs
         {
@@ -627,7 +621,7 @@ public class ViiperDualSenseAudioForwarderTests
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
-        forwarder.UpdateGameHaptics(MakeCombinedReport(gameHaptics));
+        forwarder.UpdateGameHaptics(gamePcm);
         Thread.Sleep(150);
 
         forwarder.FeedPcm(MakeAudioBlock(0f));
@@ -649,23 +643,22 @@ public class ViiperDualSenseAudioForwarderTests
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
-        forwarder.UpdateGameHaptics(MakeCombinedReport(new byte[64], 0x31));
+        forwarder.UpdateGameHaptics([0x01, 0x02, 0x03]);
         forwarder.FeedPcm(MakeAudioBlock(0f));
         WaitUntil(() => fake.ReportCount >= 12, TimeSpan.FromSeconds(3));
 
         Assert.That(fake.LastHapticsFrame.All(b => b == 0), Is.True,
-            "a report without the 0x36 id must be rejected and the derived haptics kept");
+            "a malformed PCM buffer must be rejected and the derived haptics kept");
 
         forwarder.Stop();
     }
 
     [Test]
-    public void UpdateGameHaptics_AcceptsCapturedViiperReportShape()
+    public void UpdateGameHaptics_AcceptsVariableFrameCounts()
     {
-        // Regression for the real libVIIPER wire format captured in the field logs:
-        // 36 00 91 07 FE 10 10 10 10 10 00 90 3F FD F7 00 ... with haptics at offset 78.
-        byte[] gameHaptics = new byte[64];
-        Array.Fill(gameHaptics, (byte)0x10);
+        // New libVIIPER delivers the rear pair per host write, so frame counts vary.
+        // A 49-frame (392B 4ch -> 196B rear) write must still decimate to 0x10.
+        byte[] gamePcm = MakeRearPcm(0x10, 49);
 
         FakeAudioOutputs fake = new FakeAudioOutputs
         {
@@ -674,15 +667,6 @@ public class ViiperDualSenseAudioForwarderTests
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
-        DSOutputState output = MakeCombinedReport(gameHaptics);
-        output.BluetoothCombinedOutputReport[1] = 0x00;
-        output.BluetoothCombinedOutputReport[5] = 0x10;
-        output.BluetoothCombinedOutputReport[6] = 0x10;
-        output.BluetoothCombinedOutputReport[7] = 0x10;
-        output.BluetoothCombinedOutputReport[8] = 0x10;
-        output.BluetoothCombinedOutputReport[9] = 0x10;
-        output.BluetoothCombinedOutputReport[13] = 0xFD;
-        output.BluetoothCombinedOutputReport[14] = 0xF7;
         for (int i = 0; i < 8; i++)
         {
             forwarder.FeedPcm(MakeAudioBlock(0f));
@@ -690,14 +674,11 @@ public class ViiperDualSenseAudioForwarderTests
 
         WaitUntil(() => fake.ReportCount >= 8 && fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
 
-        // Deliver the payload only after the stream is primed: the ~85 ms prime and
-        // preroll would otherwise age the payload past the 100 ms freshness window
-        // under load, falling back to the audio-derived haptics.
-        forwarder.UpdateGameHaptics(output);
+        forwarder.UpdateGameHaptics(gamePcm);
         WaitUntil(() => fake.LastHapticsFrame is { Length: 64 } && fake.LastHapticsFrame.All(b => b == 0x10), TimeSpan.FromSeconds(3));
 
         Assert.That(fake.LastHapticsFrame.All(b => b == 0x10), Is.True,
-            "the captured VIIPER combined-report shape (session block, 0x90 0x3F state block, haptics at 78) must be accepted");
+            "variable-length rear PCM must decimate to the s8 payload");
 
         forwarder.Stop();
     }

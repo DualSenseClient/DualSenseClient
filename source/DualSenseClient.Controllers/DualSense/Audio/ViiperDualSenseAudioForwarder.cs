@@ -4,7 +4,6 @@ using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Core.Utilities;
 using DualSenseClient.Hid;
 using DualSenseClient.Logging;
-using DualSenseClient.VIIPER.DualSense;
 
 namespace DualSenseClient.Controllers.DualSense.Audio;
 
@@ -43,11 +42,11 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 /// synthesized into the haptics PCM as 60/180 Hz sine waves.
 /// </para>
 /// <para>
-/// When libVIIPER's realtime-haptics callback delivers a fresh, non-silent haptics
-/// payload (the game's own voice-coil data extracted from the 398-byte combined
-/// report via <see cref="UpdateGameHaptics"/>), it replaces the audio-derived
-/// haptics so the pad reproduces the game's actual haptics; the audio-derived path
-/// is only the fallback for games that do not drive the haptics channels.
+/// When libVIIPER's realtime-haptics callback delivers a fresh rear voice-coil pair
+/// (2ch S16LE @48kHz via <see cref="UpdateGameHaptics"/>), it replaces the
+/// audio-derived haptics so the pad reproduces the game's actual haptics; the
+/// audio-derived path is only the fallback for games that do not drive the haptics
+/// channels.
 /// </para>
 /// </remarks>
 public sealed class ViiperDualSenseAudioForwarder : IDisposable
@@ -86,24 +85,11 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
     private const int TargetBlocks = 3;
 
     /// <summary>
-    /// Offset of the haptics payload within the 398-byte combined Bluetooth report
-    /// delivered by libVIIPER's realtime-haptics callback. The report is the vDS-style
-    /// <c>0x36</c> transport used by the virtual-device feedback stream: <c>[0]</c> is
-    /// the report id, <c>[2..10]</c> the session block (<c>0x91 0x07 0xFE</c> + codec
-    /// flags), <c>[11..73]</c> the <c>0x90 0x3F</c> state block carrying the native
-    /// 47-byte output state at <c>[13..59]</c>, <c>[74..77]</c> the audio sub-packet
-    /// header, and then <see cref="DualSenseBtAudioPipeline.HapticsBytes"/> of
-    /// interleaved s8 stereo PCM at 3 kHz. This matches DS4Windows' consumption of the
-    /// same feedback (<c>DualSenseBluetoothAudioPacer.RealtimeHapticsDataOffset = 78</c>).
-    /// </summary>
-    private const int BluetoothCombinedHapticsPcmOffset = 78;
-
-    /// <summary>
     /// How long an update from the realtime-haptics callback stays fresh before the
-    /// forwarder falls back to the audio-derived haptics. The callback fires every
-    /// rear-haptics interval (~10.667 ms), so this window (~9 intervals) tolerates
-    /// scheduling gaps while keeping the fallback prompt when the game stops driving
-    /// the haptics channels.
+    /// forwarder falls back to the audio-derived haptics. The callback fires on every
+    /// host speaker write, so this window (~9 intervals) tolerates scheduling gaps
+    /// while keeping the fallback prompt when the game stops driving the haptics
+    /// channels.
     /// </summary>
     private const int GameHapticsFreshWindowMs = 100;
 
@@ -487,36 +473,38 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
 
     /// <summary>
     /// Stores the game's actual haptics payload from libVIIPER's realtime-haptics
-    /// callback, so the pump can embed it into the Bluetooth audio-lane reports instead
-    /// of the audio-derived haptics. The haptics are extracted from the 398-byte
-    /// combined Bluetooth report carried by the callback (<c>0x36</c> header with the
-    /// 64-byte haptics PCM at offset <see cref="BluetoothCombinedHapticsPcmOffset"/>);
-    /// reports that do not match the expected shape are rejected so the forwarder keeps
-    /// the audio-derived fallback. Called from the libVIIPER callback thread; safe to
-    /// call while the forwarder is stopped.
+    /// callback (rear voice-coil pair, 2ch S16LE @48kHz), so the pump can embed it
+    /// into the Bluetooth audio-lane reports instead of the audio-derived haptics.
+    /// The S16LE stereo frames are decimated to the 32-frame s8 payload; malformed
+    /// buffers are rejected so the forwarder keeps the audio-derived fallback.
+    /// Called from the libVIIPER callback thread; safe to call while stopped.
     /// </summary>
-    public void UpdateGameHaptics(DSOutputState output)
+    public void UpdateGameHaptics(byte[] pcm)
     {
-        byte[] combined = output.BluetoothCombinedOutputReport;
-        if (combined is not { Length: 398 } || combined[0] != 0x36
-                                            || combined[11] != 0x90 || combined[12] != 0x3F)
+        if (pcm is null || pcm.Length < 4 || pcm.Length % 4 != 0)
         {
             if (Interlocked.Exchange(ref _gameHapticsRejectedLogged, 1) == 0)
             {
-                string head = combined is null
+                string head = pcm is null
                     ? "(null)"
-                    : string.Join(" ", combined.AsSpan(0, Math.Min(16, combined.Length)).ToArray().Select(b => b.ToString("X2")));
+                    : string.Join(" ", pcm.AsSpan(0, Math.Min(16, pcm.Length)).ToArray().Select(b => b.ToString("X2")));
                 _log.Info(
-                    $"Realtime-haptics combined report rejected (expected 0x36 report with 0x90 0x3F state block and 64-byte haptics at offset 78); head {head}");
+                    $"Realtime-haptics PCM rejected (expected whole 2ch S16LE frames); head {head}");
             }
 
             return;
         }
 
+        int frames = pcm.Length / 4;
         lock (_sync)
         {
-            combined.AsSpan(BluetoothCombinedHapticsPcmOffset, DualSenseBtAudioPipeline.HapticsBytes)
-                .CopyTo(_gameHapticsPcm);
+            for (int i = 0; i < DualSenseBtAudioPipeline.HapticsFrames; i++)
+            {
+                int src = i * frames / DualSenseBtAudioPipeline.HapticsFrames;
+                _gameHapticsPcm[i * 2] = pcm[src * 4 + 1];
+                _gameHapticsPcm[i * 2 + 1] = pcm[src * 4 + 3];
+            }
+
             _lastGameHapticsTimestamp = Stopwatch.GetTimestamp();
         }
 

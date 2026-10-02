@@ -1,10 +1,10 @@
 using System.Runtime.InteropServices;
-using DualSenseClient.VIIPER.DualSense;
 
 namespace DualSenseClient.VIIPER.Callbacks;
 
 /// <summary>
-/// Receives low-latency rear haptics output from the host for a DualSense device.
+/// Receives the rear voice-coil haptics pair (2ch S16LE @48kHz) for a DualSense device.
+/// The buffer is only valid during the call.
 /// </summary>
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-public delegate void DSRealtimeHapticsCallback(nuint handle, DSOutputState output);
+public delegate void DSRealtimeHapticsCallback(nuint handle, IntPtr pcm, nuint length);
