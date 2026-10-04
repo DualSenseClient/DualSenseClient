@@ -172,13 +172,13 @@ public class DualSenseDeviceDisposeTests
     }
 
     [Test]
-    public void ReadInputAsync_AfterDispose_FaultsWithHidException()
+    public async Task ReadInputAsync_AfterDispose_FaultsWithHidException()
     {
         DisposingHidDevice hid = new DisposingHidDevice();
         using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Usb));
         hid.Dispose();
 
-        Assert.ThrowsAsync<HidException>(async () => await device.ReadInputAsync(new byte[64], 0, 64, CancellationToken.None));
+        await Assert.ThrowsAsync<HidException>(() => device.ReadInputAsync(new byte[64], 0, 64, CancellationToken.None));
     }
 
     [Test]
