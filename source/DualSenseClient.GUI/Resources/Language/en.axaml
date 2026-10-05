@@ -425,6 +425,11 @@
     <sys:String x:Key="AutoProfilesPage.Exe.FileType">Programs</sys:String>
     <sys:String x:Key="AutoProfilesPage.RuleTitle.Title">Window title</sys:String>
     <sys:String x:Key="AutoProfilesPage.RuleTitle.Description">Title of the focused window, or empty for any title</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Scope.Title">Match by</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Scope.Description">Which filters must match the focused program</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Scope.Exe">Program only</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Scope.TitleOnly">Window title only</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Scope.Both">Program and window title</sys:String>
     <sys:String x:Key="AutoProfilesPage.Patterns.Hint">Program and window title are case-insensitive regular expressions, e.g. ^Level \d+$ or game\.exe$. An invalid expression matches literally instead. Escape backslashes as \\.</sys:String>
     <sys:String x:Key="AutoProfilesPage.Controller.Title">Controller</sys:String>
     <sys:String x:Key="AutoProfilesPage.Controller.Description">Which controller this rule applies to</sys:String>

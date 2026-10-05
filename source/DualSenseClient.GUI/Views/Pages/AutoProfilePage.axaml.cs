@@ -45,6 +45,7 @@ public partial class AutoProfilePage : UserControl
     {
         base.OnLoaded(e);
         _viewModel.Refresh();
+        ResyncComboSelection(ScopeCard, _viewModel.SelectedMatchScopeIndex);
         ResyncComboSelection(ControllerCard, _viewModel.SelectedControllerIndex);
         ResyncComboSelection(ProfileCard, _viewModel.SelectedProfileIndex);
     }
@@ -107,6 +108,11 @@ public partial class AutoProfilePage : UserControl
         if (files.Count > 0)
         {
             _viewModel.SelectedExePattern = files[0].Path.LocalPath;
+            if (_viewModel.SelectedMatchScopeIndex == 1)
+            {
+                _viewModel.SelectedMatchScopeIndex = string.IsNullOrEmpty(_viewModel.SelectedWindowTitle) ? 0 : 2;
+            }
+
             _viewModel.Save();
         }
     }

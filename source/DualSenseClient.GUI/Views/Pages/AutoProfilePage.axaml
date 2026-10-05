@@ -95,7 +95,12 @@
                             <cards:TextBoxCard Title="{DynamicResource AutoProfilesPage.Name.Title}"
                                                Description="{DynamicResource AutoProfilesPage.Name.Description}"
                                                Text="{Binding SelectedRuleName}" />
-                            <cards:CustomCard>
+                            <cards:ComboBoxCard x:Name="ScopeCard"
+                                                Title="{DynamicResource AutoProfilesPage.Scope.Title}"
+                                                Description="{DynamicResource AutoProfilesPage.Scope.Description}"
+                                                ItemsSource="{Binding MatchScopeOptions}"
+                                                SelectedIndex="{Binding SelectedMatchScopeIndex}" />
+                            <cards:CustomCard IsVisible="{Binding IsExeVisible}">
                                 <Grid ColumnDefinitions="*,Auto,Auto"
                                       ColumnSpacing="8">
                                     <cards:CardHeader Title="{DynamicResource AutoProfilesPage.Exe.Title}"
@@ -118,7 +123,8 @@
                             </cards:CustomCard>
                             <cards:TextBoxCard Title="{DynamicResource AutoProfilesPage.RuleTitle.Title}"
                                                Description="{DynamicResource AutoProfilesPage.RuleTitle.Description}"
-                                               Text="{Binding SelectedWindowTitle}" />
+                                               Text="{Binding SelectedWindowTitle}"
+                                               IsVisible="{Binding IsTitleVisible}" />
                             <TextBlock Text="{DynamicResource AutoProfilesPage.Patterns.Hint}"
                                        FontSize="12"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"

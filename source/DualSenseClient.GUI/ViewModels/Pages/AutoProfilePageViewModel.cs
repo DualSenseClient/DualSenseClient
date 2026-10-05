@@ -116,13 +116,20 @@ public partial class AutoProfilePageViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(SelectedEmulationIndex))]
     [NotifyPropertyChangedFor(nameof(SelectedHideIndex))]
     [NotifyPropertyChangedFor(nameof(SelectedControllerIndex))]
+    [NotifyPropertyChangedFor(nameof(SelectedMatchScopeIndex))]
+    [NotifyPropertyChangedFor(nameof(IsExeVisible))]
+    [NotifyPropertyChangedFor(nameof(IsTitleVisible))]
     private AutoProfileRule? selectedRule;
 
     /// <summary>
     /// Called after <see cref="SelectedRule"/> changes. Persists pending text edits of
-    /// the previously selected rule.
+    /// the previously selected rule and syncs the match scope to its filters.
     /// </summary>
-    partial void OnSelectedRuleChanged(AutoProfileRule? oldValue, AutoProfileRule? newValue) => _rules.Save();
+    partial void OnSelectedRuleChanged(AutoProfileRule? oldValue, AutoProfileRule? newValue)
+    {
+        _rules.Save();
+        SyncMatchScope(newValue);
+    }
 
     /// <summary>
     /// Whether a rule is selected and can be edited.
@@ -199,6 +206,95 @@ public partial class AutoProfilePageViewModel : ObservableObject
             SelectedRule.WindowTitle = value;
             OnPropertyChanged();
         }
+    }
+
+    /// <summary>
+    /// Match scope options: program only, window title only, or both.
+    /// </summary>
+    public ObservableCollection<string> MatchScopeOptions { get; } =
+    [
+        LocalizationService.GetText("AutoProfilesPage.Scope.Exe"),
+        LocalizationService.GetText("AutoProfilesPage.Scope.TitleOnly"),
+        LocalizationService.GetText("AutoProfilesPage.Scope.Both")
+    ];
+
+    /// <summary>
+    /// Backing field for <see cref="SelectedMatchScopeIndex"/>.
+    /// </summary>
+    private int _matchScopeIndex = 2;
+
+    /// <summary>
+    /// Which filters must match (0 = program only, 1 = title only, 2 = both).
+    /// Switching scope clears the hidden filter so <see cref="AutoProfileRule.IsMatch"/>
+    /// semantics stay unchanged, and persists immediately.
+    /// </summary>
+    public int SelectedMatchScopeIndex
+    {
+        get
+        {
+            return _matchScopeIndex;
+        }
+        set
+        {
+            if (SelectedRule is null || value < 0 || value > 2 || value == _matchScopeIndex)
+            {
+                return;
+            }
+
+            _matchScopeIndex = value;
+            if (value == 0)
+            {
+                SelectedRule.WindowTitle = string.Empty;
+            }
+            else if (value == 1)
+            {
+                SelectedRule.ExePattern = string.Empty;
+            }
+
+            _rules.Save();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedExePattern));
+            OnPropertyChanged(nameof(SelectedWindowTitle));
+            OnPropertyChanged(nameof(IsExeVisible));
+            OnPropertyChanged(nameof(IsTitleVisible));
+        }
+    }
+
+    /// <summary>
+    /// Whether the program filter is shown for the current scope.
+    /// </summary>
+    public bool IsExeVisible
+    {
+        get
+        {
+            return _matchScopeIndex != 1;
+        }
+    }
+
+    /// <summary>
+    /// Whether the window title filter is shown for the current scope.
+    /// </summary>
+    public bool IsTitleVisible
+    {
+        get
+        {
+            return _matchScopeIndex != 0;
+        }
+    }
+
+    /// <summary>
+    /// Derives the match scope from a rule's filters: both set or both empty shows
+    /// both (an empty rule never matches regardless), a single filter shows its side.
+    /// Sets the backing field directly without clearing anything.
+    /// </summary>
+    private void SyncMatchScope(AutoProfileRule? rule)
+    {
+        bool hasExe = !string.IsNullOrEmpty(rule?.ExePattern);
+        bool hasTitle = !string.IsNullOrEmpty(rule?.WindowTitle);
+        _matchScopeIndex = hasExe && !hasTitle ? 0 : !hasExe && hasTitle ? 1 : 2;
+        OnPropertyChanged(nameof(SelectedMatchScopeIndex));
+        OnPropertyChanged(nameof(IsExeVisible));
+        OnPropertyChanged(nameof(IsTitleVisible));
     }
 
     /// <summary>

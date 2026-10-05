@@ -19,11 +19,12 @@ A desktop notification is shown whenever the applied profile changes. Like other
 2. Give it a **name** (optional — the program path is shown when empty)
 3. Pick the **program** with the file picker (or type the path manually)
 4. Optionally set a **window title** filter, **controller** target, **profile**, **virtual controller** mode, and **hiding**
+5. Use **Match by** to search by program only, window title only, or both — the unused filter is hidden and cleared
 5. Each dropdown starts at **"leave unchanged" / "All controllers"**, so a rule can switch any combination of profile, virtual controller, and hiding. A rule that leaves all three unchanged does nothing (the page says so). The hiding option is only shown when the [HidHide driver](controller-hiding.md) is available.
 
 ## Matching
 
-A rule matches when the focused program satisfies **both** the program and the title filter (an empty filter matches anything). Both are **case-insensitive regular expressions** (search semantics):
+A rule matches when the focused program satisfies **both** the program and the title filter (an empty filter matches anything). The **Match by** selector switches between program only, window title only, or both, hiding and clearing the unused filter. Both are **case-insensitive regular expressions** (search semantics):
 
 | Example                | Matches                              |
 | ---------------------- | ------------------------------------ |
