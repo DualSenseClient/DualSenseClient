@@ -15,7 +15,7 @@ namespace DualSenseClient.GUI.Services;
 
 /// <summary>
 /// Polls the focused program and temporarily applies the matching auto profile rule
-/// (profile + emulation mode + hiding) to every tracked controller. Stored bindings are never
+/// (profile + emulation mode and variant + hiding) to every tracked controller. Stored bindings are never
 /// modified: when no rule matches, the controller's bound profile and stored emulation
 /// settings are re-applied and the pre-rule hidden state is restored. Resolved eagerly at startup (see
 /// <see cref="Controls.AppSplashScreen"/>) so it runs for the app's lifetime.
@@ -83,12 +83,13 @@ public sealed class AutoProfileCoordinator : IDisposable
     private readonly Lock _sync = new Lock();
 
     /// <summary>
-    /// The effective auto state per controller: applied profile name, emulation mode
-    /// override (<c>null</c> mode means no override), and hiding override (<c>null</c>
+    /// The effective auto state per controller: applied profile name, emulation mode and
+    /// variant overrides (<c>null</c> mode means no override), and hiding override (<c>null</c>
     /// means no override). Compared every tick so rule edits apply while focus is unchanged.
     /// </summary>
-    private readonly Dictionary<DualSenseDevice, (string ProfileName, EmulationMode? Mode, bool? Hide)> _applied =
-        new Dictionary<DualSenseDevice, (string, EmulationMode?, bool?)>();
+    private readonly Dictionary<DualSenseDevice, (string ProfileName, EmulationMode? Mode, DualSenseVariant? DsVariant,
+        DualShock4Variant? Ds4Variant, bool? Hide)> _applied =
+        new Dictionary<DualSenseDevice, (string, EmulationMode?, DualSenseVariant?, DualShock4Variant?, bool?)>();
 
     /// <summary>
     /// The hidden state per controller before the hiding override was applied,
@@ -199,24 +200,32 @@ public sealed class AutoProfileCoordinator : IDisposable
                     ? rule.ProfileName
                     : _controllers.GetBoundProfileName(mac, path) ?? ProfileService.DefaultProfileName;
                 EmulationMode? mode = rule?.EmulationMode;
+                DualSenseVariant? dsVariant = mode == EmulationMode.DualSense ? rule?.DualSenseVariant : null;
+                DualShock4Variant? ds4Variant = mode == EmulationMode.DualShock4 ? rule?.DualShock4Variant : null;
                 bool? hide = rule?.HideController;
 
-                if (_applied.TryGetValue(device, out (string ProfileName, EmulationMode? Mode, bool? Hide) applied)
+                if (_applied.TryGetValue(device,
+                        out (string ProfileName, EmulationMode? Mode, DualSenseVariant? DsVariant, DualShock4Variant? Ds4Variant, bool? Hide) applied)
                     && string.Equals(applied.ProfileName, profileName, StringComparison.OrdinalIgnoreCase)
                     && applied.Mode == mode
+                    && applied.DsVariant == dsVariant
+                    && applied.Ds4Variant == ds4Variant
                     && applied.Hide == hide)
                 {
                     continue;
                 }
 
-                bool hadPrevious = _applied.TryGetValue(device, out (string ProfileName, EmulationMode? Mode, bool? Hide) previous);
+                bool hadPrevious = _applied.TryGetValue(device,
+                    out (string ProfileName, EmulationMode? Mode, DualSenseVariant? DsVariant, DualShock4Variant? Ds4Variant, bool? Hide) previous);
                 EmulationMode? previousMode = hadPrevious ? previous.Mode : null;
+                DualSenseVariant? previousDsVariant = hadPrevious ? previous.DsVariant : null;
+                DualShock4Variant? previousDs4Variant = hadPrevious ? previous.Ds4Variant : null;
                 bool profileChanged = hadPrevious
                                       && !string.Equals(previous.ProfileName, profileName, StringComparison.OrdinalIgnoreCase);
-                ApplyRule(device, profileName, mode, profileChanged);
+                ApplyRule(device, profileName, mode, dsVariant, ds4Variant, profileChanged);
                 ApplyHiding(device, hide);
-                _applied[device] = (profileName, mode, hide);
-                if (mode != previousMode)
+                _applied[device] = (profileName, mode, dsVariant, ds4Variant, hide);
+                if (mode != previousMode || dsVariant != previousDsVariant || ds4Variant != previousDs4Variant)
                 {
                     emulationChanged = true;
                 }
@@ -230,11 +239,12 @@ public sealed class AutoProfileCoordinator : IDisposable
     }
 
     /// <summary>
-    /// Applies a profile and a temporary emulation mode override to a controller.
+    /// Applies a profile and a temporary emulation mode and variant override to a controller.
     /// Unknown profile names are skipped (the previous lights stay). Shows a popup when
     /// the profile changed. Caller must hold <see cref="_sync"/>.
     /// </summary>
-    private void ApplyRule(DualSenseDevice device, string profileName, EmulationMode? mode, bool notify)
+    private void ApplyRule(DualSenseDevice device, string profileName, EmulationMode? mode, DualSenseVariant? dsVariant,
+        DualShock4Variant? ds4Variant, bool notify)
     {
         Profile? profile = _profiles.GetProfile(profileName);
         if (profile is not null)
@@ -256,7 +266,7 @@ public sealed class AutoProfileCoordinator : IDisposable
             _log.Warning($"Auto profile '{profileName}' not found; leaving lights unchanged");
         }
 
-        _emulation.SetTemporaryEmulationMode(device, mode);
+        _emulation.SetTemporaryEmulationMode(device, mode, dsVariant, ds4Variant);
     }
 
     /// <summary>

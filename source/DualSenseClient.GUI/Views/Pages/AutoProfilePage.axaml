@@ -143,6 +143,16 @@
                                                 Description="{DynamicResource AutoProfilesPage.Emulation.Description}"
                                                 ItemsSource="{Binding EmulationOptions}"
                                                 SelectedIndex="{Binding SelectedEmulationIndex}" />
+                            <cards:ComboBoxCard Title="{DynamicResource VirtualControllerPage.Emulation.DeviceType}"
+                                                Description="{DynamicResource VirtualControllerPage.Emulation.DeviceType.Description}"
+                                                ItemsSource="{Binding DualSenseVariantOptions}"
+                                                SelectedIndex="{Binding SelectedDualSenseVariantIndex}"
+                                                IsVisible="{Binding IsDualSenseVariantVisible}" />
+                            <cards:ComboBoxCard Title="{DynamicResource VirtualControllerPage.Emulation.Ds4Variant}"
+                                                Description="{DynamicResource VirtualControllerPage.Emulation.Ds4Variant.Description}"
+                                                ItemsSource="{Binding DualShock4VariantOptions}"
+                                                SelectedIndex="{Binding SelectedDualShock4VariantIndex}"
+                                                IsVisible="{Binding IsDualShock4VariantVisible}" />
                             <cards:ComboBoxCard Title="{DynamicResource AutoProfilesPage.Hiding.Title}"
                                                 Description="{DynamicResource AutoProfilesPage.Hiding.Description}"
                                                 ItemsSource="{Binding HideOptions}"

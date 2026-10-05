@@ -114,6 +114,10 @@ public partial class AutoProfilePageViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(SelectedWindowTitle))]
     [NotifyPropertyChangedFor(nameof(SelectedProfileIndex))]
     [NotifyPropertyChangedFor(nameof(SelectedEmulationIndex))]
+    [NotifyPropertyChangedFor(nameof(SelectedDualSenseVariantIndex))]
+    [NotifyPropertyChangedFor(nameof(SelectedDualShock4VariantIndex))]
+    [NotifyPropertyChangedFor(nameof(IsDualSenseVariantVisible))]
+    [NotifyPropertyChangedFor(nameof(IsDualShock4VariantVisible))]
     [NotifyPropertyChangedFor(nameof(SelectedHideIndex))]
     [NotifyPropertyChangedFor(nameof(SelectedControllerIndex))]
     [NotifyPropertyChangedFor(nameof(SelectedMatchScopeIndex))]
@@ -298,7 +302,7 @@ public partial class AutoProfilePageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Whether the selected rule leaves profile, emulation, and hiding unchanged,
+    /// Whether the selected rule leaves profile, emulation, variant, and hiding unchanged,
     /// making it a no-op. Shown as a hint in the editor.
     /// </summary>
     public bool IsRuleActionless
@@ -308,6 +312,8 @@ public partial class AutoProfilePageViewModel : ObservableObject
             return SelectedRule is not null
                    && string.IsNullOrEmpty(SelectedRule.ProfileName)
                    && SelectedRule.EmulationMode is null
+                   && SelectedRule.DualSenseVariant is null
+                   && SelectedRule.DualShock4Variant is null
                    && SelectedRule.HideController is null;
         }
     }
@@ -400,7 +406,133 @@ public partial class AutoProfilePageViewModel : ObservableObject
             SelectedRule.EmulationMode = mode;
             _rules.Save();
             OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedDualSenseVariantIndex));
+            OnPropertyChanged(nameof(SelectedDualShock4VariantIndex));
+            OnPropertyChanged(nameof(IsDualSenseVariantVisible));
+            OnPropertyChanged(nameof(IsDualShock4VariantVisible));
             OnPropertyChanged(nameof(IsRuleActionless));
+        }
+    }
+
+    /// <summary>
+    /// DualSense variant options for the selected rule: "leave unchanged", standard, Edge.
+    /// </summary>
+    public ObservableCollection<string> DualSenseVariantOptions { get; } =
+    [
+        LocalizationService.GetText("AutoProfilesPage.Emulation.Unchanged"),
+        LocalizationService.GetText("VirtualControllerPage.Emulation.DeviceType.Standard"),
+        LocalizationService.GetText("VirtualControllerPage.Emulation.DeviceType.Edge")
+    ];
+
+    /// <summary>
+    /// The selected rule's DualSense variant as an option index (0 leaves the variant unchanged).
+    /// Only used with DualSense emulation; kept when switching modes. Setting it persists immediately.
+    /// </summary>
+    public int SelectedDualSenseVariantIndex
+    {
+        get
+        {
+            return SelectedRule?.DualSenseVariant switch
+            {
+                DualSenseVariant.Standard => 1,
+                DualSenseVariant.Edge => 2,
+                _ => 0
+            };
+        }
+        set
+        {
+            if (SelectedRule is null)
+            {
+                return;
+            }
+
+            DualSenseVariant? variant = value switch
+            {
+                1 => DualSenseVariant.Standard,
+                2 => DualSenseVariant.Edge,
+                _ => null
+            };
+            if (SelectedRule.DualSenseVariant == variant)
+            {
+                return;
+            }
+
+            SelectedRule.DualSenseVariant = variant;
+            _rules.Save();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsRuleActionless));
+        }
+    }
+
+    /// <summary>
+    /// Whether the DualSense variant picker is shown (DualSense emulation selected).
+    /// </summary>
+    public bool IsDualSenseVariantVisible
+    {
+        get
+        {
+            return HasSelectedRule && SelectedEmulationIndex == 4;
+        }
+    }
+
+    /// <summary>
+    /// DualShock 4 variant options for the selected rule: "leave unchanged", V1, V2.
+    /// </summary>
+    public ObservableCollection<string> DualShock4VariantOptions { get; } =
+    [
+        LocalizationService.GetText("AutoProfilesPage.Emulation.Unchanged"),
+        LocalizationService.GetText("VirtualControllerPage.Emulation.Ds4Variant.V1"),
+        LocalizationService.GetText("VirtualControllerPage.Emulation.Ds4Variant.V2")
+    ];
+
+    /// <summary>
+    /// The selected rule's DualShock 4 variant as an option index (0 leaves the variant unchanged).
+    /// Only used with DualShock 4 emulation; kept when switching modes. Setting it persists immediately.
+    /// </summary>
+    public int SelectedDualShock4VariantIndex
+    {
+        get
+        {
+            return SelectedRule?.DualShock4Variant switch
+            {
+                DualShock4Variant.V1 => 1,
+                DualShock4Variant.V2 => 2,
+                _ => 0
+            };
+        }
+        set
+        {
+            if (SelectedRule is null)
+            {
+                return;
+            }
+
+            DualShock4Variant? variant = value switch
+            {
+                1 => DualShock4Variant.V1,
+                2 => DualShock4Variant.V2,
+                _ => null
+            };
+            if (SelectedRule.DualShock4Variant == variant)
+            {
+                return;
+            }
+
+            SelectedRule.DualShock4Variant = variant;
+            _rules.Save();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsRuleActionless));
+        }
+    }
+
+    /// <summary>
+    /// Whether the DualShock 4 variant picker is shown (DualShock 4 emulation selected).
+    /// </summary>
+    public bool IsDualShock4VariantVisible
+    {
+        get
+        {
+            return HasSelectedRule && SelectedEmulationIndex == 3;
         }
     }
 

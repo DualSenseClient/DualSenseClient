@@ -236,4 +236,27 @@ public class AutoProfileServiceTests
             Assert.That(match.IsActionless, Is.False);
         });
     }
+
+    [Test]
+    public void Rule_VariantOnly_MatchesAndRoundTrips()
+    {
+        AutoProfileService service = CreateService();
+        service.AddRule(new AutoProfileRule
+        {
+            ExePattern = "game\\.exe",
+            EmulationMode = EmulationMode.DualSense,
+            DualSenseVariant = DualSenseVariant.Edge
+        });
+
+        AutoProfileService reloaded = CreateService();
+        AutoProfileRule? match = reloaded.FindMatch(@"C:\game.exe", "Title", null, null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(match, Is.Not.Null);
+            Assert.That(match!.EmulationMode, Is.EqualTo(EmulationMode.DualSense));
+            Assert.That(match.DualSenseVariant, Is.EqualTo(DualSenseVariant.Edge));
+            Assert.That(match.IsActionless, Is.False);
+        });
+    }
 }
