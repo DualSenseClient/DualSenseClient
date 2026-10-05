@@ -127,6 +127,14 @@ public class ForwardSettings
     /// </summary>
     [JsonPropertyName("haptics")]
     public int Haptics { get; set; } = 100;
+
+    /// <summary>
+    /// Gets or sets whether the game's own haptics are ignored in favor of the
+    /// audio-derived haptics (which always honor the haptic strength). Only affects
+    /// DualSense emulation over Bluetooth; USB output never carries game haptics.
+    /// </summary>
+    [JsonPropertyName("haptics_audio_only")]
+    public bool ForceAudioHaptics { get; set; }
 }
 
 /// <summary>

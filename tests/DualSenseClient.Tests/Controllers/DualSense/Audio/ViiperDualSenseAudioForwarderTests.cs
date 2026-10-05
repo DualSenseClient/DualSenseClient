@@ -682,4 +682,80 @@ public class ViiperDualSenseAudioForwarderTests
 
         forwarder.Stop();
     }
+
+    [Test]
+    public void UpdateGameHaptics_HapticStrengthScalesGamePayload()
+    {
+        byte[] gamePcm = MakeRearPcm(0x40);
+
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        forwarder.HapticStrength = 0.5f;
+        forwarder.Start();
+
+        for (int i = 0; i < 8; i++)
+        {
+            forwarder.FeedPcm(MakeAudioBlock(0f));
+        }
+
+        WaitUntil(() => fake.ReportCount >= 8 && fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
+
+        // Deliver post-prime and keep the pump ticking while the payload is fresh,
+        // mirroring UpdateGameHaptics_ReplacesAudioDerivedHaptics.
+        forwarder.UpdateGameHaptics(gamePcm);
+        for (int i = 0; i < 4; i++)
+        {
+            forwarder.FeedPcm(MakeAudioBlock(0f));
+        }
+
+        WaitUntil(() => fake.LastHapticsFrame is { Length: 64 } && fake.LastHapticsFrame.All(b => b == 0x20), TimeSpan.FromSeconds(3));
+
+        Assert.That(fake.LastHapticsFrame.All(b => b == 0x20), Is.True,
+            "the haptic strength must scale the game's own payload (0x40 at 50% derives to 0x20)");
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void ForceAudioHaptics_IgnoresFreshGamePayload()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        forwarder.ForceAudioHaptics = true;
+        forwarder.Start();
+
+        for (int i = 0; i < 8; i++)
+        {
+            forwarder.FeedPcm(AudioBlock);
+        }
+
+        WaitUntil(() => fake.ReportCount >= 8 && fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
+
+        // A fresh game payload must still be ignored: deliver post-prime while audio
+        // keeps the pump ticking, so staleness cannot explain the fallback.
+        forwarder.UpdateGameHaptics(MakeRearPcm(0x10));
+        for (int i = 0; i < 4; i++)
+        {
+            forwarder.FeedPcm(AudioBlock);
+        }
+
+        WaitUntil(() => fake.ReportCount >= 16, TimeSpan.FromSeconds(3));
+
+        byte[] frame = fake.LastHapticsFrame;
+        Assert.Multiple(() =>
+        {
+            Assert.That(frame.All(b => b == 0x10), Is.False,
+                "forced audio haptics must ignore the game's payload and derive from audio");
+            Assert.That(frame.Any(b => b != 0), Is.True,
+                "the audio-derived haptics must still drive the voice coils");
+        });
+
+        forwarder.Stop();
+    }
 }

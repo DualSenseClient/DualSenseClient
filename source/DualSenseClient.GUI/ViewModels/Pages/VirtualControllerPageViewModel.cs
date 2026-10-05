@@ -544,6 +544,41 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Whether forwarded haptics ignore the game's own payload and always derive from
+    /// the forwarded audio (two-way, persisted). The haptic strength slider always
+    /// applies to audio-derived haptics. Only affects DualSense emulation over Bluetooth.
+    /// </summary>
+    public bool ForceAudioHaptics
+    {
+        get
+        {
+            return HasDevice && GetEmulationSettings().Forward.ForceAudioHaptics;
+        }
+        set
+        {
+            if (!HasDevice)
+            {
+                return;
+            }
+
+            EmulationSettings settings = GetEmulationSettings();
+            if (settings.Forward.ForceAudioHaptics == value)
+            {
+                return;
+            }
+
+            _log.Info($"Setting audio-only haptics of {CurrentMac} to {value}");
+            settings.Forward.ForceAudioHaptics = value;
+            _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+            OnPropertyChanged(nameof(ForceAudioHaptics));
+            if (CurrentDualSenseDevice is { } device)
+            {
+                _emulation.SetForwardingHapticsSource(device, value);
+            }
+        }
+    }
+
+    /// <summary>
     /// Human-readable description of the selected controller's virtual controller
     /// emulation state, reflecting <see cref="IEmulationService.GetStatus"/>.
     /// </summary>
@@ -1460,6 +1495,7 @@ public partial class VirtualControllerPageViewModel : ObservableObject
         OnPropertyChanged(nameof(ForwardAudioOutputIndex));
         OnPropertyChanged(nameof(ForwardVolume));
         OnPropertyChanged(nameof(ForwardHapticStrength));
+        OnPropertyChanged(nameof(ForceAudioHaptics));
         OnPropertyChanged(nameof(EmulationStatusText));
         OnPropertyChanged(nameof(CanChangeEmulation));
     }

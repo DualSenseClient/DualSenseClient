@@ -46,7 +46,8 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 /// (2ch S16LE @48kHz via <see cref="UpdateGameHaptics"/>), it replaces the
 /// audio-derived haptics so the pad reproduces the game's actual haptics; the
 /// audio-derived path is only the fallback for games that do not drive the haptics
-/// channels.
+/// channels. <see cref="HapticStrength"/> scales both paths, and
+/// <see cref="ForceAudioHaptics"/> ignores the game payload entirely.
 /// </para>
 /// </remarks>
 public sealed class ViiperDualSenseAudioForwarder : IDisposable
@@ -225,6 +226,11 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
     private volatile float _hapticStrength = 1f;
 
     /// <summary>
+    /// Whether the game's own haptics payload is ignored in favor of the audio-derived haptics.
+    /// </summary>
+    private volatile bool _forceAudioHaptics;
+
+    /// <summary>
     /// Whether audio is routed to the headset jack instead of the internal speaker.
     /// </summary>
     private volatile bool _playToHeadset;
@@ -317,6 +323,23 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
         set
         {
             _hapticStrength = Math.Clamp(value, 0f, 2f);
+        }
+    }
+
+    /// <summary>
+    /// Whether the game's own haptics payload is ignored in favor of the audio-derived
+    /// haptics (which always honor <see cref="HapticStrength"/>). Only affects the
+    /// Bluetooth path: USB output never carries the game's haptics.
+    /// </summary>
+    public bool ForceAudioHaptics
+    {
+        get
+        {
+            return _forceAudioHaptics;
+        }
+        set
+        {
+            _forceAudioHaptics = value;
         }
     }
 
@@ -666,18 +689,39 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
 
     /// <summary>
     /// Fills <see cref="_hapticsPcm"/> for the current block. The game's own haptics
-    /// payload takes priority while it is fresh and non-silent; otherwise the haptics
+    /// payload takes priority while it is fresh and non-silent (scaled by the haptic
+    /// strength, so the slider also applies to game-driven haptics); otherwise the haptics
     /// are derived from the block's audio content (with the classic rumble folded in).
+    /// <see cref="ForceAudioHaptics"/> skips the game payload and always derives from audio.
     /// Caller must hold <see cref="_sync"/>.
     /// </summary>
     private void FillHapticsPcm()
     {
-        if (TryGetFreshGameHaptics(_hapticsPcm))
+        if (!_forceAudioHaptics && TryGetFreshGameHaptics(_hapticsPcm))
         {
+            ScaleHaptics(_hapticsPcm, _hapticStrength);
             return;
         }
 
         DualSenseBtAudioPipeline.ToHapticsPcm(_pcmBlock, _hapticsPcm, _hapticStrength);
+    }
+
+    /// <summary>
+    /// Scales an s8 haptics payload in place by the given strength, clamping to the s8
+    /// range. A strength of 1 leaves the payload untouched. Mirrors the scaling in
+    /// <see cref="DualSenseBtAudioPipeline.ToHapticsPcm"/>.
+    /// </summary>
+    private static void ScaleHaptics(Span<byte> haptics, float strength)
+    {
+        if (strength == 1f)
+        {
+            return;
+        }
+
+        for (int i = 0; i < haptics.Length; i++)
+        {
+            haptics[i] = (byte)Math.Clamp((int)((sbyte)haptics[i] * strength), -128, 127);
+        }
     }
 
     /// <summary>

@@ -76,6 +76,10 @@
                                           Description="{DynamicResource VirtualControllerPage.Emulation.ForwardHaptics.Description}"
                                           Value="{Binding ForwardHapticStrength}"
                                           IsVisible="{Binding IsAudioEmulation}" />
+                        <cards:ToggleSwitchCard Title="{DynamicResource VirtualControllerPage.Emulation.ForceAudioHaptics}"
+                                                Description="{DynamicResource VirtualControllerPage.Emulation.ForceAudioHaptics.Description}"
+                                                IsChecked="{Binding ForceAudioHaptics}"
+                                                IsVisible="{Binding IsDualSenseEmulation}" />
                     </StackPanel>
 
                     <!-- Status line is shown whether enabled or not -->

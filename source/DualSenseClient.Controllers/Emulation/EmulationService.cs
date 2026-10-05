@@ -62,6 +62,13 @@ public interface IEmulationService : IDisposable
     void SetForwardingAudioOutput(DualSenseDevice device, bool headset);
 
     /// <summary>
+    /// Switches the given controller's forwarded haptics between the game's own payload
+    /// and the audio-derived fallback without recreating the virtual controller. No-op
+    /// when audio forwarding is not active for that controller.
+    /// </summary>
+    void SetForwardingHapticsSource(DualSenseDevice device, bool forceAudioHaptics);
+
+    /// <summary>
     /// Reloads the given controller's button remapping rules from its stored emulation
     /// settings and applies them to its running virtual controller without recreating the
     /// device. No-op when the controller has no active virtual controller.
@@ -328,6 +335,18 @@ public sealed class EmulationService : IEmulationService
             if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Forwarder is { } forwarder)
             {
                 forwarder.PlayToHeadset = headset;
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    public void SetForwardingHapticsSource(DualSenseDevice device, bool forceAudioHaptics)
+    {
+        lock (_sync)
+        {
+            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Forwarder is { } forwarder)
+            {
+                forwarder.ForceAudioHaptics = forceAudioHaptics;
             }
         }
     }
@@ -813,6 +832,7 @@ public sealed class EmulationService : IEmulationService
         {
             forwarder.SpeakerVolume = (byte)Math.Clamp(emulation.Forward.Volume, 0, 255);
             forwarder.HapticStrength = Math.Clamp(emulation.Forward.Haptics, 0, 200) / 100f;
+            forwarder.ForceAudioHaptics = emulation.Forward.ForceAudioHaptics;
             forwarder.PlayToHeadset = emulation.Forward.AudioOutput == EmulationAudioOutput.Headset;
         }
 
