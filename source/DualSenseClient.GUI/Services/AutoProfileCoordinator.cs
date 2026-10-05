@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
+using DualSenseClient.Controllers.DualSense.Triggers;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Core.Foreground;
 using DualSenseClient.HidHide;
@@ -15,7 +16,7 @@ namespace DualSenseClient.GUI.Services;
 
 /// <summary>
 /// Polls the focused program and temporarily applies the matching auto profile rule
-/// (profile + emulation mode and variant + hiding) to every tracked controller. Stored bindings are never
+/// (profile + emulation mode and variant + trigger effects + hiding) to every tracked controller. Stored bindings are never
 /// modified: when no rule matches, the controller's bound profile and stored emulation
 /// settings are re-applied and the pre-rule hidden state is restored. Resolved eagerly at startup (see
 /// <see cref="Controls.AppSplashScreen"/>) so it runs for the app's lifetime.
@@ -84,12 +85,15 @@ public sealed class AutoProfileCoordinator : IDisposable
 
     /// <summary>
     /// The effective auto state per controller: applied profile name, emulation mode and
-    /// variant overrides (<c>null</c> mode means no override), and hiding override (<c>null</c>
+    /// variant overrides (<c>null</c> mode means no override), trigger effect snapshots
+    /// (<c>null</c> means no override), and hiding override (<c>null</c>
     /// means no override). Compared every tick so rule edits apply while focus is unchanged.
     /// </summary>
     private readonly Dictionary<DualSenseDevice, (string ProfileName, EmulationMode? Mode, DualSenseVariant? DsVariant,
-        DualShock4Variant? Ds4Variant, bool? Hide)> _applied =
-        new Dictionary<DualSenseDevice, (string, EmulationMode?, DualSenseVariant?, DualShock4Variant?, bool?)>();
+        DualShock4Variant? Ds4Variant, (int Mode, int Start, int End, int Force, int Frequency)? LeftTrigger,
+        (int Mode, int Start, int End, int Force, int Frequency)? RightTrigger, bool? Hide)> _applied =
+        new Dictionary<DualSenseDevice, (string, EmulationMode?, DualSenseVariant?, DualShock4Variant?,
+            (int, int, int, int, int)?, (int, int, int, int, int)?, bool?)>();
 
     /// <summary>
     /// The hidden state per controller before the hiding override was applied,
@@ -202,29 +206,43 @@ public sealed class AutoProfileCoordinator : IDisposable
                 EmulationMode? mode = rule?.EmulationMode;
                 DualSenseVariant? dsVariant = mode == EmulationMode.DualSense ? rule?.DualSenseVariant : null;
                 DualShock4Variant? ds4Variant = mode == EmulationMode.DualShock4 ? rule?.DualShock4Variant : null;
+                (int Mode, int Start, int End, int Force, int Frequency)? leftTrigger = SnapshotTrigger(rule?.LeftTrigger);
+                (int Mode, int Start, int End, int Force, int Frequency)? rightTrigger = SnapshotTrigger(rule?.RightTrigger);
                 bool? hide = rule?.HideController;
 
                 if (_applied.TryGetValue(device,
-                        out (string ProfileName, EmulationMode? Mode, DualSenseVariant? DsVariant, DualShock4Variant? Ds4Variant, bool? Hide) applied)
+                        out (string ProfileName, EmulationMode? Mode, DualSenseVariant? DsVariant, DualShock4Variant? Ds4Variant,
+                        (int Mode, int Start, int End, int Force, int Frequency)? LeftTrigger,
+                        (int Mode, int Start, int End, int Force, int Frequency)? RightTrigger, bool? Hide) applied)
                     && string.Equals(applied.ProfileName, profileName, StringComparison.OrdinalIgnoreCase)
                     && applied.Mode == mode
                     && applied.DsVariant == dsVariant
                     && applied.Ds4Variant == ds4Variant
+                    && applied.LeftTrigger == leftTrigger
+                    && applied.RightTrigger == rightTrigger
                     && applied.Hide == hide)
                 {
                     continue;
                 }
 
                 bool hadPrevious = _applied.TryGetValue(device,
-                    out (string ProfileName, EmulationMode? Mode, DualSenseVariant? DsVariant, DualShock4Variant? Ds4Variant, bool? Hide) previous);
+                    out (string ProfileName, EmulationMode? Mode, DualSenseVariant? DsVariant, DualShock4Variant? Ds4Variant,
+                    (int Mode, int Start, int End, int Force, int Frequency)? LeftTrigger,
+                    (int Mode, int Start, int End, int Force, int Frequency)? RightTrigger, bool? Hide) previous);
                 EmulationMode? previousMode = hadPrevious ? previous.Mode : null;
                 DualSenseVariant? previousDsVariant = hadPrevious ? previous.DsVariant : null;
                 DualShock4Variant? previousDs4Variant = hadPrevious ? previous.Ds4Variant : null;
                 bool profileChanged = hadPrevious
                                       && !string.Equals(previous.ProfileName, profileName, StringComparison.OrdinalIgnoreCase);
                 ApplyRule(device, profileName, mode, dsVariant, ds4Variant, profileChanged);
+                bool hadTrigger = hadPrevious && (previous.LeftTrigger is not null || previous.RightTrigger is not null);
+                if (rule?.LeftTrigger is not null || rule?.RightTrigger is not null || hadTrigger)
+                {
+                    ApplyTriggers(device, rule?.LeftTrigger, rule?.RightTrigger);
+                }
+
                 ApplyHiding(device, hide);
-                _applied[device] = (profileName, mode, dsVariant, ds4Variant, hide);
+                _applied[device] = (profileName, mode, dsVariant, ds4Variant, leftTrigger, rightTrigger, hide);
                 if (mode != previousMode || dsVariant != previousDsVariant || ds4Variant != previousDs4Variant)
                 {
                     emulationChanged = true;
@@ -268,6 +286,46 @@ public sealed class AutoProfileCoordinator : IDisposable
 
         _emulation.SetTemporaryEmulationMode(device, mode, dsVariant, ds4Variant);
     }
+
+    /// <summary>
+    /// Captures a trigger setting as a comparable value snapshot (<c>null</c> stays <c>null</c>).
+    /// Snapshots (not the live objects) are compared every tick so in-place slider edits
+    /// apply while focus is unchanged.
+    /// </summary>
+    private static (int Mode, int Start, int End, int Force, int Frequency)? SnapshotTrigger(TriggerEffectSettings? settings)
+        => settings is null ? null : ((int)settings.Mode, settings.Start, settings.End, settings.Force, settings.Frequency);
+
+    /// <summary>
+    /// Builds the effect block for a trigger setting (<see cref="TriggerEffectBuilder.Off"/>
+    /// when unchanged or off), clamping hand-edited values into range.
+    /// </summary>
+    private static TriggerEffectBlock BuildTriggerEffect(TriggerEffectSettings? settings)
+    {
+        if (settings is null)
+        {
+            return TriggerEffectBuilder.Off();
+        }
+
+        byte start = (byte)Math.Clamp(settings.Start, 0, 255);
+        byte end = (byte)Math.Clamp(settings.End, 0, 255);
+        byte force = (byte)Math.Clamp(settings.Force, 0, 255);
+        byte frequency = (byte)Math.Clamp(settings.Frequency, 0, 15);
+        return settings.Mode switch
+        {
+            AutoProfileTriggerMode.Resistance => TriggerEffectBuilder.Resistance(start, force),
+            AutoProfileTriggerMode.Trigger => TriggerEffectBuilder.Trigger(start, end, force),
+            AutoProfileTriggerMode.Automatic => TriggerEffectBuilder.Automatic(frequency, force, start),
+            _ => TriggerEffectBuilder.Off()
+        };
+    }
+
+    /// <summary>
+    /// Applies custom trigger effects to a controller. Unset sides are cleared to
+    /// <see cref="TriggerEffectBuilder.Off"/>, so a stale effect never sticks after
+    /// its rule stops matching. Caller must hold <see cref="_sync"/>.
+    /// </summary>
+    private void ApplyTriggers(DualSenseDevice device, TriggerEffectSettings? left, TriggerEffectSettings? right)
+        => device.SetTriggerEffects(BuildTriggerEffect(left), BuildTriggerEffect(right));
 
     /// <summary>
     /// Applies a hiding override to a controller, capturing the pre-rule hidden state

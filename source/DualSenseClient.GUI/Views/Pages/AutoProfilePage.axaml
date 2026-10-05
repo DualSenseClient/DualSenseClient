@@ -158,6 +158,78 @@
                                                 ItemsSource="{Binding HideOptions}"
                                                 SelectedIndex="{Binding SelectedHideIndex}"
                                                 IsVisible="{Binding HidingAvailable}" />
+                            <cards:CustomCard>
+                                <StackPanel Spacing="8">
+                                    <cards:CardHeader Title="{DynamicResource AutoProfilesPage.Trigger.Title}"
+                                                      Description="{DynamicResource AutoProfilesPage.Trigger.Description}" />
+                                    <Grid ColumnDefinitions="*,16,*">
+                                        <StackPanel Grid.Column="0"
+                                                    Spacing="8">
+                                            <TextBlock Text="{DynamicResource AutoProfilesPage.Trigger.Left}"
+                                                       FontWeight="SemiBold" />
+                                            <cards:ComboBoxCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Mode}"
+                                                                ItemsSource="{Binding TriggerEffectOptions}"
+                                                                SelectedIndex="{Binding SelectedLeftTriggerIndex}" />
+                                            <cards:SliderCard Title="{DynamicResource AutoProfilesPage.Trigger.Start}"
+                                                              Minimum="0"
+                                                              Maximum="255"
+                                                              TickFrequency="1"
+                                                              IsVisible="{Binding LeftTriggerStartVisible}"
+                                                              Value="{Binding LeftTriggerStart, Mode=TwoWay}" />
+                                            <cards:SliderCard Title="{DynamicResource AutoProfilesPage.Trigger.End}"
+                                                              Minimum="0"
+                                                              Maximum="255"
+                                                              TickFrequency="1"
+                                                              IsVisible="{Binding LeftTriggerEndVisible}"
+                                                              Value="{Binding LeftTriggerEnd, Mode=TwoWay}" />
+                                            <cards:SliderCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Force}"
+                                                              Minimum="0"
+                                                              Maximum="255"
+                                                              TickFrequency="1"
+                                                              IsVisible="{Binding LeftTriggerForceVisible}"
+                                                              Value="{Binding LeftTriggerForce, Mode=TwoWay}" />
+                                            <cards:SliderCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Frequency}"
+                                                              Minimum="0"
+                                                              Maximum="15"
+                                                              TickFrequency="1"
+                                                              IsVisible="{Binding LeftTriggerFrequencyVisible}"
+                                                              Value="{Binding LeftTriggerFrequency, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2"
+                                                    Spacing="8">
+                                            <TextBlock Text="{DynamicResource AutoProfilesPage.Trigger.Right}"
+                                                       FontWeight="SemiBold" />
+                                            <cards:ComboBoxCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Mode}"
+                                                                ItemsSource="{Binding TriggerEffectOptions}"
+                                                                SelectedIndex="{Binding SelectedRightTriggerIndex}" />
+                                            <cards:SliderCard Title="{DynamicResource AutoProfilesPage.Trigger.Start}"
+                                                              Minimum="0"
+                                                              Maximum="255"
+                                                              TickFrequency="1"
+                                                              IsVisible="{Binding RightTriggerStartVisible}"
+                                                              Value="{Binding RightTriggerStart, Mode=TwoWay}" />
+                                            <cards:SliderCard Title="{DynamicResource AutoProfilesPage.Trigger.End}"
+                                                              Minimum="0"
+                                                              Maximum="255"
+                                                              TickFrequency="1"
+                                                              IsVisible="{Binding RightTriggerEndVisible}"
+                                                              Value="{Binding RightTriggerEnd, Mode=TwoWay}" />
+                                            <cards:SliderCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Force}"
+                                                              Minimum="0"
+                                                              Maximum="255"
+                                                              TickFrequency="1"
+                                                              IsVisible="{Binding RightTriggerForceVisible}"
+                                                              Value="{Binding RightTriggerForce, Mode=TwoWay}" />
+                                            <cards:SliderCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Frequency}"
+                                                              Minimum="0"
+                                                              Maximum="15"
+                                                              TickFrequency="1"
+                                                              IsVisible="{Binding RightTriggerFrequencyVisible}"
+                                                              Value="{Binding RightTriggerFrequency, Mode=TwoWay}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </cards:CustomCard>
                             <TextBlock Text="{DynamicResource AutoProfilesPage.Rules.NoAction}"
                                        FontSize="12"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"

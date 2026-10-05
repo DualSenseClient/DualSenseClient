@@ -445,5 +445,11 @@
     <sys:String x:Key="AutoProfilesPage.Hiding.Unchanged">Leave unchanged</sys:String>
     <sys:String x:Key="AutoProfilesPage.Hiding.Hide">Hide</sys:String>
     <sys:String x:Key="AutoProfilesPage.Hiding.Show">Show</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Rules.NoAction">This rule leaves profile, virtual controller, and hiding unchanged, so it does nothing.</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Trigger.Title">Adaptive triggers</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Trigger.Description">Trigger effects applied while the rule matches</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Trigger.Left">Left trigger (L2)</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Trigger.Right">Right trigger (R2)</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Trigger.Start">Start</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Trigger.End">End</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Rules.NoAction">This rule leaves profile, virtual controller, triggers, and hiding unchanged, so it does nothing.</sys:String>
 </ResourceDictionary>

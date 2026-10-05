@@ -118,6 +118,26 @@ public partial class AutoProfilePageViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(SelectedDualShock4VariantIndex))]
     [NotifyPropertyChangedFor(nameof(IsDualSenseVariantVisible))]
     [NotifyPropertyChangedFor(nameof(IsDualShock4VariantVisible))]
+    [NotifyPropertyChangedFor(nameof(SelectedLeftTriggerIndex))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerStart))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerEnd))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerForce))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerFrequency))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerParametersVisible))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerStartVisible))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerEndVisible))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerForceVisible))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerFrequencyVisible))]
+    [NotifyPropertyChangedFor(nameof(SelectedRightTriggerIndex))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerStart))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerEnd))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerForce))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerFrequency))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerParametersVisible))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerStartVisible))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerEndVisible))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerForceVisible))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerFrequencyVisible))]
     [NotifyPropertyChangedFor(nameof(SelectedHideIndex))]
     [NotifyPropertyChangedFor(nameof(SelectedControllerIndex))]
     [NotifyPropertyChangedFor(nameof(SelectedMatchScopeIndex))]
@@ -314,6 +334,8 @@ public partial class AutoProfilePageViewModel : ObservableObject
                    && SelectedRule.EmulationMode is null
                    && SelectedRule.DualSenseVariant is null
                    && SelectedRule.DualShock4Variant is null
+                   && SelectedRule.LeftTrigger is null
+                   && SelectedRule.RightTrigger is null
                    && SelectedRule.HideController is null;
         }
     }
@@ -534,6 +556,413 @@ public partial class AutoProfilePageViewModel : ObservableObject
         {
             return HasSelectedRule && SelectedEmulationIndex == 3;
         }
+    }
+
+    /// <summary>
+    /// Trigger effect options for the selected rule: "leave unchanged" plus every effect mode.
+    /// </summary>
+    public ObservableCollection<string> TriggerEffectOptions { get; } =
+    [
+        LocalizationService.GetText("AutoProfilesPage.Emulation.Unchanged"),
+        LocalizationService.GetText("InputMonitorPage.OutputTest.Triggers.Mode.Off"),
+        LocalizationService.GetText("InputMonitorPage.OutputTest.Triggers.Mode.Resistance"),
+        LocalizationService.GetText("InputMonitorPage.OutputTest.Triggers.Mode.Trigger"),
+        LocalizationService.GetText("InputMonitorPage.OutputTest.Triggers.Mode.Automatic")
+    ];
+
+    /// <summary>
+    /// The selected rule's left trigger effect as an option index (0 leaves the trigger unchanged).
+    /// Setting it persists immediately; the coordinator applies it live.
+    /// </summary>
+    public int SelectedLeftTriggerIndex
+    {
+        get
+        {
+            return SelectedRule?.LeftTrigger is null ? 0 : (int)SelectedRule.LeftTrigger.Mode + 1;
+        }
+        set
+        {
+            SetTriggerMode(true, value);
+        }
+    }
+
+    /// <summary>
+    /// The selected rule's right trigger effect as an option index (0 leaves the trigger unchanged).
+    /// Setting it persists immediately; the coordinator applies it live.
+    /// </summary>
+    public int SelectedRightTriggerIndex
+    {
+        get
+        {
+            return SelectedRule?.RightTrigger is null ? 0 : (int)SelectedRule.RightTrigger.Mode + 1;
+        }
+        set
+        {
+            SetTriggerMode(false, value);
+        }
+    }
+
+    /// <summary>
+    /// Sets a trigger effect mode, creating the setting with defaults or clearing it for
+    /// "leave unchanged". Persists immediately so slider edits made afterwards are stored too.
+    /// </summary>
+    private void SetTriggerMode(bool left, int value)
+    {
+        if (SelectedRule is null || value < 0 || value > 4)
+        {
+            return;
+        }
+
+        if (value == 0)
+        {
+            if (left ? SelectedRule.LeftTrigger is null : SelectedRule.RightTrigger is null)
+            {
+                return;
+            }
+
+            if (left)
+            {
+                SelectedRule.LeftTrigger = null;
+            }
+            else
+            {
+                SelectedRule.RightTrigger = null;
+            }
+        }
+        else
+        {
+            AutoProfileTriggerMode mode = (AutoProfileTriggerMode)(value - 1);
+            TriggerEffectSettings settings =
+                left ? SelectedRule.LeftTrigger ??= new TriggerEffectSettings() : SelectedRule.RightTrigger ??= new TriggerEffectSettings();
+            if (settings.Mode == mode)
+            {
+                return;
+            }
+
+            settings.Mode = mode;
+        }
+
+        _rules.Save();
+        OnPropertyChanged(left ? nameof(SelectedLeftTriggerIndex) : nameof(SelectedRightTriggerIndex));
+        if (left)
+        {
+            NotifyLeftTriggerVisibilities();
+        }
+        else
+        {
+            NotifyRightTriggerVisibilities();
+        }
+
+        OnPropertyChanged(nameof(IsRuleActionless));
+    }
+
+    /// <summary>
+    /// Sets a trigger slider value on the live setting (no save: like the text filters,
+    /// slider drags persist on the next option change, selection change, or page leave,
+    /// while the coordinator already applies them live).
+    /// </summary>
+    private void SetTriggerSlider(bool left, string property, int value, int min, int max)
+    {
+        TriggerEffectSettings? settings = left ? SelectedRule?.LeftTrigger : SelectedRule?.RightTrigger;
+        if (settings is null)
+        {
+            return;
+        }
+
+        int clamped = Math.Clamp(value, min, max);
+        switch (property)
+        {
+            case nameof(TriggerEffectSettings.Start):
+                if (settings.Start == clamped)
+                {
+                    return;
+                }
+
+                settings.Start = clamped;
+                break;
+            case nameof(TriggerEffectSettings.End):
+                if (settings.End == clamped)
+                {
+                    return;
+                }
+
+                settings.End = clamped;
+                break;
+            case nameof(TriggerEffectSettings.Force):
+                if (settings.Force == clamped)
+                {
+                    return;
+                }
+
+                settings.Force = clamped;
+                break;
+            case nameof(TriggerEffectSettings.Frequency):
+                if (settings.Frequency == clamped)
+                {
+                    return;
+                }
+
+                settings.Frequency = clamped;
+                break;
+            default:
+                return;
+        }
+
+        OnPropertyChanged(left ? "LeftTrigger" + property : "RightTrigger" + property);
+    }
+
+    /// <summary>
+    /// Left trigger effect start position (0-255).
+    /// </summary>
+    public int LeftTriggerStart
+    {
+        get
+        {
+            return SelectedRule?.LeftTrigger?.Start ?? 0;
+        }
+        set
+        {
+            SetTriggerSlider(true, nameof(TriggerEffectSettings.Start), value, 0, 255);
+        }
+    }
+
+    /// <summary>
+    /// Left trigger effect end position (0-255).
+    /// </summary>
+    public int LeftTriggerEnd
+    {
+        get
+        {
+            return SelectedRule?.LeftTrigger?.End ?? 255;
+        }
+        set
+        {
+            SetTriggerSlider(true, nameof(TriggerEffectSettings.End), value, 0, 255);
+        }
+    }
+
+    /// <summary>
+    /// Left trigger effect force (0-255).
+    /// </summary>
+    public int LeftTriggerForce
+    {
+        get
+        {
+            return SelectedRule?.LeftTrigger?.Force ?? 100;
+        }
+        set
+        {
+            SetTriggerSlider(true, nameof(TriggerEffectSettings.Force), value, 0, 255);
+        }
+    }
+
+    /// <summary>
+    /// Left trigger automatic mode frequency (0-15).
+    /// </summary>
+    public int LeftTriggerFrequency
+    {
+        get
+        {
+            return SelectedRule?.LeftTrigger?.Frequency ?? 5;
+        }
+        set
+        {
+            SetTriggerSlider(true, nameof(TriggerEffectSettings.Frequency), value, 0, 15);
+        }
+    }
+
+    /// <summary>
+    /// Right trigger effect start position (0-255).
+    /// </summary>
+    public int RightTriggerStart
+    {
+        get
+        {
+            return SelectedRule?.RightTrigger?.Start ?? 0;
+        }
+        set
+        {
+            SetTriggerSlider(false, nameof(TriggerEffectSettings.Start), value, 0, 255);
+        }
+    }
+
+    /// <summary>
+    /// Right trigger effect end position (0-255).
+    /// </summary>
+    public int RightTriggerEnd
+    {
+        get
+        {
+            return SelectedRule?.RightTrigger?.End ?? 255;
+        }
+        set
+        {
+            SetTriggerSlider(false, nameof(TriggerEffectSettings.End), value, 0, 255);
+        }
+    }
+
+    /// <summary>
+    /// Right trigger effect force (0-255).
+    /// </summary>
+    public int RightTriggerForce
+    {
+        get
+        {
+            return SelectedRule?.RightTrigger?.Force ?? 100;
+        }
+        set
+        {
+            SetTriggerSlider(false, nameof(TriggerEffectSettings.Force), value, 0, 255);
+        }
+    }
+
+    /// <summary>
+    /// Right trigger automatic mode frequency (0-15).
+    /// </summary>
+    public int RightTriggerFrequency
+    {
+        get
+        {
+            return SelectedRule?.RightTrigger?.Frequency ?? 5;
+        }
+        set
+        {
+            SetTriggerSlider(false, nameof(TriggerEffectSettings.Frequency), value, 0, 15);
+        }
+    }
+
+    /// <summary>
+    /// Whether any left trigger effect parameter applies (a real effect mode is selected).
+    /// </summary>
+    public bool LeftTriggerParametersVisible
+    {
+        get
+        {
+            return SelectedLeftTriggerIndex >= 2;
+        }
+    }
+
+    /// <summary>
+    /// Whether the left start-position slider applies to the selected mode.
+    /// </summary>
+    public bool LeftTriggerStartVisible
+    {
+        get
+        {
+            return LeftTriggerParametersVisible;
+        }
+    }
+
+    /// <summary>
+    /// Whether the left end-position slider applies to the selected mode (weapon mode only).
+    /// </summary>
+    public bool LeftTriggerEndVisible
+    {
+        get
+        {
+            return SelectedLeftTriggerIndex == 3;
+        }
+    }
+
+    /// <summary>
+    /// Whether the left force slider applies to the selected mode.
+    /// </summary>
+    public bool LeftTriggerForceVisible
+    {
+        get
+        {
+            return LeftTriggerParametersVisible;
+        }
+    }
+
+    /// <summary>
+    /// Whether the left frequency slider applies to the selected mode (automatic mode only).
+    /// </summary>
+    public bool LeftTriggerFrequencyVisible
+    {
+        get
+        {
+            return SelectedLeftTriggerIndex == 4;
+        }
+    }
+
+    /// <summary>
+    /// Whether any right trigger effect parameter applies (a real effect mode is selected).
+    /// </summary>
+    public bool RightTriggerParametersVisible
+    {
+        get
+        {
+            return SelectedRightTriggerIndex >= 2;
+        }
+    }
+
+    /// <summary>
+    /// Whether the right start-position slider applies to the selected mode.
+    /// </summary>
+    public bool RightTriggerStartVisible
+    {
+        get
+        {
+            return RightTriggerParametersVisible;
+        }
+    }
+
+    /// <summary>
+    /// Whether the right end-position slider applies to the selected mode (weapon mode only).
+    /// </summary>
+    public bool RightTriggerEndVisible
+    {
+        get
+        {
+            return SelectedRightTriggerIndex == 3;
+        }
+    }
+
+    /// <summary>
+    /// Whether the right force slider applies to the selected mode.
+    /// </summary>
+    public bool RightTriggerForceVisible
+    {
+        get
+        {
+            return RightTriggerParametersVisible;
+        }
+    }
+
+    /// <summary>
+    /// Whether the right frequency slider applies to the selected mode (automatic mode only).
+    /// </summary>
+    public bool RightTriggerFrequencyVisible
+    {
+        get
+        {
+            return SelectedRightTriggerIndex == 4;
+        }
+    }
+
+    /// <summary>
+    /// Re-raises the left trigger visibility properties after its mode changes.
+    /// </summary>
+    private void NotifyLeftTriggerVisibilities()
+    {
+        OnPropertyChanged(nameof(LeftTriggerParametersVisible));
+        OnPropertyChanged(nameof(LeftTriggerStartVisible));
+        OnPropertyChanged(nameof(LeftTriggerEndVisible));
+        OnPropertyChanged(nameof(LeftTriggerForceVisible));
+        OnPropertyChanged(nameof(LeftTriggerFrequencyVisible));
+    }
+
+    /// <summary>
+    /// Re-raises the right trigger visibility properties after its mode changes.
+    /// </summary>
+    private void NotifyRightTriggerVisibilities()
+    {
+        OnPropertyChanged(nameof(RightTriggerParametersVisible));
+        OnPropertyChanged(nameof(RightTriggerStartVisible));
+        OnPropertyChanged(nameof(RightTriggerEndVisible));
+        OnPropertyChanged(nameof(RightTriggerForceVisible));
+        OnPropertyChanged(nameof(RightTriggerFrequencyVisible));
     }
 
     /// <summary>

@@ -238,6 +238,38 @@ public class AutoProfileServiceTests
     }
 
     [Test]
+    public void Rule_TriggerOnly_MatchesAndRoundTrips()
+    {
+        AutoProfileService service = CreateService();
+        service.AddRule(new AutoProfileRule
+        {
+            ExePattern = "game\\.exe",
+            LeftTrigger = new TriggerEffectSettings
+            {
+                Mode = AutoProfileTriggerMode.Trigger,
+                Start = 10,
+                End = 200,
+                Force = 150
+            }
+        });
+
+        AutoProfileService reloaded = CreateService();
+        AutoProfileRule? match = reloaded.FindMatch(@"C:\game.exe", "Title", null, null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(match, Is.Not.Null);
+            Assert.That(match!.LeftTrigger, Is.Not.Null);
+            Assert.That(match.LeftTrigger!.Mode, Is.EqualTo(AutoProfileTriggerMode.Trigger));
+            Assert.That(match.LeftTrigger.Start, Is.EqualTo(10));
+            Assert.That(match.LeftTrigger.End, Is.EqualTo(200));
+            Assert.That(match.LeftTrigger.Force, Is.EqualTo(150));
+            Assert.That(match.RightTrigger, Is.Null);
+            Assert.That(match.IsActionless, Is.False);
+        });
+    }
+
+    [Test]
     public void Rule_VariantOnly_MatchesAndRoundTrips()
     {
         AutoProfileService service = CreateService();

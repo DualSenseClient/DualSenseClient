@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 namespace DualSenseClient.Settings.Sections;
 
 /// <summary>
-/// A foreground-app rule mapping one program to a profile, emulation mode and variant, and hiding.
+/// A foreground-app rule mapping one program to a profile, emulation mode and variant, trigger effects, and hiding.
 /// An empty <see cref="ExePattern"/> and <see cref="WindowTitle"/> never matches;
 /// when only one is set, only that one is tested (AND when both are set).
 /// Both patterns are case-insensitive regular expressions (search semantics);
@@ -239,7 +239,21 @@ public class AutoProfileRule : INotifyPropertyChanged
     public bool? HideController { get; set; }
 
     /// <summary>
-    /// Whether the rule leaves profile, emulation, variant, and hiding unchanged, making it a
+    /// Gets or sets the custom adaptive trigger effect for the left trigger while the
+    /// rule matches, or <c>null</c> to leave the left trigger unchanged.
+    /// </summary>
+    [JsonPropertyName("left_trigger")]
+    public TriggerEffectSettings? LeftTrigger { get; set; }
+
+    /// <summary>
+    /// Gets or sets the custom adaptive trigger effect for the right trigger while the
+    /// rule matches, or <c>null</c> to leave the right trigger unchanged.
+    /// </summary>
+    [JsonPropertyName("right_trigger")]
+    public TriggerEffectSettings? RightTrigger { get; set; }
+
+    /// <summary>
+    /// Whether the rule leaves profile, emulation, variant, triggers, and hiding unchanged, making it a
     /// no-op. The matcher skips such rules so they never shadow lower rules.
     /// </summary>
     [JsonIgnore]
@@ -248,7 +262,7 @@ public class AutoProfileRule : INotifyPropertyChanged
         get
         {
             return string.IsNullOrEmpty(_profileName) && EmulationMode is null && DualSenseVariant is null
-                   && DualShock4Variant is null && HideController is null;
+                   && DualShock4Variant is null && LeftTrigger is null && RightTrigger is null && HideController is null;
         }
     }
 
