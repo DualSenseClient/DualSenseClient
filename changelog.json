@@ -1,5 +1,12 @@
 [
  {
+  "tag": "v1.0.0-14.10c046f",
+  "name": "DualSenseClient (v1.0.0-14.10c046f)",
+  "publishedAt": "2026-10-06T21:33:50Z",
+  "prerelease": true,
+  "body": "### Features\n\n- **emulation: Scale game haptics by strength and add audio-only haptics toggle** ([10c046f](https://github.com/DualSenseClient/DualSenseClient/commit/10c046f13c2e3a52318c11167cecdf8775c17baa))\n- **profiles: Add custom trigger effect to auto profiles** ([0327447](https://github.com/DualSenseClient/DualSenseClient/commit/032744771819cc455a091de5691408a964026dac))\n- **profiles: Add per-rule emulation variant to auto profiles** ([53ef9bc](https://github.com/DualSenseClient/DualSenseClient/commit/53ef9bc271883e10499c98c9df4afb1107391b6d))\n- **profiles: Add match scope selector to auto profiles** ([460fd6e](https://github.com/DualSenseClient/DualSenseClient/commit/460fd6e55a2b9f656bf6e084dfcc9549144afc44))"
+ },
+ {
   "tag": "v1.0.0-13.550eb54",
   "name": "DualSenseClient (v1.0.0-13.550eb54)",
   "publishedAt": "2026-10-04T15:37:23Z",
