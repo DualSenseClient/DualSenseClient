@@ -104,6 +104,16 @@ public sealed class DualSenseUsbAudioTarget : IDisposable
     private QueueDataProvider? _queue;
 
     /// <summary>
+    /// WASAPI render device backing <see cref="_player"/>, or <c>null</c> while stopped.
+    /// It must be disposed to hand the endpoint back to the OS: an exclusive WASAPI
+    /// stream is not released by disposing the player component alone, so leaving it
+    /// open makes the next open fail with <c>Result: Busy</c> — e.g. when switching an
+    /// active controller from DualSense to DualShock 4 emulation, the new forwarder
+    /// then cannot open the pad and USB audio forwarding is disabled.
+    /// </summary>
+    private AudioPlaybackDevice? _device;
+
+    /// <summary>
     /// Whether the opened stream is 4-channel (audio on channels 1/2, haptics on 3/4)
     /// rather than the shared stereo fallback.
     /// </summary>
@@ -263,6 +273,7 @@ public sealed class DualSenseUsbAudioTarget : IDisposable
 
             _player = player;
             _queue = queue;
+            _device = device;
             _fourChannel = fourChannel;
             return true;
         }
@@ -282,6 +293,8 @@ public sealed class DualSenseUsbAudioTarget : IDisposable
     private void StopLocked()
     {
         _queue = null;
+        _device?.Dispose();
+        _device = null;
         _player?.Dispose();
         _player = null;
         _fourChannel = false;

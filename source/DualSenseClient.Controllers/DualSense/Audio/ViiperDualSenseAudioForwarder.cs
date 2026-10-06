@@ -665,10 +665,19 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
 
             DualSenseBtAudioPipeline.ConvertToPcm16(_floatBlock, _pcmBlock);
 
+            // The pad keeps its default output path (headphones, speaker muted) until an
+            // output report selects one, and that same report carries the volume and
+            // audio-control2 fields. Apply it for every transport — a wired pad needs the
+            // route set before the PCM fed to its UAC endpoint is audible, exactly as
+            // DualSenseAudioPlayer does for local file playback.
+            if (_outputs is not null)
+            {
+                ApplyAudioStateIfChanged();
+            }
+
             bool bluetooth = _outputs is not null && _outputs.ConnectionType == ConnectionType.Bluetooth;
             if (bluetooth)
             {
-                ApplyAudioStateIfChanged();
                 DualSenseBtAudioPipeline.ResampleToOpusBlock(_pcmBlock, _opusBlock);
                 _pipeline.EncodeOpus(_opusBlock, _opusFrame);
                 if (_hapticsEnabled)
