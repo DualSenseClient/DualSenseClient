@@ -102,6 +102,33 @@ public class VariantSettings
 }
 
 /// <summary>
+/// <summary>
+/// The audio source forwarded to the physical controller while a virtual device is
+/// active.
+/// </summary>
+public enum EmulationAudioSource
+{
+    /// <summary>
+    /// The audio the host renders to the virtual controller's own audio endpoint (the
+    /// game must select the virtual controller as its output).
+    /// </summary>
+    ControllerEndpoint = 0,
+
+    /// <summary>
+    /// A loopback capture of the system's default output device, so any audio the host
+    /// plays drives the controller. Routed directly to the physical controller and needs
+    /// no virtual device.
+    /// </summary>
+    SystemOutput = 1,
+
+    /// <summary>
+    /// A loopback capture of a single application's audio (its process tree), so only
+    /// that app drives the controller. Routed directly to the physical controller and
+    /// needs no virtual device. Windows 10 build 20348 (Windows 11) or later only.
+    /// </summary>
+    Application = 2
+}
+
 /// The host-audio forwarding options applied to the physical controller while a
 /// virtual device is active.
 /// </summary>
@@ -144,7 +171,39 @@ public class ForwardSettings
     /// directly to the physical controller and needs no virtual device.
     /// </summary>
     [JsonPropertyName("audio_from_output")]
-    public bool AudioFromSystemOutput { get; set; }
+    public bool AudioFromSystemOutput
+    {
+        get
+        {
+            return AudioSource == EmulationAudioSource.SystemOutput;
+        }
+        set
+        {
+            // Only ever upgrades to the system output: a stored file that carries both
+            // fields must not let the legacy false value clobber the newer source, since
+            // JSON property order is not guaranteed.
+            if (value)
+            {
+                AudioSource = EmulationAudioSource.SystemOutput;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the audio source forwarded to the physical controller
+    /// (<see cref="EmulationAudioSource.ControllerEndpoint"/> by default).
+    /// </summary>
+    [JsonPropertyName("audio_source")]
+    public EmulationAudioSource AudioSource { get; set; } = EmulationAudioSource.ControllerEndpoint;
+
+    /// <summary>
+    /// Gets or sets the executable path of the application captured when
+    /// <see cref="AudioSource"/> is <see cref="EmulationAudioSource.Application"/>
+    /// (empty by default). The path (not a process id) is stored so it survives app
+    /// restarts.
+    /// </summary>
+    [JsonPropertyName("audio_app")]
+    public string AudioApp { get; set; } = string.Empty;
 }
 
 /// <summary>

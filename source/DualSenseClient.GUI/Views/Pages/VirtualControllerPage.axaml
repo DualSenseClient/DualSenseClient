@@ -82,9 +82,26 @@
                                                 Description="{DynamicResource VirtualControllerPage.Emulation.ForceAudioHaptics.Description}"
                                                 IsChecked="{Binding ForceAudioHaptics}"
                                                 IsVisible="{Binding IsDualSenseEmulation}" />
-                        <cards:ToggleSwitchCard Title="{DynamicResource VirtualControllerPage.Emulation.AudioFromSystemOutput}"
-                                                Description="{DynamicResource VirtualControllerPage.Emulation.AudioFromSystemOutput.Description}"
-                                                IsChecked="{Binding AudioFromSystemOutput}" />
+                        <cards:ComboBoxCard Title="{DynamicResource VirtualControllerPage.Emulation.AudioSource}"
+                                            Description="{DynamicResource VirtualControllerPage.Emulation.AudioSource.Description}"
+                                            ItemsSource="{Binding ForwardAudioSources}"
+                                            SelectedIndex="{Binding ForwardAudioSourceIndex}" />
+                        <cards:ComboBoxCard Title="{DynamicResource VirtualControllerPage.Emulation.AudioSource.Application}"
+                                            Description="{DynamicResource VirtualControllerPage.Emulation.AudioSource.Application.Description}"
+                                            ItemsSource="{Binding ForwardAudioApps}"
+                                            SelectedIndex="{Binding ForwardAudioAppIndex}"
+                                            IsVisible="{Binding IsForwardAudioAppVisible}">
+                            <Button Command="{Binding RefreshForwardAudioAppsCommand}"
+                                    ToolTip.Tip="{DynamicResource VirtualControllerPage.Emulation.AudioSource.Refresh}">
+                                <ic:FluentIcon Icon="ArrowClockwise"
+                                               IconVariant="Regular" />
+                            </Button>
+                        </cards:ComboBoxCard>
+                        <TextBlock Text="{DynamicResource AudioSource.NoApplications}"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap"
+                                   IsVisible="{Binding IsForwardAudioAppEmpty}" />
                     </StackPanel>
 
                     <!-- Status line is shown whether enabled or not -->

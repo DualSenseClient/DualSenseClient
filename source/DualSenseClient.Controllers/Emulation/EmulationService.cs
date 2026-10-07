@@ -20,8 +20,8 @@ namespace DualSenseClient.Controllers.Emulation;
 /// virtual device lifecycles, the HID exclusion that keeps the virtual devices out of
 /// the app's own enumeration, and the host-audio forwarders that play host audio
 /// through the physical controllers — either from the virtual controller's endpoint
-/// or, for the system-output source, directly from a loopback capture without any
-/// virtual device.
+/// or, for a direct source (the system output or a single application), from a loopback
+/// capture without any virtual device.
 /// </summary>
 public interface IEmulationService : IDisposable
 {
@@ -73,11 +73,12 @@ public interface IEmulationService : IDisposable
     /// <summary>
     /// Switches the given controller's forwarded audio between the audio rendered to the
     /// virtual controller and a loopback capture of the system's default output, without
-    /// recreating the virtual controller. The system-output source is routed directly to
-    /// the physical controller and needs no virtual device. No-op when audio forwarding
+    /// recreating the virtual controller. The direct sources (the system output and a
+    /// single application, identified by <paramref name="audioApp"/>) are routed straight
+    /// to the physical controller and need no virtual device. No-op when audio forwarding
     /// is not active for that controller.
     /// </summary>
-    void SetForwardingAudioSource(DualSenseDevice device, bool fromSystemOutput);
+    void SetForwardingAudioSource(DualSenseDevice device, EmulationAudioSource audioSource, string audioApp = "");
 
     /// <summary>
     /// Reloads the given controller's button remapping rules from its stored emulation
@@ -96,7 +97,7 @@ public interface IEmulationService : IDisposable
     /// to recreate the virtual controller when the effective settings changed.
     /// </summary>
     void SetTemporaryEmulationMode(DualSenseDevice device, EmulationMode? mode, DualSenseVariant? dsVariant = null,
-        DualShock4Variant? ds4Variant = null, bool? audioFromSystemOutput = null);
+        DualShock4Variant? ds4Variant = null, EmulationAudioSource? audioSource = null, string? audioApp = null);
 }
 
 /// <summary>
@@ -163,6 +164,12 @@ public sealed class EmulationService : IEmulationService
     private readonly AudioEngine _audioEngine;
 
     /// <summary>
+    /// Resolves the executable selected as the forwarded-audio application to a live
+    /// process id.
+    /// </summary>
+    private readonly AudioApplicationService _audioApplications;
+
+    /// <summary>
     /// Guards the per-controller entries and the server handle.
     /// </summary>
     private readonly Lock _sync = new Lock();
@@ -181,9 +188,10 @@ public sealed class EmulationService : IEmulationService
     /// <see cref="ApplyButtonMappings"/> under that lock; <see cref="Lock"/> is not
     /// re-entrant and must never be acquired twice on one thread).
     /// </summary>
-    private readonly ConcurrentDictionary<DualSenseDevice, (EmulationMode? Mode, DualSenseVariant? Ds, DualShock4Variant? Ds4, bool? AudioFromSystemOutput)>
+    private readonly ConcurrentDictionary<DualSenseDevice, (EmulationMode? Mode, DualSenseVariant? Ds, DualShock4Variant? Ds4, EmulationAudioSource? AudioSource
+            , string? AudioApp)>
         _temporaryModes =
-            new ConcurrentDictionary<DualSenseDevice, (EmulationMode?, DualSenseVariant?, DualShock4Variant?, bool?)>();
+            new ConcurrentDictionary<DualSenseDevice, (EmulationMode?, DualSenseVariant?, DualShock4Variant?, EmulationAudioSource?, string?)>();
 
     /// <summary>
     /// The USB bus owned by <see cref="_serverHandle"/>, shared by all virtual controllers.
@@ -215,7 +223,7 @@ public sealed class EmulationService : IEmulationService
     /// </summary>
     public EmulationService(IControllerTracker tracker, IHidDeviceEnumerator enumerator,
         ControllerInfoService controllerInfo, IVirtualControllerFactory factory,
-        AudioEngine audioEngine, SpecialActionEngineRegistry specialActions)
+        AudioEngine audioEngine, SpecialActionEngineRegistry specialActions, AudioApplicationService audioApplications)
     {
         _tracker = tracker;
         _enumerator = enumerator;
@@ -223,6 +231,7 @@ public sealed class EmulationService : IEmulationService
         _factory = factory;
         _audioEngine = audioEngine;
         _specialActions = specialActions;
+        _audioApplications = audioApplications;
     }
 
     /// <inheritdoc/>
@@ -296,11 +305,12 @@ public sealed class EmulationService : IEmulationService
                 DualShock4Variant? ds4Variant = mode == EmulationMode.DualShock4
                     ? emulation?.Variant.DualShock4 ?? DualShock4Variant.V2
                     : null;
-                bool fromSystemOutput = emulation?.Forward.AudioFromSystemOutput ?? false;
+                EmulationAudioSource audioSource = emulation?.Forward.AudioSource ?? EmulationAudioSource.ControllerEndpoint;
+                string audioApp = emulation?.Forward.AudioApp ?? string.Empty;
                 if (entry.Virtual is not null && entry.Status.Mode == mode
                                               && entry.Status.Variant == variant && entry.Status.Ds4Variant == ds4Variant)
                 {
-                    SyncAudioLocked(entry, fromSystemOutput);
+                    SyncAudioLocked(entry, audioSource, audioApp);
                     continue;
                 }
 
@@ -314,7 +324,7 @@ public sealed class EmulationService : IEmulationService
                 }
                 else
                 {
-                    SyncAudioLocked(entry, fromSystemOutput);
+                    SyncAudioLocked(entry, audioSource, audioApp);
                 }
             }
         }
@@ -374,13 +384,13 @@ public sealed class EmulationService : IEmulationService
     }
 
     /// <inheritdoc/>
-    public void SetForwardingAudioSource(DualSenseDevice device, bool fromSystemOutput)
+    public void SetForwardingAudioSource(DualSenseDevice device, EmulationAudioSource audioSource, string audioApp = "")
     {
         lock (_sync)
         {
             if (_entries.TryGetValue(device, out VirtualControllerEntry? entry))
             {
-                SyncAudioLocked(entry, fromSystemOutput);
+                SyncAudioLocked(entry, audioSource, audioApp ?? string.Empty);
             }
         }
     }
@@ -399,7 +409,7 @@ public sealed class EmulationService : IEmulationService
 
     /// <inheritdoc/>
     public void SetTemporaryEmulationMode(DualSenseDevice device, EmulationMode? mode, DualSenseVariant? dsVariant = null,
-        DualShock4Variant? ds4Variant = null, bool? audioFromSystemOutput = null)
+        DualShock4Variant? ds4Variant = null, EmulationAudioSource? audioSource = null, string? audioApp = null)
     {
         // Rules are edited on the UI thread while the watcher reads them: ignore
         // undefined values (e.g. torn reads) rather than recreating devices for them.
@@ -418,13 +428,18 @@ public sealed class EmulationService : IEmulationService
             ds4Variant = null;
         }
 
-        if (mode is null && dsVariant is null && ds4Variant is null && audioFromSystemOutput is null)
+        if (audioSource is not null && !Enum.IsDefined(audioSource.Value))
+        {
+            audioSource = null;
+        }
+
+        if (mode is null && dsVariant is null && ds4Variant is null && audioSource is null && audioApp is null)
         {
             _temporaryModes.TryRemove(device, out _);
             return;
         }
 
-        _temporaryModes[device] = (mode, dsVariant, ds4Variant, audioFromSystemOutput);
+        _temporaryModes[device] = (mode, dsVariant, ds4Variant, audioSource, audioApp);
     }
 
     /// <summary>
@@ -451,8 +466,8 @@ public sealed class EmulationService : IEmulationService
     /// <summary>
     /// Per-controller virtual device lifecycle: the physical controller, the virtual
     /// device, its USB bus, and the host-audio forwarder/capture pair. The audio side
-    /// lives independently of the virtual side: the system-output source forwards
-    /// directly to the physical controller with no virtual device at all.
+    /// lives independently of the virtual side: the direct sources forward
+    /// straight to the physical controller with no virtual device at all.
     /// </summary>
     private sealed class VirtualControllerEntry
     {
@@ -487,16 +502,15 @@ public sealed class EmulationService : IEmulationService
 
         /// <summary>
         /// Forwards host audio to the physical controller: the virtual controller's
-        /// endpoint capture when following the game, or the system-output loopback
-        /// when <see cref="DirectAudioActive"/>. Lives independently of
-        /// <see cref="Virtual"/>: direct system audio needs no virtual device.
+        /// endpoint capture when following the game, or the direct host capture
+        /// (<see cref="DirectCapture"/>) when <see cref="DirectAudioActive"/>. Lives
+        /// independently of <see cref="Virtual"/>: direct audio needs no virtual device.
         /// </summary>
         public ViiperDualSenseAudioForwarder? Forwarder;
 
         /// <summary>
-        /// Whether <see cref="Forwarder"/> is currently fed by the system-output
-        /// loopback (<see cref="OutputCapture"/>) instead of the virtual
-        /// controller's capture.
+        /// Whether <see cref="Forwarder"/> is currently fed by the direct host capture
+        /// (<see cref="DirectCapture"/>) instead of the virtual controller's capture.
         /// </summary>
         public bool DirectAudioActive;
 
@@ -516,12 +530,24 @@ public sealed class EmulationService : IEmulationService
         public IDisposable? Capture;
 
         /// <summary>
-        /// Loopback capture of the system's default output, feeding <see cref="Forwarder"/>
-        /// while the controller's settings select the system output as the audio source.
-        /// Created on first activation and stopped whenever the source switches back;
-        /// disposed with the entry. Independent of <see cref="Virtual"/>.
+        /// The direct host capture feeding <see cref="Forwarder"/>: a loopback of the
+        /// system's default output or of a single application, selected by the controller's
+        /// settings. Created on first activation and stopped whenever the source switches
+        /// back; disposed with the entry. Independent of <see cref="Virtual"/>.
         /// </summary>
-        public SystemOutputAudioCapture? OutputCapture;
+        public IForwardedAudioCapture? DirectCapture;
+
+        /// <summary>
+        /// The source <see cref="DirectCapture"/> was created for, used to detect a source
+        /// change while direct audio is active.
+        /// </summary>
+        public EmulationAudioSource DirectSource;
+
+        /// <summary>
+        /// The application captured by <see cref="DirectCapture"/> when
+        /// <see cref="DirectSource"/> is <see cref="EmulationAudioSource.Application"/>.
+        /// </summary>
+        public string DirectApp = string.Empty;
 
         /// <summary>
         /// The USB bus owned by <see cref="Virtual"/>, removed together with it.
@@ -579,9 +605,10 @@ public sealed class EmulationService : IEmulationService
                 }
                 else
                 {
-                    // No virtual device (emulation off or unsupported platform), but the
-                    // system-output source forwards directly without one.
-                    SyncAudioLocked(entry, GetEmulationSettings(device).Forward.AudioFromSystemOutput);
+                    // No virtual device (emulation off or unsupported platform), but a
+                    // direct (system-output or application) source forwards without one.
+                    EmulationSettings direct = GetEmulationSettings(device);
+                    SyncAudioLocked(entry, direct.Forward.AudioSource, direct.Forward.AudioApp);
                 }
             }
         }
@@ -672,7 +699,8 @@ public sealed class EmulationService : IEmulationService
             EmulationSettings emulation = GetEmulationSettings(entry.Device);
             bool edge = emulation?.Variant.DualSense == DualSenseVariant.Edge;
             DualShock4Variant ds4Variant = emulation?.Variant.DualShock4 ?? DualShock4Variant.V2;
-            bool audioFromSystemOutput = emulation?.Forward.AudioFromSystemOutput ?? false;
+            EmulationAudioSource audioSource = emulation?.Forward.AudioSource ?? EmulationAudioSource.ControllerEndpoint;
+            string audioApp = emulation?.Forward.AudioApp ?? string.Empty;
             (ushort vid, ushort pid) = GetDeviceIds(mode, edge, ds4Variant);
             SpecialActionEngine specialActions;
             DualSenseDeviceOutputs outputs;
@@ -753,11 +781,10 @@ public sealed class EmulationService : IEmulationService
             }
 
             // The controller-audio capture taps the virtual device's endpoint, so a
-            // forwarder for it is only ensured when following the game. The
-            // system-output source feeds the forwarder directly (see
-            // SyncAudioLocked) and needs no virtual audio.
+            // forwarder for it is only ensured when following the game. A direct source
+            // feeds the forwarder itself (see SyncAudioLocked) and needs no virtual audio.
             ViiperDualSenseAudioForwarder? forwarder = null;
-            if (!audioFromSystemOutput
+            if (audioSource == EmulationAudioSource.ControllerEndpoint
                 && virtualController is VirtualDualSenseController or VirtualDualShock4Controller)
             {
                 lock (_sync)
@@ -798,8 +825,9 @@ public sealed class EmulationService : IEmulationService
                     capture?.Dispose();
                     capture = null;
                     EmulationSettings current = GetEmulationSettings(entry.Device);
-                    audioFromSystemOutput = current.Forward.AudioFromSystemOutput;
-                    if (!audioFromSystemOutput)
+                    audioSource = current.Forward.AudioSource;
+                    audioApp = current.Forward.AudioApp;
+                    if (audioSource == EmulationAudioSource.ControllerEndpoint)
                     {
                         EnsureForwarderLocked(entry, current);
                         capture = TryCreateControllerCapture(virtualController, entry.Forwarder);
@@ -809,7 +837,7 @@ public sealed class EmulationService : IEmulationService
                 entry.Capture = capture;
                 WireGameCallbacksLocked(entry);
                 ApplyButtonMappingsLocked(virtualController, entry.Device);
-                SyncAudioLocked(entry, audioFromSystemOutput);
+                SyncAudioLocked(entry, audioSource, audioApp);
             }
 
             SetStatus(entry, new EmulationStatus(mode, true, null, virtualController.VirtualDevicePath,
@@ -881,14 +909,17 @@ public sealed class EmulationService : IEmulationService
     {
         EmulationSettings stored = _controllerInfo.GetEmulationSettings(device.PairingInfo?.ClientMac, device.Info.Path);
         if (_temporaryModes.TryGetValue(device,
-                out (EmulationMode? Mode, DualSenseVariant? Ds, DualShock4Variant? Ds4, bool? AudioFromSystemOutput) temp))
+                out (EmulationMode? Mode, DualSenseVariant? Ds, DualShock4Variant? Ds4, EmulationAudioSource? AudioSource, string? AudioApp) temp))
         {
             EmulationMode mode = temp.Mode ?? stored.Mode;
             DualSenseVariant dsVariant = temp.Ds ?? stored.Variant.DualSense;
             DualShock4Variant ds4Variant = temp.Ds4 ?? stored.Variant.DualShock4;
-            bool audioFromSystemOutput = temp.AudioFromSystemOutput ?? stored.Forward.AudioFromSystemOutput;
+            EmulationAudioSource audioSource = temp.AudioSource ?? stored.Forward.AudioSource;
+            string audioApp = temp.AudioApp ?? stored.Forward.AudioApp;
+            bool audioChanged = stored.Forward.AudioSource != audioSource
+                                || !string.Equals(stored.Forward.AudioApp, audioApp, StringComparison.Ordinal);
             if (stored.Mode != mode || stored.Variant.DualSense != dsVariant || stored.Variant.DualShock4 != ds4Variant
-                || stored.Forward.AudioFromSystemOutput != audioFromSystemOutput)
+                || audioChanged)
             {
                 return new EmulationSettings
                 {
@@ -898,9 +929,7 @@ public sealed class EmulationService : IEmulationService
                         DualSense = dsVariant,
                         DualShock4 = ds4Variant
                     },
-                    Forward = stored.Forward.AudioFromSystemOutput == audioFromSystemOutput
-                        ? stored.Forward
-                        : CloneForward(stored.Forward, audioFromSystemOutput),
+                    Forward = audioChanged ? CloneForward(stored.Forward, audioSource, audioApp) : stored.Forward,
                     Mappings = stored.Mappings
                 };
             }
@@ -914,7 +943,7 @@ public sealed class EmulationService : IEmulationService
     /// override never mutates the stored (or profile-bound) object. Caller must hold
     /// no lock for the copy itself.
     /// </summary>
-    private static ForwardSettings CloneForward(ForwardSettings source, bool audioFromSystemOutput)
+    private static ForwardSettings CloneForward(ForwardSettings source, EmulationAudioSource audioSource, string audioApp)
     {
         return new ForwardSettings
         {
@@ -922,7 +951,8 @@ public sealed class EmulationService : IEmulationService
             Volume = source.Volume,
             Haptics = source.Haptics,
             ForceAudioHaptics = source.ForceAudioHaptics,
-            AudioFromSystemOutput = audioFromSystemOutput
+            AudioSource = audioSource,
+            AudioApp = audioApp
         };
     }
 
@@ -950,30 +980,50 @@ public sealed class EmulationService : IEmulationService
     }
 
     /// <summary>
-    /// Brings the entry's audio side to the requested source. The system-output source
-    /// is routed directly to the physical controller and needs no virtual device;
-    /// steady states are left untouched so spurious syncs never drop buffered audio.
-    /// Caller must hold <see cref="_sync"/>.
+    /// Brings the entry's audio side to the requested source. The direct sources (the
+    /// system output and a single application) are routed straight to the physical
+    /// controller and need no virtual device; steady states are left untouched so
+    /// spurious syncs never drop buffered audio, while a source or application change
+    /// restarts the direct capture. Caller must hold <see cref="_sync"/>.
     /// </summary>
-    private void SyncAudioLocked(VirtualControllerEntry entry, bool fromSystemOutput)
+    private void SyncAudioLocked(VirtualControllerEntry entry, EmulationAudioSource audioSource, string audioApp)
     {
-        if (fromSystemOutput && !entry.DirectAudioActive)
+        bool direct = audioSource is EmulationAudioSource.SystemOutput or EmulationAudioSource.Application;
+        if (!direct)
         {
-            ActivateDirectAudioLocked(entry);
+            if (entry.DirectAudioActive)
+            {
+                DeactivateDirectAudioLocked(entry);
+            }
+
+            return;
         }
-        else if (!fromSystemOutput && entry.DirectAudioActive)
+
+        if (entry.DirectAudioActive && entry.DirectSource == audioSource
+                                    && string.Equals(entry.DirectApp, audioApp, StringComparison.OrdinalIgnoreCase))
         {
-            DeactivateDirectAudioLocked(entry);
+            return;
         }
+
+        if (entry.DirectAudioActive)
+        {
+            // The source or the chosen application changed: stop the old capture without
+            // touching the forwarder, then start the new one into the same ring.
+            StopDirectCaptureLocked(entry);
+        }
+
+        ActivateDirectAudioLocked(entry, audioSource, audioApp);
     }
 
     /// <summary>
-    /// Starts feeding the forwarder from the system-output loopback, suspending the
-    /// virtual controller's capture while it owns the ring so two unrelated streams
-    /// can never interleave. Buffered PCM from the previous source is dropped for
-    /// the same reason. Caller must hold <see cref="_sync"/>.
+    /// Starts feeding the forwarder from the requested direct source (the system-output
+    /// loopback or an application's process loopback), suspending the virtual
+    /// controller's capture while it owns the ring so two unrelated streams can never
+    /// interleave. Buffered PCM from the previous source is dropped for the same reason.
+    /// When the chosen application is not running, the virtual controller's audio keeps
+    /// driving the controller instead. Caller must hold <see cref="_sync"/>.
     /// </summary>
-    private void ActivateDirectAudioLocked(VirtualControllerEntry entry)
+    private void ActivateDirectAudioLocked(VirtualControllerEntry entry, EmulationAudioSource audioSource, string audioApp)
     {
         if (entry.Forwarder is null)
         {
@@ -985,7 +1035,35 @@ public sealed class EmulationService : IEmulationService
             return;
         }
 
-        // Suspend the controller capture before the loopback starts feeding: the
+        IForwardedAudioCapture capture;
+        if (audioSource == EmulationAudioSource.Application)
+        {
+            if (!_audioApplications.TryResolveProcessId(audioApp, out uint processId))
+            {
+                // Nothing to capture yet: leave the controller's own audio running rather
+                // than streaming silence. Re-selecting the application retries.
+                _log.Warning($"The application '{audioApp}' is not running; the virtual controller's audio keeps driving the controller");
+                forwarder.Flush();
+                if (entry.Capture is IViiperAudioCapture resumeCapture)
+                {
+                    resumeCapture.IsSuspended = false;
+                }
+                else
+                {
+                    TeardownAudioLocked(entry);
+                }
+
+                return;
+            }
+
+            capture = new ApplicationLoopbackAudioCapture(processId, audioApp, forwarder);
+        }
+        else
+        {
+            capture = new SystemOutputAudioCapture(_audioEngine, forwarder);
+        }
+
+        // Suspend the controller capture before the direct capture starts feeding: the
         // switch is a hard cutover, not a mix.
         if (entry.Capture is IViiperAudioCapture controllerCapture)
         {
@@ -994,33 +1072,37 @@ public sealed class EmulationService : IEmulationService
 
         forwarder.Flush();
 
-        entry.OutputCapture ??= new SystemOutputAudioCapture(_audioEngine, forwarder);
-        if (!entry.OutputCapture.Start())
+        if (!capture.Start())
         {
             _log.Warning(entry.Capture is IViiperAudioCapture
-                ? "The system output could not be captured; the virtual controller's audio keeps driving the controller"
-                : "The system output could not be captured; no audio will be forwarded");
-            if (entry.Capture is IViiperAudioCapture resumeCapture)
+                ? "The direct audio source could not be captured; the virtual controller's audio keeps driving the controller"
+                : "The direct audio source could not be captured; no audio will be forwarded");
+            capture.Stop();
+            if (entry.Capture is IViiperAudioCapture fallbackCapture)
             {
-                resumeCapture.IsSuspended = false;
+                fallbackCapture.IsSuspended = false;
             }
 
             return;
         }
 
+        entry.DirectCapture = capture;
+        entry.DirectSource = audioSource;
+        entry.DirectApp = audioApp;
         entry.DirectAudioActive = true;
-        _log.Info("Host audio forwarding now follows the system's default output");
+        _log.Info(audioSource == EmulationAudioSource.Application
+            ? $"Host audio forwarding now follows the application '{audioApp}'"
+            : "Host audio forwarding now follows the system's default output");
     }
 
     /// <summary>
-    /// Stops the system-output loopback. The forwarder is kept when a virtual
-    /// controller capture can take over feeding it, and disposed otherwise.
-    /// Caller must hold <see cref="_sync"/>.
+    /// Stops the direct capture. The forwarder is kept when a virtual controller capture
+    /// can take over feeding it, and disposed otherwise. Caller must hold
+    /// <see cref="_sync"/>.
     /// </summary>
     private void DeactivateDirectAudioLocked(VirtualControllerEntry entry)
     {
-        entry.DirectAudioActive = false;
-        entry.OutputCapture?.Stop();
+        StopDirectCaptureLocked(entry);
 
         if (entry.Capture is IViiperAudioCapture controllerCapture)
         {
@@ -1032,8 +1114,21 @@ public sealed class EmulationService : IEmulationService
     }
 
     /// <summary>
+    /// Stops and drops the entry's direct capture, clearing the remembered source and
+    /// application. Caller must hold <see cref="_sync"/>.
+    /// </summary>
+    private static void StopDirectCaptureLocked(VirtualControllerEntry entry)
+    {
+        entry.DirectAudioActive = false;
+        entry.DirectCapture?.Stop();
+        entry.DirectCapture = null;
+        entry.DirectSource = EmulationAudioSource.ControllerEndpoint;
+        entry.DirectApp = string.Empty;
+    }
+
+    /// <summary>
     /// Builds the capture tapping the virtual device's audio endpoint, or <c>null</c>
-    /// when following system output, when the forwarder is missing or disposed, or
+    /// when following a direct source, when the forwarder is missing or disposed, or
     /// when the virtual controller exposes no audio endpoint.
     /// </summary>
     private static IDisposable? TryCreateControllerCapture(IVirtualController virtualController, ViiperDualSenseAudioForwarder? forwarder)
@@ -1140,9 +1235,7 @@ public sealed class EmulationService : IEmulationService
     {
         UnwireGameCallbacksLocked(entry);
 
-        entry.DirectAudioActive = false;
-        entry.OutputCapture?.Dispose();
-        entry.OutputCapture = null;
+        StopDirectCaptureLocked(entry);
 
         entry.Forwarder?.Dispose();
         entry.Forwarder = null;

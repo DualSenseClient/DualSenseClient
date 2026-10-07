@@ -37,7 +37,7 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 /// the pad through the combined reports the forwarder sends while its lane is open.
 /// </para>
 /// </remarks>
-public sealed class SystemOutputAudioCapture : IDisposable
+public sealed class SystemOutputAudioCapture : IDisposable, IForwardedAudioCapture
 {
     /// <summary>
     /// Logger instance.
@@ -140,6 +140,12 @@ public sealed class SystemOutputAudioCapture : IDisposable
     /// </summary>
     public bool Start()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            _log.Warning("System output loopback capture is only available on Windows");
+            return false;
+        }
+
         AudioCaptureDevice? device = null;
         lock (_sync)
         {

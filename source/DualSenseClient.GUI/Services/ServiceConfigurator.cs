@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.Bluetooth;
 using DualSenseClient.Controllers;
+using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Controllers.SpecialActions;
 using DualSenseClient.Core.Foreground;
@@ -60,6 +61,10 @@ public abstract class ServiceConfigurator
             engine.RegisterCodecFactory(new FFmpegCodecFactory());
             return engine;
         });
+
+        // Per-application audio: enumerates the apps currently producing audio and
+        // resolves a stored executable path to a live process for process-loopback capture.
+        services.AddSingleton<AudioApplicationService>();
 
         // Controllers
         services.AddSingleton<IHidDeviceEnumerator, HidDeviceEnumerator>();

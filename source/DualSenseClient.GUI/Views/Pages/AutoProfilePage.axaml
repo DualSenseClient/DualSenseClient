@@ -158,6 +158,22 @@
                                                 ItemsSource="{Binding AudioSourceOptions}"
                                                 SelectedIndex="{Binding SelectedAudioSourceIndex}"
                                                 IsVisible="{Binding IsAudioSourceVisible}" />
+                            <cards:ComboBoxCard Title="{DynamicResource AutoProfilesPage.AudioSource.Application}"
+                                                Description="{DynamicResource AutoProfilesPage.AudioSource.Application.Description}"
+                                                ItemsSource="{Binding AudioAppOptions}"
+                                                SelectedIndex="{Binding SelectedAudioAppIndex}"
+                                                IsVisible="{Binding IsAudioAppVisible}">
+                                <Button Command="{Binding RefreshAudioAppsCommand}"
+                                        ToolTip.Tip="{DynamicResource AutoProfilesPage.AudioSource.Refresh}">
+                                    <ic:FluentIcon Icon="ArrowClockwise"
+                                                   IconVariant="Regular" />
+                                </Button>
+                            </cards:ComboBoxCard>
+                            <TextBlock Text="{DynamicResource AudioSource.NoApplications}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding IsAudioAppEmpty}" />
                             <cards:ComboBoxCard Title="{DynamicResource AutoProfilesPage.Hiding.Title}"
                                                 Description="{DynamicResource AutoProfilesPage.Hiding.Description}"
                                                 ItemsSource="{Binding HideOptions}"

@@ -82,7 +82,7 @@ public sealed class ControllerEmulationTests
 
         Assert.That(json, Does.Contain("\"variant\":{\"dualsense\":\"Edge\",\"dualshock4\":\"V1\"}"));
         Assert.That(json, Does.Contain(
-            "\"forward\":{\"audio_output\":\"Headset\",\"volume\":149,\"haptics\":150,\"haptics_audio_only\":true,\"audio_from_output\":true}"));
+            "\"forward\":{\"audio_output\":\"Headset\",\"volume\":149,\"haptics\":150,\"haptics_audio_only\":true,\"audio_from_output\":true,\"audio_source\":\"SystemOutput\",\"audio_app\":\"\"}"));
 
         ControllerInfo? roundTripped = JsonSerializer.Deserialize<ControllerInfo>(json, Options);
         Assert.That(roundTripped?.Emulation.Variant.DualSense, Is.EqualTo(DualSenseVariant.Edge));
@@ -92,6 +92,8 @@ public sealed class ControllerEmulationTests
         Assert.That(roundTripped?.Emulation.Forward.Haptics, Is.EqualTo(150));
         Assert.That(roundTripped?.Emulation.Forward.ForceAudioHaptics, Is.True);
         Assert.That(roundTripped?.Emulation.Forward.AudioFromSystemOutput, Is.True);
+        Assert.That(roundTripped?.Emulation.Forward.AudioSource, Is.EqualTo(EmulationAudioSource.SystemOutput));
+        Assert.That(roundTripped?.Emulation.Forward.AudioApp, Is.Empty);
     }
 
     [Test]

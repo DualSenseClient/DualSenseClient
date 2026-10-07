@@ -1,13 +1,15 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:DualSenseClient.GUI.Controls.Cards">
-    <!-- ComboBoxCard: Labeled card with a ComboBox on the right.
-         Binds ItemsSource, SelectedItem, SelectedIndex, and ItemTemplate. -->
+    <!-- ComboBoxCard: Labeled card with a ComboBox, and optional content beside it
+         (e.g. an icon button), matching the TextBox row layout.
+         Binds ItemsSource, SelectedItem, SelectedIndex, and ItemTemplate.
+         Content is hidden when null, so cards without content are unchanged. -->
     <Style Selector="local|ComboBoxCard">
         <Setter Property="Template">
             <ControlTemplate TargetType="local:ComboBoxCard">
                 <local:CustomCard Tooltip="{TemplateBinding Tooltip}">
-                    <Grid ColumnDefinitions="*,Auto">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
                         <local:CardHeader Grid.Column="0"
                                           Title="{TemplateBinding Title}"
                                           Description="{TemplateBinding Description}"
@@ -20,6 +22,12 @@
                                   ItemTemplate="{TemplateBinding ItemTemplate}"
                                   SelectedItem="{Binding SelectedItem, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
                                   SelectedIndex="{Binding SelectedIndex, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" />
+                        <ContentPresenter Grid.Column="2"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          IsVisible="{TemplateBinding Content, Converter={StaticResource NotNullConverter}}"
+                                          VerticalAlignment="Center"
+                                          Margin="8,0,0,0" />
                     </Grid>
                 </local:CustomCard>
             </ControlTemplate>

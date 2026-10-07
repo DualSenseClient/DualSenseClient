@@ -259,7 +259,44 @@ public class AutoProfileRule : INotifyPropertyChanged
     /// routed directly to the physical controller and needs no virtual device.
     /// </summary>
     [JsonPropertyName("audio_from_output")]
-    public bool? AudioFromSystemOutput { get; set; }
+    public bool? AudioFromSystemOutput
+    {
+        get
+        {
+            return AudioSource is null ? null : AudioSource == EmulationAudioSource.SystemOutput;
+        }
+        set
+        {
+            // Only ever upgrades to a concrete source so a stored file that carries both
+            // fields cannot let the legacy false value clobber the newer source, since
+            // JSON property order is not guaranteed.
+            if (value == true)
+            {
+                AudioSource = EmulationAudioSource.SystemOutput;
+            }
+            else if (value == false && AudioSource is null)
+            {
+                AudioSource = EmulationAudioSource.ControllerEndpoint;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the forwarded-audio source applied while the rule matches, or
+    /// <c>null</c> to leave the controller's stored source unchanged.
+    /// </summary>
+    [JsonPropertyName("audio_source")]
+    public EmulationAudioSource? AudioSource { get; set; }
+
+    /// <summary>
+    /// Gets or sets the executable path of the application captured while the rule
+    /// matches and <see cref="AudioSource"/> is
+    /// <see cref="EmulationAudioSource.Application"/>, or <c>null</c> to use the
+    /// controller's stored application. The path (not a process id) is stored so it
+    /// survives app restarts.
+    /// </summary>
+    [JsonPropertyName("audio_app")]
+    public string? AudioApp { get; set; }
 
     /// <summary>
     /// Whether the rule leaves profile, emulation, variant, triggers, the forwarded-audio source, and hiding unchanged,
@@ -272,7 +309,7 @@ public class AutoProfileRule : INotifyPropertyChanged
         {
             return string.IsNullOrEmpty(_profileName) && EmulationMode is null && DualSenseVariant is null
                    && DualShock4Variant is null && LeftTrigger is null && RightTrigger is null
-                   && AudioFromSystemOutput is null && HideController is null;
+                   && AudioSource is null && HideController is null;
         }
     }
 
