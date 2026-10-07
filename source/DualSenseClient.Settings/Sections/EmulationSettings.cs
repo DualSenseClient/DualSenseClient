@@ -102,7 +102,6 @@ public class VariantSettings
 }
 
 /// <summary>
-/// <summary>
 /// The audio source forwarded to the physical controller while a virtual device is
 /// active.
 /// </summary>
@@ -129,6 +128,28 @@ public enum EmulationAudioSource
     Application = 2
 }
 
+/// <summary>
+/// How the application captured when <see cref="EmulationAudioSource.Application"/> is
+/// selected is picked in the UI: from the applications currently playing audio, or by
+/// browsing to an executable file. It is only a picker preference: what is captured is
+/// still described by <see cref="ForwardSettings.AudioApp"/>.
+/// </summary>
+public enum EmulationAudioAppMode
+{
+    /// <summary>
+    /// Choose from the applications that currently hold an audio session on the default
+    /// output device (the default, and what this setting was originally limited to).
+    /// </summary>
+    PlayingApps = 0,
+
+    /// <summary>
+    /// Choose with the platform file picker, so an executable that is not currently
+    /// playing audio can be captured too.
+    /// </summary>
+    ExecutableFile = 1
+}
+
+/// <summary>
 /// The host-audio forwarding options applied to the physical controller while a
 /// virtual device is active.
 /// </summary>
@@ -204,6 +225,15 @@ public class ForwardSettings
     /// </summary>
     [JsonPropertyName("audio_app")]
     public string AudioApp { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets how <see cref="AudioApp"/> is picked in the UI
+    /// (<see cref="EmulationAudioAppMode.PlayingApps"/> by default): from the list of
+    /// applications currently playing audio, or with the file picker. Purely a picker
+    /// preference; it never changes which executable is captured.
+    /// </summary>
+    [JsonPropertyName("audio_app_mode")]
+    public EmulationAudioAppMode AudioAppMode { get; set; } = EmulationAudioAppMode.PlayingApps;
 }
 
 /// <summary>

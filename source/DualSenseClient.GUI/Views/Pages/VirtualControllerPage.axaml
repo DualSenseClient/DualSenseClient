@@ -86,11 +86,16 @@
                                             Description="{DynamicResource VirtualControllerPage.Emulation.AudioSource.Description}"
                                             ItemsSource="{Binding ForwardAudioSources}"
                                             SelectedIndex="{Binding ForwardAudioSourceIndex}" />
+                        <cards:ComboBoxCard Title="{DynamicResource AudioSource.Mode.Title}"
+                                            Description="{DynamicResource AudioSource.Mode.Description}"
+                                            ItemsSource="{Binding ForwardAudioAppModes}"
+                                            SelectedIndex="{Binding ForwardAudioAppModeIndex}"
+                                            IsVisible="{Binding IsForwardAudioAppVisible}" />
                         <cards:ComboBoxCard Title="{DynamicResource VirtualControllerPage.Emulation.AudioSource.Application}"
                                             Description="{DynamicResource VirtualControllerPage.Emulation.AudioSource.Application.Description}"
                                             ItemsSource="{Binding ForwardAudioApps}"
                                             SelectedIndex="{Binding ForwardAudioAppIndex}"
-                                            IsVisible="{Binding IsForwardAudioAppVisible}">
+                                            IsVisible="{Binding IsForwardAudioAppListVisible}">
                             <Button Command="{Binding RefreshForwardAudioAppsCommand}"
                                     ToolTip.Tip="{DynamicResource VirtualControllerPage.Emulation.AudioSource.Refresh}">
                                 <ic:FluentIcon Icon="ArrowClockwise"
@@ -102,6 +107,29 @@
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                    TextWrapping="Wrap"
                                    IsVisible="{Binding IsForwardAudioAppEmpty}" />
+                        <cards:CustomCard IsVisible="{Binding IsForwardAudioAppBrowseVisible}">
+                            <Grid ColumnDefinitions="*,Auto,Auto"
+                                  ColumnSpacing="8">
+                                <cards:CardHeader Title="{DynamicResource AudioSource.Executable.Title}"
+                                                  Description="{DynamicResource AudioSource.Executable.Description}"
+                                                  VerticalAlignment="Center" />
+                                <TextBox Grid.Column="1"
+                                         Text="{Binding ForwardAudioAppPath, Mode=OneWay}"
+                                         IsReadOnly="True"
+                                         PlaceholderText="{DynamicResource AudioSource.Executable.Placeholder}"
+                                         ToolTip.Tip="{Binding ForwardAudioAppPath}"
+                                         VerticalAlignment="Center"
+                                         MinWidth="160"
+                                         MaxWidth="400" />
+                                <Button Grid.Column="2"
+                                        Click="OnBrowseAudioAppClick"
+                                        ToolTip.Tip="{DynamicResource AudioSource.Executable.Browse}"
+                                        VerticalAlignment="Center">
+                                    <ic:FluentIcon Icon="FolderOpen"
+                                                   IconVariant="Regular" />
+                                </Button>
+                            </Grid>
+                        </cards:CustomCard>
                     </StackPanel>
 
                     <!-- Status line is shown whether enabled or not -->

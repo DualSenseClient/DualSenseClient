@@ -158,11 +158,16 @@
                                                 ItemsSource="{Binding AudioSourceOptions}"
                                                 SelectedIndex="{Binding SelectedAudioSourceIndex}"
                                                 IsVisible="{Binding IsAudioSourceVisible}" />
+                            <cards:ComboBoxCard Title="{DynamicResource AudioSource.Mode.Title}"
+                                                Description="{DynamicResource AudioSource.Mode.Description}"
+                                                ItemsSource="{Binding AudioAppModeOptions}"
+                                                SelectedIndex="{Binding SelectedAudioAppModeIndex}"
+                                                IsVisible="{Binding IsAudioAppVisible}" />
                             <cards:ComboBoxCard Title="{DynamicResource AutoProfilesPage.AudioSource.Application}"
                                                 Description="{DynamicResource AutoProfilesPage.AudioSource.Application.Description}"
                                                 ItemsSource="{Binding AudioAppOptions}"
                                                 SelectedIndex="{Binding SelectedAudioAppIndex}"
-                                                IsVisible="{Binding IsAudioAppVisible}">
+                                                IsVisible="{Binding IsAudioAppListVisible}">
                                 <Button Command="{Binding RefreshAudioAppsCommand}"
                                         ToolTip.Tip="{DynamicResource AutoProfilesPage.AudioSource.Refresh}">
                                     <ic:FluentIcon Icon="ArrowClockwise"
@@ -174,6 +179,29 @@
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                        TextWrapping="Wrap"
                                        IsVisible="{Binding IsAudioAppEmpty}" />
+                            <cards:CustomCard IsVisible="{Binding IsAudioAppBrowseVisible}">
+                                <Grid ColumnDefinitions="*,Auto,Auto"
+                                      ColumnSpacing="8">
+                                    <cards:CardHeader Title="{DynamicResource AudioSource.Executable.Title}"
+                                                      Description="{DynamicResource AudioSource.Executable.Description}"
+                                                      VerticalAlignment="Center" />
+                                    <TextBox Grid.Column="1"
+                                             Text="{Binding AudioAppPath, Mode=OneWay}"
+                                             IsReadOnly="True"
+                                             PlaceholderText="{DynamicResource AudioSource.Executable.Placeholder}"
+                                             ToolTip.Tip="{Binding AudioAppPath}"
+                                             VerticalAlignment="Center"
+                                             MinWidth="160"
+                                             MaxWidth="400" />
+                                    <Button Grid.Column="2"
+                                            Click="OnBrowseAudioAppClick"
+                                            ToolTip.Tip="{DynamicResource AudioSource.Executable.Browse}"
+                                            VerticalAlignment="Center">
+                                        <ic:FluentIcon Icon="FolderOpen"
+                                                       IconVariant="Regular" />
+                                    </Button>
+                                </Grid>
+                            </cards:CustomCard>
                             <cards:ComboBoxCard Title="{DynamicResource AutoProfilesPage.Hiding.Title}"
                                                 Description="{DynamicResource AutoProfilesPage.Hiding.Description}"
                                                 ItemsSource="{Binding HideOptions}"

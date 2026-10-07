@@ -299,6 +299,15 @@ public class AutoProfileRule : INotifyPropertyChanged
     public string? AudioApp { get; set; }
 
     /// <summary>
+    /// Gets or sets how <see cref="AudioApp"/> is picked in the rule editor, or
+    /// <c>null</c> to use the default of choosing from the applications currently
+    /// playing audio. It is only a picker preference: it never changes which executable
+    /// is captured.
+    /// </summary>
+    [JsonPropertyName("audio_app_mode")]
+    public EmulationAudioAppMode? AudioAppMode { get; set; }
+
+    /// <summary>
     /// Whether the rule leaves profile, emulation, variant, triggers, the forwarded-audio source, and hiding unchanged,
     /// making it a no-op. The matcher skips such rules so they never shadow lower rules.
     /// </summary>

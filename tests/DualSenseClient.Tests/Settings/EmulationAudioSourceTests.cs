@@ -203,4 +203,100 @@ public sealed class EmulationAudioSourceTests
             Assert.That(roundTripped?.AudioApp, Is.EqualTo(@"C:\Games\game.exe"));
         });
     }
+
+    [Test]
+    public void ForwardSettings_DefaultMode_IsPlayingApps()
+    {
+        ForwardSettings settings = new ForwardSettings();
+
+        Assert.That(settings.AudioAppMode, Is.EqualTo(EmulationAudioAppMode.PlayingApps));
+    }
+
+    [Test]
+    public void ForwardSettings_RoundTripsTheApplicationMode()
+    {
+        ForwardSettings settings = new ForwardSettings
+        {
+            AudioSource = EmulationAudioSource.Application,
+            AudioApp = @"C:\Games\game.exe",
+            AudioAppMode = EmulationAudioAppMode.ExecutableFile
+        };
+
+        string json = JsonSerializer.Serialize(settings, Options);
+        ForwardSettings? roundTripped = JsonSerializer.Deserialize<ForwardSettings>(json, Options);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(json, Does.Contain("\"audio_app_mode\":\"ExecutableFile\""));
+            Assert.That(roundTripped?.AudioAppMode, Is.EqualTo(EmulationAudioAppMode.ExecutableFile));
+        });
+    }
+
+    [Test]
+    public void AutoProfileRule_DefaultMode_IsNullAndKeepsTheRuleActionless()
+    {
+        AutoProfileRule rule = new AutoProfileRule
+        {
+            ExePattern = "game\\.exe"
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rule.AudioAppMode, Is.Null);
+            Assert.That(rule.IsActionless, Is.True);
+        });
+    }
+
+    [Test]
+    public void AutoProfileRule_ModeOnly_IsActionless()
+    {
+        // The mode is only a picker preference: a rule that sets nothing else must not
+        // shadow a lower rule that does something.
+        AutoProfileRule rule = new AutoProfileRule
+        {
+            ExePattern = "game\\.exe",
+            AudioAppMode = EmulationAudioAppMode.ExecutableFile
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rule.AudioAppMode, Is.EqualTo(EmulationAudioAppMode.ExecutableFile));
+            Assert.That(rule.IsActionless, Is.True);
+        });
+    }
+
+    [Test]
+    public void AutoProfileRule_ApplicationSourceWithMode_IsNotActionless()
+    {
+        AutoProfileRule rule = new AutoProfileRule
+        {
+            ExePattern = "game\\.exe",
+            AudioSource = EmulationAudioSource.Application,
+            AudioApp = @"C:\Games\game.exe",
+            AudioAppMode = EmulationAudioAppMode.ExecutableFile
+        };
+
+        Assert.That(rule.IsActionless, Is.False);
+    }
+
+    [Test]
+    public void AutoProfileRule_RoundTripsTheApplicationMode()
+    {
+        AutoProfileRule rule = new AutoProfileRule
+        {
+            ExePattern = "game\\.exe",
+            AudioSource = EmulationAudioSource.Application,
+            AudioApp = @"C:\Games\game.exe",
+            AudioAppMode = EmulationAudioAppMode.ExecutableFile
+        };
+
+        string json = JsonSerializer.Serialize(rule, Options);
+        AutoProfileRule? roundTripped = JsonSerializer.Deserialize<AutoProfileRule>(json, Options);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(json, Does.Contain("\"audio_app_mode\":\"ExecutableFile\""));
+            Assert.That(roundTripped?.AudioAppMode, Is.EqualTo(EmulationAudioAppMode.ExecutableFile));
+        });
+    }
 }

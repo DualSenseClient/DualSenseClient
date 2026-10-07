@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -595,6 +596,16 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     private readonly List<AudioApplicationInfo> _forwardAudioAppItems = [];
 
     /// <summary>
+    /// Application-picker modes for the dropdown, in <see cref="EmulationAudioAppMode"/>
+    /// order (currently-playing list, executable file picked with the file browser).
+    /// </summary>
+    public ObservableCollection<string> ForwardAudioAppModes { get; } =
+    [
+        LocalizationService.GetText("AudioSource.Mode.PlayingApps"),
+        LocalizationService.GetText("AudioSource.Mode.ExecutableFile")
+    ];
+
+    /// <summary>
     /// The forwarded-audio source (<see cref="EmulationAudioSource"/> value) of the
     /// selected controller (two-way, persisted). The direct sources (system output and
     /// application) route straight to the physical controller and need no virtual device;
@@ -625,10 +636,12 @@ public partial class VirtualControllerPageViewModel : ObservableObject
             _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
             OnPropertyChanged(nameof(ForwardAudioSourceIndex));
             OnPropertyChanged(nameof(IsForwardAudioAppVisible));
+            OnPropertyChanged(nameof(IsForwardAudioAppListVisible));
+            OnPropertyChanged(nameof(IsForwardAudioAppBrowseVisible));
             OnPropertyChanged(nameof(IsForwardAudioAppEmpty));
             if (source == EmulationAudioSource.Application)
             {
-                RefreshForwardAudioApps();
+                _ = RefreshForwardAudioApps();
             }
             else
             {
@@ -637,7 +650,7 @@ public partial class VirtualControllerPageViewModel : ObservableObject
 
             if (CurrentDualSenseDevice is { } device)
             {
-                _emulation.SetForwardingAudioSource(device, source, settings.Forward.AudioApp);
+                ApplyForwardAudioSource(device, source, settings.Forward.AudioApp);
             }
         }
     }
@@ -655,14 +668,91 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     }
 
     /// <summary>
+    /// The captured application as an index into the picker modes
+    /// (<see cref="EmulationAudioAppMode"/> value, two-way, persisted). List mode shows
+    /// the applications currently playing audio; executable-file mode shows the stored
+    /// path with a browse button. The mode only decides how the path is chosen.
+    /// </summary>
+    public int ForwardAudioAppModeIndex
+    {
+        get
+        {
+            return !HasDevice ? 0 : (int)GetEmulationSettings().Forward.AudioAppMode;
+        }
+        set
+        {
+            if (!HasDevice)
+            {
+                return;
+            }
+
+            EmulationAudioAppMode mode = (EmulationAudioAppMode)Math.Clamp(value, 0, (int)EmulationAudioAppMode.ExecutableFile);
+            EmulationSettings settings = GetEmulationSettings();
+            if (settings.Forward.AudioAppMode == mode)
+            {
+                return;
+            }
+
+            _log.Info($"Setting forwarded audio application mode of {CurrentMac} to {mode}");
+            settings.Forward.AudioAppMode = mode;
+            _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+            OnPropertyChanged(nameof(ForwardAudioAppModeIndex));
+            OnPropertyChanged(nameof(IsForwardAudioAppListVisible));
+            OnPropertyChanged(nameof(IsForwardAudioAppBrowseVisible));
+            OnPropertyChanged(nameof(IsForwardAudioAppEmpty));
+            if (mode == EmulationAudioAppMode.PlayingApps)
+            {
+                _ = RefreshForwardAudioApps();
+            }
+        }
+    }
+
+    /// <summary>
     /// Whether the application picker is shown but has no entries, so the page can
-    /// explain that nothing is playing instead of showing an empty dropdown.
+    /// explain that nothing is playing instead of showing an empty dropdown. Only
+    /// list mode has entries to be empty.
     /// </summary>
     public bool IsForwardAudioAppEmpty
     {
         get
         {
-            return IsForwardAudioAppVisible && ForwardAudioApps.Count == 0;
+            return IsForwardAudioAppListVisible && ForwardAudioApps.Count == 0;
+        }
+    }
+
+    /// <summary>
+    /// Whether the list of currently playing applications is shown: the application
+    /// source is selected and the picker is in list mode.
+    /// </summary>
+    public bool IsForwardAudioAppListVisible
+    {
+        get
+        {
+            return IsForwardAudioAppVisible && ForwardAudioAppModeIndex == (int)EmulationAudioAppMode.PlayingApps;
+        }
+    }
+
+    /// <summary>
+    /// Whether the executable-file row is shown: the application source is selected and
+    /// the picker is in executable-file mode.
+    /// </summary>
+    public bool IsForwardAudioAppBrowseVisible
+    {
+        get
+        {
+            return IsForwardAudioAppVisible && ForwardAudioAppModeIndex == (int)EmulationAudioAppMode.ExecutableFile;
+        }
+    }
+
+    /// <summary>
+    /// The executable path captured by the application source, shown (and browsed to) in
+    /// executable-file mode. Empty when nothing has been chosen yet.
+    /// </summary>
+    public string ForwardAudioAppPath
+    {
+        get
+        {
+            return !HasDevice ? string.Empty : GetEmulationSettings().Forward.AudioApp;
         }
     }
 
@@ -702,19 +792,27 @@ public partial class VirtualControllerPageViewModel : ObservableObject
 
     /// <summary>
     /// Re-enumerates the applications currently producing audio and refreshes the app
-    /// picker. A stored application that is not currently playing is kept in the list so
-    /// the selection stays visible.
+    /// picker. Enumeration runs off the UI thread; a stored application that is not
+    /// currently playing is kept in the list so the selection stays visible. Results for
+    /// a controller switched away from meanwhile are discarded.
     /// </summary>
     [RelayCommand]
-    private void RefreshForwardAudioApps()
+    private async Task RefreshForwardAudioApps()
     {
         if (!HasDevice)
         {
             return;
         }
 
-        List<AudioApplicationInfo> apps = new List<AudioApplicationInfo>(_audioApplications.GetPlayingApplications());
+        DeviceInfoItem? device = CurrentDevice;
         string stored = GetEmulationSettings().Forward.AudioApp;
+        List<AudioApplicationInfo> apps =
+            new List<AudioApplicationInfo>(await Task.Run(_audioApplications.GetPlayingApplications));
+        if (!ReferenceEquals(CurrentDevice, device))
+        {
+            return;
+        }
+
         if (!string.IsNullOrEmpty(stored)
             && !apps.Any(app => string.Equals(app.ExecutablePath, stored, StringComparison.OrdinalIgnoreCase)))
         {
@@ -776,6 +874,35 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Serializes background audio-source applies: each queued apply waits for the
+    /// previous one, so rapid source or application changes reach the emulation service
+    /// in the order the UI made them.
+    /// </summary>
+    private Task _audioSourceApply = Task.CompletedTask;
+
+    /// <summary>
+    /// Applies a forwarded-audio source change off the UI thread: resolving the stored
+    /// application can scan every running process and starting the capture can wait
+    /// seconds for activation.
+    /// </summary>
+    private void ApplyForwardAudioSource(DualSenseDevice device, EmulationAudioSource source, string audioApp)
+    {
+        _audioSourceApply = _audioSourceApply.ContinueWith(
+            _ =>
+            {
+                try
+                {
+                    _emulation.SetForwardingAudioSource(device, source, audioApp);
+                }
+                catch (Exception ex)
+                {
+                    _log.Error($"Applying the forwarded audio source failed: {ex.Message}");
+                }
+            },
+            TaskScheduler.Default);
+    }
+
+    /// <summary>
     /// Persists the chosen application and applies it to the active forwarder. No-op when
     /// the selection did not change.
     /// </summary>
@@ -791,10 +918,28 @@ public partial class VirtualControllerPageViewModel : ObservableObject
         settings.Forward.AudioApp = applicationPath;
         _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
         OnPropertyChanged(nameof(ForwardAudioAppIndex));
+        OnPropertyChanged(nameof(ForwardAudioAppPath));
         if (CurrentDualSenseDevice is { } device)
         {
-            _emulation.SetForwardingAudioSource(device, settings.Forward.AudioSource, applicationPath);
+            ApplyForwardAudioSource(device, settings.Forward.AudioSource, applicationPath);
         }
+    }
+
+    /// <summary>
+    /// Applies an executable picked with the file browser: stores it as the captured
+    /// application and refreshes the list, so the choice also appears in list mode.
+    /// </summary>
+    /// <param name="applicationPath">Full path of the chosen executable.</param>
+    public void SelectAudioApplication(string applicationPath)
+    {
+        if (!HasDevice || string.IsNullOrWhiteSpace(applicationPath))
+        {
+            return;
+        }
+
+        SetForwardAudioApp(applicationPath);
+        OnPropertyChanged(nameof(ForwardAudioAppPath));
+        _ = RefreshForwardAudioApps();
     }
 
     /// <summary>
@@ -1717,10 +1862,14 @@ public partial class VirtualControllerPageViewModel : ObservableObject
         OnPropertyChanged(nameof(ForceAudioHaptics));
         OnPropertyChanged(nameof(ForwardAudioSourceIndex));
         OnPropertyChanged(nameof(IsForwardAudioAppVisible));
+        OnPropertyChanged(nameof(IsForwardAudioAppListVisible));
+        OnPropertyChanged(nameof(IsForwardAudioAppBrowseVisible));
         OnPropertyChanged(nameof(IsForwardAudioAppEmpty));
+        OnPropertyChanged(nameof(ForwardAudioAppModeIndex));
+        OnPropertyChanged(nameof(ForwardAudioAppPath));
         if (IsForwardAudioAppVisible)
         {
-            RefreshForwardAudioApps();
+            _ = RefreshForwardAudioApps();
         }
         else
         {

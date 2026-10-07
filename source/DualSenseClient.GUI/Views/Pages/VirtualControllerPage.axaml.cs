@@ -1,7 +1,10 @@
+using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.Controllers.DualSense.Enum;
+using DualSenseClient.GUI.Services;
 using DualSenseClient.GUI.ViewModels.Pages;
 
 namespace DualSenseClient.GUI.Views.Pages;
@@ -43,4 +46,37 @@ public partial class VirtualControllerPage : UserControl
     /// Toggles the clicked target button in the pending target selection.
     /// </summary>
     private void TargetView_OnTargetClicked(object? sender, string e) => _viewModel.ToggleTarget(e);
+
+    /// <summary>
+    /// Opens the platform file picker for an executable and stores the chosen path as
+    /// the application whose audio is forwarded to this controller.
+    /// </summary>
+    /// <param name="sender">The button that was clicked.</param>
+    /// <param name="e">The routed event arguments.</param>
+    private async void OnBrowseAudioAppClick(object? sender, RoutedEventArgs e)
+    {
+        TopLevel? top = TopLevel.GetTopLevel(this);
+        if (top?.StorageProvider is not { } provider)
+        {
+            return;
+        }
+
+        IReadOnlyList<IStorageFile> files = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = LocalizationService.GetText("AudioSource.Executable.Picker"),
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new FilePickerFileType(LocalizationService.GetText("AudioSource.Executable.FileType"))
+                {
+                    Patterns = ["*.exe"]
+                }
+            ]
+        });
+
+        if (files.Count > 0)
+        {
+            _viewModel.SelectAudioApplication(files[0].Path.LocalPath);
+        }
+    }
 }

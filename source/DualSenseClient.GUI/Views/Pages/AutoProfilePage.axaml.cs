@@ -116,4 +116,42 @@ public partial class AutoProfilePage : UserControl
             _viewModel.Save();
         }
     }
+
+    /// <summary>
+    /// Opens the platform file picker for an executable and stores the chosen path as
+    /// the application whose audio this rule forwards.
+    /// </summary>
+    /// <param name="sender">The button that was clicked.</param>
+    /// <param name="e">The routed event arguments.</param>
+    private async void OnBrowseAudioAppClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel.SelectedRule is null)
+        {
+            return;
+        }
+
+        TopLevel? top = TopLevel.GetTopLevel(this);
+        if (top?.StorageProvider is not { } provider)
+        {
+            return;
+        }
+
+        IReadOnlyList<IStorageFile> files = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = LocalizationService.GetText("AudioSource.Executable.Picker"),
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new FilePickerFileType(LocalizationService.GetText("AudioSource.Executable.FileType"))
+                {
+                    Patterns = ["*.exe"]
+                }
+            ]
+        });
+
+        if (files.Count > 0)
+        {
+            _viewModel.SelectAudioApplication(files[0].Path.LocalPath);
+        }
+    }
 }

@@ -237,6 +237,16 @@
     <sys:String x:Key="VirtualControllerPage.Emulation.AudioSource.Application.Description">Capture only the selected application's audio, its child processes included. Requires Windows 11.</sys:String>
     <sys:String x:Key="VirtualControllerPage.Emulation.AudioSource.Refresh">Refresh app list</sys:String>
     <sys:String x:Key="AudioSource.NoApplications">No application is currently playing audio. Start playback in the app, then refresh the list.</sys:String>
+    <sys:String x:Key="AudioSource.Mode.Title">Application selection</sys:String>
+    <sys:String x:Key="AudioSource.Mode.Description">How the application to capture is chosen: from the applications currently playing audio, or by browsing to an executable file.</sys:String>
+    <sys:String x:Key="AudioSource.Mode.PlayingApps">Applications playing audio</sys:String>
+    <sys:String x:Key="AudioSource.Mode.ExecutableFile">Executable file</sys:String>
+    <sys:String x:Key="AudioSource.Executable.Title">Executable file</sys:String>
+    <sys:String x:Key="AudioSource.Executable.Description">Program whose audio is forwarded</sys:String>
+    <sys:String x:Key="AudioSource.Executable.Placeholder">No executable selected. Browse to one.</sys:String>
+    <sys:String x:Key="AudioSource.Executable.Browse">Browse for a program</sys:String>
+    <sys:String x:Key="AudioSource.Executable.Picker">Select a program</sys:String>
+    <sys:String x:Key="AudioSource.Executable.FileType">Programs</sys:String>
     <sys:String x:Key="VirtualControllerPage.Emulation.Status.Idle">No virtual controller is active.</sys:String>
     <sys:String x:Key="VirtualControllerPage.Emulation.Status.Running">Virtual controller active: {mode}</sys:String>
     <sys:String x:Key="VirtualControllerPage.Emulation.Status.RunningEdge">Virtual controller active: DualSense Edge</sys:String>
