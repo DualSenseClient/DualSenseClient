@@ -153,6 +153,11 @@
                                                 ItemsSource="{Binding DualShock4VariantOptions}"
                                                 SelectedIndex="{Binding SelectedDualShock4VariantIndex}"
                                                 IsVisible="{Binding IsDualShock4VariantVisible}" />
+                            <cards:ComboBoxCard Title="{DynamicResource AutoProfilesPage.AudioSource.Title}"
+                                                Description="{DynamicResource AutoProfilesPage.AudioSource.Description}"
+                                                ItemsSource="{Binding AudioSourceOptions}"
+                                                SelectedIndex="{Binding SelectedAudioSourceIndex}"
+                                                IsVisible="{Binding IsAudioSourceVisible}" />
                             <cards:ComboBoxCard Title="{DynamicResource AutoProfilesPage.Hiding.Title}"
                                                 Description="{DynamicResource AutoProfilesPage.Hiding.Description}"
                                                 ItemsSource="{Binding HideOptions}"

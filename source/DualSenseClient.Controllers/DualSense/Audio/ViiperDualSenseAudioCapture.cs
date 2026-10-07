@@ -27,7 +27,7 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 /// is flushed and the Bluetooth lane re-primes on the next block.
 /// </para>
 /// </remarks>
-public sealed class ViiperDualSenseAudioCapture : IDisposable
+public sealed class ViiperDualSenseAudioCapture : IDisposable, IViiperAudioCapture
 {
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("ViiperDualSenseAudioCapture");
 
@@ -69,6 +69,11 @@ public sealed class ViiperDualSenseAudioCapture : IDisposable
     private float[] _stereoScratch = new float[480 * 2];
 
     /// <summary>
+    /// Whether captured audio is discarded because another source owns the forwarder.
+    /// </summary>
+    private volatile bool _isSuspended;
+
+    /// <summary>
     /// Capture-content diagnostics: whether the host writes real audio or silence.
     /// </summary>
     private bool _firstChunkLogged;
@@ -101,6 +106,25 @@ public sealed class ViiperDualSenseAudioCapture : IDisposable
     }
 
     /// <summary>
+    /// Whether this capture is suspended: the controller's forwarded audio is taken from
+    /// the system's default output (loopback) instead, so the blocks the host renders to
+    /// the virtual controller are discarded. Set by the emulation service when the
+    /// controller's forwarded-audio source changes; a suspended capture keeps its
+    /// registrations so the switch back is immediate.
+    /// </summary>
+    public bool IsSuspended
+    {
+        get
+        {
+            return _isSuspended;
+        }
+        set
+        {
+            _isSuspended = value;
+        }
+    }
+
+    /// <summary>
     /// Converts a 4-channel S16LE block (front stereo + rear haptics) into interleaved
     /// stereo float, keeping only the front speaker pair.
     /// </summary>
@@ -125,7 +149,7 @@ public sealed class ViiperDualSenseAudioCapture : IDisposable
     private void OnAudioOut(nuint handle, IntPtr pcm, nuint length)
     {
         int byteCount = (int)length;
-        if (byteCount < QuadBytesPerFrame)
+        if (byteCount < QuadBytesPerFrame || _isSuspended)
         {
             return;
         }

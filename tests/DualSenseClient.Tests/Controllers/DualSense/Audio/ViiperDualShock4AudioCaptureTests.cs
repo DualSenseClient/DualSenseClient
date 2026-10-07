@@ -110,4 +110,19 @@ public class ViiperDualShock4AudioCaptureTests
 
         Assert.That(written, Is.EqualTo(frames * 3 / 2), "1000 input frames must produce exactly 1500 output frames");
     }
+
+    [Test]
+    public void CaptureTypes_ImplementTheSuspendableContract()
+    {
+        // The emulation service guarantees that exactly one source feeds the forwarder by
+        // toggling IsSuspended on the virtual controller's capture; if either capture type
+        // drops the shared contract, the DualShock 4 loopback silently stops working.
+        Assert.Multiple(() =>
+        {
+            Assert.That(typeof(ViiperDualShock4AudioCapture).IsAssignableTo(typeof(IViiperAudioCapture)), Is.True,
+                "the emulation service suspends the DualShock 4 capture via the shared contract");
+            Assert.That(typeof(ViiperDualSenseAudioCapture).IsAssignableTo(typeof(IViiperAudioCapture)), Is.True,
+                "the emulation service suspends the DualSense capture via the shared contract");
+        });
+    }
 }

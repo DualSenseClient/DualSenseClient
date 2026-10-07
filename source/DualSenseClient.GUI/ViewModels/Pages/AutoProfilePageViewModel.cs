@@ -118,6 +118,8 @@ public partial class AutoProfilePageViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(SelectedDualShock4VariantIndex))]
     [NotifyPropertyChangedFor(nameof(IsDualSenseVariantVisible))]
     [NotifyPropertyChangedFor(nameof(IsDualShock4VariantVisible))]
+    [NotifyPropertyChangedFor(nameof(SelectedAudioSourceIndex))]
+    [NotifyPropertyChangedFor(nameof(IsAudioSourceVisible))]
     [NotifyPropertyChangedFor(nameof(SelectedLeftTriggerIndex))]
     [NotifyPropertyChangedFor(nameof(LeftTriggerStart))]
     [NotifyPropertyChangedFor(nameof(LeftTriggerEnd))]
@@ -322,8 +324,8 @@ public partial class AutoProfilePageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Whether the selected rule leaves profile, emulation, variant, and hiding unchanged,
-    /// making it a no-op. Shown as a hint in the editor.
+    /// Whether the selected rule leaves profile, emulation, variant, forwarded-audio source,
+    /// triggers, and hiding unchanged, making it a no-op. Shown as a hint in the editor.
     /// </summary>
     public bool IsRuleActionless
     {
@@ -336,6 +338,7 @@ public partial class AutoProfilePageViewModel : ObservableObject
                    && SelectedRule.DualShock4Variant is null
                    && SelectedRule.LeftTrigger is null
                    && SelectedRule.RightTrigger is null
+                   && SelectedRule.AudioFromSystemOutput is null
                    && SelectedRule.HideController is null;
         }
     }
@@ -432,7 +435,72 @@ public partial class AutoProfilePageViewModel : ObservableObject
             OnPropertyChanged(nameof(SelectedDualShock4VariantIndex));
             OnPropertyChanged(nameof(IsDualSenseVariantVisible));
             OnPropertyChanged(nameof(IsDualShock4VariantVisible));
+            OnPropertyChanged(nameof(IsAudioSourceVisible));
             OnPropertyChanged(nameof(IsRuleActionless));
+        }
+    }
+
+    /// <summary>
+    /// Forwarded-audio source options for the selected rule: "leave unchanged", the audio
+    /// the game sends to the virtual controller, or a loopback capture of the system's
+    /// default output device.
+    /// </summary>
+    public ObservableCollection<string> AudioSourceOptions { get; } =
+    [
+        LocalizationService.GetText("AutoProfilesPage.Emulation.Unchanged"),
+        LocalizationService.GetText("AutoProfilesPage.AudioSource.Controller"),
+        LocalizationService.GetText("AutoProfilesPage.AudioSource.SystemOutput")
+    ];
+
+    /// <summary>
+    /// The selected rule's forwarded-audio source as an option index (0 leaves the source
+    /// unchanged). Setting it persists immediately.
+    /// </summary>
+    public int SelectedAudioSourceIndex
+    {
+        get
+        {
+            return SelectedRule?.AudioFromSystemOutput switch
+            {
+                false => 1,
+                true => 2,
+                _ => 0
+            };
+        }
+        set
+        {
+            if (SelectedRule is null)
+            {
+                return;
+            }
+
+            bool? source = value switch
+            {
+                1 => false,
+                2 => true,
+                _ => null
+            };
+            if (SelectedRule.AudioFromSystemOutput == source)
+            {
+                return;
+            }
+
+            SelectedRule.AudioFromSystemOutput = source;
+            _rules.Save();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsRuleActionless));
+        }
+    }
+
+    /// <summary>
+    /// Whether the forwarded-audio source picker is shown. The system-output source
+    /// routes directly to the physical controller, so it is available in every mode.
+    /// </summary>
+    public bool IsAudioSourceVisible
+    {
+        get
+        {
+            return HasSelectedRule;
         }
     }
 

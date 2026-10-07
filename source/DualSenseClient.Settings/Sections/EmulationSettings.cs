@@ -135,6 +135,16 @@ public class ForwardSettings
     /// </summary>
     [JsonPropertyName("haptics_audio_only")]
     public bool ForceAudioHaptics { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the forwarded audio is captured from the system's default
+    /// output device (loopback) instead of the virtual controller's own audio endpoint,
+    /// so any audio the host plays drives the controller without the game having to
+    /// select the virtual controller as its output. The system-output source is routed
+    /// directly to the physical controller and needs no virtual device.
+    /// </summary>
+    [JsonPropertyName("audio_from_output")]
+    public bool AudioFromSystemOutput { get; set; }
 }
 
 /// <summary>

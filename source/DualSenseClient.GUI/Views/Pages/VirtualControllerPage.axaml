@@ -57,29 +57,34 @@
                                             SelectedIndex="{Binding DualShock4VariantIndex}"
                                             IsVisible="{Binding IsDualShock4Emulation}"
                                             IsEnabled="{Binding CanChangeEmulation}" />
+                    </StackPanel>
+
+                    <!-- Controller audio forwarding: the system-output source routes directly
+                         to the physical controller, so these stay available with emulation off -->
+                    <StackPanel Spacing="8">
                         <cards:ComboBoxCard Title="{DynamicResource VirtualControllerPage.Emulation.AudioOutput}"
                                             Description="{DynamicResource VirtualControllerPage.Emulation.AudioOutput.Description}"
                                             ItemsSource="{Binding EmulationAudioOutputs}"
-                                            SelectedIndex="{Binding ForwardAudioOutputIndex}"
-                                            IsVisible="{Binding IsAudioEmulation}" />
+                                            SelectedIndex="{Binding ForwardAudioOutputIndex}" />
                         <cards:SliderCard Minimum="0"
                                           Maximum="255"
                                           TickFrequency="1"
                                           Title="{DynamicResource VirtualControllerPage.Emulation.ForwardVolume}"
                                           Description="{DynamicResource VirtualControllerPage.Emulation.ForwardVolume.Description}"
-                                          Value="{Binding ForwardVolume}"
-                                          IsVisible="{Binding IsAudioEmulation}" />
+                                          Value="{Binding ForwardVolume}" />
                         <cards:SliderCard Minimum="0"
                                           Maximum="200"
                                           TickFrequency="1"
                                           Title="{DynamicResource VirtualControllerPage.Emulation.ForwardHaptics}"
                                           Description="{DynamicResource VirtualControllerPage.Emulation.ForwardHaptics.Description}"
-                                          Value="{Binding ForwardHapticStrength}"
-                                          IsVisible="{Binding IsAudioEmulation}" />
+                                          Value="{Binding ForwardHapticStrength}" />
                         <cards:ToggleSwitchCard Title="{DynamicResource VirtualControllerPage.Emulation.ForceAudioHaptics}"
                                                 Description="{DynamicResource VirtualControllerPage.Emulation.ForceAudioHaptics.Description}"
                                                 IsChecked="{Binding ForceAudioHaptics}"
                                                 IsVisible="{Binding IsDualSenseEmulation}" />
+                        <cards:ToggleSwitchCard Title="{DynamicResource VirtualControllerPage.Emulation.AudioFromSystemOutput}"
+                                                Description="{DynamicResource VirtualControllerPage.Emulation.AudioFromSystemOutput.Description}"
+                                                IsChecked="{Binding AudioFromSystemOutput}" />
                     </StackPanel>
 
                     <!-- Status line is shown whether enabled or not -->

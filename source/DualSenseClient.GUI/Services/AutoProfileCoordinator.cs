@@ -16,7 +16,7 @@ namespace DualSenseClient.GUI.Services;
 
 /// <summary>
 /// Polls the focused program and temporarily applies the matching auto profile rule
-/// (profile + emulation mode and variant + trigger effects + hiding) to every tracked controller. Stored bindings are never
+/// (profile + emulation mode and variant + trigger effects + forwarded-audio source + hiding) to every tracked controller. Stored bindings are never
 /// modified: when no rule matches, the controller's bound profile and stored emulation
 /// settings are re-applied and the pre-rule hidden state is restored. Resolved eagerly at startup (see
 /// <see cref="Controls.AppSplashScreen"/>) so it runs for the app's lifetime.
@@ -86,14 +86,16 @@ public sealed class AutoProfileCoordinator : IDisposable
     /// <summary>
     /// The effective auto state per controller: applied profile name, emulation mode and
     /// variant overrides (<c>null</c> mode means no override), trigger effect snapshots
-    /// (<c>null</c> means no override), and hiding override (<c>null</c>
-    /// means no override). Compared every tick so rule edits apply while focus is unchanged.
+    /// (<c>null</c> means no override), hiding override (<c>null</c>
+    /// means no override), and the effective forwarded-audio source (the rule's override,
+    /// or the controller's stored setting when the rule leaves it unchanged). Compared
+    /// every tick so rule edits apply while focus is unchanged.
     /// </summary>
     private readonly Dictionary<DualSenseDevice, (string ProfileName, EmulationMode? Mode, DualSenseVariant? DsVariant,
         DualShock4Variant? Ds4Variant, (int Mode, int Start, int End, int Force, int Frequency)? LeftTrigger,
-        (int Mode, int Start, int End, int Force, int Frequency)? RightTrigger, bool? Hide)> _applied =
+        (int Mode, int Start, int End, int Force, int Frequency)? RightTrigger, bool? Hide, bool AudioFromSystemOutput)> _applied =
         new Dictionary<DualSenseDevice, (string, EmulationMode?, DualSenseVariant?, DualShock4Variant?,
-            (int, int, int, int, int)?, (int, int, int, int, int)?, bool?)>();
+            (int, int, int, int, int)?, (int, int, int, int, int)?, bool?, bool)>();
 
     /// <summary>
     /// The hidden state per controller before the hiding override was applied,
@@ -209,18 +211,23 @@ public sealed class AutoProfileCoordinator : IDisposable
                 (int Mode, int Start, int End, int Force, int Frequency)? leftTrigger = SnapshotTrigger(rule?.LeftTrigger);
                 (int Mode, int Start, int End, int Force, int Frequency)? rightTrigger = SnapshotTrigger(rule?.RightTrigger);
                 bool? hide = rule?.HideController;
+                bool? audioFromSystemOutput = rule?.AudioFromSystemOutput;
+                bool effectiveAudioFromSystemOutput = audioFromSystemOutput
+                                                      ?? _controllers.GetEmulationSettings(mac, path).Forward.AudioFromSystemOutput;
 
                 if (_applied.TryGetValue(device,
                         out (string ProfileName, EmulationMode? Mode, DualSenseVariant? DsVariant, DualShock4Variant? Ds4Variant,
                         (int Mode, int Start, int End, int Force, int Frequency)? LeftTrigger,
-                        (int Mode, int Start, int End, int Force, int Frequency)? RightTrigger, bool? Hide) applied)
+                        (int Mode, int Start, int End, int Force, int Frequency)? RightTrigger, bool? Hide,
+                        bool AudioFromSystemOutput) applied)
                     && string.Equals(applied.ProfileName, profileName, StringComparison.OrdinalIgnoreCase)
                     && applied.Mode == mode
                     && applied.DsVariant == dsVariant
                     && applied.Ds4Variant == ds4Variant
                     && applied.LeftTrigger == leftTrigger
                     && applied.RightTrigger == rightTrigger
-                    && applied.Hide == hide)
+                    && applied.Hide == hide
+                    && applied.AudioFromSystemOutput == effectiveAudioFromSystemOutput)
                 {
                     continue;
                 }
@@ -228,21 +235,23 @@ public sealed class AutoProfileCoordinator : IDisposable
                 bool hadPrevious = _applied.TryGetValue(device,
                     out (string ProfileName, EmulationMode? Mode, DualSenseVariant? DsVariant, DualShock4Variant? Ds4Variant,
                     (int Mode, int Start, int End, int Force, int Frequency)? LeftTrigger,
-                    (int Mode, int Start, int End, int Force, int Frequency)? RightTrigger, bool? Hide) previous);
+                    (int Mode, int Start, int End, int Force, int Frequency)? RightTrigger, bool? Hide,
+                    bool AudioFromSystemOutput) previous);
                 EmulationMode? previousMode = hadPrevious ? previous.Mode : null;
                 DualSenseVariant? previousDsVariant = hadPrevious ? previous.DsVariant : null;
                 DualShock4Variant? previousDs4Variant = hadPrevious ? previous.Ds4Variant : null;
                 bool profileChanged = hadPrevious
                                       && !string.Equals(previous.ProfileName, profileName, StringComparison.OrdinalIgnoreCase);
-                ApplyRule(device, profileName, mode, dsVariant, ds4Variant, profileChanged);
+                ApplyRule(device, profileName, mode, dsVariant, ds4Variant, audioFromSystemOutput, profileChanged);
                 bool hadTrigger = hadPrevious && (previous.LeftTrigger is not null || previous.RightTrigger is not null);
                 if (rule?.LeftTrigger is not null || rule?.RightTrigger is not null || hadTrigger)
                 {
                     ApplyTriggers(device, rule?.LeftTrigger, rule?.RightTrigger);
                 }
 
+                _emulation.SetForwardingAudioSource(device, effectiveAudioFromSystemOutput);
                 ApplyHiding(device, hide);
-                _applied[device] = (profileName, mode, dsVariant, ds4Variant, leftTrigger, rightTrigger, hide);
+                _applied[device] = (profileName, mode, dsVariant, ds4Variant, leftTrigger, rightTrigger, hide, effectiveAudioFromSystemOutput);
                 if (mode != previousMode || dsVariant != previousDsVariant || ds4Variant != previousDs4Variant)
                 {
                     emulationChanged = true;
@@ -257,12 +266,12 @@ public sealed class AutoProfileCoordinator : IDisposable
     }
 
     /// <summary>
-    /// Applies a profile and a temporary emulation mode and variant override to a controller.
-    /// Unknown profile names are skipped (the previous lights stay). Shows a popup when
-    /// the profile changed. Caller must hold <see cref="_sync"/>.
+    /// Applies a profile and a temporary emulation mode, variant and forwarded-audio source
+    /// override to a controller. Unknown profile names are skipped (the previous lights stay).
+    /// Shows a popup when the profile changed. Caller must hold <see cref="_sync"/>.
     /// </summary>
     private void ApplyRule(DualSenseDevice device, string profileName, EmulationMode? mode, DualSenseVariant? dsVariant,
-        DualShock4Variant? ds4Variant, bool notify)
+        DualShock4Variant? ds4Variant, bool? audioFromSystemOutput, bool notify)
     {
         Profile? profile = _profiles.GetProfile(profileName);
         if (profile is not null)
@@ -284,7 +293,7 @@ public sealed class AutoProfileCoordinator : IDisposable
             _log.Warning($"Auto profile '{profileName}' not found; leaving lights unchanged");
         }
 
-        _emulation.SetTemporaryEmulationMode(device, mode, dsVariant, ds4Variant);
+        _emulation.SetTemporaryEmulationMode(device, mode, dsVariant, ds4Variant, audioFromSystemOutput);
     }
 
     /// <summary>

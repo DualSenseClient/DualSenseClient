@@ -77,12 +77,20 @@ If no mapping is desired, leave the editor empty — the default one-to-one mapp
 
 ## Host Audio Forwarding
 
-When emulating a DualSense, the virtual device exposes audio interfaces to the host: game audio can be forwarded to your **physical controller's speaker or headset**, with volume and haptic-strength controls.
+When emulating a DualSense or DualShock 4, the virtual device exposes audio interfaces to the host: game audio can be forwarded to your **physical controller's speaker or headset**, with volume and haptic-strength controls.
 
 Available under the emulation options as **Forwarded Audio Output** (Speaker vs. Headset), **Audio Volume** (0 – 255), and **Forward Haptics** (0 – 200).
 
 !!! note
     Forwarded-audio sliders apply to desktop sounds routed through the app.
+
+### Capture System Audio
+
+By default, only audio a game plays through the **virtual controller** is forwarded. Enable **Capture system audio** to instead forward whatever plays on your **system's default output device** — the game never needs to select the virtual controller, and desktop sound, music, or voice chat reaches the pad as well.
+
+- Works **without a virtual controller**: system audio is routed directly to the physical controller, in any emulation mode including off (also overridable per program in [Auto Profiles](auto-profiles.md))
+- Switchable at any time, including while a game is running — the two sources are exclusive, so the virtual controller's own capture is paused while system capture is active
+- What reaches the pad is unchanged: the **Forwarded Audio Output**, **Audio Volume**, and **Forward Haptics** settings still control speaker/headset, loudness, and haptic strength
 
 ## Status & Combining With Games
 

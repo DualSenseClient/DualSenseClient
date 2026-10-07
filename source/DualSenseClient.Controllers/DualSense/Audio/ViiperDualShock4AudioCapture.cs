@@ -25,7 +25,7 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 /// is flushed and the Bluetooth lane re-primes on the next block.
 /// </para>
 /// </remarks>
-public sealed class ViiperDualShock4AudioCapture : IDisposable
+public sealed class ViiperDualShock4AudioCapture : IDisposable, IViiperAudioCapture
 {
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("ViiperDualShock4AudioCapture");
 
@@ -60,6 +60,11 @@ public sealed class ViiperDualShock4AudioCapture : IDisposable
     /// Streaming 32 kHz → 48 kHz resampler, fed once per callback.
     /// </summary>
     private readonly Upsampler32To48 _upsampler = new Upsampler32To48();
+
+    /// <summary>
+    /// Whether captured audio is discarded because another source owns the forwarder.
+    /// </summary>
+    private volatile bool _isSuspended;
 
     /// <summary>
     /// Scratch buffer for the raw S16LE bytes copied out of the native callback.
@@ -109,6 +114,24 @@ public sealed class ViiperDualShock4AudioCapture : IDisposable
     }
 
     /// <summary>
+    /// When suspended, PCM the host renders to the virtual controller are discarded.
+    /// Set by the emulation service when the controller's forwarded-audio source
+    /// changes; a suspended capture keeps its registrations so the switch back is
+    /// immediate.
+    /// </summary>
+    public bool IsSuspended
+    {
+        get
+        {
+            return _isSuspended;
+        }
+        set
+        {
+            _isSuspended = value;
+        }
+    }
+
+    /// <summary>
     /// Converts an interleaved 2-channel S16LE block into interleaved stereo float.
     /// </summary>
     /// <param name="s16Le">Raw little-endian S16LE samples, 4 bytes per frame.</param>
@@ -132,7 +155,7 @@ public sealed class ViiperDualShock4AudioCapture : IDisposable
     private void OnSpeakerPcm(nuint handle, IntPtr pcm, nuint length)
     {
         int byteCount = (int)length;
-        if (byteCount < StereoBytesPerFrame)
+        if (byteCount < StereoBytesPerFrame || _isSuspended)
         {
             return;
         }

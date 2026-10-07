@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 namespace DualSenseClient.Settings.Sections;
 
 /// <summary>
-/// A foreground-app rule mapping one program to a profile, emulation mode and variant, trigger effects, and hiding.
+/// A foreground-app rule mapping one program to a profile, emulation mode and variant, trigger effects, forwarded-audio source, and hiding.
 /// An empty <see cref="ExePattern"/> and <see cref="WindowTitle"/> never matches;
 /// when only one is set, only that one is tested (AND when both are set).
 /// Both patterns are case-insensitive regular expressions (search semantics);
@@ -253,8 +253,17 @@ public class AutoProfileRule : INotifyPropertyChanged
     public TriggerEffectSettings? RightTrigger { get; set; }
 
     /// <summary>
-    /// Whether the rule leaves profile, emulation, variant, triggers, and hiding unchanged, making it a
-    /// no-op. The matcher skips such rules so they never shadow lower rules.
+    /// Gets or sets whether the controller's forwarded audio is captured from the
+    /// system's default output device (loopback) while the rule matches, or <c>null</c>
+    /// to leave the controller's stored setting unchanged. The system-output source is
+    /// routed directly to the physical controller and needs no virtual device.
+    /// </summary>
+    [JsonPropertyName("audio_from_output")]
+    public bool? AudioFromSystemOutput { get; set; }
+
+    /// <summary>
+    /// Whether the rule leaves profile, emulation, variant, triggers, the forwarded-audio source, and hiding unchanged,
+    /// making it a no-op. The matcher skips such rules so they never shadow lower rules.
     /// </summary>
     [JsonIgnore]
     public bool IsActionless
@@ -262,7 +271,8 @@ public class AutoProfileRule : INotifyPropertyChanged
         get
         {
             return string.IsNullOrEmpty(_profileName) && EmulationMode is null && DualSenseVariant is null
-                   && DualShock4Variant is null && LeftTrigger is null && RightTrigger is null && HideController is null;
+                   && DualShock4Variant is null && LeftTrigger is null && RightTrigger is null
+                   && AudioFromSystemOutput is null && HideController is null;
         }
     }
 

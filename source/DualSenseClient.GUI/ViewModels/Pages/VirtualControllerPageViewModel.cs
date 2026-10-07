@@ -287,7 +287,6 @@ public partial class VirtualControllerPageViewModel : ObservableObject
             OnPropertyChanged(nameof(IsEmulationEnabled));
             OnPropertyChanged(nameof(IsDualSenseEmulation));
             OnPropertyChanged(nameof(IsDualShock4Emulation));
-            OnPropertyChanged(nameof(IsAudioEmulation));
             OnPropertyChanged(nameof(IsMappingEditorVisible));
             NotifyTargetPickerState();
             RefreshMappingTargets();
@@ -317,18 +316,6 @@ public partial class VirtualControllerPageViewModel : ObservableObject
         get
         {
             return EmulationModeIndex == (int)EmulationMode.DualShock4;
-        }
-    }
-
-    /// <summary>
-    /// Whether the selected controller's emulation mode forwards host audio to the
-    /// physical controller (DualSense or DualShock 4).
-    /// </summary>
-    public bool IsAudioEmulation
-    {
-        get
-        {
-            return EmulationModeIndex is (int)EmulationMode.DualSense or (int)EmulationMode.DualShock4;
         }
     }
 
@@ -574,6 +561,43 @@ public partial class VirtualControllerPageViewModel : ObservableObject
             if (CurrentDualSenseDevice is { } device)
             {
                 _emulation.SetForwardingHapticsSource(device, value);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether the forwarded audio is captured from the system's default output device
+    /// (loopback) instead of the virtual controller's audio endpoint (two-way, persisted),
+    /// so any audio the host plays drives the controller's speaker and haptics without the
+    /// game selecting the virtual controller as its output. Routed directly to the
+    /// physical controller; needs no virtual device.
+    /// </summary>
+    public bool AudioFromSystemOutput
+    {
+        get
+        {
+            return HasDevice && GetEmulationSettings().Forward.AudioFromSystemOutput;
+        }
+        set
+        {
+            if (!HasDevice)
+            {
+                return;
+            }
+
+            EmulationSettings settings = GetEmulationSettings();
+            if (settings.Forward.AudioFromSystemOutput == value)
+            {
+                return;
+            }
+
+            _log.Info($"Setting system output audio capture of {CurrentMac} to {value}");
+            settings.Forward.AudioFromSystemOutput = value;
+            _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+            OnPropertyChanged(nameof(AudioFromSystemOutput));
+            if (CurrentDualSenseDevice is { } device)
+            {
+                _emulation.SetForwardingAudioSource(device, value);
             }
         }
     }
@@ -1487,7 +1511,6 @@ public partial class VirtualControllerPageViewModel : ObservableObject
         OnPropertyChanged(nameof(IsEmulationEnabled));
         OnPropertyChanged(nameof(IsDualSenseEmulation));
         OnPropertyChanged(nameof(IsDualShock4Emulation));
-        OnPropertyChanged(nameof(IsAudioEmulation));
         OnPropertyChanged(nameof(IsMappingEditorVisible));
         NotifyTargetPickerState();
         OnPropertyChanged(nameof(DualSenseVariantIndex));
@@ -1496,6 +1519,7 @@ public partial class VirtualControllerPageViewModel : ObservableObject
         OnPropertyChanged(nameof(ForwardVolume));
         OnPropertyChanged(nameof(ForwardHapticStrength));
         OnPropertyChanged(nameof(ForceAudioHaptics));
+        OnPropertyChanged(nameof(AudioFromSystemOutput));
         OnPropertyChanged(nameof(EmulationStatusText));
         OnPropertyChanged(nameof(CanChangeEmulation));
     }

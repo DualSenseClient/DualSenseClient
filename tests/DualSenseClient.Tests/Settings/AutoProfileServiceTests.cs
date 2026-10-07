@@ -291,4 +291,25 @@ public class AutoProfileServiceTests
             Assert.That(match.IsActionless, Is.False);
         });
     }
+
+    [Test]
+    public void Rule_AudioSourceOnly_MatchesAndRoundTrips()
+    {
+        AutoProfileService service = CreateService();
+        service.AddRule(new AutoProfileRule
+        {
+            ExePattern = "game\\.exe",
+            AudioFromSystemOutput = true
+        });
+
+        AutoProfileService reloaded = CreateService();
+        AutoProfileRule? match = reloaded.FindMatch(@"C:\game.exe", "Title", null, null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(match, Is.Not.Null);
+            Assert.That(match!.AudioFromSystemOutput, Is.True);
+            Assert.That(match.IsActionless, Is.False);
+        });
+    }
 }

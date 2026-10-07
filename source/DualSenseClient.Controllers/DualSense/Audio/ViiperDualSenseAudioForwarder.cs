@@ -427,9 +427,21 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
         _log.Info("Audio forwarding stopped");
     }
 
+    /// <summary>
+    /// Whether <see cref="Dispose"/> ran. A disposed forwarder drops fed audio and
+    /// must not be reused; the owning service replaces it instead.
+    /// </summary>
+    public bool IsDisposed { get; private set; }
+
     /// <inheritdoc/>
     public void Dispose()
     {
+        if (IsDisposed)
+        {
+            return;
+        }
+
+        IsDisposed = true;
         Stop();
         lock (_sync)
         {
