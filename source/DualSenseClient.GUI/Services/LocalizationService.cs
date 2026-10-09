@@ -55,6 +55,7 @@ public static class LocalizationService
     private static readonly CultureInfo[] SupportedLanguages =
     [
         new CultureInfo(DefaultLanguageCode) // English
+        , new CultureInfo("zh-CN") // 简体中文
         // Add Languages here
     ];
 
