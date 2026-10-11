@@ -158,28 +158,7 @@
                                                 ItemsSource="{Binding AudioSourceOptions}"
                                                 SelectedIndex="{Binding SelectedAudioSourceIndex}"
                                                 IsVisible="{Binding IsAudioSourceVisible}" />
-                            <cards:ComboBoxCard Title="{DynamicResource AudioSource.Mode.Title}"
-                                                Description="{DynamicResource AudioSource.Mode.Description}"
-                                                ItemsSource="{Binding AudioAppModeOptions}"
-                                                SelectedIndex="{Binding SelectedAudioAppModeIndex}"
-                                                IsVisible="{Binding IsAudioAppVisible}" />
-                            <cards:ComboBoxCard Title="{DynamicResource AutoProfilesPage.AudioSource.Application}"
-                                                Description="{DynamicResource AutoProfilesPage.AudioSource.Application.Description}"
-                                                ItemsSource="{Binding AudioAppOptions}"
-                                                SelectedIndex="{Binding SelectedAudioAppIndex}"
-                                                IsVisible="{Binding IsAudioAppListVisible}">
-                                <Button Command="{Binding RefreshAudioAppsCommand}"
-                                        ToolTip.Tip="{DynamicResource AutoProfilesPage.AudioSource.Refresh}">
-                                    <ic:FluentIcon Icon="ArrowClockwise"
-                                                   IconVariant="Regular" />
-                                </Button>
-                            </cards:ComboBoxCard>
-                            <TextBlock Text="{DynamicResource AudioSource.NoApplications}"
-                                       FontSize="12"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                       TextWrapping="Wrap"
-                                       IsVisible="{Binding IsAudioAppEmpty}" />
-                            <cards:CustomCard IsVisible="{Binding IsAudioAppBrowseVisible}">
+                            <cards:CustomCard IsVisible="{Binding IsAudioAppVisible}">
                                 <Grid ColumnDefinitions="*,Auto,Auto"
                                       ColumnSpacing="8">
                                     <cards:CardHeader Title="{DynamicResource AudioSource.Executable.Title}"

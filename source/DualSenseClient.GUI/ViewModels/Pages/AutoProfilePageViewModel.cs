@@ -1,13 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
-using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.HidHide;
 using DualSenseClient.Logging;
@@ -53,12 +50,6 @@ public partial class AutoProfilePageViewModel : ObservableObject
     /// Service reporting whether the hiding backend is installed and operational.
     /// </summary>
     private readonly IControllerHidingService _hiding;
-
-    /// <summary>
-    /// Service enumerating the applications currently producing audio for the rule's
-    /// application picker.
-    /// </summary>
-    private readonly AudioApplicationService _audioApplications;
 
     /// <summary>
     /// Whether foreground-app switching is available on this platform (Windows only).
@@ -130,11 +121,6 @@ public partial class AutoProfilePageViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(SelectedAudioSourceIndex))]
     [NotifyPropertyChangedFor(nameof(IsAudioSourceVisible))]
     [NotifyPropertyChangedFor(nameof(IsAudioAppVisible))]
-    [NotifyPropertyChangedFor(nameof(IsAudioAppListVisible))]
-    [NotifyPropertyChangedFor(nameof(IsAudioAppBrowseVisible))]
-    [NotifyPropertyChangedFor(nameof(IsAudioAppEmpty))]
-    [NotifyPropertyChangedFor(nameof(SelectedAudioAppIndex))]
-    [NotifyPropertyChangedFor(nameof(SelectedAudioAppModeIndex))]
     [NotifyPropertyChangedFor(nameof(AudioAppPath))]
     [NotifyPropertyChangedFor(nameof(SelectedLeftTriggerIndex))]
     [NotifyPropertyChangedFor(nameof(LeftTriggerStart))]
@@ -171,9 +157,6 @@ public partial class AutoProfilePageViewModel : ObservableObject
     {
         _rules.Save();
         SyncMatchScope(newValue);
-        // The newly selected rule may capture a different application: repopulate the
-        // picker so its selection reflects that rule.
-        _ = RefreshAudioApps();
     }
 
     /// <summary>
@@ -461,8 +444,8 @@ public partial class AutoProfilePageViewModel : ObservableObject
 
     /// <summary>
     /// Forwarded-audio source options for the selected rule: "leave unchanged", the audio
-    /// the game sends to the virtual controller, or a loopback capture of the system's
-    /// default output device.
+    /// the game sends to the virtual controller, a loopback capture of the system's
+    /// default output device, or a single application picked by executable path.
     /// </summary>
     public ObservableCollection<string> AudioSourceOptions { get; } =
     [
@@ -470,26 +453,6 @@ public partial class AutoProfilePageViewModel : ObservableObject
         LocalizationService.GetText("AutoProfilesPage.AudioSource.Controller"),
         LocalizationService.GetText("AutoProfilesPage.AudioSource.SystemOutput"),
         LocalizationService.GetText("AutoProfilesPage.AudioSource.Application")
-    ];
-
-    /// <summary>
-    /// Applications currently producing audio, backing the rule's application picker.
-    /// </summary>
-    public ObservableCollection<string> AudioAppOptions { get; } = [];
-
-    /// <summary>
-    /// The enumerated applications corresponding to <see cref="AudioAppOptions"/>.
-    /// </summary>
-    private readonly List<AudioApplicationInfo> _audioAppItems = [];
-
-    /// <summary>
-    /// Application-picker modes for the rule, in <see cref="EmulationAudioAppMode"/>
-    /// order (currently-playing list, executable file picked with the file browser).
-    /// </summary>
-    public ObservableCollection<string> AudioAppModeOptions { get; } =
-    [
-        LocalizationService.GetText("AudioSource.Mode.PlayingApps"),
-        LocalizationService.GetText("AudioSource.Mode.ExecutableFile")
     ];
 
     /// <summary>
@@ -532,10 +495,6 @@ public partial class AutoProfilePageViewModel : ObservableObject
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsRuleActionless));
             OnPropertyChanged(nameof(IsAudioAppVisible));
-            OnPropertyChanged(nameof(IsAudioAppListVisible));
-            OnPropertyChanged(nameof(IsAudioAppBrowseVisible));
-            OnPropertyChanged(nameof(IsAudioAppEmpty));
-            _ = RefreshAudioApps();
         }
     }
 
@@ -552,85 +511,8 @@ public partial class AutoProfilePageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// The captured application as an index into the picker modes
-    /// (<see cref="EmulationAudioAppMode"/> value; null means the default list mode).
-    /// Setting it persists immediately. The mode only decides how the path is chosen.
-    /// </summary>
-    public int SelectedAudioAppModeIndex
-    {
-        get
-        {
-            return SelectedRule?.AudioAppMode == EmulationAudioAppMode.ExecutableFile
-                ? (int)EmulationAudioAppMode.ExecutableFile
-                : (int)EmulationAudioAppMode.PlayingApps;
-        }
-        set
-        {
-            if (SelectedRule is null)
-            {
-                return;
-            }
-
-            EmulationAudioAppMode mode = (EmulationAudioAppMode)Math.Clamp(value, 0, (int)EmulationAudioAppMode.ExecutableFile);
-            if (SelectedRule.AudioAppMode == mode)
-            {
-                return;
-            }
-
-            SelectedRule.AudioAppMode = mode;
-            _rules.Save();
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(IsRuleActionless));
-            OnPropertyChanged(nameof(IsAudioAppListVisible));
-            OnPropertyChanged(nameof(IsAudioAppBrowseVisible));
-            OnPropertyChanged(nameof(IsAudioAppEmpty));
-            if (mode == EmulationAudioAppMode.PlayingApps)
-            {
-                _ = RefreshAudioApps();
-            }
-        }
-    }
-
-    /// <summary>
-    /// Whether the application picker is shown but has no entries, so the page can
-    /// explain that nothing is playing instead of showing an empty dropdown. Only list
-    /// mode has entries to be empty.
-    /// </summary>
-    public bool IsAudioAppEmpty
-    {
-        get
-        {
-            return IsAudioAppListVisible && AudioAppOptions.Count == 0;
-        }
-    }
-
-    /// <summary>
-    /// Whether the list of currently playing applications is shown: the rule selects the
-    /// application source and its picker is in list mode.
-    /// </summary>
-    public bool IsAudioAppListVisible
-    {
-        get
-        {
-            return IsAudioAppVisible && SelectedAudioAppModeIndex == (int)EmulationAudioAppMode.PlayingApps;
-        }
-    }
-
-    /// <summary>
-    /// Whether the executable-file row is shown: the rule selects the application source
-    /// and its picker is in executable-file mode.
-    /// </summary>
-    public bool IsAudioAppBrowseVisible
-    {
-        get
-        {
-            return IsAudioAppVisible && SelectedAudioAppModeIndex == (int)EmulationAudioAppMode.ExecutableFile;
-        }
-    }
-
-    /// <summary>
-    /// The executable path captured by the rule, shown (and browsed to) in
-    /// executable-file mode. Empty when nothing has been chosen yet.
+    /// The executable path captured by the rule, shown (and browsed to) on the page.
+    /// Empty when nothing has been chosen yet.
     /// </summary>
     public string AudioAppPath
     {
@@ -641,47 +523,8 @@ public partial class AutoProfilePageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// The selected rule's captured application as an index into
-    /// <see cref="AudioAppOptions"/>, or -1 when none is selected. Setting it persists
-    /// immediately.
-    /// </summary>
-    public int SelectedAudioAppIndex
-    {
-        get
-        {
-            string stored = SelectedRule?.AudioApp ?? string.Empty;
-            if (string.IsNullOrEmpty(stored))
-            {
-                return -1;
-            }
-
-            return _audioAppItems.FindIndex(app =>
-                string.Equals(app.ExecutablePath, stored, StringComparison.OrdinalIgnoreCase));
-        }
-        set
-        {
-            if (SelectedRule is null || value < 0 || value >= _audioAppItems.Count)
-            {
-                return;
-            }
-
-            string applicationPath = _audioAppItems[value].ExecutablePath;
-            if (string.Equals(SelectedRule.AudioApp, applicationPath, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            SelectedRule.AudioApp = applicationPath;
-            _rules.Save();
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(AudioAppPath));
-        }
-    }
-
-    /// <summary>
     /// Applies an executable picked with the file browser: stores it as the rule's
-    /// captured application and refreshes the list, so the choice also appears in list
-    /// mode.
+    /// captured application.
     /// </summary>
     /// <param name="applicationPath">Full path of the chosen executable.</param>
     public void SelectAudioApplication(string applicationPath)
@@ -698,39 +541,6 @@ public partial class AutoProfilePageViewModel : ObservableObject
 
         SelectedRule.AudioApp = applicationPath;
         _rules.Save();
-        OnPropertyChanged(nameof(AudioAppPath));
-        _ = RefreshAudioApps();
-    }
-
-    /// <summary>
-    /// Re-enumerates the applications currently producing audio. Enumeration runs off the
-    /// UI thread; a stored application that is not currently playing stays listed so the
-    /// selection remains visible. Results for a rule switched away from meanwhile are
-    /// discarded.
-    /// </summary>
-    [RelayCommand]
-    private async Task RefreshAudioApps()
-    {
-        AutoProfileRule? rule = SelectedRule;
-        string stored = rule?.AudioApp ?? string.Empty;
-        List<AudioApplicationInfo> apps =
-            new List<AudioApplicationInfo>(await Task.Run(_audioApplications.GetPlayingApplications));
-        if (!ReferenceEquals(SelectedRule, rule))
-        {
-            return;
-        }
-
-        if (!string.IsNullOrEmpty(stored)
-            && !apps.Any(app => string.Equals(app.ExecutablePath, stored, StringComparison.OrdinalIgnoreCase)))
-        {
-            apps.Insert(0, new AudioApplicationInfo(Path.GetFileNameWithoutExtension(stored), stored, 0));
-        }
-
-        _audioAppItems.Clear();
-        _audioAppItems.AddRange(apps);
-        SyncOptions(AudioAppOptions, _audioAppItems.Select(app => app.DisplayName).ToList());
-        OnPropertyChanged(nameof(SelectedAudioAppIndex));
-        OnPropertyChanged(nameof(IsAudioAppEmpty));
         OnPropertyChanged(nameof(AudioAppPath));
     }
 
@@ -1401,7 +1211,6 @@ public partial class AutoProfilePageViewModel : ObservableObject
         _profiles = App.Services.GetRequiredService<ProfileService>();
         _controllers = App.Services.GetRequiredService<ControllerInfoService>();
         _hiding = App.Services.GetRequiredService<IControllerHidingService>();
-        _audioApplications = App.Services.GetRequiredService<AudioApplicationService>();
         Refresh();
     }
 
@@ -1437,7 +1246,6 @@ public partial class AutoProfilePageViewModel : ObservableObject
         SelectedRule = selected is not null && Rules.Contains(selected) ? selected : Rules.FirstOrDefault();
         OnPropertyChanged(nameof(Enabled));
         OnPropertyChanged(nameof(HidingAvailable));
-        _ = RefreshAudioApps();
     }
 
     /// <summary>
