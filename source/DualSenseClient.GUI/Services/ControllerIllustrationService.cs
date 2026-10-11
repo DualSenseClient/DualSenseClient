@@ -217,6 +217,14 @@ public sealed class ControllerIllustrationService
     private const int PlayerLedLineHeight = 1;
 
     /// <summary>
+    /// Minimum number of mask pixels a row needs to count as part of the lightbar's
+    /// horizontal bottom segment (the line below the touchpad). Side rows carry only the
+    /// two vertical strips (at most ~80 pixels), the line rows carry the full run (~200
+    /// and up) in the default skin the shared mask is extracted from.
+    /// </summary>
+    private const int BottomSegmentMinRowCount = 150;
+
+    /// <summary>
     /// Gets all available skin names, in the order they are presented to the user.
     /// </summary>
     public IReadOnlyList<string> GetSkins()
@@ -333,8 +341,11 @@ public sealed class ControllerIllustrationService
     /// Returns a copy of <paramref name="source"/> whose lightbar pixels are recolored to
     /// the given RGB (preserving luminance and alpha) and whose lit player LEDs are drawn
     /// as bright dots on the lightbar segment below the touchpad, or <c>null</c> when the
-    /// mask or the pixel format are unavailable. Dev Mode bases render the lightbar in
-    /// black, so they are recolored from the default render's luminance instead.
+    /// mask or the pixel format are unavailable. Only the two vertical side segments are
+    /// recolored: the horizontal line below the touchpad is blacked out instead, erasing
+    /// its baked glow, because the physical controller only glows on the touchpad's sides
+    /// there. Dev Mode bases render the lightbar in black, so they are recolored from the
+    /// default render's luminance instead.
     /// </summary>
     private static Bitmap? TintLightbar(Bitmap source, byte red, byte green, byte blue, byte playerLeds, bool useSharedLuminance)
     {
@@ -348,6 +359,7 @@ public sealed class ControllerIllustrationService
         int height = source.PixelSize.Height;
         int rowBytes = width * 4;
         byte[] buffer = ReadPixels(source, width, height, rowBytes);
+        int bottomSegmentStart = BottomSegmentStartRow(mask);
 
         for (int i = 0; i < mask.Count; i++)
         {
@@ -358,6 +370,17 @@ public sealed class ControllerIllustrationService
             }
 
             int offset = y * rowBytes + x * 4;
+
+            // The line below the touchpad is dark like the physical strip; only the
+            // player LEDs drawn on top of it later light it up.
+            if (y >= bottomSegmentStart)
+            {
+                buffer[offset] = 0;
+                buffer[offset + 1] = 0;
+                buffer[offset + 2] = 0;
+                continue;
+            }
+
             if (!useSharedLuminance)
             {
                 luminance = (byte)((buffer[offset] + buffer[offset + 1] + buffer[offset + 2]) / 3);
@@ -393,6 +416,33 @@ public sealed class ControllerIllustrationService
         }
 
         return tinted;
+    }
+
+    /// <summary>
+    /// Finds the first row of the lightbar's horizontal bottom segment (the line below the
+    /// touchpad): scanning upward from the mask's lowest row, rows belong to the segment
+    /// while they are filled across, unlike the sparse side strips.
+    /// </summary>
+    private static int BottomSegmentStartRow(List<(int X, int Y, byte Luminance)> mask)
+    {
+        Dictionary<int, int> rowCounts = new Dictionary<int, int>();
+        int maxY = 0;
+        foreach ((int x, int y, _) in mask)
+        {
+            rowCounts[y] = rowCounts.TryGetValue(y, out int count) ? count + 1 : 1;
+            if (y > maxY)
+            {
+                maxY = y;
+            }
+        }
+
+        int start = maxY + 1;
+        while (rowCounts.TryGetValue(start - 1, out int count) && count >= BottomSegmentMinRowCount)
+        {
+            start--;
+        }
+
+        return start;
     }
 
     /// <summary>
