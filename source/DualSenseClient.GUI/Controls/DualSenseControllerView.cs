@@ -23,8 +23,9 @@ namespace DualSenseClient.GUI.Controls;
 /// <remarks>
 /// <para>
 /// The layout is sprite-based: positions are given as offsets from the base image center in
-/// 1467x816 asset pixels, scaled down by <see cref="Scale"/> (0.45 by default). The triggers
-/// sit behind the base (visible through its holes), everything else on top.
+/// 1467x816 asset pixels. The illustration scales to fit the space the layout gives it,
+/// capped at the native asset resolution; the triggers sit behind the base (visible through
+/// its holes), everything else on top.
 /// </para>
 /// <para>
 /// The control owns its visuals and updates them directly on <see cref="INotifyPropertyChanged"/>
@@ -36,9 +37,18 @@ namespace DualSenseClient.GUI.Controls;
 public sealed class DualSenseControllerView : Canvas
 {
     /// <summary>
-    /// Default display scale applied to the 1467x816 asset-space layout.
+    /// Display scale used when both layout constraints are infinite (e.g. inside an
+    /// auto-sized grid column), matching the fixed size the control rendered at before
+    /// it learned to fit its available space.
     /// </summary>
     private const double DefaultScale = 0.45;
+
+    /// <summary>
+    /// Smallest scale change that triggers a sprite tree rebuild in
+    /// <see cref="MeasureOverride"/>; smaller changes are ignored so layout passes that
+    /// re-measure with unchanged constraints do no work.
+    /// </summary>
+    private const double ScaleEpsilon = 0.001;
 
     /// <summary>
     /// Asset-space width of the base controller image.
@@ -204,12 +214,6 @@ public sealed class DualSenseControllerView : Canvas
         AvaloniaProperty.Register<DualSenseControllerView, string>(nameof(SkinName), string.Empty);
 
     /// <summary>
-    /// Display scale applied to the 1467x816 asset-space layout.
-    /// </summary>
-    public static readonly StyledProperty<double> ScaleProperty =
-        AvaloniaProperty.Register<DualSenseControllerView, double>(nameof(Scale), DefaultScale);
-
-    /// <summary>
     /// Whether stick, trigger, and touch movement is shown on the visualization.
     /// </summary>
     public static readonly StyledProperty<bool> ShowMovementProperty =
@@ -275,21 +279,6 @@ public sealed class DualSenseControllerView : Canvas
         set
         {
             SetValue(SkinNameProperty, value);
-        }
-    }
-
-    /// <summary>
-    /// Display scale applied to the 1467x816 asset-space layout.
-    /// </summary>
-    public double Scale
-    {
-        get
-        {
-            return GetValue(ScaleProperty);
-        }
-        set
-        {
-            SetValue(ScaleProperty, value);
         }
     }
 
@@ -582,13 +571,43 @@ public sealed class DualSenseControllerView : Canvas
     {
         StateProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.Rebuild());
         SkinNameProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.Rebuild());
-        ScaleProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.Rebuild());
         ShowMovementProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.OnDisplayOptionsChanged());
         ShowButtonPressesProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.OnDisplayOptionsChanged());
         ShowLightbarLedsProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.OnDisplayOptionsChanged());
         ShowStatsProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.OnDisplayOptionsChanged());
         SelectedButtonsProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.UpdateSelectionHighlights());
         IsButtonSelectionEnabledProperty.Changed.AddClassHandler<DualSenseControllerView>((view, _) => view.OnButtonSelectionEnabledChanged());
+    }
+
+    /// <summary>
+    /// Fits the illustration into the available space: the scale is the largest factor
+    /// that fits both constraints, capped at the native asset resolution (beyond it the
+    /// bitmaps would only blur). The sprite tree is rebuilt only when the scale actually
+    /// changes, so layout passes with unchanged constraints do no work.
+    /// </summary>
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        double scale = ComputeScale(availableSize);
+        if (Math.Abs(scale - _scale) > ScaleEpsilon)
+        {
+            _scale = scale;
+            Rebuild();
+        }
+
+        base.MeasureOverride(availableSize);
+        return new Size(BaseWidth * _scale, BaseHeight * _scale);
+    }
+
+    /// <summary>
+    /// Computes the display scale that fits the 1467x816 asset-space layout into the given
+    /// constraints, falling back to the default when both are infinite.
+    /// </summary>
+    private double ComputeScale(Size availableSize)
+    {
+        double scaleX = double.IsInfinity(availableSize.Width) ? double.PositiveInfinity : availableSize.Width / BaseWidth;
+        double scaleY = double.IsInfinity(availableSize.Height) ? double.PositiveInfinity : availableSize.Height / BaseHeight;
+        double scale = Math.Min(scaleX, scaleY);
+        return double.IsInfinity(scale) ? DefaultScale : Math.Clamp(scale, 0, 1);
     }
 
     /// <summary>
@@ -630,10 +649,7 @@ public sealed class DualSenseControllerView : Canvas
 
         IControllerMonitorState? state = State;
         string skin = SkinName ?? string.Empty;
-        double scale = _scale = Scale;
-
-        Width = BaseWidth * scale;
-        Height = BaseHeight * scale;
+        double scale = _scale;
 
         if (state is null)
         {

@@ -82,12 +82,6 @@ public sealed class VirtualControllerTargetView : Canvas
     public static readonly StyledProperty<bool> IsSelectionEnabledProperty =
         AvaloniaProperty.Register<VirtualControllerTargetView, bool>(nameof(IsSelectionEnabled));
 
-    /// <summary>
-    /// Display scale applied to the native canvas size of the selected layout.
-    /// </summary>
-    public static readonly StyledProperty<double> ScaleProperty =
-        AvaloniaProperty.Register<VirtualControllerTargetView, double>(nameof(Scale), 0.62);
-
     public VirtualControllerKind Kind
     {
         get
@@ -124,18 +118,6 @@ public sealed class VirtualControllerTargetView : Canvas
         }
     }
 
-    public double Scale
-    {
-        get
-        {
-            return GetValue(ScaleProperty);
-        }
-        set
-        {
-            SetValue(ScaleProperty, value);
-        }
-    }
-
     /// <summary>
     /// Raised when the user clicks a button on the illustration while
     /// <see cref="IsSelectionEnabled"/> is set; carries the raw target name.
@@ -143,6 +125,26 @@ public sealed class VirtualControllerTargetView : Canvas
     public event EventHandler<string>? TargetClicked;
 
     private const string AssetPrefix = "avares://DualSenseClient/Assets/Controllers/";
+
+    /// <summary>
+    /// Display scale used when both layout constraints are infinite (e.g. inside an
+    /// auto-sized grid column), matching the fixed size the control rendered at before
+    /// it learned to fit its available space.
+    /// </summary>
+    private const double DefaultScale = 0.62;
+
+    /// <summary>
+    /// Smallest scale change that triggers a sprite tree rebuild in
+    /// <see cref="MeasureOverride"/>; smaller changes are ignored so layout passes that
+    /// re-measure with unchanged constraints do no work.
+    /// </summary>
+    private const double ScaleEpsilon = 0.001;
+
+    /// <summary>
+    /// The scale the visuals were last built with, updated from the layout constraints
+    /// in <see cref="MeasureOverride"/>.
+    /// </summary>
+    private double _scale = DefaultScale;
 
     /// <summary>
     /// Loaded bitmaps, cached by asset URI.
@@ -236,9 +238,14 @@ public sealed class VirtualControllerTargetView : Canvas
 
     static VirtualControllerTargetView()
     {
-        KindProperty.Changed.AddClassHandler<VirtualControllerTargetView>((view, _) => view.Rebuild());
+        KindProperty.Changed.AddClassHandler<VirtualControllerTargetView>((view, _) =>
+        {
+            // The native canvas size differs per kind, so the fitted scale must be
+            // recomputed on the next measure pass as well.
+            view.Rebuild();
+            view.InvalidateMeasure();
+        });
         SelectedTargetsProperty.Changed.AddClassHandler<VirtualControllerTargetView>((view, _) => view.UpdateSelectionMarker());
-        ScaleProperty.Changed.AddClassHandler<VirtualControllerTargetView>((view, _) => view.Rebuild());
     }
 
     /// <summary>
@@ -283,16 +290,46 @@ public sealed class VirtualControllerTargetView : Canvas
     }
 
     /// <summary>
+    /// Fits the illustration into the available space: the scale is the largest factor
+    /// that fits both constraints, capped at the native asset resolution (beyond it the
+    /// bitmaps would only blur). The sprite tree is rebuilt only when the scale actually
+    /// changes, so layout passes with unchanged constraints do no work.
+    /// </summary>
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        double scale = ComputeScale(availableSize);
+        if (Math.Abs(scale - _scale) > ScaleEpsilon)
+        {
+            _scale = scale;
+            Rebuild();
+        }
+
+        base.MeasureOverride(availableSize);
+        Layout layout = Layouts[Kind];
+        return new Size(layout.Width * _scale, layout.Height * _scale);
+    }
+
+    /// <summary>
+    /// Computes the display scale that fits the selected layout's native canvas size into
+    /// the given constraints, falling back to the default when both are infinite.
+    /// </summary>
+    private double ComputeScale(Size availableSize)
+    {
+        Layout layout = Layouts[Kind];
+        double scaleX = double.IsInfinity(availableSize.Width) ? double.PositiveInfinity : availableSize.Width / layout.Width;
+        double scaleY = double.IsInfinity(availableSize.Height) ? double.PositiveInfinity : availableSize.Height / layout.Height;
+        double scale = Math.Min(scaleX, scaleY);
+        return double.IsInfinity(scale) ? DefaultScale : Math.Clamp(scale, 0, 1);
+    }
+
+    /// <summary>
     /// Rebuilds the sprite tree for the current kind and scale.
     /// </summary>
     private void Rebuild()
     {
         Children.Clear();
         Layout layout = Layouts[Kind];
-        double scale = Scale;
-
-        Width = layout.Width * scale;
-        Height = layout.Height * scale;
+        double scale = _scale;
 
         foreach (Decoration decoration in layout.Decorations)
         {
@@ -331,7 +368,7 @@ public sealed class VirtualControllerTargetView : Canvas
                 continue;
             }
 
-            Image marker = AddSprite(hotspot.Overlay, hotspot.CenterX, hotspot.CenterY, hotspot.Width, hotspot.Height, Scale);
+            Image marker = AddSprite(hotspot.Overlay, hotspot.CenterX, hotspot.CenterY, hotspot.Width, hotspot.Height, _scale);
             marker.Tag = "selection";
             marker.ZIndex = 100;
         }
@@ -371,10 +408,10 @@ public sealed class VirtualControllerTargetView : Canvas
         Layout layout = Layouts[Kind];
         foreach (Hotspot hotspot in layout.Hotspots)
         {
-            double left = (hotspot.CenterX - hotspot.Width / 2) * Scale;
-            double top = (hotspot.CenterY - hotspot.Height / 2) * Scale;
-            if (position.X >= left && position.X <= left + hotspot.Width * Scale
-                                   && position.Y >= top && position.Y <= top + hotspot.Height * Scale)
+            double left = (hotspot.CenterX - hotspot.Width / 2) * _scale;
+            double top = (hotspot.CenterY - hotspot.Height / 2) * _scale;
+            if (position.X >= left && position.X <= left + hotspot.Width * _scale
+                                   && position.Y >= top && position.Y <= top + hotspot.Height * _scale)
             {
                 TargetClicked?.Invoke(this, hotspot.Target);
                 return;
