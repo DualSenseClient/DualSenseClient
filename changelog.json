@@ -1,5 +1,12 @@
 [
  {
+  "tag": "v1.0.0-15.fff354f",
+  "name": "DualSenseClient (v1.0.0-15.fff354f)",
+  "publishedAt": "2026-10-11T16:16:14Z",
+  "prerelease": true,
+  "body": "### Features\n\n- **profiles: Select rule application by executable file only** ([fff354f](https://github.com/DualSenseClient/DualSenseClient/commit/fff354fb7d37cb6e4f5ecb7ba4e72ba5b72094a0))\n- **controller: Executable picker for forwarding specific program audio** ([0e0138f](https://github.com/DualSenseClient/DualSenseClient/commit/0e0138fda12e24aa9b19fc23ab6f4716cd42174b))\n- **controller: Forward specific program audio directly to the physical controller** ([8e827e7](https://github.com/DualSenseClient/DualSenseClient/commit/8e827e7bade08c9aa148f37f2e4add0fc7fdd040))\n- **controller: Forward system audio directly to the physical controller** ([5dccc26](https://github.com/DualSenseClient/DualSenseClient/commit/5dccc266987119160f2476098b20fe3e1ce78bda))\n\n### Bug Fixes\n\n- **emulation: Restore host-audio forwarding over USB** ([d170d3b](https://github.com/DualSenseClient/DualSenseClient/commit/d170d3bfb648f3e0678407814de078e41087b5f7))"
+ },
+ {
   "tag": "v1.0.0-14.10c046f",
   "name": "DualSenseClient (v1.0.0-14.10c046f)",
   "publishedAt": "2026-10-06T21:33:50Z",
