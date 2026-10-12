@@ -59,6 +59,14 @@ public class UiSettings
     public bool ShowBatteryPercentage { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets whether the main window uses the Mica backdrop on Windows 11.
+    /// Only applied for the System, Light, and Dark themes; the other themes define
+    /// their own solid backgrounds. Defaults to <c>true</c>.
+    /// </summary>
+    [JsonPropertyName("mica")]
+    public bool Mica { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets the desktop notification popup settings.
     /// </summary>
     [JsonPropertyName("notifications")]

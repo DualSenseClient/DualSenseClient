@@ -16,6 +16,11 @@
     <Application.Styles>
         <faStyle:FluentAvaloniaTheme PreferSystemTheme="True"
                                      PreferUserAccentColor="False" />
+        <!-- App typography: Inter everywhere, falling back to the system UI font -->
+        <Style Selector="Window,PopupRoot">
+            <Setter Property="FontFamily"
+                    Value="avares://Avalonia.Fonts.Inter/Assets#Inter,Segoe UI" />
+        </Style>
         <!-- Custom Controls -->
         <StyleInclude Source="/Controls/Controls.axaml" />
     </Application.Styles>

@@ -4,8 +4,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
+using FluentAvalonia.Styling;
 using FluentAvalonia.UI.Windowing;
 using Microsoft.Extensions.DependencyInjection;
+using DualSenseClient.Core.Models;
 using DualSenseClient.Core.Utilities;
 using DualSenseClient.GUI.Controls;
 using DualSenseClient.GUI.Services;
@@ -68,6 +71,37 @@ public partial class MainWindow : FAAppWindow
         _settingsService.SettingsChanged += OnSettingsChanged;
         Closing += OnClosing;
         Opened += OnFirstOpened;
+        ActualThemeVariantChanged += OnThemeVariantChanged;
+    }
+
+    /// <summary>
+    /// Enables the Mica backdrop on Windows 11 and re-applies it when the theme variant
+    /// changes (high contrast needs an opaque window again). Other platforms keep the
+    /// solid background.
+    /// </summary>
+    private void OnThemeVariantChanged(object? sender, EventArgs e) => ApplyBackdrop();
+
+    /// <summary>
+    /// Applies the window backdrop for the current platform, theme, and setting: Mica on
+    /// Windows 11 when enabled and the selected theme is one that supports it (System,
+    /// Light, Dark; the AMOLED and PlayStation themes define their own solid backgrounds).
+    /// </summary>
+    private void ApplyBackdrop()
+    {
+        Theme theme = _settingsService.Settings.Ui.Theme;
+        bool micaAllowed = theme is DualSenseClient.Core.Models.Theme.System
+            or DualSenseClient.Core.Models.Theme.Light
+            or DualSenseClient.Core.Models.Theme.Dark;
+        if (!_settingsService.Settings.Ui.Mica || !micaAllowed
+                                               || !IsWindows11 || ActualThemeVariant == FluentAvaloniaTheme.HighContrastTheme)
+        {
+            ClearValue(BackgroundProperty);
+            ClearValue(TransparencyBackgroundFallbackProperty);
+            return;
+        }
+
+        Background = Brushes.Transparent;
+        TransparencyLevelHint = [WindowTransparencyLevel.Mica];
     }
 
     /// <summary>
@@ -79,6 +113,7 @@ public partial class MainWindow : FAAppWindow
         try
         {
             Opened -= OnFirstOpened;
+            ApplyBackdrop();
             await ShowWhatsNewAsync();
         }
         catch (Exception ex)
@@ -151,7 +186,11 @@ public partial class MainWindow : FAAppWindow
     /// <summary>
     /// Keeps <see cref="_closeToTray"/> in sync with the "close to tray" setting.
     /// </summary>
-    private void OnSettingsChanged(object? sender, EventArgs e) => _closeToTray = _settingsService.Settings.Ui.CloseToTray;
+    private void OnSettingsChanged(object? sender, EventArgs e)
+    {
+        _closeToTray = _settingsService.Settings.Ui.CloseToTray;
+        ApplyBackdrop();
+    }
 
     /// <summary>
     /// Hides the window to the tray instead of closing it when the "close to tray" setting
