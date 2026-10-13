@@ -5,8 +5,8 @@ using DualSenseClient.GUI.ViewModels.Pages;
 namespace DualSenseClient.GUI.Views.Pages;
 
 /// <summary>
-/// Device info page displaying firmware and hardware information for the
-/// controller selected in the title bar combobox.
+/// Device info page showing the selected controller's illustration, live status, identification,
+/// controller hiding, firmware information, and its assigned profile.
 /// </summary>
 /// <remarks>
 /// Resolves <see cref="DeviceInfoPageViewModel"/> from the DI container and sets it as the
@@ -17,17 +17,11 @@ namespace DualSenseClient.GUI.Views.Pages;
 public partial class DeviceInfoPage : UserControl
 {
     /// <summary>
-    /// The ViewModel driving the device info display.
-    /// </summary>
-    private readonly DeviceInfoPageViewModel _viewModel;
-
-    /// <summary>
     /// Initializes the device info page, resolving the ViewModel from DI.
     /// </summary>
     public DeviceInfoPage()
     {
         InitializeComponent();
-        _viewModel = App.Services.GetRequiredService<DeviceInfoPageViewModel>();
-        DataContext = _viewModel;
+        DataContext = App.Services.GetRequiredService<DeviceInfoPageViewModel>();
     }
 }

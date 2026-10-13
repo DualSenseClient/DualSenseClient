@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.Bluetooth;
 using DualSenseClient.Controllers;
@@ -82,7 +82,6 @@ public abstract class ServiceConfigurator
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<SettingsPageViewModel>();
         services.AddSingleton<DeviceInfoPageViewModel>();
-        services.AddSingleton<InputMonitorPageViewModel>();
         services.AddSingleton<ProfilePageViewModel>();
         services.AddSingleton<VirtualControllerPageViewModel>();
         services.AddSingleton<AutoProfilePageViewModel>();

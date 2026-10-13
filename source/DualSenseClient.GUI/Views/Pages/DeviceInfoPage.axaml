@@ -1,293 +1,444 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:DualSenseClient.GUI.ViewModels.Pages"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:ic="using:FluentIcons.Avalonia.Fluent"
+             xmlns:icm="using:FluentIcons.Avalonia.Fluent.Markup"
              xmlns:cards="clr-namespace:DualSenseClient.GUI.Controls.Cards"
              xmlns:controls="clr-namespace:DualSenseClient.GUI.Controls"
+             xmlns:items="using:DualSenseClient.GUI.Models.Items"
              xmlns:settings="using:DualSenseClient.Settings"
-             xmlns:fic="using:FluentIcons.Common"
-             xmlns:ic="using:FluentIcons.Avalonia.Fluent"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
-             d:DesignWidth="800"
-             d:DesignHeight="450"
+             d:DesignWidth="1000"
+             d:DesignHeight="900"
              x:Class="DualSenseClient.GUI.Views.Pages.DeviceInfoPage"
              x:DataType="vm:DeviceInfoPageViewModel">
+    <UserControl.Resources>
+    </UserControl.Resources>
     <Design.DataContext>
         <vm:DeviceInfoPageViewModel />
     </Design.DataContext>
     <ScrollViewer>
-        <StackPanel Spacing="16"
-                    Margin="24">
+        <StackPanel Spacing="4"
+                    Margin="24,12,24,24">
             <!-- Empty state shown when no controller is selected -->
             <cards:EmptyStateCard Title="{DynamicResource DeviceInfoPage.NoDevice.Title}"
                                   Description="{DynamicResource DeviceInfoPage.NoDevice.Description}"
                                   IsVisible="{Binding !HasDevice}" />
 
-            <!-- Device -->
-            <Expander IsVisible="{Binding HasDevice}"
-                      IsExpanded="True">
-                <Expander.Header>
-                    <cards:CardHeader Title="{DynamicResource DeviceInfoPage.Device.Title}"
-                                      Description="{DynamicResource DeviceInfoPage.Device.Description}"
-                                      Icon="{x:Static fic:Symbol.PeopleGameController}"
-                                      MinHeight="64" />
-                </Expander.Header>
-                <StackPanel Spacing="8">
-                    <cards:CustomCard>
-                        <controls:DualSenseControllerView State="{Binding MonitorState}"
-                                                          SkinName="{Binding SkinName}"
-                                                          ShowMovement="False"
-                                                          ShowButtonPresses="False"
-                                                          ShowStats="False"
-                                                          HorizontalAlignment="Center" />
-                    </cards:CustomCard>
-                    <cards:TextBoxCard Title="{DynamicResource DeviceInfoPage.Device.Name}"
-                                       Text="{Binding ControllerName}"
-                                       MaxLength="{x:Static settings:ControllerInfoService.MaxNameLength}"
-                                       TextBoxMaxWidth="300" />
-                    <cards:ComboBoxCard Title="{DynamicResource DeviceInfoPage.Device.Skin}"
-                                        Description="{DynamicResource DeviceInfoPage.Device.Skin.Description}"
-                                        ItemsSource="{Binding Skins}"
-                                        SelectedIndex="{Binding SkinIndex}" />
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Device.ConnectionType}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.ConnectionType}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Pairing.ClientMac}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.ClientMac}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
+            <!-- Controller illustration -->
+            <StackPanel Spacing="10"
+                        IsVisible="{Binding HasDevice}">
+                <controls:DualSenseControllerView State="{Binding MonitorState}"
+                                                  SkinName="{Binding SkinName}"
+                                                  ShowStats="{Binding ShowStats}"
+                                                  MaxWidth="723"
+                                                  MaxHeight="403"
+                                                  HorizontalAlignment="Center" />
 
-                    <!-- Battery -->
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Battery.Level}"
-                                       VerticalAlignment="Center" />
-                            <StackPanel Grid.Column="1"
-                                        Orientation="Horizontal"
-                                        Spacing="6"
-                                        VerticalAlignment="Center">
-                                <Button Command="{Binding ToggleBatteryDisplayCommand}"
-                                        IsVisible="{Binding ShowBatteryPercentage}"
-                                        ToolTip.Tip="{Binding CurrentDevice.BatteryPercentage}"
-                                        Padding="8,4">
-                                    <TextBlock Text="{Binding CurrentDevice.BatteryPercentage}" />
-                                </Button>
-                                <Button Command="{Binding ToggleBatteryDisplayCommand}"
-                                        IsVisible="{Binding ShowBatteryIcon}"
-                                        ToolTip.Tip="{Binding CurrentDevice.BatteryPercentage}"
-                                        Padding="8,4">
-                                    <ic:FluentIcon Icon="{Binding CurrentDevice.BatteryIcon}" />
-                                </Button>
-                            </StackPanel>
-                        </Grid>
-                    </cards:CustomCard>
-
-                    <!-- Hide this controller -->
-                    <cards:ToggleSwitchCard Title="{DynamicResource DeviceInfoPage.Hiding.Title}"
-                                            Description="{Binding HidingDescription}"
-                                            IsChecked="{Binding IsControllerHidden}"
-                                            IsEnabled="{Binding CanHideController}"
-                                            IsVisible="{Binding IsHidingVisible}" />
+                <!-- Edge function and back paddle buttons (DualSense Edge only) -->
+                <StackPanel Orientation="Horizontal"
+                            Spacing="10"
+                            HorizontalAlignment="Center"
+                            IsVisible="{Binding MonitorState.IsEdge}">
+                    <Border BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                            BorderThickness="2"
+                            CornerRadius="6"
+                            Padding="12,5"
+                            Background="{DynamicResource ControlFillColorDefaultBrush}">
+                        <TextBlock Text="{DynamicResource InputMonitorPage.Button.FnL}"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                    </Border>
+                    <Border BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                            BorderThickness="2"
+                            CornerRadius="6"
+                            Padding="12,5"
+                            Background="{DynamicResource ControlFillColorDefaultBrush}">
+                        <TextBlock Text="{DynamicResource InputMonitorPage.Button.L4}"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                    </Border>
+                    <Border BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                            BorderThickness="2"
+                            CornerRadius="6"
+                            Padding="12,5"
+                            Background="{DynamicResource ControlFillColorDefaultBrush}">
+                        <TextBlock Text="{DynamicResource InputMonitorPage.Button.R4}"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                    </Border>
+                    <Border BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                            BorderThickness="2"
+                            CornerRadius="6"
+                            Padding="12,5"
+                            Background="{DynamicResource ControlFillColorDefaultBrush}">
+                        <TextBlock Text="{DynamicResource InputMonitorPage.Button.FnR}"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                    </Border>
                 </StackPanel>
-            </Expander>
+            </StackPanel>
 
-            <!-- Connection Status -->
-            <Expander IsVisible="{Binding HasDevice}"
-                      IsExpanded="False">
-                <Expander.Header>
-                    <cards:CardHeader Title="{DynamicResource DeviceInfoPage.Connection.Title}"
-                                      Description="{DynamicResource DeviceInfoPage.Connection.Description}"
-                                      Icon="{x:Static fic:Symbol.PlugConnected}"
-                                      MinHeight="64" />
-                </Expander.Header>
-                <StackPanel Spacing="8">
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Battery.PowerState}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.PowerState}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Connection.Headphones}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.Headphones}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Connection.Microphone}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.Microphone}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Connection.MicrophoneMuted}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.MicrophoneMuted}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Connection.UsbData}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.UsbData}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Connection.UsbPower}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.UsbPower}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                </StackPanel>
-            </Expander>
+            <!-- Live input data -->
+            <ui:FASettingsExpander Header="{DynamicResource DeviceInfoPage.Monitor.Title}"
+                                   IconSource="{icm:SymbolIconSource Symbol=DataUsage}"
+                                   IsExpanded="False"
+                                   IsVisible="{Binding HasDevice}">
+                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.OutputTest.Triggers.Left}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding MonitorState.L2}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.OutputTest.Triggers.Right}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding MonitorState.R2}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Monitor.Sticks.LeftX}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding MonitorState.LeftStickX}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Monitor.Sticks.LeftY}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding MonitorState.LeftStickY}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Monitor.Sticks.RightX}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding MonitorState.RightStickX}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Monitor.Sticks.RightY}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding MonitorState.RightStickY}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Monitor.Touchpad.Touch1}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding MonitorState.Touch1Position}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Monitor.Touchpad.Touch2}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding MonitorState.Touch2Position}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Motion.GyroX}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding MonitorState.GyroX}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Motion.GyroY}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding MonitorState.GyroY}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Motion.GyroZ}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding MonitorState.GyroZ}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Motion.AccelX}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding MonitorState.AccelX}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Motion.AccelY}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding MonitorState.AccelY}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Motion.AccelZ}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding MonitorState.AccelZ}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+            </ui:FASettingsExpander>
+
+            <!-- Identification -->
+            <ui:FASettingsExpanderItem IconSource="{icm:SymbolIconSource Symbol=Rename}"
+                                       Content="{DynamicResource DeviceInfoPage.Device.Name}"
+                                       IsVisible="{Binding HasDevice}">
+                <ui:FASettingsExpanderItem.Footer>
+                    <TextBox Text="{Binding ControllerName}"
+                             MaxLength="{x:Static settings:ControllerInfoService.MaxNameLength}"
+                             Width="280" />
+                </ui:FASettingsExpanderItem.Footer>
+            </ui:FASettingsExpanderItem>
+
+            <ui:FASettingsExpanderItem IconSource="{icm:SymbolIconSource Symbol=Color}"
+                                       Content="{DynamicResource DeviceInfoPage.Device.Skin}"
+                                       Description="{DynamicResource DeviceInfoPage.Device.Skin.Description}"
+                                       IsVisible="{Binding HasDevice}">
+                <ui:FASettingsExpanderItem.Footer>
+                    <ComboBox ItemsSource="{Binding Skins}"
+                              SelectedIndex="{Binding SkinIndex}"
+                              MinWidth="220" />
+                </ui:FASettingsExpanderItem.Footer>
+            </ui:FASettingsExpanderItem>
+
+            <!-- Assigned profile -->
+            <ui:FASettingsExpanderItem IconSource="{icm:SymbolIconSource Symbol=Person}"
+                                       Content="{DynamicResource ProfilePage.AssignedProfile.Title}"
+                                       Description="{DynamicResource ProfilePage.AssignedProfile.Description}"
+                                       IsVisible="{Binding HasDevice}">
+                <ui:FASettingsExpanderItem.Footer>
+                    <StackPanel Orientation="Horizontal"
+                                Spacing="8">
+                        <ComboBox ItemsSource="{Binding AssignedProfileOptions}"
+                                  SelectedIndex="{Binding SelectedAssignedProfileIndex}"
+                                  MinWidth="220">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="items:AssignedProfileOption">
+                                    <StackPanel Orientation="Horizontal"
+                                                Spacing="8">
+                                        <Border Width="16"
+                                                Height="16"
+                                                CornerRadius="4"
+                                                VerticalAlignment="Center"
+                                                Background="{Binding LightbarBrush}" />
+                                        <TextBlock Text="{Binding Name}"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Button Command="{Binding ReapplyProfileCommand}"
+                                ToolTip.Tip="{DynamicResource ProfilePage.AssignedProfile.Reapply}"
+                                Padding="6,4">
+                            <ic:FluentIcon Icon="Replay"
+                                           IconVariant="Regular"
+                                           IconSize="Size16" />
+                        </Button>
+                    </StackPanel>
+                </ui:FASettingsExpanderItem.Footer>
+            </ui:FASettingsExpanderItem>
+
+            <!-- Status -->
+            <ui:FASettingsExpanderItem IconSource="{icm:SymbolIconSource Symbol=TopSpeed}"
+                                       Content="{DynamicResource InputMonitorPage.Status.PollingRate}"
+                                       IsVisible="{Binding HasDevice}">
+                <ui:FASettingsExpanderItem.Footer>
+                    <TextBlock Text="{Binding MonitorState.PollingRateHz, StringFormat={}{0} Hz}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                </ui:FASettingsExpanderItem.Footer>
+            </ui:FASettingsExpanderItem>
+
+            <ui:FASettingsExpanderItem IconSource="{icm:SymbolIconSource Symbol=PlugConnected}"
+                                       Content="{DynamicResource DeviceInfoPage.Device.ConnectionType}"
+                                       IsVisible="{Binding HasDevice}">
+                <ui:FASettingsExpanderItem.Footer>
+                    <TextBlock Text="{Binding CurrentDevice.ConnectionType}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                </ui:FASettingsExpanderItem.Footer>
+            </ui:FASettingsExpanderItem>
+
+            <ui:FASettingsExpanderItem IconSource="{icm:SymbolIconSource Symbol=Remote}"
+                                       Content="{DynamicResource DeviceInfoPage.Pairing.ClientMac}"
+                                       IsVisible="{Binding HasDevice}">
+                <ui:FASettingsExpanderItem.Footer>
+                    <TextBlock Text="{Binding CurrentDevice.ClientMac}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                </ui:FASettingsExpanderItem.Footer>
+            </ui:FASettingsExpanderItem>
+
+            <ui:FASettingsExpanderItem IconSource="{icm:SymbolIconSource Symbol=BatteryCharge}"
+                                       Content="{DynamicResource DeviceInfoPage.Battery.Level}"
+                                       IsVisible="{Binding HasDevice}">
+                <ui:FASettingsExpanderItem.Footer>
+                    <Button Command="{Binding ToggleBatteryDisplayCommand}"
+                            ToolTip.Tip="{Binding CurrentDevice.BatteryPercentage}"
+                            Padding="8,4">
+                        <Panel>
+                            <TextBlock Text="{Binding CurrentDevice.BatteryPercentage}"
+                                       IsVisible="{Binding ShowBatteryPercentage}" />
+                            <ic:FluentIcon Icon="{Binding CurrentDevice.BatteryIcon}"
+                                           IsVisible="{Binding ShowBatteryIcon}" />
+                        </Panel>
+                    </Button>
+                </ui:FASettingsExpanderItem.Footer>
+            </ui:FASettingsExpanderItem>
+
+            <ui:FASettingsExpanderItem IconSource="{icm:SymbolIconSource Symbol=EyeOff}"
+                                       Content="{DynamicResource DeviceInfoPage.Hiding.Title}"
+                                       Description="{Binding HidingDescription}"
+                                       IsVisible="{Binding IsHidingRowVisible}"
+                                       IsEnabled="{Binding CanHideController}">
+                <ui:FASettingsExpanderItem.Footer>
+                    <ToggleSwitch IsChecked="{Binding IsControllerHidden}" />
+                </ui:FASettingsExpanderItem.Footer>
+            </ui:FASettingsExpanderItem>
+
+            <!-- Connection status -->
+            <ui:FASettingsExpander Header="{DynamicResource DeviceInfoPage.Connection.Title}"
+                                   Description="{DynamicResource DeviceInfoPage.Connection.Description}"
+                                   IconSource="{icm:SymbolIconSource Symbol=Headset}"
+                                   IsExpanded="False"
+                                   IsVisible="{Binding HasDevice}">
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Battery.PowerState}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.PowerState}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Connection.Headphones}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.Headphones}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Connection.Microphone}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.Microphone}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Connection.MicrophoneMuted}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.MicrophoneMuted}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Connection.UsbData}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.UsbData}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Connection.UsbPower}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.UsbPower}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+            </ui:FASettingsExpander>
 
             <!-- Firmware -->
-            <Expander IsVisible="{Binding HasDevice}"
-                      IsExpanded="False">
-                <Expander.Header>
-                    <cards:CardHeader Title="{DynamicResource DeviceInfoPage.Firmware.Title}"
-                                      Description="{DynamicResource DeviceInfoPage.Firmware.Description}"
-                                      Icon="{x:Static fic:Symbol.DeveloperBoard}"
-                                      MinHeight="64">
-                        <cards:CardHeader.ActionContent>
-                            <Button Command="{Binding RefreshCommand}"
-                                    ToolTip.Tip="{DynamicResource DeviceInfoPage.Firmware.Refresh}">
-                                <ic:FluentIcon Icon="ArrowSync"
-                                               IconVariant="Regular" />
-                            </Button>
-                        </cards:CardHeader.ActionContent>
-                    </cards:CardHeader>
-                </Expander.Header>
-                <StackPanel Spacing="8">
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.MainVersion}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.MainFirmwareVersion}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.SblVersion}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.SblFirmwareVersion}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.DspVersion}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.DspFirmwareVersion}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.McuDspVersion}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.McuSpiderDspFirmwareVersion}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.ModelRevision}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.ModelRevision}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.HardwareVersion}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.HardwareVersion}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.HardwareGeneration}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.HardwareGeneration}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.BuildDate}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.BuildDate}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                    <cards:CustomCard>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.BuildTime}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding CurrentDevice.BuildTime}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-                    </cards:CustomCard>
-                </StackPanel>
-            </Expander>
+            <ui:FASettingsExpander IconSource="{icm:SymbolIconSource Symbol=DeveloperBoard}"
+                                   IsExpanded="False"
+                                   IsVisible="{Binding HasDevice}">
+                <ui:FASettingsExpander.Header>
+                    <Panel HorizontalAlignment="Stretch">
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.Title}" />
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Firmware.Description}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <Button Command="{Binding RefreshCommand}"
+                                ToolTip.Tip="{DynamicResource DeviceInfoPage.Firmware.Refresh}"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Padding="6,4">
+                            <ic:FluentIcon Icon="ArrowSync"
+                                           IconVariant="Regular"
+                                           IconSize="Size16" />
+                        </Button>
+                    </Panel>
+                </ui:FASettingsExpander.Header>
+
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Firmware.MainVersion}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.MainFirmwareVersion}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Firmware.SblVersion}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.SblFirmwareVersion}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Firmware.DspVersion}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.DspFirmwareVersion}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Firmware.McuDspVersion}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.McuSpiderDspFirmwareVersion}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Firmware.ModelRevision}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.ModelRevision}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Firmware.HardwareVersion}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.HardwareVersion}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Firmware.HardwareGeneration}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.HardwareGeneration}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Firmware.BuildDate}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.BuildDate}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Firmware.BuildTime}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.BuildTime}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+            </ui:FASettingsExpander>
+
         </StackPanel>
     </ScrollViewer>
 </UserControl>

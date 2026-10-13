@@ -61,6 +61,15 @@
     <sys:String x:Key="DeviceInfoPage.Device.Skin">Skin</sys:String>
     <sys:String x:Key="DeviceInfoPage.Device.Skin.Description">The controller illustration shown above. Stored per controller.</sys:String>
     <sys:String x:Key="DeviceInfoPage.Device.ConnectionType">Connection</sys:String>
+
+    <!-- Device Info Page: Live Input -->
+    <sys:String x:Key="DeviceInfoPage.Monitor.Sticks.LeftX">Left X</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Sticks.LeftY">Left Y</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Sticks.RightX">Right X</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Sticks.RightY">Right Y</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Touchpad.Touch1">Touch 1</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Touchpad.Touch2">Touch 2</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Title">Input Data</sys:String>
     <sys:String x:Key="DeviceInfoPage.Pairing.ClientMac">Controller MAC</sys:String>
     <sys:String x:Key="DeviceInfoPage.Firmware.Title">Firmware</sys:String>
     <sys:String x:Key="DeviceInfoPage.Firmware.Description">Version and build information</sys:String>
@@ -109,7 +118,7 @@
     <sys:String x:Key="InputMonitorPage.NoDevice.Description">Select a controller from the title bar to monitor its live input state.</sys:String>
     <sys:String x:Key="InputMonitorPage.Status.Live">Live</sys:String>
     <sys:String x:Key="InputMonitorPage.Status.Waiting">Waiting for reports</sys:String>
-    <sys:String x:Key="InputMonitorPage.Status.PollingRate">Polling rate:</sys:String>
+    <sys:String x:Key="InputMonitorPage.Status.PollingRate">Polling rate</sys:String>
     <sys:String x:Key="InputMonitorPage.Controller.Title">Controller</sys:String>
     <sys:String x:Key="InputMonitorPage.Controller.Description">Buttons, sticks, triggers, and touchpad</sys:String>
     <sys:String x:Key="InputMonitorPage.Display.Lights.Title">Lights</sys:String>

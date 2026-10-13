@@ -77,8 +77,8 @@ public class NavigationService
         // its page even via a stale programmatic navigation.
         if (tag == "VirtualControllerPage" && !EmulationService.IsSupported)
         {
-            _log.Debug("VirtualControllerPage requested on unsupported platform, redirecting to 'InfoPage'");
-            await NavigateToTag("InfoPage", contentFrame);
+            _log.Debug("VirtualControllerPage requested on unsupported platform, redirecting to 'DeviceInfoPage'");
+            await NavigateToTag("DeviceInfoPage", contentFrame);
             return;
         }
 
@@ -86,8 +86,8 @@ public class NavigationService
         // its page even via a stale programmatic navigation.
         if (tag == "AutoProfilesPage" && !OperatingSystem.IsWindows())
         {
-            _log.Debug("AutoProfilesPage requested on unsupported platform, redirecting to 'InfoPage'");
-            await NavigateToTag("InfoPage", contentFrame);
+            _log.Debug("AutoProfilesPage requested on unsupported platform, redirecting to 'DeviceInfoPage'");
+            await NavigateToTag("DeviceInfoPage", contentFrame);
             return;
         }
 
@@ -97,11 +97,8 @@ public class NavigationService
         _log.Debug($"Navigating to '{tag}'");
         switch (tag)
         {
-            case "InfoPage":
+            case "DeviceInfoPage":
                 frame?.Navigate(typeof(DeviceInfoPage));
-                break;
-            case "InputMonitorPage":
-                frame?.Navigate(typeof(InputMonitorPage));
                 break;
             case "ProfilePage":
                 frame?.Navigate(typeof(ProfilePage));

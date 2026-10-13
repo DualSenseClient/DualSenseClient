@@ -4,31 +4,26 @@ using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Feature;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.HidHide;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
+using DualSenseClient.Settings.Sections;
 
 namespace DualSenseClient.GUI.ViewModels.Pages;
 
 /// <summary>
-/// ViewModel for the device info page. Displays firmware and hardware information
-/// for the controller currently selected in the title bar combobox and lets the user
-/// rename it.
+/// ViewModel for the device info page: the controller's illustration, its live status
+/// (polling rate, connection, battery), identification (name, skin, MAC), controller
+/// hiding, firmware information, and the assigned profile.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Resolves <see cref="MainViewModel"/> from the DI container and mirrors its
-/// <see cref="MainViewModel.SelectedItem"/>, so the page always shows the controller
-/// that is active in the shell. Navigating away and back creates a fresh page instance
-/// (<c>CacheSize=0</c>), which re-subscribes to selection changes.
-/// </para>
-/// <para>
-/// Firmware info is read once when the controller connects; <see cref="RefreshCommand"/>
-/// re-reads it on demand (e.g. to retry a read that failed at connect time).
-/// </para>
+/// Mirrors <see cref="MainViewModel.SelectedItem"/> like every page ViewModel so the
+/// page always shows the controller active in the shell. Firmware info is read once
+/// when the controller connects; <see cref="RefreshCommand"/> re-reads it on demand.
 /// </remarks>
 public partial class DeviceInfoPageViewModel : ObservableObject
 {
@@ -44,7 +39,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
 
     /// <summary>
     /// Service storing persistent controller info, used to read and rename the custom
-    /// display name of the selected controller.
+    /// display name and the illustration skin of the selected controller.
     /// </summary>
     private readonly ControllerInfoService _controllerService;
 
@@ -54,21 +49,47 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     private readonly ControllerIllustrationService _illustrationService;
 
     /// <summary>
+    /// Service used to read and persist profiles, backing the assigned-profile picker.
+    /// </summary>
+    private readonly ProfileService _profileService;
+
+    /// <summary>
+    /// Platform backend for hiding physical controllers from other applications
+    /// (HidHide driver on Windows, other backends on other platforms).
+    /// </summary>
+    private readonly IControllerHidingService _hiding;
+
+    /// <summary>
     /// The controller currently shown on this page, or <c>null</c> when none is selected.
     /// </summary>
     public DeviceInfoItem? CurrentDevice { get; private set; }
 
     /// <summary>
-    /// Live controller state driving the reusable controller visualization, or <c>null</c>
-    /// when no controller is selected.
+    /// Live controller state driving the illustration, or <c>null</c> when no controller
+    /// is selected.
     /// </summary>
     public InputMonitorItem? MonitorState { get; private set; }
 
     /// <summary>
-    /// Tracks the previous monitor state so its event subscriptions are released on
-    /// replacement.
+    /// Tracks the previous device item so its event subscriptions are released on replacement.
+    /// </summary>
+    private DeviceInfoItem? _previousItem;
+
+    /// <summary>
+    /// Tracks the previous monitor state so its event subscriptions are released on replacement.
     /// </summary>
     private InputMonitorItem? _previousMonitorState;
+
+    /// <summary>
+    /// Tracks the previous lights item so its subscriptions are released on replacement.
+    /// </summary>
+    private LightsItem? _previousLights;
+
+    /// <summary>
+    /// Live light state of the selected controller, previewing the color of the profile
+    /// the controller is using.
+    /// </summary>
+    public LightsItem? Lights { get; private set; }
 
     /// <summary>
     /// The user-visible controller name (custom name, or product name when none was set).
@@ -121,7 +142,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// <summary>
     /// The Bluetooth MAC address of the selected controller, or empty when unavailable.
     /// </summary>
-    private string CurrentMac
+    public string CurrentMac
     {
         get
         {
@@ -132,18 +153,13 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// <summary>
     /// The HID device path of the selected controller.
     /// </summary>
-    private string CurrentDevicePath
+    public string CurrentDevicePath
     {
         get
         {
             return CurrentDevice?.Controller.Device.Info.Path ?? string.Empty;
         }
     }
-
-    /// <summary>
-    /// Tracks the previous item so its event subscriptions are released on replacement.
-    /// </summary>
-    private DeviceInfoItem? _previousItem;
 
     /// <summary>
     /// Whether the battery indicator shows the percentage text (instead of the icon).
@@ -168,6 +184,11 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// </summary>
     [RelayCommand]
     private void ToggleBatteryDisplay() => ShowBatteryPercentage = !ShowBatteryPercentage;
+
+    /// <summary>
+    /// Whether the value/coordinate tag labels are shown on the illustration.
+    /// </summary>
+    [ObservableProperty] private bool _showStats;
 
     // ── Controller illustration ────────────────────────────────
 
@@ -231,13 +252,144 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         }
     }
 
-    // ── Controller hiding ───────────────────────────────────────
+    // ── Profile assignment ─────────────────────────────────────
 
     /// <summary>
-    /// Platform backend for hiding physical controllers from other applications
-    /// (HidHide driver on Windows, other backends on other platforms).
+    /// The name of the profile the selected controller is currently using: the bound
+    /// profile, or the default profile when unbound.
     /// </summary>
-    private readonly IControllerHidingService _hiding;
+    private string CurrentUsedProfileName
+    {
+        get
+        {
+            return _controllerService.GetBoundProfileName(CurrentMac, CurrentDevicePath) ?? ProfileService.DefaultProfileName;
+        }
+    }
+
+    /// <summary>
+    /// Options for the "assigned profile" dropdown: every saved profile with
+    /// its lightbar color swatch.
+    /// </summary>
+    public ObservableCollection<AssignedProfileOption> AssignedProfileOptions { get; } = [];
+
+    /// <summary>
+    /// Gets or sets the selected entry in <see cref="AssignedProfileOptions"/>. Setting it
+    /// binds the current controller (by MAC, with a device path fallback) to the chosen
+    /// profile, applies it immediately, and persists the binding.
+    /// </summary>
+    public int SelectedAssignedProfileIndex
+    {
+        get
+        {
+            if (!HasDevice)
+            {
+                return -1;
+            }
+
+            string? bound = _controllerService.GetBoundProfileName(CurrentMac, CurrentDevicePath);
+            if (bound is null)
+            {
+                return -1;
+            }
+
+            for (int i = 0; i < AssignedProfileOptions.Count; i++)
+            {
+                if (string.Equals(AssignedProfileOptions[i].Name, bound, StringComparison.OrdinalIgnoreCase))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+        set
+        {
+            if (value < 0 || value >= AssignedProfileOptions.Count || !HasDevice)
+            {
+                return;
+            }
+
+            string? profileName = AssignedProfileOptions[value].Name;
+            string? current = _controllerService.GetBoundProfileName(CurrentMac, CurrentDevicePath);
+            if (string.Equals(profileName, current, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            _log.Info($"Binding controller {CurrentMac} to profile '{profileName}'");
+            _controllerService.SetControllerProfile(CurrentMac, CurrentDevicePath, profileName);
+            ApplyBoundProfileToController();
+        }
+    }
+
+    /// <summary>
+    /// Re-applies the profile currently used by the selected controller (the bound profile,
+    /// or the default when unbound) to push its current settings back to the controller.
+    /// </summary>
+    [RelayCommand]
+    private void ReapplyProfile() => ApplyBoundProfileToController();
+
+    /// <summary>
+    /// Applies the profile currently used by the selected controller (bound profile, or the
+    /// default when unbound), so an assignment change takes effect immediately. Only the
+    /// controller-side light settings are reapplied.
+    /// </summary>
+    private void ApplyBoundProfileToController()
+    {
+        if (!HasDevice)
+        {
+            return;
+        }
+
+        Profile? profile = GetCurrentControllerProfile();
+        if (profile is not null)
+        {
+            ApplyProfileToController(profile);
+        }
+    }
+
+    /// <summary>
+    /// Gets the profile the selected controller is currently using: the bound profile, or
+    /// the default profile when unbound or the bound profile no longer exists.
+    /// </summary>
+    private Profile? GetCurrentControllerProfile()
+    {
+        string? bound = _controllerService.GetBoundProfileName(CurrentMac, CurrentDevicePath);
+        return _profileService.GetProfile(bound ?? ProfileService.DefaultProfileName);
+    }
+
+    /// <summary>
+    /// Applies a profile to the selected controller and syncs the preview card color to it.
+    /// </summary>
+    private void ApplyProfileToController(Profile profile)
+    {
+        if (CurrentDevice?.Controller.Device is not DualSenseDevice device)
+        {
+            return;
+        }
+
+        _log.Info($"Applying profile '{profile.Name}' to {CurrentMac}");
+        device.ApplyProfile(profile);
+        Lights?.SetPreview(profile.Lightbar.Red, profile.Lightbar.Green, profile.Lightbar.Blue);
+    }
+
+    /// <summary>
+    /// Rebuilds <see cref="AssignedProfileOptions"/> from the current profiles, keeping the
+    /// current binding selected.
+    /// </summary>
+    private void BuildAssignedProfileOptions()
+    {
+        AssignedProfileOptions.Clear();
+        foreach (Profile profile in _profileService.Settings.Profiles)
+        {
+            AssignedProfileOptions.Add(new AssignedProfileOption(
+                profile.Name, profile.Lightbar.Red, profile.Lightbar.Green, profile.Lightbar.Blue));
+        }
+
+        OnPropertyChanged(nameof(SelectedAssignedProfileIndex));
+    }
+
+    // ── Controller hiding ───────────────────────────────────────
 
     /// <summary>
     /// Whether the hiding backend is installed and operational on this system.
@@ -272,6 +424,18 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Whether the controller hiding row is offered: the platform supports it and a
+    /// controller is selected.
+    /// </summary>
+    public bool IsHidingRowVisible
+    {
+        get
+        {
+            return HasDevice && IsHidingVisible;
+        }
+    }
+
+    /// <summary>
     /// Whether controller hiding is offered at all, i.e. the platform supports it.
     /// </summary>
     public bool IsHidingVisible
@@ -283,7 +447,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Card description for the hide toggle; replaced with an explanation when the
+    /// Row description for the hide toggle; replaced with an explanation when the
     /// hiding backend is missing on a supported platform.
     /// </summary>
     public string HidingDescription
@@ -337,14 +501,23 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         _controllerService = App.Services.GetRequiredService<ControllerInfoService>();
         _illustrationService = App.Services.GetRequiredService<ControllerIllustrationService>();
         _hiding = App.Services.GetRequiredService<IControllerHidingService>();
+        _profileService = App.Services.GetRequiredService<ProfileService>();
         foreach (string skin in _illustrationService.GetSkins())
         {
             Skins.Add(skin);
         }
 
+        // Rebuild the assignment picker when profiles change (create/duplicate/delete/rename
+        // on the customization page) so a new profile appears without re-selecting.
+        _profileService.ProfilesChanged += OnProfilesChanged;
         _mainViewModel.PropertyChanged += OnMainViewModelPropertyChanged;
         UpdateDevice();
     }
+
+    /// <summary>
+    /// Rebuilds the assigned-profile options when the profile list changes.
+    /// </summary>
+    private void OnProfilesChanged(object? sender, EventArgs e) => BuildAssignedProfileOptions();
 
     /// <summary>
     /// Re-reads the selected controller's firmware info report and refreshes the display.
@@ -379,19 +552,32 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Rebuilds <see cref="CurrentDevice"/> from the shell's selected controller.
-    /// Releases the previous item's event subscriptions before replacing it.
+    /// Rebuilds the display items from the shell's selected controller. Releases the
+    /// previous items' event subscriptions before replacing them.
     /// </summary>
     private void UpdateDevice()
     {
         _previousItem?.Dispose();
         _previousMonitorState?.Dispose();
+        _previousLights?.Dispose();
 
         ControllerItem? selected = _mainViewModel.SelectedItem;
         CurrentDevice = selected is not null ? new DeviceInfoItem(selected) : null;
         _previousItem = CurrentDevice;
         MonitorState = selected is not null ? new InputMonitorItem(selected) : null;
         _previousMonitorState = MonitorState;
+        Lights = selected is not null ? new LightsItem(selected) : null;
+        _previousLights = Lights;
+
+        if (Lights is not null)
+        {
+            Profile? applied = GetCurrentControllerProfile();
+            if (applied is not null)
+            {
+                Lights.SetPreview(applied.Lightbar.Red, applied.Lightbar.Green, applied.Lightbar.Blue);
+            }
+        }
+
         _controllerName = selected is null
             ? string.Empty
             : _controllerService.GetDisplayName(CurrentMac, CurrentDevicePath, selected.DisplayName);
@@ -402,10 +588,13 @@ public partial class DeviceInfoPageViewModel : ObservableObject
 
         OnPropertyChanged(nameof(CurrentDevice));
         OnPropertyChanged(nameof(MonitorState));
+        OnPropertyChanged(nameof(Lights));
         OnPropertyChanged(nameof(HasDevice));
         OnPropertyChanged(nameof(ControllerName));
         OnPropertyChanged(nameof(SkinIndex));
         OnPropertyChanged(nameof(SkinName));
+
+        BuildAssignedProfileOptions();
 
         HidingAvailable = _hiding.IsAvailable;
         OnPropertyChanged(nameof(HidingAvailable));
@@ -413,5 +602,6 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         OnPropertyChanged(nameof(CanHideController));
         OnPropertyChanged(nameof(HidingDescription));
         OnPropertyChanged(nameof(IsHidingVisible));
+        OnPropertyChanged(nameof(IsHidingRowVisible));
     }
 }

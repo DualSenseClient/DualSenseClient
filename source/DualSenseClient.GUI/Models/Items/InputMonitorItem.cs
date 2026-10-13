@@ -65,7 +65,6 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
         nameof(L2), nameof(R2),
         nameof(GyroX), nameof(GyroY), nameof(GyroZ),
         nameof(AccelX), nameof(AccelY), nameof(AccelZ),
-        nameof(MotionSamples),
         nameof(Touch1Active), nameof(Touch1State), nameof(Touch1Position),
         nameof(Touch1X), nameof(Touch1Y),
         nameof(Touch2Active), nameof(Touch2State), nameof(Touch2Position),
@@ -91,24 +90,6 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// first report is received.
     /// </summary>
     private MotionState? _motion;
-
-    /// <summary>
-    /// Maximum number of motion samples retained for the live graphs.
-    /// </summary>
-    private const int MotionSampleLimit = 400;
-
-    /// <summary>
-    /// Rolling buffer of recent motion samples (oldest first). Only touched on the UI
-    /// thread: samples are appended inside the coalesced update, so it is safe for the
-    /// graph controls to enumerate it while it is being mutated.
-    /// </summary>
-    private readonly List<MotionState> _motionSamples = new List<MotionState>(MotionSampleLimit);
-
-    /// <summary>
-    /// Set when a new motion report arrived and is waiting to be appended to
-    /// <see cref="_motionSamples"/> on the UI thread.
-    /// </summary>
-    private bool _motionSamplePending;
 
     /// <summary>
     /// Latest touchpad snapshot, or <c>null</c> before the first report is received.
@@ -248,8 +229,26 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
 
     /// <summary>
     /// The adaptive trigger modes offered by the effect pickers (index 0 is Off).
+    /// Shared by every monitor item so the mode pickers bind one stable list: a
+    /// <c>SelectedItem</c> pushed before the picker's items resolve is re-selected by
+    /// identity once they do, instead of being lost like an index.
     /// </summary>
-    public IReadOnlyList<TriggerEffectModeItem> TriggerEffectModes { get; }
+    public static IReadOnlyList<TriggerEffectModeItem> SharedTriggerEffectModes { get; } =
+    [
+        new TriggerEffectModeItem(TriggerEffectType.Off, GetText("InputMonitorPage.OutputTest.Triggers.Mode.Off")),
+        new TriggerEffectModeItem(TriggerEffectType.Resistance, GetText("InputMonitorPage.OutputTest.Triggers.Mode.Resistance")),
+        new TriggerEffectModeItem(TriggerEffectType.Trigger, GetText("InputMonitorPage.OutputTest.Triggers.Mode.Trigger")),
+        new TriggerEffectModeItem(TriggerEffectType.Automatic, GetText("InputMonitorPage.OutputTest.Triggers.Mode.Automatic"))
+    ];
+
+    /// <inheritdoc cref="SharedTriggerEffectModes"/>
+    public IReadOnlyList<TriggerEffectModeItem> TriggerEffectModes
+    {
+        get
+        {
+            return SharedTriggerEffectModes;
+        }
+    }
 
     /// <summary>
     /// Whether the left rumble motor is enabled (two-way). Applied to the controller on change.
@@ -1057,17 +1056,6 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
         }
     }
 
-    /// <summary>
-    /// Rolling buffer of recent motion samples (oldest first) for the motion graphs.
-    /// </summary>
-    public IReadOnlyList<MotionState> MotionSamples
-    {
-        get
-        {
-            return _motionSamples;
-        }
-    }
-
     // ── Touchpad ──────────────────────────────────────────────
 
     /// <summary>
@@ -1285,16 +1273,6 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
         Controller = controller;
         _device = controller.Device as DualSenseDevice;
         Audio = audio;
-
-        TriggerEffectModes =
-        [
-            new TriggerEffectModeItem(TriggerEffectType.Off, GetText("InputMonitorPage.OutputTest.Triggers.Mode.Off")),
-            new TriggerEffectModeItem(TriggerEffectType.Resistance, GetText("InputMonitorPage.OutputTest.Triggers.Mode.Resistance")),
-            new TriggerEffectModeItem(TriggerEffectType.Trigger, GetText("InputMonitorPage.OutputTest.Triggers.Mode.Trigger")),
-            new TriggerEffectModeItem(TriggerEffectType.Automatic, GetText("InputMonitorPage.OutputTest.Triggers.Mode.Automatic"))
-        ];
-        _leftTriggerModeIndex = 0;
-        _rightTriggerModeIndex = 0;
 
         _outputDebounceTimer = new DispatcherTimer
         {
@@ -1545,7 +1523,6 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     {
         _motion = e.CurrentState;
         _hasReport = true;
-        _motionSamplePending = true;
         QueueUpdate();
     }
 
@@ -1580,19 +1557,6 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
         Dispatcher.UIThread.Post(() =>
         {
             _updateQueued = false;
-
-            if (_motionSamplePending)
-            {
-                _motionSamplePending = false;
-                if (_motion is { } motion)
-                {
-                    _motionSamples.Add(motion);
-                    if (_motionSamples.Count > MotionSampleLimit)
-                    {
-                        _motionSamples.RemoveRange(0, _motionSamples.Count - MotionSampleLimit);
-                    }
-                }
-            }
 
             foreach (string property in _updateProperties)
             {

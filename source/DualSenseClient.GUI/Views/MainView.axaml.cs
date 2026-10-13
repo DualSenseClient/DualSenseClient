@@ -54,7 +54,7 @@ public partial class MainView : UserControl
         _navigationService.SetContentFrame(ContentFrame);
         _navigationService.SetNavigationView(NavigationView);
 
-        _ = _navigationService.NavigateToTag("InfoPage", ContentFrame);
+        _ = _navigationService.NavigateToTag("DeviceInfoPage", ContentFrame);
     }
 
     /// <summary>
