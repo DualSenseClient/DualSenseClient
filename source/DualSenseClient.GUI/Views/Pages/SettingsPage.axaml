@@ -1,30 +1,26 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:DualSenseClient.GUI.ViewModels.Pages"
-             xmlns:cards="clr-namespace:DualSenseClient.GUI.Controls.Cards"
-             xmlns:fic="using:FluentIcons.Common"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:ic="using:FluentIcons.Avalonia.Fluent"
+             xmlns:icm="using:FluentIcons.Avalonia.Fluent.Markup"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
-             d:DesignWidth="800"
-             d:DesignHeight="450"
+             d:DesignWidth="1000"
+             d:DesignHeight="900"
              x:Class="DualSenseClient.GUI.Views.Pages.SettingsPage"
              x:DataType="vm:SettingsPageViewModel">
     <Design.DataContext>
         <vm:SettingsPageViewModel />
     </Design.DataContext>
     <ScrollViewer>
-        <StackPanel Spacing="16"
-                    Margin="24">
-            <!-- App Header -->
-            <TextBlock Text="{DynamicResource MainWindow.Settings}"
-                       FontSize="24"
-                       FontWeight="SemiBold"
-                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+        <StackPanel Spacing="4"
+                    Margin="24,12,24,24">
+            <!-- App header -->
             <Grid ColumnDefinitions="Auto,*,Auto"
                   ColumnSpacing="15"
-                  Margin="0,0,0,10">
+                  Margin="0,0,0,16">
                 <Border Width="80"
                         Height="80"
                         Padding="6"
@@ -84,159 +80,163 @@
             </Grid>
 
             <!-- Updates -->
-            <Expander>
-                <Expander.Header>
-                    <cards:CardHeader Title="{DynamicResource SettingsPage.Updates.Title}"
-                                      Description="{DynamicResource SettingsPage.Updates.Description}"
-                                      Icon="{x:Static fic:Symbol.ArrowSync}"
-                                      MinHeight="64" />
-                </Expander.Header>
-                <StackPanel Spacing="8">
-                    <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.ArrowSync}"
-                                            Title="{Binding ChannelLabel}"
-                                            Description="{DynamicResource SettingsPage.Updates.Channel.Description}"
-                                            IsChecked="{Binding IncludeNightlyUpdates}" />
-                    <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.Clock}"
-                                            Title="{DynamicResource SettingsPage.Updates.AutoCheck.Title}"
-                                            Description="{DynamicResource SettingsPage.Updates.AutoCheck.Description}"
-                                            IsChecked="{Binding AutoCheckForUpdates}" />
-                </StackPanel>
-            </Expander>
+            <ui:FASettingsExpander Header="{DynamicResource SettingsPage.Updates.Title}"
+                                   Description="{DynamicResource SettingsPage.Updates.Description}"
+                                   IconSource="{icm:SymbolIconSource Symbol=ArrowSync}"
+                                   IsExpanded="False">
+                <ui:FASettingsExpanderItem Content="{Binding ChannelLabel}"
+                                           Description="{DynamicResource SettingsPage.Updates.Channel.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch IsChecked="{Binding IncludeNightlyUpdates, Mode=TwoWay}" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Updates.AutoCheck.Title}"
+                                           Description="{DynamicResource SettingsPage.Updates.AutoCheck.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch IsChecked="{Binding AutoCheckForUpdates, Mode=TwoWay}" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+            </ui:FASettingsExpander>
 
-            <!-- UI Settings -->
-            <Expander>
-                <Expander.Header>
-                    <cards:CardHeader Title="{DynamicResource SettingsPage.Ui.Title}"
-                                      Description="{DynamicResource SettingsPage.Ui.Description}"
-                                      Icon="{x:Static fic:Symbol.PaintBrush}"
-                                      MinHeight="64" />
-                </Expander.Header>
-                <StackPanel Spacing="8">
-                    <!-- Language -->
-                    <cards:ComboBoxCard Icon="{x:Static fic:Symbol.LocalLanguageGlobe}"
-                                        Title="{DynamicResource SettingsPage.Ui.Language.Title}"
-                                        Description="{DynamicResource SettingsPage.Ui.Language.Description}"
-                                        ItemsSource="{Binding AppLanguages}"
-                                        SelectedIndex="{Binding SelectedLanguageIndex}" />
-                    <!-- Theme -->
-                    <cards:ComboBoxCard Icon="{x:Static fic:Symbol.CircleHalfFill}"
-                                        Title="{DynamicResource SettingsPage.Ui.Theme.Title}"
-                                        Description="{DynamicResource SettingsPage.Ui.Theme.Description}"
-                                        ItemsSource="{Binding AppThemeOptions}"
-                                        SelectedIndex="{Binding SelectedThemeIndex}" />
-                </StackPanel>
-            </Expander>
-            <!-- Window Settings -->
-            <Expander>
-                <Expander.Header>
-                    <cards:CardHeader Title="{DynamicResource SettingsPage.Window.Title}"
-                                      Description="{DynamicResource SettingsPage.Window.Description}"
-                                      Icon="{x:Static fic:Symbol.Window}"
-                                      MinHeight="64" />
-                </Expander.Header>
-                <StackPanel Spacing="8">
-                    <!-- Close to Tray -->
-                    <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.ShareCloseTray}"
-                                            Title="{DynamicResource SettingsPage.Window.CloseToTray.Title}"
-                                            Description="{DynamicResource SettingsPage.Window.CloseToTray.Description}"
-                                            IsChecked="{Binding CloseToTray}" />
-                    <!-- Start in Tray -->
-                    <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.ArrowMinimize}"
-                                            Title="{DynamicResource SettingsPage.Window.StartInTray.Title}"
-                                            Description="{DynamicResource SettingsPage.Window.StartInTray.Description}"
-                                            IsChecked="{Binding StartInTray}" />
-                    <!-- Show Battery Percentage -->
-                    <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.Battery9}"
-                                            Title="{DynamicResource SettingsPage.Window.BatteryPercentage.Title}"
-                                            Description="{DynamicResource SettingsPage.Window.BatteryPercentage.Description}"
-                                            IsChecked="{Binding ShowBatteryPercentage}" />
-                </StackPanel>
-            </Expander>
+            <!-- UI settings -->
+            <ui:FASettingsExpander Header="{DynamicResource SettingsPage.Ui.Title}"
+                                   Description="{DynamicResource SettingsPage.Ui.Description}"
+                                   IconSource="{icm:SymbolIconSource Symbol=PaintBrush}"
+                                   IsExpanded="False">
+                <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Ui.Language.Title}"
+                                           Description="{DynamicResource SettingsPage.Ui.Language.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ComboBox ItemsSource="{Binding AppLanguages}"
+                                  SelectedIndex="{Binding SelectedLanguageIndex}"
+                                  MinWidth="220" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Ui.Theme.Title}"
+                                           Description="{DynamicResource SettingsPage.Ui.Theme.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ComboBox ItemsSource="{Binding AppThemeOptions}"
+                                  SelectedIndex="{Binding SelectedThemeIndex}"
+                                  MinWidth="220" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Ui.Mica.Title}"
+                                           Description="{DynamicResource SettingsPage.Ui.Mica.Description}"
+                                           IsVisible="{Binding IsMicaOptionVisible}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch IsChecked="{Binding MicaEnabled, Mode=TwoWay}" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+            </ui:FASettingsExpander>
+
+            <!-- Window settings -->
+            <ui:FASettingsExpander Header="{DynamicResource SettingsPage.Window.Title}"
+                                   Description="{DynamicResource SettingsPage.Window.Description}"
+                                   IconSource="{icm:SymbolIconSource Symbol=Window}"
+                                   IsExpanded="False">
+                <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Window.CloseToTray.Title}"
+                                           Description="{DynamicResource SettingsPage.Window.CloseToTray.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch IsChecked="{Binding CloseToTray, Mode=TwoWay}" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Window.StartInTray.Title}"
+                                           Description="{DynamicResource SettingsPage.Window.StartInTray.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch IsChecked="{Binding StartInTray, Mode=TwoWay}" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Window.BatteryPercentage.Title}"
+                                           Description="{DynamicResource SettingsPage.Window.BatteryPercentage.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch IsChecked="{Binding ShowBatteryPercentage, Mode=TwoWay}" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+            </ui:FASettingsExpander>
+
             <!-- Notifications -->
-            <Expander>
-                <Expander.Header>
-                    <cards:CardHeader Title="{DynamicResource SettingsPage.Notifications.Title}"
-                                      Description="{DynamicResource SettingsPage.Notifications.Description}"
-                                      Icon="{x:Static fic:Symbol.Alert}"
-                                      MinHeight="64" />
-                </Expander.Header>
-                <StackPanel Spacing="8">
-                    <!-- Enable Notifications -->
-                    <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.Alert}"
-                                            Title="{DynamicResource SettingsPage.Notifications.Enable.Title}"
-                                            Description="{DynamicResource SettingsPage.Notifications.Enable.Description}"
-                                            IsChecked="{Binding Notifications}" />
-                    <!-- Position -->
-                    <cards:ComboBoxCard Icon="{x:Static fic:Symbol.TargetEdit}"
-                                        Title="{DynamicResource SettingsPage.Notifications.Position.Title}"
-                                        Description="{DynamicResource SettingsPage.Notifications.Position.Description}"
-                                        ItemsSource="{Binding NotificationPositionOptions}"
-                                        SelectedIndex="{Binding SelectedNotificationPositionIndex}" />
-                    <!-- Duration -->
-                    <cards:NumberBoxCard Icon="{x:Static fic:Symbol.AlertSnooze}"
-                                         Title="{DynamicResource SettingsPage.Notifications.Duration.Title}"
-                                         Description="{DynamicResource SettingsPage.Notifications.Duration.Description}"
-                                         Minimum="1"
-                                         Maximum="30"
-                                         Value="{Binding NotificationDurationSeconds}" />
-                    <!-- Connection Notifications -->
-                    <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.PlugConnected}"
-                                            Title="{DynamicResource SettingsPage.Notifications.Connection.Title}"
-                                            Description="{DynamicResource SettingsPage.Notifications.Connection.Description}"
-                                            IsChecked="{Binding NotifyOnConnection}" />
-                    <!-- Low Battery Notifications -->
-                    <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.BatteryWarning}"
-                                            Title="{DynamicResource SettingsPage.Notifications.LowBattery.Title}"
-                                            Description="{DynamicResource SettingsPage.Notifications.LowBattery.Description}"
-                                            IsChecked="{Binding NotifyOnLowBattery}" />
-                    <!-- Low Battery Threshold -->
-                    <cards:NumberBoxCard Icon="{x:Static fic:Symbol.BatteryWarning}"
-                                         Title="{DynamicResource SettingsPage.Notifications.LowThreshold.Title}"
-                                         Description="{DynamicResource SettingsPage.Notifications.LowThreshold.Description}"
-                                         Minimum="5"
-                                         Maximum="50"
-                                         Value="{Binding LowBatteryThreshold}" />
-                    <!-- Charge Notifications -->
-                    <cards:ToggleSwitchCard Icon="{x:Static fic:Symbol.BatteryCharge}"
-                                            Title="{DynamicResource SettingsPage.Notifications.Charge.Title}"
-                                            Description="{DynamicResource SettingsPage.Notifications.Charge.Description}"
-                                            IsChecked="{Binding NotifyOnCharge}" />
-                    <!-- Charge Threshold -->
-                    <cards:NumberBoxCard Icon="{x:Static fic:Symbol.BatteryCharge}"
-                                         Title="{DynamicResource SettingsPage.Notifications.ChargeThreshold.Title}"
-                                         Description="{DynamicResource SettingsPage.Notifications.ChargeThreshold.Description}"
-                                         Minimum="50"
-                                         Maximum="100"
-                                         Value="{Binding ChargeThreshold}" />
-                    <Button Command="{Binding TestNotificationCommand}"
-                            HorizontalAlignment="Right"
-                            Margin="0,0,14,0">
-                        <StackPanel Orientation="Horizontal"
-                                    Spacing="8">
-                            <ic:FluentIcon Icon="Megaphone"
-                                           IconVariant="Regular" />
-                            <TextBlock Text="{DynamicResource SettingsPage.Notifications.Test.Title}" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </Expander>
-            <!-- Debug Settings -->
-            <Expander>
-                <Expander.Header>
-                    <cards:CardHeader Title="{DynamicResource SettingsPage.Debug.Title}"
-                                      Description="{DynamicResource SettingsPage.Debug.Description}"
-                                      Icon="{x:Static fic:Symbol.Bug}"
-                                      MinHeight="64" />
-                </Expander.Header>
-                <StackPanel Spacing="8">
-                    <!-- Log Level -->
-                    <cards:ComboBoxCard Icon="{x:Static fic:Symbol.List}"
-                                        Title="{DynamicResource SettingsPage.Debug.LogLevel.Title}"
-                                        Description="{DynamicResource SettingsPage.Debug.LogLevel.Description}"
-                                        ItemsSource="{Binding LogLevels}"
-                                        SelectedIndex="{Binding SelectedLogLevelIndex}" />
-                </StackPanel>
-            </Expander>
+            <ui:FASettingsExpander Header="{DynamicResource SettingsPage.Notifications.Title}"
+                                   Description="{DynamicResource SettingsPage.Notifications.Description}"
+                                   IconSource="{icm:SymbolIconSource Symbol=Alert}"
+                                   IsExpanded="False">
+                <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Notifications.Enable.Title}"
+                                           Description="{DynamicResource SettingsPage.Notifications.Enable.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch IsChecked="{Binding Notifications, Mode=TwoWay}" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Notifications.Position.Title}"
+                                           Description="{DynamicResource SettingsPage.Notifications.Position.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ComboBox ItemsSource="{Binding NotificationPositionOptions}"
+                                  SelectedIndex="{Binding SelectedNotificationPositionIndex}"
+                                  MinWidth="220" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Notifications.Duration.Title}"
+                                           Description="{DynamicResource SettingsPage.Notifications.Duration.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <NumericUpDown Minimum="1"
+                                       Maximum="30"
+                                       Value="{Binding NotificationDurationSeconds}"
+                                       Width="160" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Notifications.Connection.Title}"
+                                           Description="{DynamicResource SettingsPage.Notifications.Connection.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch IsChecked="{Binding NotifyOnConnection, Mode=TwoWay}" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Notifications.LowBattery.Title}"
+                                           Description="{DynamicResource SettingsPage.Notifications.LowBattery.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch IsChecked="{Binding NotifyOnLowBattery, Mode=TwoWay}" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Notifications.LowThreshold.Title}"
+                                           Description="{DynamicResource SettingsPage.Notifications.LowThreshold.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <NumericUpDown Minimum="5"
+                                       Maximum="50"
+                                       Value="{Binding LowBatteryThreshold}"
+                                       Width="160" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Notifications.Charge.Title}"
+                                           Description="{DynamicResource SettingsPage.Notifications.Charge.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch IsChecked="{Binding NotifyOnCharge, Mode=TwoWay}" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Notifications.ChargeThreshold.Title}"
+                                           Description="{DynamicResource SettingsPage.Notifications.ChargeThreshold.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <NumericUpDown Minimum="50"
+                                       Maximum="100"
+                                       Value="{Binding ChargeThreshold}"
+                                       Width="160" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Notifications.Test.Title}"
+                                           IsClickEnabled="True"
+                                           Command="{Binding TestNotificationCommand}"
+                                           ActionIconSource="{icm:SymbolIconSource Symbol=Megaphone}" />
+            </ui:FASettingsExpander>
+
+            <!-- Debug -->
+            <ui:FASettingsExpander Header="{DynamicResource SettingsPage.Debug.Title}"
+                                   Description="{DynamicResource SettingsPage.Debug.Description}"
+                                   IconSource="{icm:SymbolIconSource Symbol=Bug}"
+                                   IsExpanded="False">
+                <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Debug.LogLevel.Title}"
+                                           Description="{DynamicResource SettingsPage.Debug.LogLevel.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ComboBox ItemsSource="{Binding LogLevels}"
+                                  SelectedIndex="{Binding SelectedLogLevelIndex}"
+                                  MinWidth="220" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+            </ui:FASettingsExpander>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

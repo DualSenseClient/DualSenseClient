@@ -45,23 +45,23 @@ public partial class AutoProfilePage : UserControl
     {
         base.OnLoaded(e);
         _viewModel.Refresh();
-        ResyncComboSelection(ScopeCard, _viewModel.SelectedMatchScopeIndex);
-        ResyncComboSelection(ControllerCard, _viewModel.SelectedControllerIndex);
-        ResyncComboSelection(ProfileCard, _viewModel.SelectedProfileIndex);
+        ResyncComboSelection(ScopeCombo, _viewModel.SelectedMatchScopeIndex);
+        ResyncComboSelection(ControllerCombo, _viewModel.SelectedControllerIndex);
+        ResyncComboSelection(ProfileCombo, _viewModel.SelectedProfileIndex);
     }
 
     /// <summary>
-    /// Re-applies the ViewModel selection to a card whose TwoWay <c>SelectedIndex</c>
+    /// Re-applies the ViewModel selection to a combo whose TwoWay <c>SelectedIndex</c>
     /// binding may have desynchronized: rebuilding the options can coerce the ComboBox
     /// to -1, and the follow-up same-value notification is then dropped by the binding,
     /// leaving the dropdown blank. Setting the value directly always lands; the guard
     /// skips it when already in sync so no spurious save is triggered.
     /// </summary>
-    private static void ResyncComboSelection(ComboBoxCard card, int selectedIndex)
+    private static void ResyncComboSelection(ComboBox combo, int selectedIndex)
     {
-        if (card.SelectedIndex != selectedIndex)
+        if (combo.SelectedIndex != selectedIndex)
         {
-            card.SelectedIndex = selectedIndex;
+            combo.SelectedIndex = selectedIndex;
         }
     }
 

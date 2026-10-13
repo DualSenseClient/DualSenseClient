@@ -153,6 +153,7 @@ public partial class SettingsPageViewModel : ObservableObject
 
         _log.Info($"Theme changed from '{oldValue}' to '{newValue}'");
         OnPropertyChanged(nameof(SelectedThemeIndex));
+        OnPropertyChanged(nameof(IsMicaOptionVisible));
     }
 
     /// <summary>
@@ -197,6 +198,44 @@ public partial class SettingsPageViewModel : ObservableObject
             _settingsService.Settings.Ui.Theme = newTheme;
             _settingsService.SaveSettings();
             _themeService.SetTheme(newTheme);
+        }
+    }
+
+    /// <summary>
+    /// Whether the Mica backdrop toggle is offered: only the System, Light, and Dark
+    /// themes support the backdrop; the AMOLED and PlayStation themes define their own
+    /// solid backgrounds and hide the option.
+    /// </summary>
+    public bool IsMicaOptionVisible
+    {
+        get
+        {
+            return SelectedTheme is Theme.System or Theme.Light or Theme.Dark;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets whether the main window uses the Mica backdrop on Windows 11.
+    /// Changing this persists the setting; the main window re-applies its backdrop when
+    /// settings change.
+    /// </summary>
+    public bool MicaEnabled
+    {
+        get
+        {
+            return _settingsService.Settings.Ui.Mica;
+        }
+        set
+        {
+            if (_settingsService.Settings.Ui.Mica == value)
+            {
+                return;
+            }
+
+            _log.Info($"Mica backdrop changed to '{value}'");
+            _settingsService.Settings.Ui.Mica = value;
+            _settingsService.SaveSettings();
+            OnPropertyChanged();
         }
     }
 

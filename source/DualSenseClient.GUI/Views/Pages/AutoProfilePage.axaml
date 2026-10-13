@@ -1,74 +1,87 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:DualSenseClient.GUI.ViewModels.Pages"
              xmlns:sections="using:DualSenseClient.Settings.Sections"
-             xmlns:cards="clr-namespace:DualSenseClient.GUI.Controls.Cards"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:ic="using:FluentIcons.Avalonia.Fluent"
-             xmlns:fic="using:FluentIcons.Common"
+             xmlns:icm="using:FluentIcons.Avalonia.Fluent.Markup"
+             xmlns:controls="clr-namespace:DualSenseClient.GUI.Controls"
+             xmlns:cards="clr-namespace:DualSenseClient.GUI.Controls.Cards"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
-             d:DesignWidth="800"
-             d:DesignHeight="450"
+             d:DesignWidth="1000"
+             d:DesignHeight="900"
              x:Class="DualSenseClient.GUI.Views.Pages.AutoProfilePage"
              x:DataType="vm:AutoProfilePageViewModel">
     <Design.DataContext>
         <vm:AutoProfilePageViewModel />
     </Design.DataContext>
     <ScrollViewer>
-        <StackPanel Spacing="16"
-                    Margin="24">
+        <StackPanel Spacing="4"
+                    Margin="24,12,24,24">
             <!-- Empty state shown where focus tracking is unavailable -->
             <cards:EmptyStateCard Title="{DynamicResource AutoProfilesPage.Unsupported.Title}"
                                   Description="{DynamicResource AutoProfilesPage.Unsupported.Description}"
                                   IsVisible="{Binding !IsSupported}" />
 
-            <StackPanel Spacing="16"
+            <StackPanel Spacing="4"
                         IsVisible="{Binding IsSupported}">
                 <!-- Master switch -->
-                <Expander IsExpanded="True">
-                    <Expander.Header>
-                        <cards:CardHeader Title="{DynamicResource AutoProfilesPage.General.Title}"
-                                          Description="{DynamicResource AutoProfilesPage.General.Description}"
-                                          Icon="{x:Static fic:Symbol.TargetEdit}"
-                                          MinHeight="64" />
-                    </Expander.Header>
-                    <StackPanel Spacing="8">
-                        <cards:ToggleSwitchCard Title="{DynamicResource AutoProfilesPage.Enabled.Title}"
-                                                Description="{DynamicResource AutoProfilesPage.Enabled.Description}"
-                                                IsChecked="{Binding Enabled}" />
-                    </StackPanel>
-                </Expander>
+                <ui:FASettingsExpander Header="{DynamicResource AutoProfilesPage.General.Title}"
+                                       Description="{DynamicResource AutoProfilesPage.General.Description}"
+                                       IconSource="{icm:SymbolIconSource Symbol=TargetEdit}"
+                                       IsExpanded="False">
+                    <ui:FASettingsExpander.Footer>
+                        <ToggleSwitch IsChecked="{Binding Enabled, Mode=TwoWay}" />
+                    </ui:FASettingsExpander.Footer>
+                </ui:FASettingsExpander>
 
                 <!-- Rule list -->
-                <Expander IsExpanded="True">
-                    <Expander.Header>
-                        <cards:CardHeader Title="{DynamicResource AutoProfilesPage.Rules.Title}"
-                                          Description="{DynamicResource AutoProfilesPage.Rules.Description}"
-                                          Icon="{x:Static fic:Symbol.Collections}"
-                                          MinHeight="64">
-                            <cards:CardHeader.ActionContent>
-                                <StackPanel Orientation="Horizontal"
-                                            Spacing="8">
-                                    <Button Command="{Binding AddRuleCommand}"
-                                            ToolTip.Tip="{DynamicResource AutoProfilesPage.Rules.New}">
-                                        <ic:FluentIcon Icon="Add"
-                                                       IconVariant="Regular" />
-                                    </Button>
-                                    <Button Command="{Binding DeleteRuleCommand}"
-                                            ToolTip.Tip="{DynamicResource AutoProfilesPage.Rules.Delete}">
-                                        <ic:FluentIcon Icon="Delete"
-                                                       IconVariant="Regular" />
-                                    </Button>
-                                </StackPanel>
-                            </cards:CardHeader.ActionContent>
-                        </cards:CardHeader>
-                    </Expander.Header>
-                    <StackPanel Spacing="8">
-                        <ListBox ItemsSource="{Binding Rules}"
-                                 SelectedItem="{Binding SelectedRule}"
-                                 MaxHeight="160">
-                            <ListBox.ItemTemplate>
+                <ui:FASettingsExpander IconSource="{icm:SymbolIconSource Symbol=Collections}"
+                                       IsExpanded="False">
+                    <ui:FASettingsExpander.Header>
+                        <Panel HorizontalAlignment="Stretch">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource AutoProfilesPage.Rules.Title}" />
+                                <TextBlock Text="{DynamicResource AutoProfilesPage.Rules.Description}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                           TextWrapping="Wrap"
+                                           MaxWidth="600"
+                                           HorizontalAlignment="Left" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal"
+                                        Spacing="8"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center">
+                                <Button Command="{Binding AddRuleCommand}"
+                                        ToolTip.Tip="{DynamicResource AutoProfilesPage.Rules.New}"
+                                        Padding="6,4">
+                                    <ic:FluentIcon Icon="Add"
+                                                   IconVariant="Regular"
+                                                   IconSize="Size16" />
+                                </Button>
+                                <Button Command="{Binding DeleteRuleCommand}"
+                                        IsEnabled="{Binding HasSelectedRule}"
+                                        ToolTip.Tip="{DynamicResource AutoProfilesPage.Rules.Delete}"
+                                        Padding="6,4">
+                                    <ic:FluentIcon Icon="Delete"
+                                                   IconVariant="Regular"
+                                                   IconSize="Size16" />
+                                </Button>
+                            </StackPanel>
+                        </Panel>
+                    </ui:FASettingsExpander.Header>
+
+                    <!-- Rule selection -->
+                    <ui:FASettingsExpanderItem>
+                        <ComboBox ItemsSource="{Binding Rules}"
+                                  SelectedItem="{Binding SelectedRule}"
+                                  MinWidth="320"
+                                  HorizontalAlignment="Stretch"
+                                  PlaceholderText="{DynamicResource AutoProfilesPage.Rules.Empty}">
+                            <ComboBox.ItemTemplate>
                                 <DataTemplate x:DataType="sections:AutoProfileRule">
                                     <StackPanel Orientation="Horizontal"
                                                 Spacing="8"
@@ -81,191 +94,260 @@
                                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
                                 </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </ui:FASettingsExpanderItem>
 
-                        <TextBlock Text="{DynamicResource AutoProfilesPage.Rules.Empty}"
-                                   FontSize="12"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                   IsVisible="{Binding !HasSelectedRule}" />
-
-                        <!-- Editor for the selected rule -->
-                        <StackPanel IsVisible="{Binding HasSelectedRule}"
-                                    Spacing="8">
-                            <cards:TextBoxCard Title="{DynamicResource AutoProfilesPage.Name.Title}"
-                                               Description="{DynamicResource AutoProfilesPage.Name.Description}"
-                                               Text="{Binding SelectedRuleName}" />
-                            <cards:ComboBoxCard x:Name="ScopeCard"
-                                                Title="{DynamicResource AutoProfilesPage.Scope.Title}"
-                                                Description="{DynamicResource AutoProfilesPage.Scope.Description}"
-                                                ItemsSource="{Binding MatchScopeOptions}"
-                                                SelectedIndex="{Binding SelectedMatchScopeIndex}" />
-                            <cards:CustomCard IsVisible="{Binding IsExeVisible}">
-                                <Grid ColumnDefinitions="*,Auto,Auto"
-                                      ColumnSpacing="8">
-                                    <cards:CardHeader Title="{DynamicResource AutoProfilesPage.Exe.Title}"
-                                                      Description="{DynamicResource AutoProfilesPage.Exe.Description}"
-                                                      VerticalAlignment="Center" />
-                                    <TextBox Grid.Column="1"
-                                             Text="{Binding SelectedExePattern}"
+                    <!-- Editor for the selected rule -->
+                    <StackPanel IsVisible="{Binding HasSelectedRule}"
+                                Spacing="4">
+                        <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Name.Title}"
+                                                   Description="{DynamicResource AutoProfilesPage.Name.Description}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <TextBox Text="{Binding SelectedRuleName}"
+                                         Width="280" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Scope.Title}"
+                                                   Description="{DynamicResource AutoProfilesPage.Scope.Description}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <ComboBox x:Name="ScopeCombo"
+                                          ItemsSource="{Binding MatchScopeOptions}"
+                                          SelectedIndex="{Binding SelectedMatchScopeIndex}"
+                                          MinWidth="220" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Exe.Title}"
+                                                   Description="{DynamicResource AutoProfilesPage.Exe.Description}"
+                                                   IsVisible="{Binding IsExeVisible}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <StackPanel Orientation="Horizontal"
+                                            Spacing="8">
+                                    <TextBox Text="{Binding SelectedExePattern}"
                                              ToolTip.Tip="{Binding SelectedExePattern}"
-                                             VerticalAlignment="Center"
-                                             MinWidth="160"
-                                             MaxWidth="400" />
-                                    <Button Grid.Column="2"
-                                            Click="OnBrowseExeClick"
+                                             Width="220" />
+                                    <Button Click="OnBrowseExeClick"
                                             ToolTip.Tip="{DynamicResource AutoProfilesPage.Exe.Browse}"
+                                            Padding="6,4"
                                             VerticalAlignment="Center">
                                         <ic:FluentIcon Icon="FolderOpen"
-                                                       IconVariant="Regular" />
+                                                       IconVariant="Regular"
+                                                       IconSize="Size16" />
                                     </Button>
-                                </Grid>
-                            </cards:CustomCard>
-                            <cards:TextBoxCard Title="{DynamicResource AutoProfilesPage.RuleTitle.Title}"
-                                               Description="{DynamicResource AutoProfilesPage.RuleTitle.Description}"
-                                               Text="{Binding SelectedWindowTitle}"
-                                               IsVisible="{Binding IsTitleVisible}" />
+                                </StackPanel>
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.RuleTitle.Title}"
+                                                   Description="{DynamicResource AutoProfilesPage.RuleTitle.Description}"
+                                                   IsVisible="{Binding IsTitleVisible}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <TextBox Text="{Binding SelectedWindowTitle}"
+                                         Width="280" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem>
                             <TextBlock Text="{DynamicResource AutoProfilesPage.Patterns.Hint}"
                                        FontSize="12"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                        TextWrapping="Wrap" />
-                            <cards:ComboBoxCard x:Name="ControllerCard"
-                                                Title="{DynamicResource AutoProfilesPage.Controller.Title}"
-                                                Description="{DynamicResource AutoProfilesPage.Controller.Description}"
-                                                ItemsSource="{Binding ControllerOptions}"
-                                                SelectedIndex="{Binding SelectedControllerIndex}" />
-                            <cards:ComboBoxCard x:Name="ProfileCard"
-                                                Title="{DynamicResource AutoProfilesPage.Profile.Title}"
-                                                Description="{DynamicResource AutoProfilesPage.Profile.Description}"
-                                                ItemsSource="{Binding ProfileOptions}"
-                                                SelectedIndex="{Binding SelectedProfileIndex}" />
-                            <cards:ComboBoxCard Title="{DynamicResource AutoProfilesPage.Emulation.Title}"
-                                                Description="{DynamicResource AutoProfilesPage.Emulation.Description}"
-                                                ItemsSource="{Binding EmulationOptions}"
-                                                SelectedIndex="{Binding SelectedEmulationIndex}" />
-                            <cards:ComboBoxCard Title="{DynamicResource VirtualControllerPage.Emulation.DeviceType}"
-                                                Description="{DynamicResource VirtualControllerPage.Emulation.DeviceType.Description}"
-                                                ItemsSource="{Binding DualSenseVariantOptions}"
-                                                SelectedIndex="{Binding SelectedDualSenseVariantIndex}"
-                                                IsVisible="{Binding IsDualSenseVariantVisible}" />
-                            <cards:ComboBoxCard Title="{DynamicResource VirtualControllerPage.Emulation.Ds4Variant}"
-                                                Description="{DynamicResource VirtualControllerPage.Emulation.Ds4Variant.Description}"
-                                                ItemsSource="{Binding DualShock4VariantOptions}"
-                                                SelectedIndex="{Binding SelectedDualShock4VariantIndex}"
-                                                IsVisible="{Binding IsDualShock4VariantVisible}" />
-                            <cards:ComboBoxCard Title="{DynamicResource AutoProfilesPage.AudioSource.Title}"
-                                                Description="{DynamicResource AutoProfilesPage.AudioSource.Description}"
-                                                ItemsSource="{Binding AudioSourceOptions}"
-                                                SelectedIndex="{Binding SelectedAudioSourceIndex}"
-                                                IsVisible="{Binding IsAudioSourceVisible}" />
-                            <cards:CustomCard IsVisible="{Binding IsAudioAppVisible}">
-                                <Grid ColumnDefinitions="*,Auto,Auto"
-                                      ColumnSpacing="8">
-                                    <cards:CardHeader Title="{DynamicResource AudioSource.Executable.Title}"
-                                                      Description="{DynamicResource AudioSource.Executable.Description}"
-                                                      VerticalAlignment="Center" />
-                                    <TextBox Grid.Column="1"
-                                             Text="{Binding AudioAppPath, Mode=OneWay}"
+                        </ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Controller.Title}"
+                                                   Description="{DynamicResource AutoProfilesPage.Controller.Description}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <ComboBox x:Name="ControllerCombo"
+                                          ItemsSource="{Binding ControllerOptions}"
+                                          SelectedIndex="{Binding SelectedControllerIndex}"
+                                          MinWidth="220" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Profile.Title}"
+                                                   Description="{DynamicResource AutoProfilesPage.Profile.Description}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <ComboBox x:Name="ProfileCombo"
+                                          ItemsSource="{Binding ProfileOptions}"
+                                          SelectedIndex="{Binding SelectedProfileIndex}"
+                                          MinWidth="220" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Emulation.Title}"
+                                                   Description="{DynamicResource AutoProfilesPage.Emulation.Description}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <ComboBox ItemsSource="{Binding EmulationOptions}"
+                                          SelectedIndex="{Binding SelectedEmulationIndex}"
+                                          MinWidth="220" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem Content="{DynamicResource VirtualControllerPage.Emulation.DeviceType}"
+                                                   Description="{DynamicResource VirtualControllerPage.Emulation.DeviceType.Description}"
+                                                   IsVisible="{Binding IsDualSenseVariantVisible}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <ComboBox ItemsSource="{Binding DualSenseVariantOptions}"
+                                          SelectedIndex="{Binding SelectedDualSenseVariantIndex}"
+                                          MinWidth="220" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem Content="{DynamicResource VirtualControllerPage.Emulation.Ds4Variant}"
+                                                   Description="{DynamicResource VirtualControllerPage.Emulation.Ds4Variant.Description}"
+                                                   IsVisible="{Binding IsDualShock4VariantVisible}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <ComboBox ItemsSource="{Binding DualShock4VariantOptions}"
+                                          SelectedIndex="{Binding SelectedDualShock4VariantIndex}"
+                                          MinWidth="220" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.AudioSource.Title}"
+                                                   Description="{DynamicResource AutoProfilesPage.AudioSource.Description}"
+                                                   IsVisible="{Binding IsAudioSourceVisible}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <ComboBox ItemsSource="{Binding AudioSourceOptions}"
+                                          SelectedIndex="{Binding SelectedAudioSourceIndex}"
+                                          MinWidth="220" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem Content="{DynamicResource AudioSource.Executable.Title}"
+                                                   Description="{DynamicResource AudioSource.Executable.Description}"
+                                                   IsVisible="{Binding IsAudioAppVisible}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <StackPanel Orientation="Horizontal"
+                                            Spacing="8">
+                                    <TextBox Text="{Binding AudioAppPath, Mode=OneWay}"
                                              IsReadOnly="True"
                                              PlaceholderText="{DynamicResource AudioSource.Executable.Placeholder}"
                                              ToolTip.Tip="{Binding AudioAppPath}"
-                                             VerticalAlignment="Center"
-                                             MinWidth="160"
-                                             MaxWidth="400" />
-                                    <Button Grid.Column="2"
-                                            Click="OnBrowseAudioAppClick"
+                                             Width="220" />
+                                    <Button Click="OnBrowseAudioAppClick"
                                             ToolTip.Tip="{DynamicResource AudioSource.Executable.Browse}"
+                                            Padding="6,4"
                                             VerticalAlignment="Center">
                                         <ic:FluentIcon Icon="FolderOpen"
-                                                       IconVariant="Regular" />
+                                                       IconVariant="Regular"
+                                                       IconSize="Size16" />
                                     </Button>
-                                </Grid>
-                            </cards:CustomCard>
-                            <cards:ComboBoxCard Title="{DynamicResource AutoProfilesPage.Hiding.Title}"
-                                                Description="{DynamicResource AutoProfilesPage.Hiding.Description}"
-                                                ItemsSource="{Binding HideOptions}"
-                                                SelectedIndex="{Binding SelectedHideIndex}"
-                                                IsVisible="{Binding HidingAvailable}" />
-                            <cards:CustomCard>
-                                <StackPanel Spacing="8">
-                                    <cards:CardHeader Title="{DynamicResource AutoProfilesPage.Trigger.Title}"
-                                                      Description="{DynamicResource AutoProfilesPage.Trigger.Description}" />
-                                    <Grid ColumnDefinitions="*,16,*">
-                                        <StackPanel Grid.Column="0"
-                                                    Spacing="8">
-                                            <TextBlock Text="{DynamicResource AutoProfilesPage.Trigger.Left}"
-                                                       FontWeight="SemiBold" />
-                                            <cards:ComboBoxCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Mode}"
-                                                                ItemsSource="{Binding TriggerEffectOptions}"
-                                                                SelectedIndex="{Binding SelectedLeftTriggerIndex}" />
-                                            <cards:SliderCard Title="{DynamicResource AutoProfilesPage.Trigger.Start}"
-                                                              Minimum="0"
-                                                              Maximum="255"
-                                                              TickFrequency="1"
-                                                              IsVisible="{Binding LeftTriggerStartVisible}"
-                                                              Value="{Binding LeftTriggerStart, Mode=TwoWay}" />
-                                            <cards:SliderCard Title="{DynamicResource AutoProfilesPage.Trigger.End}"
-                                                              Minimum="0"
-                                                              Maximum="255"
-                                                              TickFrequency="1"
-                                                              IsVisible="{Binding LeftTriggerEndVisible}"
-                                                              Value="{Binding LeftTriggerEnd, Mode=TwoWay}" />
-                                            <cards:SliderCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Force}"
-                                                              Minimum="0"
-                                                              Maximum="255"
-                                                              TickFrequency="1"
-                                                              IsVisible="{Binding LeftTriggerForceVisible}"
-                                                              Value="{Binding LeftTriggerForce, Mode=TwoWay}" />
-                                            <cards:SliderCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Frequency}"
-                                                              Minimum="0"
-                                                              Maximum="15"
-                                                              TickFrequency="1"
-                                                              IsVisible="{Binding LeftTriggerFrequencyVisible}"
-                                                              Value="{Binding LeftTriggerFrequency, Mode=TwoWay}" />
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="2"
-                                                    Spacing="8">
-                                            <TextBlock Text="{DynamicResource AutoProfilesPage.Trigger.Right}"
-                                                       FontWeight="SemiBold" />
-                                            <cards:ComboBoxCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Mode}"
-                                                                ItemsSource="{Binding TriggerEffectOptions}"
-                                                                SelectedIndex="{Binding SelectedRightTriggerIndex}" />
-                                            <cards:SliderCard Title="{DynamicResource AutoProfilesPage.Trigger.Start}"
-                                                              Minimum="0"
-                                                              Maximum="255"
-                                                              TickFrequency="1"
-                                                              IsVisible="{Binding RightTriggerStartVisible}"
-                                                              Value="{Binding RightTriggerStart, Mode=TwoWay}" />
-                                            <cards:SliderCard Title="{DynamicResource AutoProfilesPage.Trigger.End}"
-                                                              Minimum="0"
-                                                              Maximum="255"
-                                                              TickFrequency="1"
-                                                              IsVisible="{Binding RightTriggerEndVisible}"
-                                                              Value="{Binding RightTriggerEnd, Mode=TwoWay}" />
-                                            <cards:SliderCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Force}"
-                                                              Minimum="0"
-                                                              Maximum="255"
-                                                              TickFrequency="1"
-                                                              IsVisible="{Binding RightTriggerForceVisible}"
-                                                              Value="{Binding RightTriggerForce, Mode=TwoWay}" />
-                                            <cards:SliderCard Title="{DynamicResource InputMonitorPage.OutputTest.Triggers.Frequency}"
-                                                              Minimum="0"
-                                                              Maximum="15"
-                                                              TickFrequency="1"
-                                                              IsVisible="{Binding RightTriggerFrequencyVisible}"
-                                                              Value="{Binding RightTriggerFrequency, Mode=TwoWay}" />
-                                        </StackPanel>
-                                    </Grid>
                                 </StackPanel>
-                            </cards:CustomCard>
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Hiding.Title}"
+                                                   Description="{DynamicResource AutoProfilesPage.Hiding.Description}"
+                                                   IsVisible="{Binding HidingAvailable}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <ComboBox ItemsSource="{Binding HideOptions}"
+                                          SelectedIndex="{Binding SelectedHideIndex}"
+                                          MinWidth="220" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+
+                        <!-- Adaptive triggers -->
+                        <ui:FASettingsExpanderItem>
+                            <StackPanel Spacing="8">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="{DynamicResource AutoProfilesPage.Trigger.Title}"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock Text="{DynamicResource AutoProfilesPage.Trigger.Description}"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                                <Grid ColumnDefinitions="*,16,*">
+                                    <StackPanel Grid.Column="0"
+                                                Spacing="8">
+                                        <TextBlock Text="{DynamicResource AutoProfilesPage.Trigger.Left}"
+                                                   FontWeight="SemiBold" />
+                                        <ComboBox ItemsSource="{Binding TriggerEffectOptions}"
+                                                  SelectedIndex="{Binding SelectedLeftTriggerIndex}"
+                                                  HorizontalAlignment="Stretch" />
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding LeftTriggerStartVisible}">
+                                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Start}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="0"
+                                                                  Maximum="255"
+                                                                  Value="{Binding LeftTriggerStart, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding LeftTriggerEndVisible}">
+                                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.End}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="0"
+                                                                  Maximum="255"
+                                                                  Value="{Binding LeftTriggerEnd, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding LeftTriggerForceVisible}">
+                                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Force}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="0"
+                                                                  Maximum="255"
+                                                                  Value="{Binding LeftTriggerForce, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding LeftTriggerFrequencyVisible}">
+                                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Frequency}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="0"
+                                                                  Maximum="15"
+                                                                  Value="{Binding LeftTriggerFrequency, Mode=TwoWay}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2"
+                                                Spacing="8">
+                                        <TextBlock Text="{DynamicResource AutoProfilesPage.Trigger.Right}"
+                                                   FontWeight="SemiBold" />
+                                        <ComboBox ItemsSource="{Binding TriggerEffectOptions}"
+                                                  SelectedIndex="{Binding SelectedRightTriggerIndex}"
+                                                  HorizontalAlignment="Stretch" />
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding RightTriggerStartVisible}">
+                                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Start}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="0"
+                                                                  Maximum="255"
+                                                                  Value="{Binding RightTriggerStart, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding RightTriggerEndVisible}">
+                                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.End}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="0"
+                                                                  Maximum="255"
+                                                                  Value="{Binding RightTriggerEnd, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding RightTriggerForceVisible}">
+                                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Force}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="0"
+                                                                  Maximum="255"
+                                                                  Value="{Binding RightTriggerForce, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding RightTriggerFrequencyVisible}">
+                                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Frequency}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="0"
+                                                                  Maximum="15"
+                                                                  Value="{Binding RightTriggerFrequency, Mode=TwoWay}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </ui:FASettingsExpanderItem>
+
+                        <ui:FASettingsExpanderItem IsVisible="{Binding IsRuleActionless}">
                             <TextBlock Text="{DynamicResource AutoProfilesPage.Rules.NoAction}"
                                        FontSize="12"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                       TextWrapping="Wrap"
-                                       IsVisible="{Binding IsRuleActionless}" />
-                        </StackPanel>
+                                       TextWrapping="Wrap" />
+                        </ui:FASettingsExpanderItem>
                     </StackPanel>
-                </Expander>
+                </ui:FASettingsExpander>
             </StackPanel>
         </StackPanel>
     </ScrollViewer>
