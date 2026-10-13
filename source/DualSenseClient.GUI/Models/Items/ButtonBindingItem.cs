@@ -34,13 +34,13 @@ public sealed class ButtonBindingItem
     /// <summary>
     /// Creates the row for the given stored entry.
     /// </summary>
-    public ButtonBindingItem(ButtonMappingEntry entry, VirtualControllerPageViewModel owner)
+    public ButtonBindingItem(ButtonMappingEntry entry, EmulationPageViewModel owner)
     {
         Entry = entry;
         KeysDisplay = owner.DescribeKeys(entry.Keys);
         string targets = string.Join(" + ", entry.Targets
             .Where(target => !target.Equals("None", StringComparison.OrdinalIgnoreCase))
-            .Select(VirtualControllerPageViewModel.GetTargetDisplayName));
+            .Select(EmulationPageViewModel.GetTargetDisplayName));
         TargetDisplay = targets.Length == 0
             ? LocalizationService.GetText("VirtualControllerPage.Mapping.Target.None")
             : targets;

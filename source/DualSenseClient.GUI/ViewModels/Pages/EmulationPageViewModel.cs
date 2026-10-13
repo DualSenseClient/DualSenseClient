@@ -2,20 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
-using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.Controllers.Devices;
-using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.DualSense.Enum;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Controls;
 using DualSenseClient.GUI.Services;
+using SoundFlow.Abstracts;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
 using DualSenseClient.Settings.Sections;
@@ -26,22 +23,22 @@ using DualSenseClient.VIIPER.Xbox360;
 namespace DualSenseClient.GUI.ViewModels.Pages;
 
 /// <summary>
-/// ViewModel for the virtual controller page. Hosts the emulation settings moved off the
-/// device info page (mode, variants, audio forwarding, status) plus the per-mode button
-/// remapping editor backed by <see cref="ButtonMappingTable"/>.
+/// ViewModel for the emulation page: the virtual controller settings (mode, variants,
+/// status) and the per-mode button remapping editor backed by
+/// <see cref="ButtonMappingTable"/>.
 /// </summary>
 /// <remarks>
-/// Mirrors <see cref="MainViewModel.SelectedItem"/> like the other page ViewModels so the
+/// Mirrors <see cref="MainViewModel.SelectedItem"/> like every page ViewModel so the
 /// page always edits the controller active in the shell. Remapping rules are stored per
 /// controller in the emulation settings section and applied live through
 /// <see cref="IEmulationService.ApplyButtonMappings"/> without recreating the device.
 /// </remarks>
-public partial class VirtualControllerPageViewModel : ObservableObject
+public partial class EmulationPageViewModel : ObservableObject
 {
     /// <summary>
     /// Logger instance.
     /// </summary>
-    private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("VirtualControllerPage");
+    private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("EmulationPage");
 
     /// <summary>
     /// The shell ViewModel owning the controller selection.
@@ -66,22 +63,9 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     private readonly IEmulationService _emulation;
 
     /// <summary>
-    /// Service enumerating the applications currently producing audio and resolving the
-    /// stored application to a live process.
+    /// The shared audio engine backing the selected controller's audio player.
     /// </summary>
-    private readonly AudioApplicationService _audioApplications;
-
-    /// <summary>
-    /// Delay between the last emulation slider change and the controller info save,
-    /// so dragging a slider coalesces into a single disk write.
-    /// </summary>
-    private static readonly TimeSpan EmulationSaveDebounce = TimeSpan.FromMilliseconds(500);
-
-    /// <summary>
-    /// Debounced emulation settings save timer: each slider change restarts it and the
-    /// save happens only after changes stop.
-    /// </summary>
-    private readonly DispatcherTimer _emulationSaveTimer;
+    private readonly AudioEngine _audioEngine;
 
     /// <summary>
     /// Tracks the previous monitor state so its event subscriptions are released on replacement.
@@ -128,7 +112,10 @@ public partial class VirtualControllerPageViewModel : ObservableObject
         }
     }
 
-    private string CurrentMac
+    /// <summary>
+    /// The Bluetooth MAC address of the selected controller, or empty when unavailable.
+    /// </summary>
+    public string CurrentMac
     {
         get
         {
@@ -136,7 +123,11 @@ public partial class VirtualControllerPageViewModel : ObservableObject
         }
     }
 
-    private string CurrentDevicePath
+    /// <summary>
+    /// The HID device path of the selected controller, used as a binding fallback when the
+    /// MAC address is unavailable.
+    /// </summary>
+    public string CurrentDevicePath
     {
         get
         {
@@ -206,7 +197,7 @@ public partial class VirtualControllerPageViewModel : ObservableObject
         }
     }
 
-    // ── Emulation settings (moved from the device info page) ───
+    // ── Emulation settings ──────────────────────────────────────
 
     /// <summary>
     /// Virtual controller emulation mode options for the dropdown, in
@@ -238,16 +229,6 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     [
         LocalizationService.GetText("VirtualControllerPage.Emulation.Ds4Variant.V1"),
         LocalizationService.GetText("VirtualControllerPage.Emulation.Ds4Variant.V2")
-    ];
-
-    /// <summary>
-    /// Forwarded audio output options for the dropdown, in
-    /// <see cref="EmulationAudioOutput"/> order (speaker, headset).
-    /// </summary>
-    public ObservableCollection<string> EmulationAudioOutputs { get; } =
-    [
-        LocalizationService.GetText("VirtualControllerPage.Emulation.AudioOutput.Speaker"),
-        LocalizationService.GetText("VirtualControllerPage.Emulation.AudioOutput.Headset")
     ];
 
     /// <summary>
@@ -433,513 +414,6 @@ public partial class VirtualControllerPageViewModel : ObservableObject
             OnPropertyChanged(nameof(DualShock4VariantIndex));
             _emulation.Refresh();
         }
-    }
-
-    /// <summary>
-    /// The physical controller output (<see cref="EmulationAudioOutput"/> value) used
-    /// when forwarding host audio. Setting it persists the change immediately and
-    /// applies it to the active forwarder without recreating the virtual controller.
-    /// </summary>
-    public int ForwardAudioOutputIndex
-    {
-        get
-        {
-            return !HasDevice ? 0 : (int)GetEmulationSettings().Forward.AudioOutput;
-        }
-        set
-        {
-            if (!HasDevice)
-            {
-                return;
-            }
-
-            EmulationAudioOutput output = (EmulationAudioOutput)Math.Clamp(value, 0, (int)EmulationAudioOutput.Headset);
-            EmulationSettings settings = GetEmulationSettings();
-            if (settings.Forward.AudioOutput == output)
-            {
-                return;
-            }
-
-            _log.Info($"Setting forwarded audio output of {CurrentMac} to {output}");
-            settings.Forward.AudioOutput = output;
-            _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
-            OnPropertyChanged(nameof(ForwardAudioOutputIndex));
-            if (CurrentDualSenseDevice is { } device)
-            {
-                _emulation.SetForwardingAudioOutput(device, output == EmulationAudioOutput.Headset);
-            }
-        }
-    }
-
-    /// <summary>
-    /// The speaker volume applied to the physical controller when forwarding host
-    /// audio (0-255, two-way, persisted). Mirrors the audio player tester's range.
-    /// </summary>
-    public int ForwardVolume
-    {
-        get
-        {
-            return !HasDevice ? 0 : GetEmulationSettings().Forward.Volume;
-        }
-        set
-        {
-            if (!HasDevice)
-            {
-                return;
-            }
-
-            int clamped = Math.Clamp(value, 0, 255);
-            EmulationSettings settings = GetEmulationSettings();
-            if (settings.Forward.Volume == clamped)
-            {
-                return;
-            }
-
-            settings.Forward.Volume = clamped;
-            ScheduleEmulationSave();
-            OnPropertyChanged(nameof(ForwardVolume));
-            if (CurrentDualSenseDevice is { } device)
-            {
-                _emulation.SetForwardingAudioOptions(device, (byte)clamped, settings.Forward.Haptics / 100f);
-            }
-        }
-    }
-
-    /// <summary>
-    /// The haptic vibration strength when forwarding host audio, as a percentage
-    /// (0-200, two-way, persisted). Mirrors the audio player tester's range.
-    /// </summary>
-    public int ForwardHapticStrength
-    {
-        get
-        {
-            return !HasDevice ? 0 : GetEmulationSettings().Forward.Haptics;
-        }
-        set
-        {
-            if (!HasDevice)
-            {
-                return;
-            }
-
-            int clamped = Math.Clamp(value, 0, 200);
-            EmulationSettings settings = GetEmulationSettings();
-            if (settings.Forward.Haptics == clamped)
-            {
-                return;
-            }
-
-            settings.Forward.Haptics = clamped;
-            ScheduleEmulationSave();
-            OnPropertyChanged(nameof(ForwardHapticStrength));
-            if (CurrentDualSenseDevice is { } device)
-            {
-                _emulation.SetForwardingAudioOptions(device, (byte)settings.Forward.Volume, clamped / 100f);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Whether forwarded haptics ignore the game's own payload and always derive from
-    /// the forwarded audio (two-way, persisted). The haptic strength slider always
-    /// applies to audio-derived haptics. Only affects DualSense emulation over Bluetooth.
-    /// </summary>
-    public bool ForceAudioHaptics
-    {
-        get
-        {
-            return HasDevice && GetEmulationSettings().Forward.ForceAudioHaptics;
-        }
-        set
-        {
-            if (!HasDevice)
-            {
-                return;
-            }
-
-            EmulationSettings settings = GetEmulationSettings();
-            if (settings.Forward.ForceAudioHaptics == value)
-            {
-                return;
-            }
-
-            _log.Info($"Setting audio-only haptics of {CurrentMac} to {value}");
-            settings.Forward.ForceAudioHaptics = value;
-            _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
-            OnPropertyChanged(nameof(ForceAudioHaptics));
-            if (CurrentDualSenseDevice is { } device)
-            {
-                _emulation.SetForwardingHapticsSource(device, value);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Forwarded-audio source options for the dropdown, in <see cref="EmulationAudioSource"/>
-    /// order (virtual controller endpoint, system output, a single application).
-    /// </summary>
-    public ObservableCollection<string> ForwardAudioSources { get; } =
-    [
-        LocalizationService.GetText("VirtualControllerPage.Emulation.AudioSource.Controller"),
-        LocalizationService.GetText("VirtualControllerPage.Emulation.AudioSource.SystemOutput"),
-        LocalizationService.GetText("VirtualControllerPage.Emulation.AudioSource.Application")
-    ];
-
-    /// <summary>
-    /// The applications currently producing audio, backing the application picker.
-    /// </summary>
-    public ObservableCollection<string> ForwardAudioApps { get; } = [];
-
-    /// <summary>
-    /// The enumerated applications corresponding to <see cref="ForwardAudioApps"/>.
-    /// </summary>
-    private readonly List<AudioApplicationInfo> _forwardAudioAppItems = [];
-
-    /// <summary>
-    /// Application-picker modes for the dropdown, in <see cref="EmulationAudioAppMode"/>
-    /// order (currently-playing list, executable file picked with the file browser).
-    /// </summary>
-    public ObservableCollection<string> ForwardAudioAppModes { get; } =
-    [
-        LocalizationService.GetText("AudioSource.Mode.PlayingApps"),
-        LocalizationService.GetText("AudioSource.Mode.ExecutableFile")
-    ];
-
-    /// <summary>
-    /// The forwarded-audio source (<see cref="EmulationAudioSource"/> value) of the
-    /// selected controller (two-way, persisted). The direct sources (system output and
-    /// application) route straight to the physical controller and need no virtual device;
-    /// the chosen application is stored separately and resolved to a process on capture.
-    /// </summary>
-    public int ForwardAudioSourceIndex
-    {
-        get
-        {
-            return !HasDevice ? 0 : (int)GetEmulationSettings().Forward.AudioSource;
-        }
-        set
-        {
-            if (!HasDevice)
-            {
-                return;
-            }
-
-            EmulationAudioSource source = (EmulationAudioSource)Math.Clamp(value, 0, (int)EmulationAudioSource.Application);
-            EmulationSettings settings = GetEmulationSettings();
-            if (settings.Forward.AudioSource == source)
-            {
-                return;
-            }
-
-            _log.Info($"Setting forwarded audio source of {CurrentMac} to {source}");
-            settings.Forward.AudioSource = source;
-            _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
-            OnPropertyChanged(nameof(ForwardAudioSourceIndex));
-            OnPropertyChanged(nameof(IsForwardAudioAppVisible));
-            OnPropertyChanged(nameof(IsForwardAudioAppListVisible));
-            OnPropertyChanged(nameof(IsForwardAudioAppBrowseVisible));
-            OnPropertyChanged(nameof(IsForwardAudioAppEmpty));
-            if (source == EmulationAudioSource.Application)
-            {
-                _ = RefreshForwardAudioApps();
-            }
-            else
-            {
-                ClearForwardAudioApps();
-            }
-
-            if (CurrentDualSenseDevice is { } device)
-            {
-                ApplyForwardAudioSource(device, source, settings.Forward.AudioApp);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Whether the application picker is shown: the forwarded-audio source is a single
-    /// application.
-    /// </summary>
-    public bool IsForwardAudioAppVisible
-    {
-        get
-        {
-            return HasDevice && GetEmulationSettings().Forward.AudioSource == EmulationAudioSource.Application;
-        }
-    }
-
-    /// <summary>
-    /// The captured application as an index into the picker modes
-    /// (<see cref="EmulationAudioAppMode"/> value, two-way, persisted). List mode shows
-    /// the applications currently playing audio; executable-file mode shows the stored
-    /// path with a browse button. The mode only decides how the path is chosen.
-    /// </summary>
-    public int ForwardAudioAppModeIndex
-    {
-        get
-        {
-            return !HasDevice ? 0 : (int)GetEmulationSettings().Forward.AudioAppMode;
-        }
-        set
-        {
-            if (!HasDevice)
-            {
-                return;
-            }
-
-            EmulationAudioAppMode mode = (EmulationAudioAppMode)Math.Clamp(value, 0, (int)EmulationAudioAppMode.ExecutableFile);
-            EmulationSettings settings = GetEmulationSettings();
-            if (settings.Forward.AudioAppMode == mode)
-            {
-                return;
-            }
-
-            _log.Info($"Setting forwarded audio application mode of {CurrentMac} to {mode}");
-            settings.Forward.AudioAppMode = mode;
-            _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
-            OnPropertyChanged(nameof(ForwardAudioAppModeIndex));
-            OnPropertyChanged(nameof(IsForwardAudioAppListVisible));
-            OnPropertyChanged(nameof(IsForwardAudioAppBrowseVisible));
-            OnPropertyChanged(nameof(IsForwardAudioAppEmpty));
-            if (mode == EmulationAudioAppMode.PlayingApps)
-            {
-                _ = RefreshForwardAudioApps();
-            }
-        }
-    }
-
-    /// <summary>
-    /// Whether the application picker is shown but has no entries, so the page can
-    /// explain that nothing is playing instead of showing an empty dropdown. Only
-    /// list mode has entries to be empty.
-    /// </summary>
-    public bool IsForwardAudioAppEmpty
-    {
-        get
-        {
-            return IsForwardAudioAppListVisible && ForwardAudioApps.Count == 0;
-        }
-    }
-
-    /// <summary>
-    /// Whether the list of currently playing applications is shown: the application
-    /// source is selected and the picker is in list mode.
-    /// </summary>
-    public bool IsForwardAudioAppListVisible
-    {
-        get
-        {
-            return IsForwardAudioAppVisible && ForwardAudioAppModeIndex == (int)EmulationAudioAppMode.PlayingApps;
-        }
-    }
-
-    /// <summary>
-    /// Whether the executable-file row is shown: the application source is selected and
-    /// the picker is in executable-file mode.
-    /// </summary>
-    public bool IsForwardAudioAppBrowseVisible
-    {
-        get
-        {
-            return IsForwardAudioAppVisible && ForwardAudioAppModeIndex == (int)EmulationAudioAppMode.ExecutableFile;
-        }
-    }
-
-    /// <summary>
-    /// The executable path captured by the application source, shown (and browsed to) in
-    /// executable-file mode. Empty when nothing has been chosen yet.
-    /// </summary>
-    public string ForwardAudioAppPath
-    {
-        get
-        {
-            return !HasDevice ? string.Empty : GetEmulationSettings().Forward.AudioApp;
-        }
-    }
-
-    /// <summary>
-    /// The selected application in <see cref="ForwardAudioApps"/> as an index, or -1 when
-    /// none is selected. Setting it persists the executable path and applies it to the
-    /// active forwarder.
-    /// </summary>
-    public int ForwardAudioAppIndex
-    {
-        get
-        {
-            if (!HasDevice)
-            {
-                return -1;
-            }
-
-            string stored = GetEmulationSettings().Forward.AudioApp;
-            if (string.IsNullOrEmpty(stored))
-            {
-                return -1;
-            }
-
-            return _forwardAudioAppItems.FindIndex(app =>
-                string.Equals(app.ExecutablePath, stored, StringComparison.OrdinalIgnoreCase));
-        }
-        set
-        {
-            if (!HasDevice || value < 0 || value >= _forwardAudioAppItems.Count)
-            {
-                return;
-            }
-
-            SetForwardAudioApp(_forwardAudioAppItems[value].ExecutablePath);
-        }
-    }
-
-    /// <summary>
-    /// Re-enumerates the applications currently producing audio and refreshes the app
-    /// picker. Enumeration runs off the UI thread; a stored application that is not
-    /// currently playing is kept in the list so the selection stays visible. Results for
-    /// a controller switched away from meanwhile are discarded.
-    /// </summary>
-    [RelayCommand]
-    private async Task RefreshForwardAudioApps()
-    {
-        if (!HasDevice)
-        {
-            return;
-        }
-
-        DeviceInfoItem? device = CurrentDevice;
-        string stored = GetEmulationSettings().Forward.AudioApp;
-        List<AudioApplicationInfo> apps =
-            new List<AudioApplicationInfo>(await Task.Run(_audioApplications.GetPlayingApplications));
-        if (!ReferenceEquals(CurrentDevice, device))
-        {
-            return;
-        }
-
-        if (!string.IsNullOrEmpty(stored)
-            && !apps.Any(app => string.Equals(app.ExecutablePath, stored, StringComparison.OrdinalIgnoreCase)))
-        {
-            apps.Insert(0, new AudioApplicationInfo(Path.GetFileNameWithoutExtension(stored), stored, 0));
-        }
-
-        _forwardAudioAppItems.Clear();
-        _forwardAudioAppItems.AddRange(apps);
-
-        List<string> names = new List<string>();
-        foreach (AudioApplicationInfo app in _forwardAudioAppItems)
-        {
-            names.Add(app.DisplayName);
-        }
-
-        SyncForwardAudioApps(names);
-        OnPropertyChanged(nameof(ForwardAudioAppIndex));
-        OnPropertyChanged(nameof(IsForwardAudioAppEmpty));
-    }
-
-    /// <summary>
-    /// Empties the app picker while the application source is not selected.
-    /// </summary>
-    private void ClearForwardAudioApps()
-    {
-        _forwardAudioAppItems.Clear();
-        ForwardAudioApps.Clear();
-        OnPropertyChanged(nameof(ForwardAudioAppIndex));
-        OnPropertyChanged(nameof(IsForwardAudioAppEmpty));
-    }
-
-    /// <summary>
-    /// Updates the app picker options in place, mirroring the auto-profile page's option
-    /// sync so a bound ComboBox selection survives a refresh.
-    /// </summary>
-    private void SyncForwardAudioApps(List<string> desired)
-    {
-        int index = 0;
-        while (index < desired.Count && index < ForwardAudioApps.Count)
-        {
-            if (!string.Equals(ForwardAudioApps[index], desired[index], StringComparison.Ordinal))
-            {
-                ForwardAudioApps[index] = desired[index];
-            }
-
-            index++;
-        }
-
-        while (index < desired.Count)
-        {
-            ForwardAudioApps.Add(desired[index]);
-            index++;
-        }
-
-        while (ForwardAudioApps.Count > desired.Count)
-        {
-            ForwardAudioApps.RemoveAt(ForwardAudioApps.Count - 1);
-        }
-    }
-
-    /// <summary>
-    /// Serializes background audio-source applies: each queued apply waits for the
-    /// previous one, so rapid source or application changes reach the emulation service
-    /// in the order the UI made them.
-    /// </summary>
-    private Task _audioSourceApply = Task.CompletedTask;
-
-    /// <summary>
-    /// Applies a forwarded-audio source change off the UI thread: resolving the stored
-    /// application can scan every running process and starting the capture can wait
-    /// seconds for activation.
-    /// </summary>
-    private void ApplyForwardAudioSource(DualSenseDevice device, EmulationAudioSource source, string audioApp)
-    {
-        _audioSourceApply = _audioSourceApply.ContinueWith(
-            _ =>
-            {
-                try
-                {
-                    _emulation.SetForwardingAudioSource(device, source, audioApp);
-                }
-                catch (Exception ex)
-                {
-                    _log.Error($"Applying the forwarded audio source failed: {ex.Message}");
-                }
-            },
-            TaskScheduler.Default);
-    }
-
-    /// <summary>
-    /// Persists the chosen application and applies it to the active forwarder. No-op when
-    /// the selection did not change.
-    /// </summary>
-    private void SetForwardAudioApp(string applicationPath)
-    {
-        EmulationSettings settings = GetEmulationSettings();
-        if (string.Equals(settings.Forward.AudioApp, applicationPath, StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        _log.Info($"Setting forwarded audio application of {CurrentMac} to '{applicationPath}'");
-        settings.Forward.AudioApp = applicationPath;
-        _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
-        OnPropertyChanged(nameof(ForwardAudioAppIndex));
-        OnPropertyChanged(nameof(ForwardAudioAppPath));
-        if (CurrentDualSenseDevice is { } device)
-        {
-            ApplyForwardAudioSource(device, settings.Forward.AudioSource, applicationPath);
-        }
-    }
-
-    /// <summary>
-    /// Applies an executable picked with the file browser: stores it as the captured
-    /// application and refreshes the list, so the choice also appears in list mode.
-    /// </summary>
-    /// <param name="applicationPath">Full path of the chosen executable.</param>
-    public void SelectAudioApplication(string applicationPath)
-    {
-        if (!HasDevice || string.IsNullOrWhiteSpace(applicationPath))
-        {
-            return;
-        }
-
-        SetForwardAudioApp(applicationPath);
-        OnPropertyChanged(nameof(ForwardAudioAppPath));
-        _ = RefreshForwardAudioApps();
     }
 
     /// <summary>
@@ -1738,7 +1212,7 @@ public partial class VirtualControllerPageViewModel : ObservableObject
 
     /// <summary>
     /// Raw target names of the DualSense mode, including the Edge-only function keys and
-    /// back paddles. Only offered when the virtual device presents an Edge.
+    /// back paddles. Only offered when the virtual device presents a DualSense Edge.
     /// </summary>
     private static readonly IReadOnlyList<string> DualSenseTargets =
     [
@@ -1770,24 +1244,19 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// <summary>
     /// Creates the page ViewModel and subscribes to the shell's controller selection.
     /// </summary>
-    public VirtualControllerPageViewModel()
+    public EmulationPageViewModel()
     {
         _mainViewModel = App.Services.GetRequiredService<MainViewModel>();
+        _audioEngine = App.Services.GetRequiredService<AudioEngine>();
         _controllerService = App.Services.GetRequiredService<ControllerInfoService>();
         _illustrationService = App.Services.GetRequiredService<ControllerIllustrationService>();
         _emulation = App.Services.GetRequiredService<IEmulationService>();
-        _audioApplications = App.Services.GetRequiredService<AudioApplicationService>();
         foreach (string skin in _illustrationService.GetSkins())
         {
             Skins.Add(skin);
         }
 
         _emulation.StateChanged += OnEmulationStateChanged;
-        _emulationSaveTimer = new DispatcherTimer
-        {
-            Interval = EmulationSaveDebounce
-        };
-        _emulationSaveTimer.Tick += (_, _) => SaveEmulationDebounced();
         _mainViewModel.PropertyChanged += OnMainViewModelPropertyChanged;
         UpdateDevice();
     }
@@ -1825,7 +1294,7 @@ public partial class VirtualControllerPageViewModel : ObservableObject
 
         ControllerItem? selected = _mainViewModel.SelectedItem;
         CurrentDevice = selected is not null ? new DeviceInfoItem(selected) : null;
-        MonitorState = selected is not null ? new InputMonitorItem(selected) : null;
+        MonitorState = selected is not null ? new InputMonitorItem(selected, _audioEngine) : null;
         _previousMonitorState = MonitorState;
 
         string storedSkin = selected is null ? string.Empty : _controllerService.GetSkin(CurrentMac, CurrentDevicePath) ?? string.Empty;
@@ -1856,52 +1325,8 @@ public partial class VirtualControllerPageViewModel : ObservableObject
         NotifyTargetPickerState();
         OnPropertyChanged(nameof(DualSenseVariantIndex));
         OnPropertyChanged(nameof(DualShock4VariantIndex));
-        OnPropertyChanged(nameof(ForwardAudioOutputIndex));
-        OnPropertyChanged(nameof(ForwardVolume));
-        OnPropertyChanged(nameof(ForwardHapticStrength));
-        OnPropertyChanged(nameof(ForceAudioHaptics));
-        OnPropertyChanged(nameof(ForwardAudioSourceIndex));
-        OnPropertyChanged(nameof(IsForwardAudioAppVisible));
-        OnPropertyChanged(nameof(IsForwardAudioAppListVisible));
-        OnPropertyChanged(nameof(IsForwardAudioAppBrowseVisible));
-        OnPropertyChanged(nameof(IsForwardAudioAppEmpty));
-        OnPropertyChanged(nameof(ForwardAudioAppModeIndex));
-        OnPropertyChanged(nameof(ForwardAudioAppPath));
-        if (IsForwardAudioAppVisible)
-        {
-            _ = RefreshForwardAudioApps();
-        }
-        else
-        {
-            ClearForwardAudioApps();
-        }
 
         OnPropertyChanged(nameof(EmulationStatusText));
         OnPropertyChanged(nameof(CanChangeEmulation));
-    }
-
-    /// <summary>
-    /// Restarts the debounce timer so the pending emulation settings save is delayed
-    /// until slider changes stop, avoiding a disk write per drag step.
-    /// </summary>
-    private void ScheduleEmulationSave()
-    {
-        _emulationSaveTimer.Stop();
-        _emulationSaveTimer.Start();
-    }
-
-    /// <summary>
-    /// Flushes the debounced emulation settings save to disk once the debounce period
-    /// elapses.
-    /// </summary>
-    private void SaveEmulationDebounced()
-    {
-        _emulationSaveTimer.Stop();
-        if (!HasDevice)
-        {
-            return;
-        }
-
-        _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, GetEmulationSettings());
     }
 }

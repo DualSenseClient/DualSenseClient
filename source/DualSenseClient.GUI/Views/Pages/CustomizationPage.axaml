@@ -1,0 +1,818 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DualSenseClient.GUI.ViewModels.Pages"
+             xmlns:items="using:DualSenseClient.GUI.Models.Items"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:ic="using:FluentIcons.Avalonia.Fluent"
+             xmlns:icm="using:FluentIcons.Avalonia.Fluent.Markup"
+             xmlns:avalonia="using:Avalonia.Controls"
+             xmlns:controls="clr-namespace:DualSenseClient.GUI.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignWidth="1000"
+             d:DesignHeight="900"
+             x:Class="DualSenseClient.GUI.Views.Pages.CustomizationPage"
+             x:DataType="vm:CustomizationPageViewModel">
+    <Design.DataContext>
+        <vm:CustomizationPageViewModel />
+    </Design.DataContext>
+    <ScrollViewer>
+        <StackPanel Spacing="4"
+                    Margin="24,12,24,24">
+
+            <!-- Profiles -->
+            <ui:FASettingsExpander IconSource="{icm:SymbolIconSource Symbol=Options}"
+                                   IsExpanded="False">
+                <ui:FASettingsExpander.Header>
+                    <Panel HorizontalAlignment="Stretch">
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource ProfilePage.Profiles.Title}" />
+                            <TextBlock Text="{DynamicResource ProfilePage.Profiles.Description}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="8"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center">
+                            <Button Command="{Binding CreateProfileCommand}"
+                                    ToolTip.Tip="{DynamicResource ProfilePage.Profiles.New}"
+                                    Padding="6,4">
+                                <ic:FluentIcon Icon="Add"
+                                               IconVariant="Regular"
+                                               IconSize="Size16" />
+                            </Button>
+                            <Button Command="{Binding DuplicateProfileCommand}"
+                                    IsEnabled="{Binding HasSelectedProfile}"
+                                    ToolTip.Tip="{DynamicResource ProfilePage.Profiles.Duplicate}"
+                                    Padding="6,4">
+                                <ic:FluentIcon Icon="Copy"
+                                               IconVariant="Regular"
+                                               IconSize="Size16" />
+                            </Button>
+                            <Button Command="{Binding DeleteProfileCommand}"
+                                    IsEnabled="{Binding HasSelectedProfile}"
+                                    ToolTip.Tip="{DynamicResource ProfilePage.Profiles.Delete}"
+                                    Padding="6,4">
+                                <ic:FluentIcon Icon="Delete"
+                                               IconVariant="Regular"
+                                               IconSize="Size16" />
+                            </Button>
+                        </StackPanel>
+                    </Panel>
+                </ui:FASettingsExpander.Header>
+
+                <!-- Profile selection -->
+                <ui:FASettingsExpanderItem>
+                    <StackPanel Orientation="Horizontal"
+                                Spacing="8">
+                        <ComboBox ItemsSource="{Binding Profiles}"
+                                  SelectedItem="{Binding SelectedProfile}"
+                                  MinWidth="220"
+                                  PlaceholderText="{DynamicResource ProfilePage.Profiles.Empty}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="items:ProfileEditorItem">
+                                    <StackPanel Orientation="Horizontal"
+                                                Spacing="8">
+                                        <Border Width="16"
+                                                Height="16"
+                                                CornerRadius="4"
+                                                VerticalAlignment="Center"
+                                                Background="{Binding LightbarBrush}" />
+                                        <TextBlock Text="{Binding Name}"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource ProfilePage.Profiles.Empty}"
+                                           IsVisible="{Binding !HasSelectedProfile}" />
+
+                <!-- Editor for the selected profile -->
+                <ui:FASettingsExpanderItem IsVisible="{Binding HasSelectedProfile}">
+                    <StackPanel Spacing="8">
+                        <ui:FASettingsExpanderItem Content="{DynamicResource ProfilePage.Name.Title}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <TextBox Text="{Binding SelectedProfile.Name}"
+                                         Width="280" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+
+                        <!-- Lightbar color -->
+                        <TextBlock Text="{DynamicResource ProfilePage.Lightbar.Title}"
+                                   FontWeight="SemiBold"
+                                   Margin="0,4,0,0" />
+                        <Grid ColumnDefinitions="Auto,*"
+                              ColumnSpacing="16">
+                            <avalonia:ColorView Grid.Column="0"
+                                                Width="320"
+                                                Color="{Binding SelectedProfile.LightbarColor}"
+                                                IsColorSpectrumVisible="True"
+                                                IsColorPaletteVisible="True"
+                                                IsColorComponentsVisible="False"
+                                                IsColorPreviewVisible="True"
+                                                IsAlphaEnabled="False"
+                                                IsAlphaVisible="False" />
+                            <Grid Grid.Column="1"
+                                  RowDefinitions="Auto,*,Auto,*,Auto">
+                                <controls:SliderInput Grid.Row="0"
+                                                      Minimum="0"
+                                                      Maximum="255"
+                                                      Value="{Binding SelectedProfile.LedRed}" />
+                                <controls:SliderInput Grid.Row="2"
+                                                      Minimum="0"
+                                                      Maximum="255"
+                                                      Value="{Binding SelectedProfile.LedGreen}" />
+                                <controls:SliderInput Grid.Row="4"
+                                                      Minimum="0"
+                                                      Maximum="255"
+                                                      Value="{Binding SelectedProfile.LedBlue}" />
+                            </Grid>
+                        </Grid>
+
+                        <!-- Microphone LED -->
+                        <ui:FASettingsExpanderItem Content="{DynamicResource ProfilePage.MicLed.Title}"
+                                                   Description="{DynamicResource ProfilePage.MicLed.Mode}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <ComboBox ItemsSource="{Binding MicLedModes}"
+                                          SelectedIndex="{Binding SelectedProfile.MuteLedMode}"
+                                          MinWidth="200" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+
+                        <!-- Player LEDs -->
+                        <ui:FASettingsExpanderItem>
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="{DynamicResource ProfilePage.PlayerLeds.Title}"
+                                           FontWeight="SemiBold" />
+                                <UniformGrid Rows="1">
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player1}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerPreset1}"
+                                                  HorizontalAlignment="Center" />
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player2}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerPreset2}"
+                                                  HorizontalAlignment="Center" />
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player3}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerPreset3}"
+                                                  HorizontalAlignment="Center" />
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player4}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerPreset4}"
+                                                  HorizontalAlignment="Center" />
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player5}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerPreset5}"
+                                                  HorizontalAlignment="Center" />
+                                </UniformGrid>
+                                <UniformGrid Rows="1"
+                                             IsVisible="{Binding HasFullPlayerLedSupport}">
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led1}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerLed1}"
+                                                  HorizontalAlignment="Center" />
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led2}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerLed2}"
+                                                  HorizontalAlignment="Center" />
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led3}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerLed3}"
+                                                  HorizontalAlignment="Center" />
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led4}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerLed4}"
+                                                  HorizontalAlignment="Center" />
+                                    <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led5}"
+                                                  IsChecked="{Binding SelectedProfile.PlayerLed5}"
+                                                  HorizontalAlignment="Center" />
+                                </UniformGrid>
+                            </StackPanel>
+                        </ui:FASettingsExpanderItem>
+                    </StackPanel>
+                </ui:FASettingsExpanderItem>
+            </ui:FASettingsExpander>
+
+            <!-- Special actions -->
+            <ui:FASettingsExpander IconSource="{icm:SymbolIconSource Symbol=Wand}"
+                                   IsExpanded="False"
+                                   IsVisible="{Binding HasDevice}">
+                <ui:FASettingsExpander.Header>
+                    <Panel HorizontalAlignment="Stretch">
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Title}" />
+                            <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Description}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="8"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center">
+                            <Button Click="OnImportSpecialActionsClick"
+                                    ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.Import.ToolTip}"
+                                    Padding="6,4">
+                                <ic:FluentIcon Icon="ArrowImport"
+                                               IconVariant="Regular"
+                                               IconSize="Size16" />
+                            </Button>
+                            <Button Click="OnExportSpecialActionsClick"
+                                    ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.Export.ToolTip}"
+                                    Padding="6,4">
+                                <ic:FluentIcon Icon="ArrowExport"
+                                               IconVariant="Regular"
+                                               IconSize="Size16" />
+                            </Button>
+                            <Button Command="{Binding AddSpecialActionCommand}"
+                                    ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.New}"
+                                    Padding="6,4">
+                                <ic:FluentIcon Icon="Add"
+                                               IconVariant="Regular"
+                                               IconSize="Size16" />
+                            </Button>
+                        </StackPanel>
+                    </Panel>
+                </ui:FASettingsExpander.Header>
+
+                <!-- Action list -->
+                <ui:FASettingsExpanderItem Content="{DynamicResource ProfilePage.SpecialActions.Empty}"
+                                           IsVisible="{Binding !HasSpecialActions}" />
+                <ui:FASettingsExpanderItem>
+                    <ComboBox ItemsSource="{Binding SpecialActions}"
+                              SelectedItem="{Binding SelectedSpecialAction}"
+                              MinWidth="280"
+                              HorizontalAlignment="Stretch">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="items:SpecialActionItem">
+                                <StackPanel Orientation="Horizontal"
+                                            Spacing="8">
+                                    <TextBlock Text="{Binding Name}"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding ComboSummary}"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </ui:FASettingsExpanderItem>
+
+                <!-- Editor for the selected special action -->
+                <ContentControl Content="{Binding SelectedSpecialAction}">
+                    <ContentControl.ContentTemplate>
+                        <DataTemplate x:DataType="items:SpecialActionItem">
+                            <StackPanel Spacing="4">
+                                <ui:FASettingsExpanderItem>
+                                    <Grid ColumnDefinitions="*,Auto,Auto">
+                                        <TextBox Text="{Binding Name, Mode=TwoWay}"
+                                                 PlaceholderText="{DynamicResource ProfilePage.SpecialActions.Name}" />
+                                        <Button Grid.Column="1"
+                                                Click="OnExportSpecialActionClick"
+                                                ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.Export.One}"
+                                                Margin="8,0,0,0"
+                                                Padding="6,4">
+                                            <ic:FluentIcon Icon="ArrowExport"
+                                                           IconVariant="Regular"
+                                                           IconSize="Size16" />
+                                        </Button>
+                                        <Button Grid.Column="2"
+                                                Command="{Binding DeleteCommand}"
+                                                ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.Delete}"
+                                                Margin="8,0,0,0"
+                                                Padding="6,4">
+                                            <ic:FluentIcon Icon="Delete"
+                                                           IconVariant="Regular"
+                                                           IconSize="Size16" />
+                                        </Button>
+                                    </Grid>
+                                </ui:FASettingsExpanderItem>
+
+                                <ui:FASettingsExpanderItem Content="{DynamicResource ProfilePage.SpecialActions.EnabledForThisController}">
+                                    <ui:FASettingsExpanderItem.Footer>
+                                        <ToggleSwitch IsChecked="{Binding IsEnabledForThisController, Mode=TwoWay}" />
+                                    </ui:FASettingsExpanderItem.Footer>
+                                </ui:FASettingsExpanderItem>
+
+                                <ui:FASettingsExpanderItem Content="{DynamicResource ProfilePage.SpecialActions.Trigger}"
+                                                           Description="{DynamicResource ProfilePage.SpecialActions.Trigger.Description}">
+                                    <ui:FASettingsExpanderItem.Footer>
+                                        <ComboBox ItemsSource="{Binding TriggerOptions}"
+                                                  SelectedIndex="{Binding SelectedTriggerIndex}"
+                                                  MinWidth="200" />
+                                    </ui:FASettingsExpanderItem.Footer>
+                                </ui:FASettingsExpanderItem>
+
+                                <ui:FASettingsExpanderItem Content="{DynamicResource ProfilePage.SpecialActions.Gesture}"
+                                                           Description="{DynamicResource ProfilePage.SpecialActions.Gesture.Description}"
+                                                           IsVisible="{Binding HasGesture}">
+                                    <ui:FASettingsExpanderItem.Footer>
+                                        <ComboBox ItemsSource="{Binding GestureOptions}"
+                                                  SelectedIndex="{Binding SelectedGestureIndex}"
+                                                  MinWidth="200" />
+                                    </ui:FASettingsExpanderItem.Footer>
+                                </ui:FASettingsExpanderItem>
+
+                                <ui:FASettingsExpanderItem IsVisible="{Binding !HasGesture}">
+                                    <StackPanel Spacing="8">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Combo}"
+                                                       FontWeight="SemiBold" />
+                                            <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Combo.Hint}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                       TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <ItemsControl ItemsSource="{Binding Buttons}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="items:SpecialActionButtonItem">
+                                                    <ToggleButton Content="{Binding DisplayName}"
+                                                                  IsChecked="{Binding IsChecked}"
+                                                                  Margin="0,0,6,6" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </ui:FASettingsExpanderItem>
+
+                                <ui:FASettingsExpanderItem IsVisible="{Binding !HasGesture}">
+                                    <StackPanel Spacing="8">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Effects.Title}"
+                                                       FontWeight="SemiBold" />
+                                            <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Effects.Description}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                       TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <WrapPanel>
+                                            <ToggleButton Content="{DynamicResource ProfilePage.SpecialActions.Effects.Disconnect}"
+                                                          IsChecked="{Binding EffectDisconnect}"
+                                                          Margin="0,0,6,6" />
+                                            <ToggleButton Content="{DynamicResource ProfilePage.SpecialActions.Effects.Lightbar}"
+                                                          IsChecked="{Binding EffectLightbar}"
+                                                          Margin="0,0,6,6" />
+                                            <ToggleButton Content="{DynamicResource ProfilePage.SpecialActions.Effects.PlayerLeds}"
+                                                          IsChecked="{Binding EffectPlayerLeds}"
+                                                          Margin="0,0,6,6" />
+                                            <ToggleButton Content="{DynamicResource ProfilePage.SpecialActions.Effects.Sound}"
+                                                          IsChecked="{Binding EffectSound}"
+                                                          Margin="0,0,6,6" />
+                                            <ToggleButton Content="{DynamicResource ProfilePage.SpecialActions.Effects.Battery}"
+                                                          IsChecked="{Binding EffectBattery}"
+                                                          Margin="0,0,6,6" />
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </ui:FASettingsExpanderItem>
+
+                                <ui:FASettingsExpanderItem Content="{DynamicResource ProfilePage.SpecialActions.HoldTime}"
+                                                           Description="{DynamicResource ProfilePage.SpecialActions.HoldTime.Description}">
+                                    <ui:FASettingsExpanderItem.Footer>
+                                        <NumericUpDown Minimum="0"
+                                                       Maximum="10"
+                                                       Value="{Binding HoldTimeSeconds}"
+                                                       Width="160" />
+                                    </ui:FASettingsExpanderItem.Footer>
+                                </ui:FASettingsExpanderItem>
+
+                                <ui:FASettingsExpanderItem Content="{DynamicResource ProfilePage.SpecialActions.ApplyWhileHeld}"
+                                                           IsVisible="{Binding IsApplyWhileHeldVisible}">
+                                    <ui:FASettingsExpanderItem.Footer>
+                                        <ToggleSwitch IsChecked="{Binding ApplyWhileHeld, Mode=TwoWay}" />
+                                    </ui:FASettingsExpanderItem.Footer>
+                                </ui:FASettingsExpanderItem>
+
+                                <ui:FASettingsExpanderItem Content="{DynamicResource ProfilePage.SpecialActions.Duration}"
+                                                           Description="{DynamicResource ProfilePage.SpecialActions.Duration.Description}"
+                                                           IsVisible="{Binding IsDurationVisible}">
+                                    <ui:FASettingsExpanderItem.Footer>
+                                        <NumericUpDown Minimum="0"
+                                                       Maximum="60"
+                                                       Value="{Binding DurationSeconds}"
+                                                       Width="160" />
+                                    </ui:FASettingsExpanderItem.Footer>
+                                </ui:FASettingsExpanderItem>
+
+                                <!-- Lightbar color effect -->
+                                <ui:FASettingsExpanderItem IsVisible="{Binding IsColorAction}">
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Color}"
+                                                   FontWeight="SemiBold" />
+                                        <Grid ColumnDefinitions="Auto,*"
+                                              ColumnSpacing="16">
+                                            <avalonia:ColorView Grid.Column="0"
+                                                                Width="320"
+                                                                Color="{Binding LightbarColor}"
+                                                                IsColorSpectrumVisible="True"
+                                                                IsColorPaletteVisible="True"
+                                                                IsColorComponentsVisible="False"
+                                                                IsColorPreviewVisible="True"
+                                                                IsAlphaEnabled="False"
+                                                                IsAlphaVisible="False" />
+                                            <Grid Grid.Column="1"
+                                                  RowDefinitions="Auto,*,Auto,*,Auto">
+                                                <controls:SliderInput Grid.Row="0"
+                                                                      Minimum="0"
+                                                                      Maximum="255"
+                                                                      Value="{Binding LedRed}" />
+                                                <controls:SliderInput Grid.Row="2"
+                                                                      Minimum="0"
+                                                                      Maximum="255"
+                                                                      Value="{Binding LedGreen}" />
+                                                <controls:SliderInput Grid.Row="4"
+                                                                      Minimum="0"
+                                                                      Maximum="255"
+                                                                      Value="{Binding LedBlue}" />
+                                            </Grid>
+                                        </Grid>
+                                    </StackPanel>
+                                </ui:FASettingsExpanderItem>
+
+                                <!-- Player LEDs effect -->
+                                <ui:FASettingsExpanderItem IsVisible="{Binding IsPlayerLedsAction}">
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Text="{DynamicResource ProfilePage.PlayerLeds.Title}"
+                                                   FontWeight="SemiBold" />
+                                        <UniformGrid Rows="1">
+                                            <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player1}"
+                                                          IsChecked="{Binding PlayerPreset1}"
+                                                          HorizontalAlignment="Center" />
+                                            <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player2}"
+                                                          IsChecked="{Binding PlayerPreset2}"
+                                                          HorizontalAlignment="Center" />
+                                            <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player3}"
+                                                          IsChecked="{Binding PlayerPreset3}"
+                                                          HorizontalAlignment="Center" />
+                                            <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player4}"
+                                                          IsChecked="{Binding PlayerPreset4}"
+                                                          HorizontalAlignment="Center" />
+                                            <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Player5}"
+                                                          IsChecked="{Binding PlayerPreset5}"
+                                                          HorizontalAlignment="Center" />
+                                        </UniformGrid>
+                                        <UniformGrid Rows="1"
+                                                     IsVisible="{Binding HasFullPlayerLedSupport}">
+                                            <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led1}"
+                                                          IsChecked="{Binding PlayerLed1}"
+                                                          HorizontalAlignment="Center" />
+                                            <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led2}"
+                                                          IsChecked="{Binding PlayerLed2}"
+                                                          HorizontalAlignment="Center" />
+                                            <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led3}"
+                                                          IsChecked="{Binding PlayerLed3}"
+                                                          HorizontalAlignment="Center" />
+                                            <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led4}"
+                                                          IsChecked="{Binding PlayerLed4}"
+                                                          HorizontalAlignment="Center" />
+                                            <ToggleButton Content="{DynamicResource ProfilePage.PlayerLeds.Led5}"
+                                                          IsChecked="{Binding PlayerLed5}"
+                                                          HorizontalAlignment="Center" />
+                                        </UniformGrid>
+                                    </StackPanel>
+                                </ui:FASettingsExpanderItem>
+
+                                <!-- Sound effect -->
+                                <ui:FASettingsExpanderItem IsVisible="{Binding IsSoundAction}">
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Sound}"
+                                                   FontWeight="SemiBold" />
+                                        <Grid ColumnDefinitions="*,Auto"
+                                              ColumnSpacing="8">
+                                            <TextBox Text="{Binding SoundPath, Mode=TwoWay}"
+                                                     PlaceholderText="{DynamicResource ProfilePage.SpecialActions.Sound.Placeholder}" />
+                                            <Button Grid.Column="1"
+                                                    Click="OnBrowseSoundClick"
+                                                    ToolTip.Tip="{DynamicResource ProfilePage.SpecialActions.Sound.Browse.ToolTip}"
+                                                    Padding="6,4">
+                                                <ic:FluentIcon Icon="FolderOpen"
+                                                               IconVariant="Regular"
+                                                               IconSize="Size16" />
+                                            </Button>
+                                        </Grid>
+                                        <ComboBox ItemsSource="{Binding SoundOutputOptions}"
+                                                  SelectedIndex="{Binding SelectedSoundOutputIndex}"
+                                                  MinWidth="200"
+                                                  HorizontalAlignment="Left" />
+                                        <controls:SliderInput Minimum="0"
+                                                              Maximum="255"
+                                                              Value="{Binding SoundVolume}" />
+                                        <ToggleButton Content="{DynamicResource ProfilePage.SpecialActions.Sound.Haptics}"
+                                                      IsChecked="{Binding HapticFeedback}"
+                                                      HorizontalAlignment="Left" />
+                                        <controls:SliderInput Minimum="0"
+                                                              Maximum="200"
+                                                              Value="{Binding HapticStrength}"
+                                                              IsVisible="{Binding IsHapticVisible}" />
+                                    </StackPanel>
+                                </ui:FASettingsExpanderItem>
+
+                                <!-- Battery effect -->
+                                <ui:FASettingsExpanderItem IsVisible="{Binding IsBatteryAction}">
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Battery}"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Battery.Description}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <StackPanel Orientation="Horizontal"
+                                                    Spacing="8">
+                                            <ToggleButton Content="{DynamicResource ProfilePage.SpecialActions.Battery.Notify}"
+                                                          IsChecked="{Binding BatteryNotification}" />
+                                            <ToggleButton Content="{DynamicResource ProfilePage.SpecialActions.Battery.Lightbar}"
+                                                          IsChecked="{Binding BatteryLightbar}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="8"
+                                                    IsVisible="{Binding IsBatteryLightbarVisible}">
+                                            <ComboBox ItemsSource="{Binding BatteryLevels}"
+                                                      SelectedIndex="{Binding SelectedBatteryLevel}"
+                                                      MinWidth="200"
+                                                      HorizontalAlignment="Left">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="items:BatteryLevelItem">
+                                                        <StackPanel Orientation="Horizontal"
+                                                                    Spacing="8">
+                                                            <Border Width="14"
+                                                                    Height="14"
+                                                                    CornerRadius="7"
+                                                                    VerticalAlignment="Center"
+                                                                    Background="{Binding Brush}" />
+                                                            <TextBlock Text="{Binding DisplayName}"
+                                                                       VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                            <Button Command="{Binding ResetBatteryColorsCommand}"
+                                                    HorizontalAlignment="Left">
+                                                <TextBlock Text="{DynamicResource ProfilePage.SpecialActions.Battery.Reset}" />
+                                            </Button>
+                                            <Grid ColumnDefinitions="Auto,*"
+                                                  ColumnSpacing="16">
+                                                <avalonia:ColorView Grid.Column="0"
+                                                                    Width="320"
+                                                                    Color="{Binding SelectedBatteryColor}"
+                                                                    IsColorSpectrumVisible="True"
+                                                                    IsColorPaletteVisible="True"
+                                                                    IsColorComponentsVisible="False"
+                                                                    IsColorPreviewVisible="True"
+                                                                    IsAlphaEnabled="False"
+                                                                    IsAlphaVisible="False" />
+                                                <Grid Grid.Column="1"
+                                                      RowDefinitions="Auto,*,Auto,*,Auto">
+                                                    <controls:SliderInput Grid.Row="0"
+                                                                          Minimum="0"
+                                                                          Maximum="255"
+                                                                          Value="{Binding SelectedBatteryRed}" />
+                                                    <controls:SliderInput Grid.Row="2"
+                                                                          Minimum="0"
+                                                                          Maximum="255"
+                                                                          Value="{Binding SelectedBatteryGreen}" />
+                                                    <controls:SliderInput Grid.Row="4"
+                                                                          Minimum="0"
+                                                                          Maximum="255"
+                                                                          Value="{Binding SelectedBatteryBlue}" />
+                                                </Grid>
+                                            </Grid>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </ui:FASettingsExpanderItem>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ContentControl.ContentTemplate>
+                </ContentControl>
+            </ui:FASettingsExpander>
+            <!-- Output test: vibration (left motor | right motor) -->
+            <ui:FASettingsExpander Header="{DynamicResource InputMonitorPage.OutputTest.Vibration.Title}"
+                                   Description="{DynamicResource InputMonitorPage.OutputTest.Description}"
+                                   IconSource="{icm:SymbolIconSource Symbol=FastAcceleration}"
+                                   IsExpanded="False"
+                                   IsVisible="{Binding HasDevice}">
+                <Grid ColumnDefinitions="*,16,*"
+                      Margin="0,8,0,0">
+                    <StackPanel Grid.Column="0"
+                                Spacing="8">
+                        <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Vibration.Left}"
+                                   FontWeight="SemiBold" />
+                        <controls:SliderInput Minimum="0"
+                                              Maximum="255"
+                                              Value="{Binding MonitorState.LeftMotorStrength, Mode=TwoWay}"
+                                              IsEnabled="{Binding MonitorState.LeftMotorEnabled}" />
+                        <ToggleSwitch Content="{DynamicResource InputMonitorPage.OutputTest.Vibration.Enable}"
+                                      IsChecked="{Binding MonitorState.LeftMotorEnabled, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2"
+                                Spacing="8">
+                        <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Vibration.Right}"
+                                   FontWeight="SemiBold" />
+                        <controls:SliderInput Minimum="0"
+                                              Maximum="255"
+                                              Value="{Binding MonitorState.RightMotorStrength, Mode=TwoWay}"
+                                              IsEnabled="{Binding MonitorState.RightMotorEnabled}" />
+                        <ToggleSwitch Content="{DynamicResource InputMonitorPage.OutputTest.Vibration.Enable}"
+                                      IsChecked="{Binding MonitorState.RightMotorEnabled, Mode=TwoWay}" />
+                    </StackPanel>
+                </Grid>
+            </ui:FASettingsExpander>
+
+            <!-- Output test: adaptive triggers (L2 | R2) -->
+            <ui:FASettingsExpander Header="{DynamicResource InputMonitorPage.OutputTest.Triggers.Title}"
+                                   Description="{DynamicResource InputMonitorPage.OutputTest.Description}"
+                                   IconSource="{icm:SymbolIconSource Symbol=Timer}"
+                                   IsExpanded="False"
+                                   IsVisible="{Binding HasDevice}">
+                <Grid ColumnDefinitions="*,16,*"
+                      Margin="0,8,0,0">
+                    <StackPanel Grid.Column="0"
+                                Spacing="8">
+                        <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Left}"
+                                   FontWeight="SemiBold" />
+                        <ComboBox ItemsSource="{Binding TriggerEffectModes}"
+                                  SelectedItem="{Binding LeftTriggerMode, Mode=TwoWay}"
+                                  HorizontalAlignment="Stretch" />
+                        <StackPanel Spacing="2"
+                                    IsVisible="{Binding MonitorState.LeftTriggerStartVisible}">
+                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Start}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <controls:SliderInput Minimum="0"
+                                                  Maximum="255"
+                                                  Value="{Binding MonitorState.LeftTriggerStart, Mode=TwoWay}" />
+                        </StackPanel>
+                        <StackPanel Spacing="2"
+                                    IsVisible="{Binding MonitorState.LeftTriggerEndVisible}">
+                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.End}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <controls:SliderInput Minimum="0"
+                                                  Maximum="255"
+                                                  Value="{Binding MonitorState.LeftTriggerEnd, Mode=TwoWay}" />
+                        </StackPanel>
+                        <StackPanel Spacing="2"
+                                    IsVisible="{Binding MonitorState.LeftTriggerForceVisible}">
+                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Force}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <controls:SliderInput Minimum="0"
+                                                  Maximum="255"
+                                                  Value="{Binding MonitorState.LeftTriggerForce, Mode=TwoWay}" />
+                        </StackPanel>
+                        <StackPanel Spacing="2"
+                                    IsVisible="{Binding MonitorState.LeftTriggerFrequencyVisible}">
+                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Frequency}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <controls:SliderInput Minimum="0"
+                                                  Maximum="15"
+                                                  Value="{Binding MonitorState.LeftTriggerFrequency, Mode=TwoWay}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2"
+                                Spacing="8">
+                        <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Right}"
+                                   FontWeight="SemiBold" />
+                        <ComboBox ItemsSource="{Binding TriggerEffectModes}"
+                                  SelectedItem="{Binding RightTriggerMode, Mode=TwoWay}"
+                                  HorizontalAlignment="Stretch" />
+                        <StackPanel Spacing="2"
+                                    IsVisible="{Binding MonitorState.RightTriggerStartVisible}">
+                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Start}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <controls:SliderInput Minimum="0"
+                                                  Maximum="255"
+                                                  Value="{Binding MonitorState.RightTriggerStart, Mode=TwoWay}" />
+                        </StackPanel>
+                        <StackPanel Spacing="2"
+                                    IsVisible="{Binding MonitorState.RightTriggerEndVisible}">
+                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.End}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <controls:SliderInput Minimum="0"
+                                                  Maximum="255"
+                                                  Value="{Binding MonitorState.RightTriggerEnd, Mode=TwoWay}" />
+                        </StackPanel>
+                        <StackPanel Spacing="2"
+                                    IsVisible="{Binding MonitorState.RightTriggerForceVisible}">
+                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Force}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <controls:SliderInput Minimum="0"
+                                                  Maximum="255"
+                                                  Value="{Binding MonitorState.RightTriggerForce, Mode=TwoWay}" />
+                        </StackPanel>
+                        <StackPanel Spacing="2"
+                                    IsVisible="{Binding MonitorState.RightTriggerFrequencyVisible}">
+                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Frequency}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <controls:SliderInput Minimum="0"
+                                                  Maximum="15"
+                                                  Value="{Binding MonitorState.RightTriggerFrequency, Mode=TwoWay}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </ui:FASettingsExpander>
+
+            <!-- Audio forwarding -->
+            <ui:FASettingsExpander Header="{DynamicResource DeviceInfoPage.Forwarding.Title}"
+                                   Description="{DynamicResource DeviceInfoPage.Forwarding.Description}"
+                                   IconSource="{icm:SymbolIconSource Symbol=DesktopSpeaker}"
+                                   IsExpanded="False"
+                                   IsVisible="{Binding HasDevice}">
+                <ui:FASettingsExpanderItem Content="{DynamicResource VirtualControllerPage.Emulation.AudioOutput}"
+                                           Description="{DynamicResource VirtualControllerPage.Emulation.AudioOutput.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ComboBox ItemsSource="{Binding EmulationAudioOutputs}"
+                                  SelectedIndex="{Binding ForwardAudioOutputIndex}"
+                                  MinWidth="200" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource VirtualControllerPage.Emulation.ForwardVolume}"
+                                           Description="{DynamicResource VirtualControllerPage.Emulation.ForwardVolume.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <controls:SliderInput Minimum="0"
+                                              Maximum="255"
+                                              Value="{Binding ForwardVolume, Mode=TwoWay}" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource VirtualControllerPage.Emulation.ForwardHaptics}"
+                                           Description="{DynamicResource VirtualControllerPage.Emulation.ForwardHaptics.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <controls:SliderInput Minimum="0"
+                                              Maximum="200"
+                                              Value="{Binding ForwardHapticStrength, Mode=TwoWay}" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource VirtualControllerPage.Emulation.ForceAudioHaptics}"
+                                           Description="{DynamicResource VirtualControllerPage.Emulation.ForceAudioHaptics.Description}"
+                                           IsVisible="{Binding IsDualSenseEmulation}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch IsChecked="{Binding ForceAudioHaptics, Mode=TwoWay}" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource VirtualControllerPage.Emulation.AudioSource}"
+                                           Description="{DynamicResource VirtualControllerPage.Emulation.AudioSource.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ComboBox ItemsSource="{Binding ForwardAudioSources}"
+                                  SelectedIndex="{Binding ForwardAudioSourceIndex}"
+                                  MinWidth="200" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource AudioSource.Mode.Title}"
+                                           Description="{DynamicResource AudioSource.Mode.Description}"
+                                           IsVisible="{Binding IsForwardAudioAppVisible}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ComboBox ItemsSource="{Binding ForwardAudioAppModes}"
+                                  SelectedIndex="{Binding ForwardAudioAppModeIndex}"
+                                  MinWidth="200" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource VirtualControllerPage.Emulation.AudioSource.Application}"
+                                           Description="{DynamicResource VirtualControllerPage.Emulation.AudioSource.Application.Description}"
+                                           IsVisible="{Binding IsForwardAudioAppListVisible}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="8">
+                            <ComboBox ItemsSource="{Binding ForwardAudioApps}"
+                                      SelectedIndex="{Binding ForwardAudioAppIndex}"
+                                      MinWidth="200" />
+                            <Button Command="{Binding RefreshForwardAudioAppsCommand}"
+                                    ToolTip.Tip="{DynamicResource VirtualControllerPage.Emulation.AudioSource.Refresh}"
+                                    Padding="6,4"
+                                    VerticalAlignment="Center">
+                                <ic:FluentIcon Icon="ArrowClockwise"
+                                               IconVariant="Regular"
+                                               IconSize="Size16" />
+                            </Button>
+                        </StackPanel>
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource AudioSource.Executable.Title}"
+                                           Description="{DynamicResource AudioSource.Executable.Description}"
+                                           IsVisible="{Binding IsForwardAudioAppBrowseVisible}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="8">
+                            <TextBox Text="{Binding ForwardAudioAppPath, Mode=OneWay}"
+                                     IsReadOnly="True"
+                                     PlaceholderText="{DynamicResource AudioSource.Executable.Placeholder}"
+                                     ToolTip.Tip="{Binding ForwardAudioAppPath}"
+                                     Width="200" />
+                            <Button Click="OnBrowseAudioAppClick"
+                                    ToolTip.Tip="{DynamicResource AudioSource.Executable.Browse}"
+                                    Padding="6,4">
+                                <ic:FluentIcon Icon="FolderOpen"
+                                               IconVariant="Regular"
+                                               IconSize="Size16" />
+                            </Button>
+                        </StackPanel>
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource AudioSource.NoApplications}"
+                                           IsVisible="{Binding IsForwardAudioAppEmpty}" />
+            </ui:FASettingsExpander>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

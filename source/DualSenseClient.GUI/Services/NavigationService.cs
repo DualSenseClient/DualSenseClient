@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using FluentAvalonia.UI.Controls;
-using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.GUI.Views.Pages;
 using DualSenseClient.Logging;
 
@@ -73,15 +72,6 @@ public class NavigationService
     /// </summary>
     public async Task NavigateToTag(string tag, FAFrame? contentFrame = null)
     {
-        // Virtual controller emulation is unsupported on Linux: never land on
-        // its page even via a stale programmatic navigation.
-        if (tag == "VirtualControllerPage" && !EmulationService.IsSupported)
-        {
-            _log.Debug("VirtualControllerPage requested on unsupported platform, redirecting to 'DeviceInfoPage'");
-            await NavigateToTag("DeviceInfoPage", contentFrame);
-            return;
-        }
-
         // Foreground-app auto profiles need Windows focus tracking: never land on
         // its page even via a stale programmatic navigation.
         if (tag == "AutoProfilesPage" && !OperatingSystem.IsWindows())
@@ -100,11 +90,11 @@ public class NavigationService
             case "DeviceInfoPage":
                 frame?.Navigate(typeof(DeviceInfoPage));
                 break;
-            case "ProfilePage":
-                frame?.Navigate(typeof(ProfilePage));
+            case "CustomizationPage":
+                frame?.Navigate(typeof(CustomizationPage));
                 break;
-            case "VirtualControllerPage":
-                frame?.Navigate(typeof(VirtualControllerPage));
+            case "EmulationPage":
+                frame?.Navigate(typeof(EmulationPage));
                 break;
             case "AutoProfilesPage":
                 frame?.Navigate(typeof(AutoProfilePage));

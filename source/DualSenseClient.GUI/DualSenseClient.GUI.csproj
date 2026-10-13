@@ -41,9 +41,6 @@
         <Compile Update="Controls\AppSplashScreen.cs">
             <DependentUpon>SplashScreenView.axaml</DependentUpon>
         </Compile>
-        <Compile Update="Views\Pages\ProfilePage.axaml.cs">
-          <DependentUpon>ProfilePage.axaml</DependentUpon>
-        </Compile>
         <Compile Update="Views\NotificationPopupWindow.axaml.cs">
           <DependentUpon>NotificationPopupWindow.axaml</DependentUpon>
         </Compile>

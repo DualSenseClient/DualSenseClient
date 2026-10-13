@@ -12,31 +12,30 @@ using DualSenseClient.GUI.ViewModels.Pages;
 namespace DualSenseClient.GUI.Views.Pages;
 
 /// <summary>
-/// Profile page providing a manager for controller profiles (lightbar color, microphone
-/// LED mode, and player LEDs), per-controller profile assignment, and a live editor for
-/// the lights of the controller selected in the title bar combobox.
+/// Customization page hosting the profiles manager and the special actions editor for
+/// the controller selected in the title bar combobox.
 /// </summary>
 /// <remarks>
-/// Resolves <see cref="ProfilePageViewModel"/> from the DI container and sets it as the
-/// <see cref="UserControl.DataContext"/>. The page is hosted in a frame with
+/// Resolves <see cref="CustomizationPageViewModel"/> from the DI container and sets it as
+/// the <see cref="UserControl.DataContext"/>. The page is hosted in a frame with
 /// <c>CacheSize=0</c>, so a fresh instance (and fresh selection subscription) is created
 /// on each navigation. <see cref="OnLoaded"/> refreshes the ViewModel so the displayed
-/// profiles and assignment match the current profile service state on every navigation.
+/// profiles match the current profile service state on every navigation.
 /// </remarks>
-public partial class ProfilePage : UserControl
+public partial class CustomizationPage : UserControl
 {
     /// <summary>
-    /// The ViewModel driving the profile display.
+    /// The ViewModel driving the page.
     /// </summary>
-    private readonly ProfilePageViewModel _viewModel;
+    private readonly CustomizationPageViewModel _viewModel;
 
     /// <summary>
-    /// Initializes the profile page, resolving the ViewModel from DI.
+    /// Initializes the page, resolving the ViewModel from DI.
     /// </summary>
-    public ProfilePage()
+    public CustomizationPage()
     {
         InitializeComponent();
-        _viewModel = App.Services.GetRequiredService<ProfilePageViewModel>();
+        _viewModel = App.Services.GetRequiredService<CustomizationPageViewModel>();
         DataContext = _viewModel;
     }
 
@@ -52,8 +51,48 @@ public partial class ProfilePage : UserControl
 
     /// <summary>
     /// Opens the platform file picker for a sound action and stores the chosen file on the
-    /// action's item. Mirrors the audio file picker on the input monitor page.
+    /// action's item.
     /// </summary>
+    /// <summary>
+    /// Turns off any active output-test effects (vibration / adaptive triggers) when the
+    /// page is unloaded so the controller is not left buzzing or with trigger force applied.
+    /// </summary>
+    protected override void OnUnloaded(RoutedEventArgs e)
+    {
+        _viewModel.MonitorState?.ResetTestOutputs();
+        base.OnUnloaded(e);
+    }
+
+    /// <summary>
+    /// Applies an executable picked with the file browser for the audio forwarder.
+    /// </summary>
+    private async void OnBrowseAudioAppClick(object? sender, RoutedEventArgs e)
+    {
+        TopLevel? top = TopLevel.GetTopLevel(this);
+        if (top?.StorageProvider is not { } provider)
+        {
+            return;
+        }
+
+        IReadOnlyList<IStorageFile> files = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = LocalizationService.GetText("AudioSource.Executable.Picker"),
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new FilePickerFileType(LocalizationService.GetText("AudioSource.Executable.FileType"))
+                {
+                    Patterns = ["*.exe"]
+                }
+            ]
+        });
+
+        if (files.Count > 0)
+        {
+            _viewModel.SelectAudioApplication(files[0].Path.LocalPath);
+        }
+    }
+
     private async void OnBrowseSoundClick(object? sender, RoutedEventArgs e)
     {
         if ((sender as Button)?.DataContext is not SpecialActionItem item)

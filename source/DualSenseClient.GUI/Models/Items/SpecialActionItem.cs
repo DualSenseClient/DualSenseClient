@@ -911,7 +911,6 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
         _soundOutputDevice = Effect(SpecialActionTypes.PlaySound)?.Sound.Output ?? SoundOutputDevices.Speaker;
         _hapticFeedback = Effect(SpecialActionTypes.PlaySound)?.Haptics.Feedback ?? false;
         _hapticStrength = Effect(SpecialActionTypes.PlaySound)?.Haptics.Strength ?? 100;
-        _selectedBatteryLevel = 0;
 
         IReadOnlyList<BatteryLevelColor>? customColors = Effect(SpecialActionTypes.ShowBatteryLevel)?.BatteryColors;
         for (int i = 0; i < BatteryLevelCount; i++)
@@ -926,6 +925,8 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
                 color.Blue,
                 OnBatteryLevelColorChanged));
         }
+
+        SelectedBatteryLevel = 0;
 
         foreach (ButtonType button in Enum.GetValues<ButtonType>())
         {
@@ -949,9 +950,26 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     /// <summary>
     /// Re-raises the selected battery level's color properties after the level selector
     /// changed, so the picker and the sliders show the newly selected level's color.
+    /// Out-of-range values (e.g. -1 pushed back by the ComboBox on startup) are
+    /// coerced to the first level. The correction is posted to the dispatcher rather
+    /// than applied synchronously: a synchronous write-back while the two-way binding
+    /// is pushing the value is swallowed and leaves the ComboBox desynced (empty).
     /// </summary>
     partial void OnSelectedBatteryLevelChanged(int value)
     {
+        int clamped = Math.Clamp(value, 0, BatteryLevelCount - 1);
+        if (clamped != value)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (!_disposed && SelectedBatteryLevel != clamped)
+                {
+                    SelectedBatteryLevel = clamped;
+                }
+            });
+            return;
+        }
+
         OnPropertyChanged(nameof(SelectedBatteryRed));
         OnPropertyChanged(nameof(SelectedBatteryGreen));
         OnPropertyChanged(nameof(SelectedBatteryBlue));

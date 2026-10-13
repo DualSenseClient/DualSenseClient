@@ -105,24 +105,16 @@
                         <ic:SymbolIconSource Symbol="XboxController" />
                     </controls:FANavigationViewItem.IconSource>
                 </controls:FANavigationViewItem>
-                <!-- Controller profile page -->
-                <controls:FANavigationViewItem Content="{DynamicResource MainWindow.Profile}"
-                                               Tag="ProfilePage">
+                <!-- Customization page -->
+                <controls:FANavigationViewItem Content="{DynamicResource MainWindow.Customization}"
+                                               Tag="CustomizationPage">
                     <controls:FANavigationViewItem.IconSource>
                         <ic:SymbolIconSource Symbol="Options" />
                     </controls:FANavigationViewItem.IconSource>
                 </controls:FANavigationViewItem>
-                <!-- Virtual controller page -->
-                <!-- TODO: Disable hiding on Linux when libVIIPER is properly working -->
-                <controls:FANavigationViewItem x:Name="VirtualControllerNavItem"
-                                               Content="{DynamicResource MainWindow.VirtualController}"
-                                               Tag="VirtualControllerPage">
-                    <controls:FANavigationViewItem.IsVisible>
-                        <OnPlatform Default="True">
-                            <On Options="Linux"
-                                Content="False" />
-                        </OnPlatform>
-                    </controls:FANavigationViewItem.IsVisible>
+                <!-- Emulation page -->
+                <controls:FANavigationViewItem Content="{DynamicResource MainWindow.Emulation}"
+                                               Tag="EmulationPage">
                     <controls:FANavigationViewItem.IconSource>
                         <ic:SymbolIconSource Symbol="Joystick" />
                     </controls:FANavigationViewItem.IconSource>

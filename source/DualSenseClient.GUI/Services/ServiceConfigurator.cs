@@ -82,8 +82,8 @@ public abstract class ServiceConfigurator
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<SettingsPageViewModel>();
         services.AddSingleton<DeviceInfoPageViewModel>();
-        services.AddSingleton<ProfilePageViewModel>();
-        services.AddSingleton<VirtualControllerPageViewModel>();
+        services.AddSingleton<CustomizationPageViewModel>();
+        services.AddSingleton<EmulationPageViewModel>();
         services.AddSingleton<AutoProfilePageViewModel>();
         services.AddSingleton<MainViewModel>();
 

@@ -1,0 +1,343 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DualSenseClient.GUI.ViewModels.Pages"
+             xmlns:items="using:DualSenseClient.GUI.Models.Items"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:ic="using:FluentIcons.Avalonia.Fluent"
+             xmlns:icm="using:FluentIcons.Avalonia.Fluent.Markup"
+             xmlns:gui="clr-namespace:DualSenseClient.GUI.Controls"
+             xmlns:cards="clr-namespace:DualSenseClient.GUI.Controls.Cards"
+             xmlns:ds="using:DualSenseClient.Controllers.DualSense.Enum"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignWidth="1000"
+             d:DesignHeight="900"
+             x:Class="DualSenseClient.GUI.Views.Pages.EmulationPage"
+             x:DataType="vm:EmulationPageViewModel">
+    <Design.DataContext>
+        <vm:EmulationPageViewModel />
+    </Design.DataContext>
+    <ScrollViewer>
+        <StackPanel Spacing="4"
+                    Margin="24,12,24,24">
+            <cards:EmptyStateCard Title="{DynamicResource DeviceInfoPage.NoDevice.Title}"
+                                  Description="{DynamicResource DeviceInfoPage.NoDevice.Description}"
+                                  IsVisible="{Binding !HasDevice}" />
+
+            <!-- Emulation -->
+            <ui:FASettingsExpander Header="{DynamicResource VirtualControllerPage.Emulation.Title}"
+                                   Description="{DynamicResource VirtualControllerPage.Emulation.Mode.Description}"
+                                   IconSource="{icm:SymbolIconSource Symbol=Joystick}"
+                                   IsExpanded="False"
+                                   IsVisible="{Binding HasDevice}">
+                <ui:FASettingsExpander.Footer>
+                    <ToggleSwitch IsChecked="{Binding IsEmulationEnabled}"
+                                  IsEnabled="{Binding CanChangeEmulation}" />
+                </ui:FASettingsExpander.Footer>
+
+                <ui:FASettingsExpanderItem Content="{DynamicResource VirtualControllerPage.Emulation.Mode}"
+                                           IsEnabled="{Binding CanChangeEmulation}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ComboBox ItemsSource="{Binding EmulationModes}"
+                                  SelectedIndex="{Binding EmulationModeIndex}"
+                                  MinWidth="200" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource VirtualControllerPage.Emulation.DeviceType}"
+                                           Description="{DynamicResource VirtualControllerPage.Emulation.DeviceType.Description}"
+                                           IsVisible="{Binding IsDualSenseEmulation}"
+                                           IsEnabled="{Binding CanChangeEmulation}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ComboBox ItemsSource="{Binding DualSenseVariants}"
+                                  SelectedIndex="{Binding DualSenseVariantIndex}"
+                                  MinWidth="200" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource VirtualControllerPage.Emulation.Ds4Variant}"
+                                           Description="{DynamicResource VirtualControllerPage.Emulation.Ds4Variant.Description}"
+                                           IsVisible="{Binding IsDualShock4Emulation}"
+                                           IsEnabled="{Binding CanChangeEmulation}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ComboBox ItemsSource="{Binding DualShock4Variants}"
+                                  SelectedIndex="{Binding DualShock4VariantIndex}"
+                                  MinWidth="200" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem>
+                    <TextBlock Text="{Binding EmulationStatusText}"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap" />
+                </ui:FASettingsExpanderItem>
+                <!-- Button remapping -->
+                <ui:FASettingsExpanderItem IsVisible="{Binding IsMappingEditorVisible}">
+                    <StackPanel Spacing="8">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="{DynamicResource VirtualControllerPage.Mapping.Title}" />
+                            <TextBlock Text="{DynamicResource VirtualControllerPage.Mapping.Description}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                        <!-- Illustration on its own row -->
+                        <gui:DualSenseControllerView State="{Binding MonitorState}"
+                                                     SkinName="{Binding SkinName}"
+                                                     ShowMovement="False"
+                                                     ShowStats="False"
+                                                     ShowButtonPresses="False"
+                                                     IsButtonSelectionEnabled="True"
+                                                     SelectedButtons="{Binding SelectedButtonTypes}"
+                                                     ButtonClicked="ControllerView_OnButtonClicked"
+                                                     HorizontalAlignment="Center" />
+
+                        <!-- Edge-only sources have no sprite on the illustration; only the Edge has them -->
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="6"
+                                    HorizontalAlignment="Center"
+                                    IsVisible="{Binding IsEdgeController}">
+                            <Button Content="FnL"
+                                    Padding="10,4"
+                                    Command="{Binding ToggleSelectionCommand}"
+                                    CommandParameter="{x:Static ds:ButtonType.Edge_LeftFunction}" />
+                            <Button Content="FnR"
+                                    Padding="10,4"
+                                    Command="{Binding ToggleSelectionCommand}"
+                                    CommandParameter="{x:Static ds:ButtonType.Edge_RightFunction}" />
+                            <Button Content="L4"
+                                    Padding="10,4"
+                                    Command="{Binding ToggleSelectionCommand}"
+                                    CommandParameter="{x:Static ds:ButtonType.Edge_LeftPaddle}" />
+                            <Button Content="R4"
+                                    Padding="10,4"
+                                    Command="{Binding ToggleSelectionCommand}"
+                                    CommandParameter="{x:Static ds:ButtonType.Edge_RightPaddle}" />
+                        </StackPanel>
+
+                        <!-- Assignment controls below the illustration -->
+                        <StackPanel Spacing="8"
+                                    Margin="0,8,0,0">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock VerticalAlignment="Center"
+                                           TextWrapping="Wrap"
+                                           FontWeight="SemiBold"
+                                           Text="{Binding SelectionSummary}" />
+                                <Button Grid.Column="1"
+                                        Command="{Binding ClearSelectionCommand}"
+                                        IsVisible="{Binding HasSelection}"
+                                        ToolTip.Tip="{DynamicResource VirtualControllerPage.Mapping.Clear}"
+                                        Padding="6,4">
+                                    <ic:FluentIcon Icon="Dismiss"
+                                                   IconVariant="Regular"
+                                                   IconSize="Size16" />
+                                </Button>
+                            </Grid>
+                            <!-- Clickable target illustration (Xbox 360 / DualShock 4 modes) -->
+                            <StackPanel Spacing="8"
+                                        IsVisible="{Binding IsTargetPickerVisible}">
+                                <gui:VirtualControllerTargetView Kind="{Binding TargetViewKind}"
+                                                                 SelectedTargets="{Binding SelectedTargetNames}"
+                                                                 IsSelectionEnabled="True"
+                                                                 TargetClicked="TargetView_OnTargetClicked"
+                                                                 HorizontalAlignment="Center" />
+                                <ToggleButton Content="{DynamicResource VirtualControllerPage.Mapping.Target.None}"
+                                              IsChecked="{Binding IsNoneTargetSelected}"
+                                              HorizontalAlignment="Center" />
+                            </StackPanel>
+                            <!-- Toggle chips (DualSense mode, which has no target illustration) -->
+                            <ItemsControl IsVisible="{Binding IsTargetComboVisible}"
+                                          ItemsSource="{Binding TargetOptions}"
+                                          IsEnabled="{Binding HasSelection}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="items:TargetOptionItem">
+                                        <ToggleButton Content="{Binding Display}"
+                                                      IsChecked="{Binding IsSelected}"
+                                                      Margin="0,0,6,6" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <StackPanel Orientation="Horizontal"
+                                        Spacing="8"
+                                        IsVisible="{Binding IsTriggerOutputVisible}">
+                                <TextBlock Text="{DynamicResource VirtualControllerPage.Mapping.Output}"
+                                           VerticalAlignment="Center" />
+                                <ComboBox ItemsSource="{Binding TriggerOutputs}"
+                                          SelectedIndex="{Binding TriggerOutputIndex}" />
+                            </StackPanel>
+                            <CheckBox Content="{DynamicResource VirtualControllerPage.Mapping.SuppressSolos}"
+                                      IsChecked="{Binding SuppressSolos}"
+                                      IsVisible="{Binding IsComboSelection}" />
+                            <Button Content="{DynamicResource VirtualControllerPage.Mapping.Assign}"
+                                    Command="{Binding AssignMappingCommand}"
+                                    IsEnabled="{Binding CanAssignMapping}"
+                                    HorizontalAlignment="Left" />
+                        </StackPanel>
+
+                        <!-- Existing bindings -->
+                        <ItemsControl ItemsSource="{Binding Bindings}"
+                                      Margin="0,8,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="items:ButtonBindingItem">
+                                    <Border BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Padding="8,4"
+                                            Margin="0,2">
+                                        <Grid ColumnDefinitions="*,Auto,Auto">
+                                            <TextBlock Grid.Column="0"
+                                                       Text="{Binding KeysDisplay}"
+                                                       VerticalAlignment="Center" />
+                                            <StackPanel Grid.Column="1"
+                                                        Orientation="Horizontal"
+                                                        Spacing="8"
+                                                        VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding TargetDisplay}"
+                                                           FontWeight="SemiBold"
+                                                           VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding Details}"
+                                                           FontSize="11"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
+                                            <Button Grid.Column="2"
+                                                    Command="{Binding $parent[ItemsControl].((vm:EmulationPageViewModel)DataContext).RemoveBindingCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    ToolTip.Tip="{DynamicResource VirtualControllerPage.Binding.Remove}"
+                                                    Margin="8,0,0,0"
+                                                    Padding="6,4">
+                                                <ic:FluentIcon Icon="Delete"
+                                                               IconVariant="Regular"
+                                                               IconSize="Size16" />
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Button Content="{DynamicResource VirtualControllerPage.Mapping.Reset}"
+                                Command="{Binding ResetMappingsCommand}"
+                                IsVisible="{Binding HasBindings}"
+                                HorizontalAlignment="Left" />
+                    </StackPanel>
+                </ui:FASettingsExpanderItem>
+            </ui:FASettingsExpander>
+
+            <!-- Audio player -->
+            <ui:FASettingsExpander Header="{DynamicResource InputMonitorPage.Audio.Title}"
+                                   Description="{DynamicResource InputMonitorPage.Audio.Description}"
+                                   IconSource="{icm:SymbolIconSource Symbol=MusicNote2}"
+                                   IsExpanded="False"
+                                   IsVisible="{Binding HasDevice}">
+                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Audio.File}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="8">
+                            <TextBlock Text="{Binding MonitorState.Audio.FileName}"
+                                       MaxWidth="220"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{Binding MonitorState.Audio.FileName}"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{Binding MonitorState.Audio.HasFile}" />
+                            <TextBlock Text="{DynamicResource InputMonitorPage.Audio.NoFile}"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{Binding !MonitorState.Audio.HasFile}" />
+                            <Button Classes="accent"
+                                    Click="OnOpenAudioClick"
+                                    Padding="12,5">
+                                <StackPanel Orientation="Horizontal"
+                                            Spacing="8">
+                                    <ic:FluentIcon Icon="FolderOpen"
+                                                   IconVariant="Regular"
+                                                   IconSize="Size16" />
+                                    <TextBlock Text="{DynamicResource InputMonitorPage.Audio.Open}" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem IsEnabled="{Binding MonitorState.Audio.HasFile}">
+                    <StackPanel Spacing="8">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <TextBlock Text="{Binding MonitorState.Audio.PositionText}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                            <Slider Grid.Column="1"
+                                    Minimum="0"
+                                    Maximum="{Binding MonitorState.Audio.DurationSeconds}"
+                                    Value="{Binding MonitorState.Audio.PositionSeconds, Mode=TwoWay}"
+                                    IsEnabled="{Binding MonitorState.Audio.HasFile}"
+                                    UseLayoutRounding="False"
+                                    Margin="8,0"
+                                    VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding MonitorState.Audio.DurationText}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                        <Button Classes="accent"
+                                Command="{Binding MonitorState.Audio.TogglePlayPauseCommand}"
+                                IsEnabled="{Binding MonitorState.Audio.HasFile}"
+                                HorizontalAlignment="Center"
+                                Padding="8,5">
+                            <Panel>
+                                <ic:FluentIcon Icon="Play"
+                                               IconVariant="Regular"
+                                               IconSize="Size16"
+                                               IsVisible="{Binding !MonitorState.Audio.IsPlaying}" />
+                                <ic:FluentIcon Icon="Pause"
+                                               IconVariant="Regular"
+                                               IconSize="Size16"
+                                               IsVisible="{Binding MonitorState.Audio.IsPlaying}" />
+                            </Panel>
+                        </Button>
+                    </StackPanel>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Audio.Output.Desktop}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch IsChecked="{Binding MonitorState.Audio.PlayToDesktop, Mode=TwoWay}" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Audio.Output.DualSense}"
+                                           Description="{DynamicResource InputMonitorPage.Audio.Output.DualSense.Description}"
+                                           IsEnabled="{Binding MonitorState.Audio.CanUseControllerOutputs}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ComboBox ItemsSource="{Binding MonitorState.Audio.ControllerOutputOptions}"
+                                  SelectedIndex="{Binding MonitorState.Audio.ControllerOutputIndex, Mode=TwoWay}"
+                                  MinWidth="200" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Audio.Output.Haptics}"
+                                           IsEnabled="{Binding MonitorState.Audio.CanUseControllerOutputs}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch IsChecked="{Binding MonitorState.Audio.PlayToHaptics, Mode=TwoWay}" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Audio.OutputVolume}"
+                                           IsEnabled="{Binding MonitorState.Audio.CanUseControllerOutputs}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <gui:SliderInput Minimum="0"
+                                         Maximum="255"
+                                         Value="{Binding MonitorState.Audio.SpeakerVolume, Mode=TwoWay}" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Audio.HapticStrength}"
+                                           IsEnabled="{Binding MonitorState.Audio.CanUseControllerOutputs}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <gui:SliderInput Minimum="0"
+                                         Maximum="200"
+                                         Value="{Binding MonitorState.Audio.HapticStrength, Mode=TwoWay}" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+            </ui:FASettingsExpander>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

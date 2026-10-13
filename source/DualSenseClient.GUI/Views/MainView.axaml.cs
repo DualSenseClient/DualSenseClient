@@ -3,7 +3,6 @@ using Avalonia;
 using Avalonia.Controls;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
-using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.GUI.ViewModels;
 
@@ -34,12 +33,6 @@ public partial class MainView : UserControl
     public MainView()
     {
         InitializeComponent();
-
-        // TODO: Currently, VIIPER is broken on Linux, hence why this is being removed
-        if (!EmulationService.IsSupported)
-        {
-            NavigationView.MenuItems.Remove(VirtualControllerNavItem);
-        }
 
         // Foreground-app auto profiles need Windows focus tracking
         if (!OperatingSystem.IsWindows())
