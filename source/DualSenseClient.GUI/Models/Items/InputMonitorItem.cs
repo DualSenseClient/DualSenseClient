@@ -1574,8 +1574,8 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// Localized "Active"/"Inactive" text for a touch point.
     /// </summary>
     private static string ActiveText(bool active) => active
-        ? GetText("DeviceInfoPage.Monitor.Common.Active")
-        : GetText("DeviceInfoPage.Monitor.Common.Inactive");
+        ? GetText("DeviceInfoPage.Common.Active")
+        : GetText("DeviceInfoPage.Common.Inactive");
 
     /// <summary>
     /// Gets a localized string.

@@ -48,15 +48,15 @@
     <sys:String x:Key="Notification.AutoProfile.Message">{0} is now using {1}</sys:String>
 
     <!-- Splash Screen -->
-    <sys:String x:Key="SplashScreen.LoadingProfiles">Loading profiles...</sys:String>
-    <sys:String x:Key="SplashScreen.StartingServices">Starting services...</sys:String>
-    <sys:String x:Key="SplashScreen.ScanningControllers">Scanning for controllers...</sys:String>
-    <sys:String x:Key="SplashScreen.CheckingUpdates">Checking for updates...</sys:String>
+    <sys:String x:Key="SplashScreen.LoadingProfiles">Loading profiles</sys:String>
+    <sys:String x:Key="SplashScreen.StartingServices">Starting services</sys:String>
+    <sys:String x:Key="SplashScreen.ScanningControllers">Scanning for controllers</sys:String>
+    <sys:String x:Key="SplashScreen.CheckingUpdates">Checking for updates</sys:String>
 
     <!-- Device Info Page -->
     <sys:String x:Key="MainWindow.Devices">Device Info</sys:String>
     <sys:String x:Key="DeviceInfoPage.NoDevice.Title">No controller selected</sys:String>
-    <sys:String x:Key="DeviceInfoPage.NoDevice.Description">Select a controller from the title bar to view its firmware and hardware information.</sys:String>
+    <sys:String x:Key="DeviceInfoPage.NoDevice.Description">Select a controller from the title bar to view its information</sys:String>
     <sys:String x:Key="DeviceInfoPage.Device.Name">Name</sys:String>
     <sys:String x:Key="DeviceInfoPage.Device.Skin">Skin</sys:String>
     <sys:String x:Key="DeviceInfoPage.Device.Skin.Description">The controller illustration shown above. Stored per controller.</sys:String>
@@ -120,8 +120,6 @@
     <sys:String x:Key="DeviceInfoPage.Monitor.Motion.AccelX">Accel X</sys:String>
     <sys:String x:Key="DeviceInfoPage.Monitor.Motion.AccelY">Accel Y</sys:String>
     <sys:String x:Key="DeviceInfoPage.Monitor.Motion.AccelZ">Accel Z</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Common.Active">Active</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Common.Inactive">Inactive</sys:String>
     <sys:String x:Key="DeviceInfoPage.Monitor.Button.FnL">FnL</sys:String>
     <sys:String x:Key="DeviceInfoPage.Monitor.Button.FnR">FnR</sys:String>
     <sys:String x:Key="DeviceInfoPage.Monitor.Button.L4">L4</sys:String>
@@ -159,16 +157,16 @@
     <sys:String x:Key="EmulationPage.Audio.Output.Speaker">Speaker</sys:String>
     <sys:String x:Key="EmulationPage.Audio.Output.Headset">Headset</sys:String>
     <sys:String x:Key="EmulationPage.Audio.Output.Haptics">Haptic Feedback</sys:String>
-    <sys:String x:Key="EmulationPage.Audio.OutputVolume">Output Volume</sys:String>
+    <sys:String x:Key="EmulationPage.Audio.OutputVolume">Playback Volume</sys:String>
     <sys:String x:Key="EmulationPage.Audio.HapticStrength">Haptic Strength</sys:String>
     <sys:String x:Key="EmulationPage.Audio.NoFile">No file loaded</sys:String>
 
     <!-- Profile Page -->
-    <sys:String x:Key="CustomizationPage.AssignedProfile.Title">Assigned profile</sys:String>
+    <sys:String x:Key="CustomizationPage.AssignedProfile.Title">Assigned Profile</sys:String>
     <sys:String x:Key="CustomizationPage.AssignedProfile.Description">Applied automatically when this controller connects</sys:String>
     <sys:String x:Key="CustomizationPage.AssignedProfile.Reapply">Re-apply profile</sys:String>
     <sys:String x:Key="CustomizationPage.Profiles.Title">Profiles</sys:String>
-    <sys:String x:Key="CustomizationPage.Profiles.Description">Create, edit, and manage saved light profiles</sys:String>
+    <sys:String x:Key="CustomizationPage.Profiles.Description">Create, edit, and manage controller profiles</sys:String>
     <sys:String x:Key="CustomizationPage.Profiles.New">Create a new profile</sys:String>
     <sys:String x:Key="CustomizationPage.Profiles.Duplicate">Duplicate the selected profile</sys:String>
     <sys:String x:Key="CustomizationPage.Profiles.Delete">Delete the selected profile</sys:String>
@@ -194,27 +192,27 @@
     <sys:String x:Key="CustomizationPage.PlayerLeds.Led4">LED 4</sys:String>
     <sys:String x:Key="CustomizationPage.PlayerLeds.Led5">LED 5</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.Title">Virtual Controller</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.Mode">Virtual Controller</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Mode">Emulation Mode</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.Mode.Description">Creates a virtual controller that mirrors this controller's input to the host. Feedback (rumble, lightbar, triggers) is forwarded back. These settings are stored per controller.</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.Mode.Off">Off</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.Mode.Xbox360">Xbox 360</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.Mode.DualShock4">DualShock 4</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.Mode.DualSense">DualSense</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.DeviceType">DualSense Variant</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.DeviceType.Description">The hardware presentation of the virtual controller.</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.DeviceType.Description">The hardware presentation of the virtual controller</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.DeviceType.Standard">Standard</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.DeviceType.Edge">Edge</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.Ds4Variant">DualShock 4 Variant</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.Ds4Variant.Description">The hardware generation of the virtual controller.</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Ds4Variant.Description">The hardware generation of the virtual controller</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.Ds4Variant.V1">V1 (CUH-ZCT1)</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.Ds4Variant.V2">V2 (CUH-ZCT2)</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.AudioOutput">Forwarded Audio Output</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.AudioOutput.Description">Where host audio is played back on the physical controller.</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.AudioOutput.Speaker">Speaker</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.AudioOutput.Headset">Headset</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.ForwardVolume">Audio Volume</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.ForwardVolume">Forwarded Audio Volume</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.ForwardVolume.Description">Volume of the desktop sounds forwarded to the controller. Only applies while the virtual audio output is selected as the default playback device.</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.ForwardHaptics">Haptic Strength</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.ForwardHaptics">Forwarded Haptic Strength</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.ForwardHaptics.Description">Strength of the vibration generated from forwarded desktop sounds. Only applies while the virtual audio output is selected as the default playback device.</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.ForceAudioHaptics">Audio-based haptics</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.ForceAudioHaptics.Description">Derive vibration from the forwarded audio instead of the game's own haptics. The haptic strength slider always applies to audio-based haptics. Only applies to DualSense emulation over Bluetooth.</sys:String>
@@ -254,7 +252,7 @@
     <sys:String x:Key="EmulationPage.Binding.OutputClick">click only</sys:String>
     <sys:String x:Key="EmulationPage.Binding.SolosKept">solos kept</sys:String>
     <sys:String x:Key="DeviceInfoPage.Hiding.Title">Hide this controller</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Hiding.HideController.Description">Blocks other applications from seeing this physical controller.</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Hiding.HideController.Description">Blocks other applications from seeing this physical controller</sys:String>
     <sys:String x:Key="DeviceInfoPage.Hiding.Description.NotInstalled">The HidHide driver is not installed. Install it to hide controllers.</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Title">Special Actions</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Description">Button combinations that execute actions (disconnect, lights)</sys:String>
@@ -342,7 +340,7 @@
 
     <!-- Settings Page -->
     <sys:String x:Key="SettingsPage.Header.AppName">DualSense Client</sys:String>
-    <sys:String x:Key="SettingsPage.Header.Github">Github</sys:String>
+    <sys:String x:Key="SettingsPage.Header.Github">GitHub</sys:String>
     <sys:String x:Key="SettingsPage.Updates.Check.Title">Check for updates</sys:String>
     <sys:String x:Key="SettingsPage.Updates.Title">Updates</sys:String>
     <sys:String x:Key="SettingsPage.Updates.Description">Release channel and automatic update checks</sys:String>
@@ -409,7 +407,7 @@
     <!-- Auto Profiles Page -->
     <sys:String x:Key="AutoProfilesPage.Unsupported.Title">Not supported on this platform</sys:String>
     <sys:String x:Key="AutoProfilesPage.Unsupported.Description">Foreground-app switching needs Windows focus tracking.</sys:String>
-    <sys:String x:Key="AutoProfilesPage.General.Title">Automatic switching</sys:String>
+    <sys:String x:Key="AutoProfilesPage.General.Title">Automatic Switching</sys:String>
     <sys:String x:Key="AutoProfilesPage.General.Description">Apply a profile and emulation mode based on the focused program</sys:String>
     <sys:String x:Key="AutoProfilesPage.Rules.Title">Rules</sys:String>
     <sys:String x:Key="AutoProfilesPage.Rules.Description">First matching rule wins; empty patterns match anything of that kind</sys:String>
@@ -437,20 +435,20 @@
     <sys:String x:Key="AutoProfilesPage.Profile.Title">Profile</sys:String>
     <sys:String x:Key="AutoProfilesPage.Profile.Description">Profile applied while the rule matches</sys:String>
     <sys:String x:Key="AutoProfilesPage.Profile.Unchanged">Leave unchanged</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Emulation.Title">Virtual controller</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Emulation.Title">Virtual Controller</sys:String>
     <sys:String x:Key="AutoProfilesPage.Emulation.Description">Emulation mode applied while the rule matches</sys:String>
     <sys:String x:Key="AutoProfilesPage.Emulation.Unchanged">Leave unchanged</sys:String>
-    <sys:String x:Key="AutoProfilesPage.AudioSource.Title">Game audio source</sys:String>
+    <sys:String x:Key="AutoProfilesPage.AudioSource.Title">Game Audio Source</sys:String>
     <sys:String x:Key="AutoProfilesPage.AudioSource.Description">Which audio is forwarded to the controller while the rule matches. System output captures what your PC plays, and a specific application captures only that app, without needing a virtual controller.</sys:String>
     <sys:String x:Key="AutoProfilesPage.AudioSource.Controller">Virtual controller audio</sys:String>
     <sys:String x:Key="AutoProfilesPage.AudioSource.SystemOutput">System output (loopback)</sys:String>
     <sys:String x:Key="AutoProfilesPage.AudioSource.Application">Specific application</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Hiding.Title">Hide controller</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Hiding.Title">Hide Controller</sys:String>
     <sys:String x:Key="AutoProfilesPage.Hiding.Description">Hiding applied while the rule matches</sys:String>
     <sys:String x:Key="AutoProfilesPage.Hiding.Unchanged">Leave unchanged</sys:String>
     <sys:String x:Key="AutoProfilesPage.Hiding.Hide">Hide</sys:String>
     <sys:String x:Key="AutoProfilesPage.Hiding.Show">Show</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Trigger.Title">Adaptive triggers</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Trigger.Title">Adaptive Triggers</sys:String>
     <sys:String x:Key="AutoProfilesPage.Trigger.Description">Trigger effects applied while the rule matches</sys:String>
     <sys:String x:Key="AutoProfilesPage.Trigger.Left">Left trigger (L2)</sys:String>
     <sys:String x:Key="AutoProfilesPage.Trigger.Right">Right trigger (R2)</sys:String>
