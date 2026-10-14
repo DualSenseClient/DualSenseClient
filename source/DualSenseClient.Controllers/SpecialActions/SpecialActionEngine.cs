@@ -834,11 +834,12 @@ public sealed class SpecialActionEngine : IDisposable
 
             OutputStateOverride applied = default;
             bool lightbarTaken = effects.Any(e => e.Enabled && e.Type == SpecialActionTypes.SetLightbarColor);
+            bool playerLedsTaken = effects.Any(e => e.Enabled && e.Type == SpecialActionTypes.SetPlayerLeds);
             foreach (SpecialActionEffect effect in effects)
             {
                 if (effect.Enabled)
                 {
-                    applied = Combine(applied, ExecuteEffect(action.Id, effect, lightbarTaken));
+                    applied = Combine(applied, ExecuteEffect(action.Id, effect, lightbarTaken, playerLedsTaken));
                 }
             }
 
@@ -898,7 +899,9 @@ public sealed class SpecialActionEngine : IDisposable
     /// <param name="lightbarTaken">Whether an enabled set-lightbar-color effect in the same
     /// action wins the lightbar, suppressing the battery effect's lightbar output (its
     /// notification still fires).</param>
-    private OutputStateOverride ExecuteEffect(Guid actionId, SpecialActionEffect effect, bool lightbarTaken)
+    /// <param name="playerLedsTaken">Whether an enabled set-player-LEDs effect in the same
+    /// action wins the player LEDs, suppressing the battery effect's player LED output.</param>
+    private OutputStateOverride ExecuteEffect(Guid actionId, SpecialActionEffect effect, bool lightbarTaken, bool playerLedsTaken)
     {
         switch (effect.Type)
         {
@@ -919,9 +922,13 @@ public sealed class SpecialActionEngine : IDisposable
                 PlaySound(effect);
                 return default;
             case SpecialActionTypes.ShowBatteryLevel:
+                (byte Red, byte Green, byte Blue)? color;
+                byte? playerLeds;
+                (color, playerLeds, _) = ShowBatteryLevel(actionId, effect, lightbarTaken, playerLedsTaken);
                 return new OutputStateOverride
                 {
-                    LightbarColor = ShowBatteryLevel(actionId, effect, lightbarTaken).Color
+                    LightbarColor = color,
+                    PlayerLeds = playerLeds
                 };
             default:
                 _log.Warning($"Unknown special action effect type '{effect.Type}'");
@@ -1009,27 +1016,32 @@ public sealed class SpecialActionEngine : IDisposable
     /// <summary>
     /// Shows the controller's current battery charge: on the lightbar (unless disabled via
     /// <see cref="SpecialActionEffect.ShowBatteryLightbar"/> or taken over by an enabled
-    /// set-lightbar-color effect in the same action) and optionally in a battery
+    /// set-lightbar-color effect in the same action), on the player LEDs as five gates
+    /// (unless disabled via <see cref="SpecialActionEffect.ShowBatteryPlayerLeds"/> or
+    /// taken over by an enabled set-player-LEDs effect), and optionally in a battery
     /// notification popup. The level is derived from the latest reported battery
-    /// percentage (10 levels, level 0 = lowest charge); the lightbar is set to that
-    /// level's color (custom colors, or the effect defaults).
-    /// An unknown battery level is logged and skipped, so the lightbar is never corrupted.
-    /// Returns the applied color (or <c>null</c> when suppressed or unknown) and the
-    /// percentage (or <c>-1</c> when unknown).
+    /// percentage (10 levels for the lightbar, level 0 = lowest charge; five gates for
+    /// the player LEDs); the lightbar is set to that level's color (custom colors, or
+    /// the effect defaults).
+    /// An unknown battery level is logged and skipped, so the lights are never corrupted.
+    /// Returns the applied color (or <c>null</c> when suppressed or unknown), the applied
+    /// player LED mask (or <c>null</c> when suppressed or unknown), and the percentage
+    /// (or <c>-1</c> when unknown).
     /// </summary>
-    private ((byte Red, byte Green, byte Blue)? Color, int Percentage) ShowBatteryLevel(Guid actionId, SpecialActionEffect effect, bool lightbarTaken)
+    private ((byte Red, byte Green, byte Blue)? Color, byte? PlayerLeds, int Percentage) ShowBatteryLevel(Guid actionId, SpecialActionEffect effect,
+        bool lightbarTaken, bool playerLedsTaken)
     {
         if (_device!.InputReport is not { } report)
         {
             _log.Warning("No input report received yet; battery special action skipped");
-            return (null, -1);
+            return (null, null, -1);
         }
 
         int percentage = report.Battery.DisplayPercentage;
         if (percentage < 0)
         {
             _log.Warning("Battery level unknown; battery special action skipped");
-            return (null, -1);
+            return (null, null, -1);
         }
 
         (byte Red, byte Green, byte Blue)? color = null;
@@ -1041,13 +1053,33 @@ public sealed class SpecialActionEngine : IDisposable
             color = SendLightbarColor(batteryColor.Red, batteryColor.Green, batteryColor.Blue);
         }
 
+        byte? playerLeds = null;
+        if (!playerLedsTaken && effect.ShowBatteryPlayerLeds)
+        {
+            byte mask = BatteryPercentageToPlayerLedMask(percentage);
+            _log.Debug($"Showing battery level ({percentage}%) on player LEDs with mask 0x{mask:X2}");
+            playerLeds = SendPlayerLeds(mask);
+        }
+
         if (effect.ShowBatteryNotification)
         {
             TrackBatteryNotification(actionId, _device, percentage);
         }
 
-        return (color, percentage);
+        return (color, playerLeds, percentage);
     }
+
+    /// <summary>
+    /// Maps a battery percentage to a player LED mask used by the show-battery-level
+    /// effect: five cumulative gates (0-20% one LED up to 80-100% all five).
+    /// </summary>
+    /// <param name="percentage">The battery percentage (0-100).</param>
+    public static byte BatteryPercentageToPlayerLedMask(int percentage) =>
+        percentage >= 80 ? (byte)0x1F
+        : percentage >= 60 ? (byte)0x0F
+        : percentage >= 40 ? (byte)0x07
+        : percentage >= 20 ? (byte)0x03
+        : (byte)0x01;
 
     /// <summary>
     /// Raises a battery notification for a fired action: sticky while the action is held

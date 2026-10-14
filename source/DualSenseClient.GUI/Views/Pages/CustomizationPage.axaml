@@ -522,6 +522,9 @@
                                                           IsChecked="{Binding BatteryNotification}" />
                                             <ToggleButton Content="{DynamicResource CustomizationPage.SpecialActions.Battery.Lightbar}"
                                                           IsChecked="{Binding BatteryLightbar}" />
+                                            <ToggleButton Content="{DynamicResource CustomizationPage.SpecialActions.Battery.PlayerLeds}"
+                                                          IsChecked="{Binding BatteryPlayerLeds}"
+                                                          IsVisible="{Binding HasFullPlayerLedSupport}" />
                                         </StackPanel>
                                         <StackPanel Spacing="8"
                                                     IsVisible="{Binding IsBatteryLightbarVisible}">

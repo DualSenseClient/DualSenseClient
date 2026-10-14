@@ -236,6 +236,17 @@ public class SpecialActionEffect
     public bool ShowBatteryLightbar { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets whether <see cref="SpecialActionTypes.ShowBatteryLevel"/> shows the
+    /// current charge on the controller player LEDs as five gates (0-20% one LED up to
+    /// 80-100% all five). Only supported on Generation2 and Generation3 hardware
+    /// (see <c>HasFullPlayerLedSupport</c>); the UI gates the toggle. While enabled,
+    /// the battery effect cannot be combined with set-player-LEDs. Missing in older
+    /// files, which behaves as disabled.
+    /// </summary>
+    [JsonPropertyName("show_battery_player_leds")]
+    public bool ShowBatteryPlayerLeds { get; set; }
+
+    /// <summary>
     /// Default lightbar colors for the 10 charge levels of
     /// <see cref="SpecialActionTypes.ShowBatteryLevel"/>: red at low charge fading
     /// through orange and yellow to green at full charge.

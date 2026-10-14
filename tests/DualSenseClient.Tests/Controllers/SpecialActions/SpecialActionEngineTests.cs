@@ -2069,6 +2069,82 @@ public class SpecialActionEngineTests
     }
 
     [Test]
+    [TestCase(0x00, 0x01)] // 5% -> LED1
+    [TestCase(0x01, 0x01)] // 15% -> LED1
+    [TestCase(0x02, 0x03)] // 25% -> LED1+2
+    [TestCase(0x04, 0x07)] // 45% -> LED1+2+3
+    [TestCase(0x06, 0x0F)] // 65% -> LED1+2+3+4
+    [TestCase(0x08, 0x1F)] // 85% -> all 5
+    [TestCase(0x0A, 0x1F)] // 100% -> all 5
+    public void ShowBatteryPlayerLeds_MapsPercentageToMask(byte battery, byte expectedMask)
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        SpecialAction action = CreateBatteryAction(false);
+        action.Effects[0].ShowBatteryLightbar = false;
+        action.Effects[0].ShowBatteryPlayerLeds = true;
+        engine.UpdateActions([action]);
+
+        FeedReport(device, CreateReportWithBattery(battery));
+        FeedReport(device, CreateReportWithBattery(battery, ButtonType.L1, ButtonType.R1));
+
+        Assert.That(hid.Writes, Has.Count.EqualTo(1));
+        Assert.That(hid.Writes[0][44], Is.EqualTo(expectedMask));
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void ShowBatteryPlayerLeds_Disabled_SkipsPlayerLeds()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        SpecialAction action = CreateBatteryNotificationAction(false);
+        action.Effects[0].ShowBatteryLightbar = false;
+        action.Effects[0].ShowBatteryPlayerLeds = false;
+        engine.UpdateActions([action]);
+        List<SpecialActionBatteryNotificationShownEventArgs> shown = new List<SpecialActionBatteryNotificationShownEventArgs>();
+        engine.BatteryNotificationShown += (_, e) => shown.Add(e);
+
+        FeedReport(device, CreateReportWithBattery(0x04));
+        FeedReport(device, CreateReportWithBattery(0x04, ButtonType.L1, ButtonType.R1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shown, Has.Count.EqualTo(1));
+            Assert.That(hid.Writes, Is.Empty);
+        });
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void ShowBatteryPlayerLeds_WithPlayerLeds_PlayerLedsWins()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        SpecialAction action = CreateBatteryAction(false);
+        action.Effects[0].ShowBatteryLightbar = false;
+        action.Effects[0].ShowBatteryPlayerLeds = true;
+        action.Effects.Add(new SpecialActionEffect
+        {
+            Type = SpecialActionTypes.SetPlayerLeds,
+            PlayerLeds = new PlayerLedSettings
+            {
+                Mask = 0x05
+            }
+        });
+        engine.UpdateActions([action]);
+
+        FeedReport(device, CreateReportWithBattery(0x04));
+        FeedReport(device, CreateReportWithBattery(0x04, ButtonType.L1, ButtonType.R1));
+
+        Assert.That(hid.Writes[^1][44], Is.EqualTo(0x05));
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
     public void TimedLightbar_RestoresProfileAfterDuration()
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
