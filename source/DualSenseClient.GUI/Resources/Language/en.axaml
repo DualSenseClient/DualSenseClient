@@ -57,8 +57,6 @@
     <sys:String x:Key="MainWindow.Devices">Device Info</sys:String>
     <sys:String x:Key="DeviceInfoPage.NoDevice.Title">No controller selected</sys:String>
     <sys:String x:Key="DeviceInfoPage.NoDevice.Description">Select a controller from the title bar to view its firmware and hardware information.</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Device.Title">Device</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Device.Description">Controller identification</sys:String>
     <sys:String x:Key="DeviceInfoPage.Device.Name">Name</sys:String>
     <sys:String x:Key="DeviceInfoPage.Device.Skin">Skin</sys:String>
     <sys:String x:Key="DeviceInfoPage.Device.Skin.Description">The controller illustration shown above. Stored per controller.</sys:String>
@@ -115,13 +113,7 @@
 
     <!-- Input Monitor Page -->
     <sys:String x:Key="MainWindow.AutoProfiles">Auto Profiles</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Status.Live">Live</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Status.Waiting">Waiting for reports</sys:String>
     <sys:String x:Key="DeviceInfoPage.Monitor.Status.PollingRate">Polling rate</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Controller.Title">Controller</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Controller.Description">Buttons, sticks, triggers, and touchpad</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Display.Lights.Title">Lights</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Display.Stats.Title">Stats</sys:String>
     <sys:String x:Key="DeviceInfoPage.Monitor.Motion.GyroX">Gyro X</sys:String>
     <sys:String x:Key="DeviceInfoPage.Monitor.Motion.GyroY">Gyro Y</sys:String>
     <sys:String x:Key="DeviceInfoPage.Monitor.Motion.GyroZ">Gyro Z</sys:String>
@@ -136,17 +128,14 @@
     <sys:String x:Key="DeviceInfoPage.Monitor.Button.R4">R4</sys:String>
 
     <!-- Input Monitor Page: Output Test -->
-    <sys:String x:Key="CustomizationPage.OutputTest.Title">Output Test</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Description">Vibration and adaptive trigger testing</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Title">Vibration</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Left">Left Motor</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Right">Right Motor</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Enable">Rumble</sys:String>
-    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Strength">Strength</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Title">Adaptive Triggers</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Left">L2</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Right">R2</sys:String>
-    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Mode">Effect mode</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Mode.Off">Off</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Mode.Resistance">Resistance</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Mode.Trigger">Trigger (weapon)</sys:String>
@@ -163,7 +152,6 @@
     <sys:String x:Key="EmulationPage.Audio.Open">Open</sys:String>
     <sys:String x:Key="EmulationPage.Audio.PickTitle">Open audio file</sys:String>
     <sys:String x:Key="EmulationPage.Audio.FileType">Audio files</sys:String>
-    <sys:String x:Key="EmulationPage.Audio.Output.Title">Output Destinations</sys:String>
     <sys:String x:Key="EmulationPage.Audio.Output.Desktop">Desktop Speakers</sys:String>
     <sys:String x:Key="EmulationPage.Audio.Output.DualSense">DualSense Output</sys:String>
     <sys:String x:Key="EmulationPage.Audio.Output.DualSense.Description">Where the controller plays the stream. The speaker and headset cannot run at the same time.</sys:String>
@@ -176,10 +164,6 @@
     <sys:String x:Key="EmulationPage.Audio.NoFile">No file loaded</sys:String>
 
     <!-- Profile Page -->
-    <sys:String x:Key="CustomizationPage.NoDevice.Title">No controller selected</sys:String>
-    <sys:String x:Key="CustomizationPage.NoDevice.Description">Select a DualSense controller from the title bar to customize its profile.</sys:String>
-    <sys:String x:Key="CustomizationPage.Controller.Title">Controller</sys:String>
-    <sys:String x:Key="CustomizationPage.Controller.Description">Profile assignment for the selected controller</sys:String>
     <sys:String x:Key="CustomizationPage.AssignedProfile.Title">Assigned profile</sys:String>
     <sys:String x:Key="CustomizationPage.AssignedProfile.Description">Applied automatically when this controller connects</sys:String>
     <sys:String x:Key="CustomizationPage.AssignedProfile.Reapply">Re-apply profile</sys:String>
@@ -193,9 +177,6 @@
     <sys:String x:Key="CustomizationPage.Delete.Title">Delete profile</sys:String>
     <sys:String x:Key="CustomizationPage.Delete.Message">Delete profile "{name}"? Controllers assigned to it will fall back to the default profile.</sys:String>
     <sys:String x:Key="CustomizationPage.Lightbar.Title">Lightbar</sys:String>
-    <sys:String x:Key="CustomizationPage.Lightbar.Red">Red</sys:String>
-    <sys:String x:Key="CustomizationPage.Lightbar.Green">Green</sys:String>
-    <sys:String x:Key="CustomizationPage.Lightbar.Blue">Blue</sys:String>
     <sys:String x:Key="CustomizationPage.MicLed.Title">Microphone LED</sys:String>
     <sys:String x:Key="CustomizationPage.MicLed.Mode">Mode</sys:String>
     <sys:String x:Key="CustomizationPage.MicLed.Mode.Off">Off</sys:String>
@@ -342,29 +323,20 @@
     <sys:String x:Key="CustomizationPage.SpecialActions.Effects.Battery">Battery level</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Battery">Battery level</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Description">Shows the current charge in 10 levels on the lightbar and/or in a notification popup; pick a color per level. Can be combined with a lightbar color, which takes over the lightbar. Not available with player LEDs.</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Level">Charge level</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Level.Description">The level whose color the picker edits</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Notify">Show notification</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Notify.Description">Also show the battery level in a desktop notification popup. Stays open while the combination is held when Apply while held is set.</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Lightbar">Show on lightbar</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Lightbar.Description">Show the charge level colors on the controller lightbar.</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Reset">Reset colors</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Color">Lightbar color</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Sound">Sound file</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Sound.Placeholder">No file selected</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Sound.Browse.ToolTip">Choose the audio file to play through the controller</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Sound.PickTitle">Choose a sound file</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Sound.Output">Audio output</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Sound.Output.Description">Where the sound is played through</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Sound.Output.Speaker">Controller (Speaker)</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Sound.Output.Headset">External (Headset)</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Sound.Volume">Volume</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Sound.Haptics">Haptic feedback</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Sound.HapticStrength">Haptic strength</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.HoldTime">Hold time</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.HoldTime.Description">Seconds to hold the combination before it fires. 0 = fires immediately.</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.ApplyWhileHeld">Apply only while held</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.ApplyWhileHeld.ToolTip">Lights change only while the combination is held and revert on release; a sound plays while held and stops on release.</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Duration">Show duration</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Duration.Description">Seconds the light effects stay applied before the profile is restored. 0 = stay applied.</sys:String>
 
@@ -439,8 +411,6 @@
     <sys:String x:Key="AutoProfilesPage.Unsupported.Description">Foreground-app switching needs Windows focus tracking.</sys:String>
     <sys:String x:Key="AutoProfilesPage.General.Title">Automatic switching</sys:String>
     <sys:String x:Key="AutoProfilesPage.General.Description">Apply a profile and emulation mode based on the focused program</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Enabled.Title">Enable auto profiles</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Enabled.Description">Temporarily switch profile and virtual controller while a rule matches</sys:String>
     <sys:String x:Key="AutoProfilesPage.Rules.Title">Rules</sys:String>
     <sys:String x:Key="AutoProfilesPage.Rules.Description">First matching rule wins; empty patterns match anything of that kind</sys:String>
     <sys:String x:Key="AutoProfilesPage.Rules.New">Add rule</sys:String>
@@ -484,7 +454,5 @@
     <sys:String x:Key="AutoProfilesPage.Trigger.Description">Trigger effects applied while the rule matches</sys:String>
     <sys:String x:Key="AutoProfilesPage.Trigger.Left">Left trigger (L2)</sys:String>
     <sys:String x:Key="AutoProfilesPage.Trigger.Right">Right trigger (R2)</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Trigger.Start">Start</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Trigger.End">End</sys:String>
     <sys:String x:Key="AutoProfilesPage.Rules.NoAction">This rule leaves profile, virtual controller, triggers, and hiding unchanged, so it does nothing.</sys:String>
 </ResourceDictionary>
