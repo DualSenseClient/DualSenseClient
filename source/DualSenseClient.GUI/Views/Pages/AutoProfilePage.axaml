@@ -177,8 +177,8 @@
                                           MinWidth="220" />
                             </ui:FASettingsExpanderItem.Footer>
                         </ui:FASettingsExpanderItem>
-                        <ui:FASettingsExpanderItem Content="{DynamicResource VirtualControllerPage.Emulation.DeviceType}"
-                                                   Description="{DynamicResource VirtualControllerPage.Emulation.DeviceType.Description}"
+                        <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.DeviceType}"
+                                                   Description="{DynamicResource EmulationPage.Emulation.DeviceType.Description}"
                                                    IsVisible="{Binding IsDualSenseVariantVisible}">
                             <ui:FASettingsExpanderItem.Footer>
                                 <ComboBox ItemsSource="{Binding DualSenseVariantOptions}"
@@ -186,8 +186,8 @@
                                           MinWidth="220" />
                             </ui:FASettingsExpanderItem.Footer>
                         </ui:FASettingsExpanderItem>
-                        <ui:FASettingsExpanderItem Content="{DynamicResource VirtualControllerPage.Emulation.Ds4Variant}"
-                                                   Description="{DynamicResource VirtualControllerPage.Emulation.Ds4Variant.Description}"
+                        <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.Ds4Variant}"
+                                                   Description="{DynamicResource EmulationPage.Emulation.Ds4Variant.Description}"
                                                    IsVisible="{Binding IsDualShock4VariantVisible}">
                             <ui:FASettingsExpanderItem.Footer>
                                 <ComboBox ItemsSource="{Binding DualShock4VariantOptions}"
@@ -257,7 +257,7 @@
                                                   HorizontalAlignment="Stretch" />
                                         <StackPanel Spacing="2"
                                                     IsVisible="{Binding LeftTriggerStartVisible}">
-                                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Start}"
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Start}"
                                                        FontSize="12"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                             <controls:SliderInput Minimum="0"
@@ -266,7 +266,7 @@
                                         </StackPanel>
                                         <StackPanel Spacing="2"
                                                     IsVisible="{Binding LeftTriggerEndVisible}">
-                                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.End}"
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.End}"
                                                        FontSize="12"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                             <controls:SliderInput Minimum="0"
@@ -275,7 +275,7 @@
                                         </StackPanel>
                                         <StackPanel Spacing="2"
                                                     IsVisible="{Binding LeftTriggerForceVisible}">
-                                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Force}"
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Force}"
                                                        FontSize="12"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                             <controls:SliderInput Minimum="0"
@@ -284,7 +284,7 @@
                                         </StackPanel>
                                         <StackPanel Spacing="2"
                                                     IsVisible="{Binding LeftTriggerFrequencyVisible}">
-                                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Frequency}"
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Frequency}"
                                                        FontSize="12"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                             <controls:SliderInput Minimum="0"
@@ -301,7 +301,7 @@
                                                   HorizontalAlignment="Stretch" />
                                         <StackPanel Spacing="2"
                                                     IsVisible="{Binding RightTriggerStartVisible}">
-                                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Start}"
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Start}"
                                                        FontSize="12"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                             <controls:SliderInput Minimum="0"
@@ -310,7 +310,7 @@
                                         </StackPanel>
                                         <StackPanel Spacing="2"
                                                     IsVisible="{Binding RightTriggerEndVisible}">
-                                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.End}"
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.End}"
                                                        FontSize="12"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                             <controls:SliderInput Minimum="0"
@@ -319,7 +319,7 @@
                                         </StackPanel>
                                         <StackPanel Spacing="2"
                                                     IsVisible="{Binding RightTriggerForceVisible}">
-                                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Force}"
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Force}"
                                                        FontSize="12"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                             <controls:SliderInput Minimum="0"
@@ -328,7 +328,7 @@
                                         </StackPanel>
                                         <StackPanel Spacing="2"
                                                     IsVisible="{Binding RightTriggerFrequencyVisible}">
-                                            <TextBlock Text="{DynamicResource InputMonitorPage.OutputTest.Triggers.Frequency}"
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Frequency}"
                                                        FontSize="12"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                             <controls:SliderInput Minimum="0"

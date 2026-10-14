@@ -205,10 +205,10 @@ public partial class EmulationPageViewModel : ObservableObject
     /// </summary>
     public ObservableCollection<string> EmulationModes { get; } =
     [
-        LocalizationService.GetText("VirtualControllerPage.Emulation.Mode.Off"),
-        LocalizationService.GetText("VirtualControllerPage.Emulation.Mode.Xbox360"),
-        LocalizationService.GetText("VirtualControllerPage.Emulation.Mode.DualShock4"),
-        LocalizationService.GetText("VirtualControllerPage.Emulation.Mode.DualSense")
+        LocalizationService.GetText("EmulationPage.Emulation.Mode.Off"),
+        LocalizationService.GetText("EmulationPage.Emulation.Mode.Xbox360"),
+        LocalizationService.GetText("EmulationPage.Emulation.Mode.DualShock4"),
+        LocalizationService.GetText("EmulationPage.Emulation.Mode.DualSense")
     ];
 
     /// <summary>
@@ -217,8 +217,8 @@ public partial class EmulationPageViewModel : ObservableObject
     /// </summary>
     public ObservableCollection<string> DualSenseVariants { get; } =
     [
-        LocalizationService.GetText("VirtualControllerPage.Emulation.DeviceType.Standard"),
-        LocalizationService.GetText("VirtualControllerPage.Emulation.DeviceType.Edge")
+        LocalizationService.GetText("EmulationPage.Emulation.DeviceType.Standard"),
+        LocalizationService.GetText("EmulationPage.Emulation.DeviceType.Edge")
     ];
 
     /// <summary>
@@ -227,8 +227,8 @@ public partial class EmulationPageViewModel : ObservableObject
     /// </summary>
     public ObservableCollection<string> DualShock4Variants { get; } =
     [
-        LocalizationService.GetText("VirtualControllerPage.Emulation.Ds4Variant.V1"),
-        LocalizationService.GetText("VirtualControllerPage.Emulation.Ds4Variant.V2")
+        LocalizationService.GetText("EmulationPage.Emulation.Ds4Variant.V1"),
+        LocalizationService.GetText("EmulationPage.Emulation.Ds4Variant.V2")
     ];
 
     /// <summary>
@@ -432,21 +432,21 @@ public partial class EmulationPageViewModel : ObservableObject
             EmulationStatus status = _emulation.GetStatus(device);
             if (status.IsCreating)
             {
-                return LocalizationService.GetText("VirtualControllerPage.Emulation.Status.Creating");
+                return LocalizationService.GetText("EmulationPage.Emulation.Status.Creating");
             }
 
             if (!status.Running)
             {
-                return status.Detail ?? LocalizationService.GetText("VirtualControllerPage.Emulation.Status.Idle");
+                return status.Detail ?? LocalizationService.GetText("EmulationPage.Emulation.Status.Idle");
             }
 
             if (status.Variant == DualSenseVariant.Edge)
             {
-                return LocalizationService.GetText("VirtualControllerPage.Emulation.Status.RunningEdge");
+                return LocalizationService.GetText("EmulationPage.Emulation.Status.RunningEdge");
             }
 
             string mode = EmulationModes[Math.Clamp((int)status.Mode, 0, EmulationModes.Count - 1)];
-            return LocalizationService.GetText("VirtualControllerPage.Emulation.Status.Running").Replace("{mode}", mode);
+            return LocalizationService.GetText("EmulationPage.Emulation.Status.Running").Replace("{mode}", mode);
         }
     }
 
@@ -691,8 +691,8 @@ public partial class EmulationPageViewModel : ObservableObject
     /// </summary>
     public ObservableCollection<string> TriggerOutputs { get; } =
     [
-        LocalizationService.GetText("VirtualControllerPage.Mapping.Output.Full"),
-        LocalizationService.GetText("VirtualControllerPage.Mapping.Output.Click")
+        LocalizationService.GetText("EmulationPage.Mapping.Output.Full"),
+        LocalizationService.GetText("EmulationPage.Mapping.Output.Click")
     ];
 
     /// <summary>
@@ -1187,7 +1187,7 @@ public partial class EmulationPageViewModel : ObservableObject
         "DPadDown" => "D-Pad Down",
         "DPadLeft" => "D-Pad Left",
         "DPadRight" => "D-Pad Right",
-        "None" => LocalizationService.GetText("VirtualControllerPage.Mapping.Target.None"),
+        "None" => LocalizationService.GetText("EmulationPage.Mapping.Target.None"),
         _ => raw
     };
 

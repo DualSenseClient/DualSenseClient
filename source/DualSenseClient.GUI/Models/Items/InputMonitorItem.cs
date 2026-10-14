@@ -235,10 +235,10 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// </summary>
     public static IReadOnlyList<TriggerEffectModeItem> SharedTriggerEffectModes { get; } =
     [
-        new TriggerEffectModeItem(TriggerEffectType.Off, GetText("InputMonitorPage.OutputTest.Triggers.Mode.Off")),
-        new TriggerEffectModeItem(TriggerEffectType.Resistance, GetText("InputMonitorPage.OutputTest.Triggers.Mode.Resistance")),
-        new TriggerEffectModeItem(TriggerEffectType.Trigger, GetText("InputMonitorPage.OutputTest.Triggers.Mode.Trigger")),
-        new TriggerEffectModeItem(TriggerEffectType.Automatic, GetText("InputMonitorPage.OutputTest.Triggers.Mode.Automatic"))
+        new TriggerEffectModeItem(TriggerEffectType.Off, GetText("CustomizationPage.OutputTest.Triggers.Mode.Off")),
+        new TriggerEffectModeItem(TriggerEffectType.Resistance, GetText("CustomizationPage.OutputTest.Triggers.Mode.Resistance")),
+        new TriggerEffectModeItem(TriggerEffectType.Trigger, GetText("CustomizationPage.OutputTest.Triggers.Mode.Trigger")),
+        new TriggerEffectModeItem(TriggerEffectType.Automatic, GetText("CustomizationPage.OutputTest.Triggers.Mode.Automatic"))
     ];
 
     /// <inheritdoc cref="SharedTriggerEffectModes"/>
@@ -1574,8 +1574,8 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// Localized "Active"/"Inactive" text for a touch point.
     /// </summary>
     private static string ActiveText(bool active) => active
-        ? GetText("InputMonitorPage.Common.Active")
-        : GetText("InputMonitorPage.Common.Inactive");
+        ? GetText("DeviceInfoPage.Monitor.Common.Active")
+        : GetText("DeviceInfoPage.Monitor.Common.Inactive");
 
     /// <summary>
     /// Gets a localized string.

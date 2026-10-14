@@ -108,11 +108,11 @@ public partial class CustomizationPage : UserControl
 
         IReadOnlyList<IStorageFile> files = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = LocalizationService.GetText("ProfilePage.SpecialActions.Sound.PickTitle"),
+            Title = LocalizationService.GetText("CustomizationPage.SpecialActions.Sound.PickTitle"),
             AllowMultiple = false,
             FileTypeFilter =
             [
-                new FilePickerFileType(LocalizationService.GetText("InputMonitorPage.Audio.FileType"))
+                new FilePickerFileType(LocalizationService.GetText("EmulationPage.Audio.FileType"))
                 {
                     Patterns = ["*.wav", "*.mp3", "*.flac", "*.aac", "*.m4a", "*.ogg", "*.wma", "*.aiff", "*.mp4"]
                 }
@@ -139,7 +139,7 @@ public partial class CustomizationPage : UserControl
 
         IReadOnlyList<IStorageFile> files = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = LocalizationService.GetText("ProfilePage.SpecialActions.Import.Picker"),
+            Title = LocalizationService.GetText("CustomizationPage.SpecialActions.Import.Picker"),
             AllowMultiple = false,
             FileTypeFilter = [SpecialActionJsonFileType]
         });
@@ -164,7 +164,7 @@ public partial class CustomizationPage : UserControl
 
         IStorageFile? file = await provider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = LocalizationService.GetText("ProfilePage.SpecialActions.Export.Picker"),
+            Title = LocalizationService.GetText("CustomizationPage.SpecialActions.Export.Picker"),
             SuggestedFileName = "special_actions.json",
             DefaultExtension = "json",
             FileTypeChoices = [SpecialActionJsonFileType]
@@ -196,7 +196,7 @@ public partial class CustomizationPage : UserControl
 
         IStorageFile? file = await provider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = LocalizationService.GetText("ProfilePage.SpecialActions.Export.One.Picker"),
+            Title = LocalizationService.GetText("CustomizationPage.SpecialActions.Export.One.Picker"),
             SuggestedFileName = SanitizeFileName(item.Name) + ".json",
             DefaultExtension = "json",
             FileTypeChoices = [SpecialActionJsonFileType]
@@ -231,7 +231,7 @@ public partial class CustomizationPage : UserControl
     {
         get
         {
-            return new FilePickerFileType(LocalizationService.GetText("ProfilePage.SpecialActions.Import.FileType"))
+            return new FilePickerFileType(LocalizationService.GetText("CustomizationPage.SpecialActions.Import.FileType"))
             {
                 Patterns = ["*.json"]
             };

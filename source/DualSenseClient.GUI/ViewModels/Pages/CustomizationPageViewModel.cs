@@ -255,9 +255,9 @@ public partial class CustomizationPageViewModel : ObservableObject
     /// </summary>
     public ObservableCollection<string> MicLedModes { get; } =
     [
-        LocalizationService.GetText("ProfilePage.MicLed.Mode.Off"),
-        LocalizationService.GetText("ProfilePage.MicLed.Mode.On"),
-        LocalizationService.GetText("ProfilePage.MicLed.Mode.Pulse")
+        LocalizationService.GetText("CustomizationPage.MicLed.Mode.Off"),
+        LocalizationService.GetText("CustomizationPage.MicLed.Mode.On"),
+        LocalizationService.GetText("CustomizationPage.MicLed.Mode.Pulse")
     ];
 
     /// <summary>
@@ -298,8 +298,8 @@ public partial class CustomizationPageViewModel : ObservableObject
 
         string name = SelectedProfile.Name;
         bool confirmed = await _messageBox.ShowConfirmationAsync(
-            LocalizationService.GetText("ProfilePage.Delete.Title"),
-            LocalizationService.GetText("ProfilePage.Delete.Message").Replace("{name}", name));
+            LocalizationService.GetText("CustomizationPage.Delete.Title"),
+            LocalizationService.GetText("CustomizationPage.Delete.Message").Replace("{name}", name));
         if (!confirmed)
         {
             return;
@@ -391,8 +391,8 @@ public partial class CustomizationPageViewModel : ObservableObject
         {
             _log.Error($"Failed to export special actions: {ex.Message}");
             await _messageBox.ShowErrorAsync(
-                LocalizationService.GetText("ProfilePage.SpecialActions.Export.Error.Title"),
-                LocalizationService.GetText("ProfilePage.SpecialActions.Export.Error.Message"));
+                LocalizationService.GetText("CustomizationPage.SpecialActions.Export.Error.Title"),
+                LocalizationService.GetText("CustomizationPage.SpecialActions.Export.Error.Message"));
         }
     }
 
@@ -411,8 +411,8 @@ public partial class CustomizationPageViewModel : ObservableObject
         {
             _log.Error($"Failed to export special action '{item.Action.Name}': {ex.Message}");
             await _messageBox.ShowErrorAsync(
-                LocalizationService.GetText("ProfilePage.SpecialActions.Export.Error.Title"),
-                LocalizationService.GetText("ProfilePage.SpecialActions.Export.Error.Message"));
+                LocalizationService.GetText("CustomizationPage.SpecialActions.Export.Error.Title"),
+                LocalizationService.GetText("CustomizationPage.SpecialActions.Export.Error.Message"));
         }
     }
 
@@ -430,21 +430,21 @@ public partial class CustomizationPageViewModel : ObservableObject
             if (count <= 0)
             {
                 await _messageBox.ShowWarningAsync(
-                    LocalizationService.GetText("ProfilePage.SpecialActions.Import.Empty.Title"),
-                    LocalizationService.GetText("ProfilePage.SpecialActions.Import.Empty.Message"));
+                    LocalizationService.GetText("CustomizationPage.SpecialActions.Import.Empty.Title"),
+                    LocalizationService.GetText("CustomizationPage.SpecialActions.Import.Empty.Message"));
                 return;
             }
 
             await _messageBox.ShowInfoAsync(
-                LocalizationService.GetText("ProfilePage.SpecialActions.Import.Success.Title"),
-                LocalizationService.GetText("ProfilePage.SpecialActions.Import.Success.Message").Replace("{count}", count.ToString()));
+                LocalizationService.GetText("CustomizationPage.SpecialActions.Import.Success.Title"),
+                LocalizationService.GetText("CustomizationPage.SpecialActions.Import.Success.Message").Replace("{count}", count.ToString()));
         }
         catch (Exception ex)
         {
             _log.Error($"Failed to import special actions: {ex.Message}");
             await _messageBox.ShowErrorAsync(
-                LocalizationService.GetText("ProfilePage.SpecialActions.Import.Error.Title"),
-                LocalizationService.GetText("ProfilePage.SpecialActions.Import.Error.Message"));
+                LocalizationService.GetText("CustomizationPage.SpecialActions.Import.Error.Title"),
+                LocalizationService.GetText("CustomizationPage.SpecialActions.Import.Error.Message"));
         }
     }
 
@@ -667,8 +667,8 @@ public partial class CustomizationPageViewModel : ObservableObject
     /// </summary>
     public ObservableCollection<string> EmulationAudioOutputs { get; } =
     [
-        LocalizationService.GetText("VirtualControllerPage.Emulation.AudioOutput.Speaker"),
-        LocalizationService.GetText("VirtualControllerPage.Emulation.AudioOutput.Headset")
+        LocalizationService.GetText("EmulationPage.Emulation.AudioOutput.Speaker"),
+        LocalizationService.GetText("EmulationPage.Emulation.AudioOutput.Headset")
     ];
 
     /// <summary>
@@ -677,9 +677,9 @@ public partial class CustomizationPageViewModel : ObservableObject
     /// </summary>
     public ObservableCollection<string> ForwardAudioSources { get; } =
     [
-        LocalizationService.GetText("VirtualControllerPage.Emulation.AudioSource.Controller"),
-        LocalizationService.GetText("VirtualControllerPage.Emulation.AudioSource.SystemOutput"),
-        LocalizationService.GetText("VirtualControllerPage.Emulation.AudioSource.Application")
+        LocalizationService.GetText("EmulationPage.Emulation.AudioSource.Controller"),
+        LocalizationService.GetText("EmulationPage.Emulation.AudioSource.SystemOutput"),
+        LocalizationService.GetText("EmulationPage.Emulation.AudioSource.Application")
     ];
 
     /// <summary>

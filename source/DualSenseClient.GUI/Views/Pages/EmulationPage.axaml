@@ -26,8 +26,8 @@
                                   IsVisible="{Binding !HasDevice}" />
 
             <!-- Emulation -->
-            <ui:FASettingsExpander Header="{DynamicResource VirtualControllerPage.Emulation.Title}"
-                                   Description="{DynamicResource VirtualControllerPage.Emulation.Mode.Description}"
+            <ui:FASettingsExpander Header="{DynamicResource EmulationPage.Emulation.Title}"
+                                   Description="{DynamicResource EmulationPage.Emulation.Mode.Description}"
                                    IconSource="{icm:SymbolIconSource Symbol=Joystick}"
                                    IsExpanded="False"
                                    IsVisible="{Binding HasDevice}">
@@ -36,7 +36,7 @@
                                   IsEnabled="{Binding CanChangeEmulation}" />
                 </ui:FASettingsExpander.Footer>
 
-                <ui:FASettingsExpanderItem Content="{DynamicResource VirtualControllerPage.Emulation.Mode}"
+                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.Mode}"
                                            IsEnabled="{Binding CanChangeEmulation}">
                     <ui:FASettingsExpanderItem.Footer>
                         <ComboBox ItemsSource="{Binding EmulationModes}"
@@ -44,8 +44,8 @@
                                   MinWidth="200" />
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource VirtualControllerPage.Emulation.DeviceType}"
-                                           Description="{DynamicResource VirtualControllerPage.Emulation.DeviceType.Description}"
+                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.DeviceType}"
+                                           Description="{DynamicResource EmulationPage.Emulation.DeviceType.Description}"
                                            IsVisible="{Binding IsDualSenseEmulation}"
                                            IsEnabled="{Binding CanChangeEmulation}">
                     <ui:FASettingsExpanderItem.Footer>
@@ -54,8 +54,8 @@
                                   MinWidth="200" />
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource VirtualControllerPage.Emulation.Ds4Variant}"
-                                           Description="{DynamicResource VirtualControllerPage.Emulation.Ds4Variant.Description}"
+                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.Ds4Variant}"
+                                           Description="{DynamicResource EmulationPage.Emulation.Ds4Variant.Description}"
                                            IsVisible="{Binding IsDualShock4Emulation}"
                                            IsEnabled="{Binding CanChangeEmulation}">
                     <ui:FASettingsExpanderItem.Footer>
@@ -74,8 +74,8 @@
                 <ui:FASettingsExpanderItem IsVisible="{Binding IsMappingEditorVisible}">
                     <StackPanel Spacing="8">
                         <StackPanel Spacing="2">
-                            <TextBlock Text="{DynamicResource VirtualControllerPage.Mapping.Title}" />
-                            <TextBlock Text="{DynamicResource VirtualControllerPage.Mapping.Description}"
+                            <TextBlock Text="{DynamicResource EmulationPage.Mapping.Title}" />
+                            <TextBlock Text="{DynamicResource EmulationPage.Mapping.Description}"
                                        FontSize="12"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                        TextWrapping="Wrap" />
@@ -125,7 +125,7 @@
                                 <Button Grid.Column="1"
                                         Command="{Binding ClearSelectionCommand}"
                                         IsVisible="{Binding HasSelection}"
-                                        ToolTip.Tip="{DynamicResource VirtualControllerPage.Mapping.Clear}"
+                                        ToolTip.Tip="{DynamicResource EmulationPage.Mapping.Clear}"
                                         Padding="6,4">
                                     <ic:FluentIcon Icon="Dismiss"
                                                    IconVariant="Regular"
@@ -140,7 +140,7 @@
                                                                  IsSelectionEnabled="True"
                                                                  TargetClicked="TargetView_OnTargetClicked"
                                                                  HorizontalAlignment="Center" />
-                                <ToggleButton Content="{DynamicResource VirtualControllerPage.Mapping.Target.None}"
+                                <ToggleButton Content="{DynamicResource EmulationPage.Mapping.Target.None}"
                                               IsChecked="{Binding IsNoneTargetSelected}"
                                               HorizontalAlignment="Center" />
                             </StackPanel>
@@ -164,15 +164,15 @@
                             <StackPanel Orientation="Horizontal"
                                         Spacing="8"
                                         IsVisible="{Binding IsTriggerOutputVisible}">
-                                <TextBlock Text="{DynamicResource VirtualControllerPage.Mapping.Output}"
+                                <TextBlock Text="{DynamicResource EmulationPage.Mapping.Output}"
                                            VerticalAlignment="Center" />
                                 <ComboBox ItemsSource="{Binding TriggerOutputs}"
                                           SelectedIndex="{Binding TriggerOutputIndex}" />
                             </StackPanel>
-                            <CheckBox Content="{DynamicResource VirtualControllerPage.Mapping.SuppressSolos}"
+                            <CheckBox Content="{DynamicResource EmulationPage.Mapping.SuppressSolos}"
                                       IsChecked="{Binding SuppressSolos}"
                                       IsVisible="{Binding IsComboSelection}" />
-                            <Button Content="{DynamicResource VirtualControllerPage.Mapping.Assign}"
+                            <Button Content="{DynamicResource EmulationPage.Mapping.Assign}"
                                     Command="{Binding AssignMappingCommand}"
                                     IsEnabled="{Binding CanAssignMapping}"
                                     HorizontalAlignment="Left" />
@@ -207,7 +207,7 @@
                                             <Button Grid.Column="2"
                                                     Command="{Binding $parent[ItemsControl].((vm:EmulationPageViewModel)DataContext).RemoveBindingCommand}"
                                                     CommandParameter="{Binding}"
-                                                    ToolTip.Tip="{DynamicResource VirtualControllerPage.Binding.Remove}"
+                                                    ToolTip.Tip="{DynamicResource EmulationPage.Binding.Remove}"
                                                     Margin="8,0,0,0"
                                                     Padding="6,4">
                                                 <ic:FluentIcon Icon="Delete"
@@ -220,7 +220,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <Button Content="{DynamicResource VirtualControllerPage.Mapping.Reset}"
+                        <Button Content="{DynamicResource EmulationPage.Mapping.Reset}"
                                 Command="{Binding ResetMappingsCommand}"
                                 IsVisible="{Binding HasBindings}"
                                 HorizontalAlignment="Left" />
@@ -229,12 +229,12 @@
             </ui:FASettingsExpander>
 
             <!-- Audio player -->
-            <ui:FASettingsExpander Header="{DynamicResource InputMonitorPage.Audio.Title}"
-                                   Description="{DynamicResource InputMonitorPage.Audio.Description}"
+            <ui:FASettingsExpander Header="{DynamicResource EmulationPage.Audio.Title}"
+                                   Description="{DynamicResource EmulationPage.Audio.Description}"
                                    IconSource="{icm:SymbolIconSource Symbol=MusicNote2}"
                                    IsExpanded="False"
                                    IsVisible="{Binding HasDevice}">
-                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Audio.File}">
+                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Audio.File}">
                     <ui:FASettingsExpanderItem.Footer>
                         <StackPanel Orientation="Horizontal"
                                     Spacing="8">
@@ -244,7 +244,7 @@
                                        ToolTip.Tip="{Binding MonitorState.Audio.FileName}"
                                        VerticalAlignment="Center"
                                        IsVisible="{Binding MonitorState.Audio.HasFile}" />
-                            <TextBlock Text="{DynamicResource InputMonitorPage.Audio.NoFile}"
+                            <TextBlock Text="{DynamicResource EmulationPage.Audio.NoFile}"
                                        VerticalAlignment="Center"
                                        IsVisible="{Binding !MonitorState.Audio.HasFile}" />
                             <Button Classes="accent"
@@ -255,7 +255,7 @@
                                     <ic:FluentIcon Icon="FolderOpen"
                                                    IconVariant="Regular"
                                                    IconSize="Size16" />
-                                    <TextBlock Text="{DynamicResource InputMonitorPage.Audio.Open}" />
+                                    <TextBlock Text="{DynamicResource EmulationPage.Audio.Open}" />
                                 </StackPanel>
                             </Button>
                         </StackPanel>
@@ -300,13 +300,13 @@
                         </Button>
                     </StackPanel>
                 </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Audio.Output.Desktop}">
+                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Audio.Output.Desktop}">
                     <ui:FASettingsExpanderItem.Footer>
                         <ToggleSwitch IsChecked="{Binding MonitorState.Audio.PlayToDesktop, Mode=TwoWay}" />
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Audio.Output.DualSense}"
-                                           Description="{DynamicResource InputMonitorPage.Audio.Output.DualSense.Description}"
+                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Audio.Output.DualSense}"
+                                           Description="{DynamicResource EmulationPage.Audio.Output.DualSense.Description}"
                                            IsEnabled="{Binding MonitorState.Audio.CanUseControllerOutputs}">
                     <ui:FASettingsExpanderItem.Footer>
                         <ComboBox ItemsSource="{Binding MonitorState.Audio.ControllerOutputOptions}"
@@ -314,13 +314,13 @@
                                   MinWidth="200" />
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Audio.Output.Haptics}"
+                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Audio.Output.Haptics}"
                                            IsEnabled="{Binding MonitorState.Audio.CanUseControllerOutputs}">
                     <ui:FASettingsExpanderItem.Footer>
                         <ToggleSwitch IsChecked="{Binding MonitorState.Audio.PlayToHaptics, Mode=TwoWay}" />
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Audio.OutputVolume}"
+                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Audio.OutputVolume}"
                                            IsEnabled="{Binding MonitorState.Audio.CanUseControllerOutputs}">
                     <ui:FASettingsExpanderItem.Footer>
                         <gui:SliderInput Minimum="0"
@@ -328,7 +328,7 @@
                                          Value="{Binding MonitorState.Audio.SpeakerVolume, Mode=TwoWay}" />
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Audio.HapticStrength}"
+                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Audio.HapticStrength}"
                                            IsEnabled="{Binding MonitorState.Audio.CanUseControllerOutputs}">
                     <ui:FASettingsExpanderItem.Footer>
                         <gui:SliderInput Minimum="0"

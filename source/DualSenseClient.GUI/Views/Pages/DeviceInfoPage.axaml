@@ -48,7 +48,7 @@
                             CornerRadius="6"
                             Padding="12,5"
                             Background="{DynamicResource ControlFillColorDefaultBrush}">
-                        <TextBlock Text="{DynamicResource InputMonitorPage.Button.FnL}"
+                        <TextBlock Text="{DynamicResource DeviceInfoPage.Monitor.Button.FnL}"
                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                     </Border>
                     <Border BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
@@ -56,7 +56,7 @@
                             CornerRadius="6"
                             Padding="12,5"
                             Background="{DynamicResource ControlFillColorDefaultBrush}">
-                        <TextBlock Text="{DynamicResource InputMonitorPage.Button.L4}"
+                        <TextBlock Text="{DynamicResource DeviceInfoPage.Monitor.Button.L4}"
                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                     </Border>
                     <Border BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
@@ -64,7 +64,7 @@
                             CornerRadius="6"
                             Padding="12,5"
                             Background="{DynamicResource ControlFillColorDefaultBrush}">
-                        <TextBlock Text="{DynamicResource InputMonitorPage.Button.R4}"
+                        <TextBlock Text="{DynamicResource DeviceInfoPage.Monitor.Button.R4}"
                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                     </Border>
                     <Border BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
@@ -72,7 +72,7 @@
                             CornerRadius="6"
                             Padding="12,5"
                             Background="{DynamicResource ControlFillColorDefaultBrush}">
-                        <TextBlock Text="{DynamicResource InputMonitorPage.Button.FnR}"
+                        <TextBlock Text="{DynamicResource DeviceInfoPage.Monitor.Button.FnR}"
                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                     </Border>
                 </StackPanel>
@@ -83,14 +83,14 @@
                                    IconSource="{icm:SymbolIconSource Symbol=DataUsage}"
                                    IsExpanded="False"
                                    IsVisible="{Binding HasDevice}">
-                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.OutputTest.Triggers.Left}">
+                <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.OutputTest.Triggers.Left}">
                     <ui:FASettingsExpanderItem.Footer>
                         <TextBlock Text="{Binding MonitorState.L2}"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.OutputTest.Triggers.Right}">
+                <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.OutputTest.Triggers.Right}">
                     <ui:FASettingsExpanderItem.Footer>
                         <TextBlock Text="{Binding MonitorState.R2}"
                                    FontWeight="SemiBold"
@@ -139,42 +139,42 @@
                                    VerticalAlignment="Center" />
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Motion.GyroX}">
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Monitor.Motion.GyroX}">
                     <ui:FASettingsExpanderItem.Footer>
                         <TextBlock Text="{Binding MonitorState.GyroX}"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Motion.GyroY}">
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Monitor.Motion.GyroY}">
                     <ui:FASettingsExpanderItem.Footer>
                         <TextBlock Text="{Binding MonitorState.GyroY}"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Motion.GyroZ}">
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Monitor.Motion.GyroZ}">
                     <ui:FASettingsExpanderItem.Footer>
                         <TextBlock Text="{Binding MonitorState.GyroZ}"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Motion.AccelX}">
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Monitor.Motion.AccelX}">
                     <ui:FASettingsExpanderItem.Footer>
                         <TextBlock Text="{Binding MonitorState.AccelX}"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Motion.AccelY}">
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Monitor.Motion.AccelY}">
                     <ui:FASettingsExpanderItem.Footer>
                         <TextBlock Text="{Binding MonitorState.AccelY}"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource InputMonitorPage.Motion.AccelZ}">
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Monitor.Motion.AccelZ}">
                     <ui:FASettingsExpanderItem.Footer>
                         <TextBlock Text="{Binding MonitorState.AccelZ}"
                                    FontWeight="SemiBold"
@@ -207,8 +207,8 @@
 
             <!-- Assigned profile -->
             <ui:FASettingsExpanderItem IconSource="{icm:SymbolIconSource Symbol=Person}"
-                                       Content="{DynamicResource ProfilePage.AssignedProfile.Title}"
-                                       Description="{DynamicResource ProfilePage.AssignedProfile.Description}"
+                                       Content="{DynamicResource CustomizationPage.AssignedProfile.Title}"
+                                       Description="{DynamicResource CustomizationPage.AssignedProfile.Description}"
                                        IsVisible="{Binding HasDevice}">
                 <ui:FASettingsExpanderItem.Footer>
                     <StackPanel Orientation="Horizontal"
@@ -232,7 +232,7 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
                         <Button Command="{Binding ReapplyProfileCommand}"
-                                ToolTip.Tip="{DynamicResource ProfilePage.AssignedProfile.Reapply}"
+                                ToolTip.Tip="{DynamicResource CustomizationPage.AssignedProfile.Reapply}"
                                 Padding="6,4">
                             <ic:FluentIcon Icon="Replay"
                                            IconVariant="Regular"
@@ -244,7 +244,7 @@
 
             <!-- Status -->
             <ui:FASettingsExpanderItem IconSource="{icm:SymbolIconSource Symbol=TopSpeed}"
-                                       Content="{DynamicResource InputMonitorPage.Status.PollingRate}"
+                                       Content="{DynamicResource DeviceInfoPage.Monitor.Status.PollingRate}"
                                        IsVisible="{Binding HasDevice}">
                 <ui:FASettingsExpanderItem.Footer>
                     <TextBlock Text="{Binding MonitorState.PollingRateHz, StringFormat={}{0} Hz}"

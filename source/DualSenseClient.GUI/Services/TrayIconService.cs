@@ -309,7 +309,7 @@ public sealed class TrayIconService
 
         foreach (EmulationMode mode in Enum.GetValues<EmulationMode>())
         {
-            NativeMenuItem modeItem = new NativeMenuItem(LocalizationService.GetText($"VirtualControllerPage.Emulation.Mode.{mode}"))
+            NativeMenuItem modeItem = new NativeMenuItem(LocalizationService.GetText($"EmulationPage.Emulation.Mode.{mode}"))
             {
                 ToggleType = MenuItemToggleType.Radio,
                 IsChecked = mode == current,

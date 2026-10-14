@@ -59,7 +59,7 @@ public sealed partial class SpecialActionButtonItem : ObservableObject
     /// to the enum name when no translation exists.
     /// </summary>
     public static string GetDisplayName(ButtonType button) =>
-        LocalizationService.GetText($"ProfilePage.SpecialActions.Button.{button}");
+        LocalizationService.GetText($"CustomizationPage.SpecialActions.Button.{button}");
 
     /// <summary>
     /// Forwards toggle changes to the owning item.
@@ -323,7 +323,7 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
             string[] names = Buttons.Where(b => b.IsChecked).Select(b => b.DisplayName).ToArray();
             return names.Length > 0
                 ? string.Join(" + ", names)
-                : LocalizationService.GetText("ProfilePage.SpecialActions.Combo.None");
+                : LocalizationService.GetText("CustomizationPage.SpecialActions.Combo.None");
         }
     }
 
@@ -351,8 +351,8 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     /// </summary>
     public ObservableCollection<string> TriggerOptions { get; } =
     [
-        LocalizationService.GetText("ProfilePage.SpecialActions.Trigger.Buttons"),
-        LocalizationService.GetText("ProfilePage.SpecialActions.Trigger.Touchpad")
+        LocalizationService.GetText("CustomizationPage.SpecialActions.Trigger.Buttons"),
+        LocalizationService.GetText("CustomizationPage.SpecialActions.Trigger.Touchpad")
     ];
 
     /// <summary>
@@ -391,10 +391,10 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     /// </summary>
     public ObservableCollection<string> GestureOptions { get; } =
     [
-        LocalizationService.GetText("ProfilePage.SpecialActions.Gesture.SwipeUp"),
-        LocalizationService.GetText("ProfilePage.SpecialActions.Gesture.SwipeDown"),
-        LocalizationService.GetText("ProfilePage.SpecialActions.Gesture.SwipeLeft"),
-        LocalizationService.GetText("ProfilePage.SpecialActions.Gesture.SwipeRight")
+        LocalizationService.GetText("CustomizationPage.SpecialActions.Gesture.SwipeUp"),
+        LocalizationService.GetText("CustomizationPage.SpecialActions.Gesture.SwipeDown"),
+        LocalizationService.GetText("CustomizationPage.SpecialActions.Gesture.SwipeLeft"),
+        LocalizationService.GetText("CustomizationPage.SpecialActions.Gesture.SwipeRight")
     ];
 
     /// <summary>
@@ -641,8 +641,8 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     /// </summary>
     public ObservableCollection<string> SoundOutputOptions { get; } =
     [
-        LocalizationService.GetText("ProfilePage.SpecialActions.Sound.Output.Speaker"),
-        LocalizationService.GetText("ProfilePage.SpecialActions.Sound.Output.Headset")
+        LocalizationService.GetText("CustomizationPage.SpecialActions.Sound.Output.Speaker"),
+        LocalizationService.GetText("CustomizationPage.SpecialActions.Sound.Output.Headset")
     ];
 
     /// <summary>

@@ -332,9 +332,9 @@ public sealed partial class AudioPlayerItem : ObservableObject, IDisposable
 
         ControllerOutputOptions =
         [
-            LocalizationService.GetText("InputMonitorPage.Audio.Output.None"),
-            LocalizationService.GetText("InputMonitorPage.Audio.Output.Speaker"),
-            LocalizationService.GetText("InputMonitorPage.Audio.Output.Headset")
+            LocalizationService.GetText("EmulationPage.Audio.Output.None"),
+            LocalizationService.GetText("EmulationPage.Audio.Output.Speaker"),
+            LocalizationService.GetText("EmulationPage.Audio.Output.Headset")
         ];
 
         _seekDebounceTimer = new DispatcherTimer

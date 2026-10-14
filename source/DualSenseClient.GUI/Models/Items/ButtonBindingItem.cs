@@ -42,15 +42,15 @@ public sealed class ButtonBindingItem
             .Where(target => !target.Equals("None", StringComparison.OrdinalIgnoreCase))
             .Select(EmulationPageViewModel.GetTargetDisplayName));
         TargetDisplay = targets.Length == 0
-            ? LocalizationService.GetText("VirtualControllerPage.Mapping.Target.None")
+            ? LocalizationService.GetText("EmulationPage.Mapping.Target.None")
             : targets;
         Details = string.Join(", ", new[]
         {
             string.Equals(entry.TargetOutput, "click", StringComparison.OrdinalIgnoreCase)
-                ? LocalizationService.GetText("VirtualControllerPage.Binding.OutputClick")
+                ? LocalizationService.GetText("EmulationPage.Binding.OutputClick")
                 : null,
             entry.Keys.Count > 1 && !entry.SuppressSolos
-                ? LocalizationService.GetText("VirtualControllerPage.Binding.SolosKept")
+                ? LocalizationService.GetText("EmulationPage.Binding.SolosKept")
                 : null
         }.Where(part => part is not null));
     }

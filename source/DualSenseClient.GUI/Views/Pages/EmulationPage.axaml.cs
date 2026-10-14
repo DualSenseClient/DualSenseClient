@@ -62,11 +62,11 @@ public partial class EmulationPage : UserControl
 
         IReadOnlyList<IStorageFile> files = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = LocalizationService.GetText("InputMonitorPage.Audio.PickTitle"),
+            Title = LocalizationService.GetText("EmulationPage.Audio.PickTitle"),
             AllowMultiple = false,
             FileTypeFilter =
             [
-                new FilePickerFileType(LocalizationService.GetText("InputMonitorPage.Audio.FileType"))
+                new FilePickerFileType(LocalizationService.GetText("EmulationPage.Audio.FileType"))
                 {
                     Patterns = ["*.wav", "*.mp3", "*.flac", "*.aac", "*.m4a", "*.ogg", "*.wma", "*.aiff", "*.mp4"]
                 }

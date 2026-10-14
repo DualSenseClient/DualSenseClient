@@ -386,10 +386,10 @@ public partial class AutoProfilePageViewModel : ObservableObject
     public ObservableCollection<string> EmulationOptions { get; } =
     [
         LocalizationService.GetText("AutoProfilesPage.Emulation.Unchanged"),
-        LocalizationService.GetText("VirtualControllerPage.Emulation.Mode.Off"),
-        LocalizationService.GetText("VirtualControllerPage.Emulation.Mode.Xbox360"),
-        LocalizationService.GetText("VirtualControllerPage.Emulation.Mode.DualShock4"),
-        LocalizationService.GetText("VirtualControllerPage.Emulation.Mode.DualSense")
+        LocalizationService.GetText("EmulationPage.Emulation.Mode.Off"),
+        LocalizationService.GetText("EmulationPage.Emulation.Mode.Xbox360"),
+        LocalizationService.GetText("EmulationPage.Emulation.Mode.DualShock4"),
+        LocalizationService.GetText("EmulationPage.Emulation.Mode.DualSense")
     ];
 
     /// <summary>
@@ -562,8 +562,8 @@ public partial class AutoProfilePageViewModel : ObservableObject
     public ObservableCollection<string> DualSenseVariantOptions { get; } =
     [
         LocalizationService.GetText("AutoProfilesPage.Emulation.Unchanged"),
-        LocalizationService.GetText("VirtualControllerPage.Emulation.DeviceType.Standard"),
-        LocalizationService.GetText("VirtualControllerPage.Emulation.DeviceType.Edge")
+        LocalizationService.GetText("EmulationPage.Emulation.DeviceType.Standard"),
+        LocalizationService.GetText("EmulationPage.Emulation.DeviceType.Edge")
     ];
 
     /// <summary>
@@ -623,8 +623,8 @@ public partial class AutoProfilePageViewModel : ObservableObject
     public ObservableCollection<string> DualShock4VariantOptions { get; } =
     [
         LocalizationService.GetText("AutoProfilesPage.Emulation.Unchanged"),
-        LocalizationService.GetText("VirtualControllerPage.Emulation.Ds4Variant.V1"),
-        LocalizationService.GetText("VirtualControllerPage.Emulation.Ds4Variant.V2")
+        LocalizationService.GetText("EmulationPage.Emulation.Ds4Variant.V1"),
+        LocalizationService.GetText("EmulationPage.Emulation.Ds4Variant.V2")
     ];
 
     /// <summary>
@@ -684,10 +684,10 @@ public partial class AutoProfilePageViewModel : ObservableObject
     public ObservableCollection<string> TriggerEffectOptions { get; } =
     [
         LocalizationService.GetText("AutoProfilesPage.Emulation.Unchanged"),
-        LocalizationService.GetText("InputMonitorPage.OutputTest.Triggers.Mode.Off"),
-        LocalizationService.GetText("InputMonitorPage.OutputTest.Triggers.Mode.Resistance"),
-        LocalizationService.GetText("InputMonitorPage.OutputTest.Triggers.Mode.Trigger"),
-        LocalizationService.GetText("InputMonitorPage.OutputTest.Triggers.Mode.Automatic")
+        LocalizationService.GetText("CustomizationPage.OutputTest.Triggers.Mode.Off"),
+        LocalizationService.GetText("CustomizationPage.OutputTest.Triggers.Mode.Resistance"),
+        LocalizationService.GetText("CustomizationPage.OutputTest.Triggers.Mode.Trigger"),
+        LocalizationService.GetText("CustomizationPage.OutputTest.Triggers.Mode.Automatic")
     ];
 
     /// <summary>
