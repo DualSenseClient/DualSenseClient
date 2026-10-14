@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="DualSenseClient.GUI.App"
              xmlns:faStyle="using:FluentAvalonia.Styling"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:converters="clr-namespace:DualSenseClient.GUI.Converters"
              RequestedThemeVariant="Default">
     <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
@@ -20,6 +21,12 @@
         <Style Selector="Window,PopupRoot">
             <Setter Property="FontFamily"
                     Value="avares://Avalonia.Fonts.Inter/Assets#Inter,Segoe UI" />
+        </Style>
+        <!-- Remove icon-placeholder indent for FASettingsExpanderItems without their own icon.
+             Items with :icon keep the default SettingsExpanderItemContentMargin (42 0 0 0). -->
+        <Style Selector="ui|FASettingsExpanderItem:iconPlaceholder:not(:icon) /template/ StackPanel#HeaderRegion">
+            <Setter Property="Margin"
+                    Value="0" />
         </Style>
         <!-- Custom Controls -->
         <StyleInclude Source="/Controls/Controls.axaml" />
