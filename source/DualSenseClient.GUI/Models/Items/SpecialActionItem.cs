@@ -244,9 +244,9 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
 
     /// <summary>
     /// Player LED preset masks, mirror-symmetric layouts used by PS5 (unconfirmed):
-    /// Player 1 0x04, Player 2 0x06, Player 3 0x15, Player 4 0x1B, Player 5 0x1F.
+    /// Player 1 0x04, Player 2 0x0A, Player 3 0x15, Player 4 0x1B, Player 5 0x1F.
     /// </summary>
-    private static readonly byte[] PlayerPresetMasks = [0x04, 0x06, 0x15, 0x1B, 0x1F];
+    private static readonly byte[] PlayerPresetMasks = [0x04, 0x0A, 0x15, 0x1B, 0x1F];
 
     /// <summary>
     /// The special action service backing persistence for this item.
@@ -561,7 +561,7 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     [ObservableProperty] private bool _playerPreset1;
 
     /// <summary>
-    /// Whether the Player 2 preset (mirror-symmetric mask 0x06) is selected.
+    /// Whether the Player 2 preset (mirror-symmetric mask 0x0A) is selected.
     /// </summary>
     [ObservableProperty] private bool _playerPreset2;
 
@@ -1326,7 +1326,7 @@ public sealed partial class SpecialActionItem : ObservableObject, IDisposable
     partial void OnPlayerPreset1Changed(bool value) => ApplyPlayerPreset(0, value);
 
     /// <summary>
-    /// Applies the Player 2 preset (mask 0x06).
+    /// Applies the Player 2 preset (mask 0x0A).
     /// </summary>
     partial void OnPlayerPreset2Changed(bool value) => ApplyPlayerPreset(1, value);
 
