@@ -1,456 +1,512 @@
-﻿<ResourceDictionary xmlns="https://github.com/avaloniaui"
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=mscorlib">
-    <!-- Add UI Strings Here -->
-    <sys:String x:Key="MainWindow.Title">DualSense Client</sys:String>
-    <sys:String x:Key="MainWindow.Settings">Settings</sys:String>
+    <!--
+      Localization conventions:
+      - Sections are the key prefix (owning page or shared feature), in navigation order.
+      - Inside a page, subsections are the second key component; two-part keys sit in "General".
+      - Keys are sorted alphabetically within their subsection.
+      Add new keys to the matching subsection; new shared-feature sections go last.
+    -->
 
-    <!-- Title Bar -->
-    <sys:String x:Key="MainWindow.ScanDevices.Start">Scan for controllers</sys:String>
-    <sys:String x:Key="MainWindow.ScanDevices.Stop">Stop scanning</sys:String>
+    <!-- MainWindow -->
+    <!-- General -->
+    <sys:String x:Key="MainWindow.AutoProfiles">Auto Profiles</sys:String>
+    <sys:String x:Key="MainWindow.Customization">Customization</sys:String>
+    <sys:String x:Key="MainWindow.Devices">Device Info</sys:String>
+    <sys:String x:Key="MainWindow.Emulation">Emulation</sys:String>
+    <sys:String x:Key="MainWindow.Settings">Settings</sys:String>
+    <sys:String x:Key="MainWindow.Title">DualSense Client</sys:String>
+    <!-- DisconnectController -->
     <sys:String x:Key="MainWindow.DisconnectController">Disconnect controller</sys:String>
     <sys:String x:Key="MainWindow.DisconnectController.Failed">{0} could not be disconnected</sys:String>
-    <sys:String x:Key="MainWindow.Customization">Customization</sys:String>
-    <sys:String x:Key="MainWindow.Emulation">Emulation</sys:String>
+    <!-- ScanDevices -->
+    <sys:String x:Key="MainWindow.ScanDevices.Start">Scan for controllers</sys:String>
+    <sys:String x:Key="MainWindow.ScanDevices.Stop">Stop scanning</sys:String>
 
-    <!-- Tray Icon -->
-    <sys:String x:Key="Tray.Show">Show</sys:String>
-    <sys:String x:Key="Tray.Exit">Exit</sys:String>
-    <sys:String x:Key="Tray.Select">Select</sys:String>
-    <sys:String x:Key="Tray.Profiles">Profiles</sys:String>
-    <sys:String x:Key="Tray.Emulation">Virtual controller</sys:String>
+    <!-- Tray -->
     <sys:String x:Key="Tray.Disconnect">Disconnect</sys:String>
+    <sys:String x:Key="Tray.Emulation">Virtual controller</sys:String>
+    <sys:String x:Key="Tray.Exit">Exit</sys:String>
     <sys:String x:Key="Tray.NoControllers">No controllers connected</sys:String>
+    <sys:String x:Key="Tray.Profiles">Profiles</sys:String>
+    <sys:String x:Key="Tray.Select">Select</sys:String>
+    <sys:String x:Key="Tray.Show">Show</sys:String>
 
-    <!-- Notification Popups -->
-    <sys:String x:Key="Notification.Connected.Title">Controller connected</sys:String>
-    <sys:String x:Key="Notification.Connected.Message">{0} connected via {1}</sys:String>
-    <sys:String x:Key="Notification.Disconnected.Title">Controller disconnected</sys:String>
-    <sys:String x:Key="Notification.Disconnected.Message">{0} disconnected</sys:String>
-    <sys:String x:Key="Notification.LowBattery.Title">Low battery</sys:String>
-    <sys:String x:Key="Notification.LowBattery.Message">{0} battery is low ({1}%)</sys:String>
-    <sys:String x:Key="Notification.Charged.Title">Controller charged</sys:String>
-    <sys:String x:Key="Notification.Charged.Message">{0} charged to {1}%</sys:String>
-    <sys:String x:Key="Notification.Test.Title">Test notification</sys:String>
-    <sys:String x:Key="Notification.Test.Message">This is what notifications look like.</sys:String>
-    <sys:String x:Key="Notification.Update.Title">Update available</sys:String>
-    <sys:String x:Key="Notification.Update.Message">Version {0} is available. Click to open the release page.</sys:String>
-    <sys:String x:Key="Notification.Update.Failed.Title">Update failed</sys:String>
-    <sys:String x:Key="Notification.Update.Failed.Message">The update could not be installed. Click to open the release page.</sys:String>
-    <sys:String x:Key="Notification.Update.Restart.Title">Restart to update</sys:String>
-    <sys:String x:Key="Notification.Update.Restart.Message">Version {0} is downloaded. The app will now restart to apply the update.</sys:String>
-    <sys:String x:Key="Notification.Update.Downloading.Title">Downloading update</sys:String>
-    <sys:String x:Key="Notification.Update.Downloading.Message">Downloading version {0}… {1:F0}%</sys:String>
-    <sys:String x:Key="Notification.Changelog.Title">What's new</sys:String>
-    <sys:String x:Key="Notification.Battery.Title">Battery level</sys:String>
-    <sys:String x:Key="Notification.Battery.Message">{0}: {1}%</sys:String>
-    <sys:String x:Key="Notification.AutoProfile.Title">Auto profile switched</sys:String>
+    <!-- Notification -->
+    <!-- AutoProfile -->
     <sys:String x:Key="Notification.AutoProfile.Message">{0} is now using {1}</sys:String>
+    <sys:String x:Key="Notification.AutoProfile.Title">Auto profile switched</sys:String>
+    <!-- Battery -->
+    <sys:String x:Key="Notification.Battery.Message">{0}: {1}%</sys:String>
+    <sys:String x:Key="Notification.Battery.Title">Battery level</sys:String>
+    <!-- Changelog -->
+    <sys:String x:Key="Notification.Changelog.Title">What's new</sys:String>
+    <!-- Charged -->
+    <sys:String x:Key="Notification.Charged.Message">{0} charged to {1}%</sys:String>
+    <sys:String x:Key="Notification.Charged.Title">Controller charged</sys:String>
+    <!-- Connected -->
+    <sys:String x:Key="Notification.Connected.Message">{0} connected via {1}</sys:String>
+    <sys:String x:Key="Notification.Connected.Title">Controller connected</sys:String>
+    <!-- Disconnected -->
+    <sys:String x:Key="Notification.Disconnected.Message">{0} disconnected</sys:String>
+    <sys:String x:Key="Notification.Disconnected.Title">Controller disconnected</sys:String>
+    <!-- LowBattery -->
+    <sys:String x:Key="Notification.LowBattery.Message">{0} battery is low ({1}%)</sys:String>
+    <sys:String x:Key="Notification.LowBattery.Title">Low battery</sys:String>
+    <!-- Test -->
+    <sys:String x:Key="Notification.Test.Message">This is what notifications look like.</sys:String>
+    <sys:String x:Key="Notification.Test.Title">Test notification</sys:String>
+    <!-- Update -->
+    <sys:String x:Key="Notification.Update.Downloading.Message">Downloading version {0}… {1:F0}%</sys:String>
+    <sys:String x:Key="Notification.Update.Downloading.Title">Downloading update</sys:String>
+    <sys:String x:Key="Notification.Update.Failed.Message">The update could not be installed. Click to open the release page.</sys:String>
+    <sys:String x:Key="Notification.Update.Failed.Title">Update failed</sys:String>
+    <sys:String x:Key="Notification.Update.Message">Version {0} is available. Click to open the release page.</sys:String>
+    <sys:String x:Key="Notification.Update.Restart.Message">Version {0} is downloaded. The app will now restart to apply the update.</sys:String>
+    <sys:String x:Key="Notification.Update.Restart.Title">Restart to update</sys:String>
+    <sys:String x:Key="Notification.Update.Title">Update available</sys:String>
 
-    <!-- Splash Screen -->
-    <sys:String x:Key="SplashScreen.LoadingProfiles">Loading profiles</sys:String>
-    <sys:String x:Key="SplashScreen.StartingServices">Starting services</sys:String>
-    <sys:String x:Key="SplashScreen.ScanningControllers">Scanning for controllers</sys:String>
+    <!-- SplashScreen -->
     <sys:String x:Key="SplashScreen.CheckingUpdates">Checking for updates</sys:String>
+    <sys:String x:Key="SplashScreen.LoadingProfiles">Loading profiles</sys:String>
+    <sys:String x:Key="SplashScreen.ScanningControllers">Scanning for controllers</sys:String>
+    <sys:String x:Key="SplashScreen.StartingServices">Starting services</sys:String>
 
-    <!-- Device Info Page -->
-    <sys:String x:Key="MainWindow.Devices">Device Info</sys:String>
-    <sys:String x:Key="DeviceInfoPage.NoDevice.Title">No controller selected</sys:String>
-    <sys:String x:Key="DeviceInfoPage.NoDevice.Description">Select a controller from the title bar to view its information</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Device.Name">Name</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Device.Skin">Skin</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Device.Skin.Description">The controller illustration shown above. Stored per controller.</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Device.ConnectionType">Connection</sys:String>
+    <!-- MessageBox -->
+    <sys:String x:Key="MessageBox.Cancel">Cancel</sys:String>
+    <sys:String x:Key="MessageBox.No">No</sys:String>
+    <sys:String x:Key="MessageBox.Ok">OK</sys:String>
+    <sys:String x:Key="MessageBox.Yes">Yes</sys:String>
 
-    <!-- Device Info Page: Live Input -->
-    <sys:String x:Key="DeviceInfoPage.Monitor.Sticks.LeftX">Left X</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Sticks.LeftY">Left Y</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Sticks.RightX">Right X</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Sticks.RightY">Right Y</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Touchpad.Touch1">Touch 1</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Touchpad.Touch2">Touch 2</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Title">Input Data</sys:String>
-    <sys:String x:Key="CustomizationPage.Forwarding.Title">Audio Forwarding</sys:String>
-    <sys:String x:Key="CustomizationPage.Forwarding.Description">Forward desktop audio to the controller's speaker, headset, and haptics</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Pairing.ClientMac">Controller MAC</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Firmware.Title">Firmware</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Firmware.Description">Version and build information</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Firmware.Refresh">Re-read firmware info</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Firmware.MainVersion">Main Firmware</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Firmware.SblVersion">SBL Firmware</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Firmware.DspVersion">DSP Firmware</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Firmware.McuDspVersion">MCU/Spider DSP</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Firmware.ModelRevision">Model Revision</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Firmware.HardwareVersion">Hardware Version</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Firmware.HardwareGeneration">Hardware Generation</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Firmware.BuildDate">Build Date</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Firmware.BuildTime">Build Time</sys:String>
-
-    <!-- Device Info Page: Battery -->
+    <!-- DeviceInfoPage -->
+    <!-- Battery -->
     <sys:String x:Key="DeviceInfoPage.Battery.Level">Battery Level</sys:String>
     <sys:String x:Key="DeviceInfoPage.Battery.PowerState">Power State</sys:String>
-
-    <!-- Device Info Page: Connection Status -->
-    <sys:String x:Key="DeviceInfoPage.Connection.Title">Connection Status</sys:String>
+    <!-- Common -->
+    <sys:String x:Key="DeviceInfoPage.Common.Active">Active</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Common.Connected">Connected</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Common.Inactive">Inactive</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Common.No">No</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Common.NotConnected">Not connected</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Common.Yes">Yes</sys:String>
+    <!-- Connection -->
     <sys:String x:Key="DeviceInfoPage.Connection.Description">Audio and USB connection state</sys:String>
     <sys:String x:Key="DeviceInfoPage.Connection.Headphones">Headphones</sys:String>
     <sys:String x:Key="DeviceInfoPage.Connection.Microphone">Microphone</sys:String>
     <sys:String x:Key="DeviceInfoPage.Connection.MicrophoneMuted">Microphone Muted</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Connection.Title">Connection Status</sys:String>
     <sys:String x:Key="DeviceInfoPage.Connection.UsbData">USB Data</sys:String>
     <sys:String x:Key="DeviceInfoPage.Connection.UsbPower">USB Power</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Common.Yes">Yes</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Common.No">No</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Common.Connected">Connected</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Common.NotConnected">Not connected</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Common.Active">Active</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Common.Inactive">Inactive</sys:String>
-
-    <!-- MessageBox Strings -->
-    <sys:String x:Key="MessageBox.Ok">OK</sys:String>
-    <sys:String x:Key="MessageBox.Yes">Yes</sys:String>
-    <sys:String x:Key="MessageBox.No">No</sys:String>
-    <sys:String x:Key="MessageBox.Cancel">Cancel</sys:String>
-
-    <!-- Input Monitor Page -->
-    <sys:String x:Key="MainWindow.AutoProfiles">Auto Profiles</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Status.PollingRate">Polling rate</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Motion.GyroX">Gyro X</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Motion.GyroY">Gyro Y</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Motion.GyroZ">Gyro Z</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Motion.AccelX">Accel X</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Motion.AccelY">Accel Y</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Monitor.Motion.AccelZ">Accel Z</sys:String>
+    <!-- Device -->
+    <sys:String x:Key="DeviceInfoPage.Device.ConnectionType">Connection</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Device.Name">Name</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Device.Skin">Skin</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Device.Skin.Description">The controller illustration shown above. Stored per controller.</sys:String>
+    <!-- Firmware -->
+    <sys:String x:Key="DeviceInfoPage.Firmware.BuildDate">Build Date</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.BuildTime">Build Time</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.Description">Version and build information</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.DspVersion">DSP Firmware</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.HardwareGeneration">Hardware Generation</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.HardwareVersion">Hardware Version</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.MainVersion">Main Firmware</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.McuDspVersion">MCU/Spider DSP</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.ModelRevision">Model Revision</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.Refresh">Re-read firmware info</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.SblVersion">SBL Firmware</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Firmware.Title">Firmware</sys:String>
+    <!-- Hiding -->
+    <sys:String x:Key="DeviceInfoPage.Hiding.Description.NotInstalled">The HidHide driver is not installed. Install it to hide controllers.</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Hiding.HideController.Description">Blocks other applications from seeing this physical controller</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Hiding.Title">Hide this controller</sys:String>
+    <!-- Monitor -->
     <sys:String x:Key="DeviceInfoPage.Monitor.Button.FnL">FnL</sys:String>
     <sys:String x:Key="DeviceInfoPage.Monitor.Button.FnR">FnR</sys:String>
     <sys:String x:Key="DeviceInfoPage.Monitor.Button.L4">L4</sys:String>
     <sys:String x:Key="DeviceInfoPage.Monitor.Button.R4">R4</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Motion.AccelX">Accel X</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Motion.AccelY">Accel Y</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Motion.AccelZ">Accel Z</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Motion.GyroX">Gyro X</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Motion.GyroY">Gyro Y</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Motion.GyroZ">Gyro Z</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Status.PollingRate">Polling rate</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Sticks.LeftX">Left X</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Sticks.LeftY">Left Y</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Sticks.RightX">Right X</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Sticks.RightY">Right Y</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Title">Input Data</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Touchpad.Touch1">Touch 1</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Monitor.Touchpad.Touch2">Touch 2</sys:String>
+    <!-- NoDevice -->
+    <sys:String x:Key="DeviceInfoPage.NoDevice.Description">Select a controller from the title bar to view its information</sys:String>
+    <sys:String x:Key="DeviceInfoPage.NoDevice.Title">No controller selected</sys:String>
+    <!-- Pairing -->
+    <sys:String x:Key="DeviceInfoPage.Pairing.ClientMac">Controller MAC</sys:String>
 
-    <!-- Input Monitor Page: Output Test -->
-    <sys:String x:Key="CustomizationPage.OutputTest.Description">Vibration and adaptive trigger testing</sys:String>
-    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Title">Vibration</sys:String>
-    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Left">Left Motor</sys:String>
-    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Right">Right Motor</sys:String>
-    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Enable">Rumble</sys:String>
-    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Title">Adaptive Triggers</sys:String>
-    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Left">L2</sys:String>
-    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Right">R2</sys:String>
-    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Mode.Off">Off</sys:String>
-    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Mode.Resistance">Resistance</sys:String>
-    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Mode.Trigger">Trigger (weapon)</sys:String>
-    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Mode.Automatic">Automatic (vibration)</sys:String>
-    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Start">Start position</sys:String>
-    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.End">End position</sys:String>
-    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Force">Force</sys:String>
-    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Frequency">Frequency</sys:String>
-
-    <!-- Input Monitor Page: Audio Player -->
-    <sys:String x:Key="EmulationPage.Audio.Title">Audio Player</sys:String>
-    <sys:String x:Key="EmulationPage.Audio.Description">Play audio to your PC, the DualSense speaker, headset, or haptics</sys:String>
-    <sys:String x:Key="EmulationPage.Audio.File">File</sys:String>
-    <sys:String x:Key="EmulationPage.Audio.Open">Open</sys:String>
-    <sys:String x:Key="EmulationPage.Audio.PickTitle">Open audio file</sys:String>
-    <sys:String x:Key="EmulationPage.Audio.FileType">Audio files</sys:String>
-    <sys:String x:Key="EmulationPage.Audio.Output.Desktop">Desktop Speakers</sys:String>
-    <sys:String x:Key="EmulationPage.Audio.Output.DualSense">DualSense Output</sys:String>
-    <sys:String x:Key="EmulationPage.Audio.Output.DualSense.Description">Where the controller plays the stream. The speaker and headset cannot run at the same time.</sys:String>
-    <sys:String x:Key="EmulationPage.Audio.Output.None">Off</sys:String>
-    <sys:String x:Key="EmulationPage.Audio.Output.Speaker">Speaker</sys:String>
-    <sys:String x:Key="EmulationPage.Audio.Output.Headset">Headset</sys:String>
-    <sys:String x:Key="EmulationPage.Audio.Output.Haptics">Haptic Feedback</sys:String>
-    <sys:String x:Key="EmulationPage.Audio.OutputVolume">Playback Volume</sys:String>
-    <sys:String x:Key="EmulationPage.Audio.HapticStrength">Haptic Strength</sys:String>
-    <sys:String x:Key="EmulationPage.Audio.NoFile">No file loaded</sys:String>
-
-    <!-- Profile Page -->
-    <sys:String x:Key="CustomizationPage.AssignedProfile.Title">Assigned Profile</sys:String>
+    <!-- CustomizationPage -->
+    <!-- AssignedProfile -->
     <sys:String x:Key="CustomizationPage.AssignedProfile.Description">Applied automatically when this controller connects</sys:String>
     <sys:String x:Key="CustomizationPage.AssignedProfile.Reapply">Re-apply profile</sys:String>
-    <sys:String x:Key="CustomizationPage.Profiles.Title">Profiles</sys:String>
-    <sys:String x:Key="CustomizationPage.Profiles.Description">Create, edit, and manage controller profiles</sys:String>
-    <sys:String x:Key="CustomizationPage.Profiles.New">Create a new profile</sys:String>
-    <sys:String x:Key="CustomizationPage.Profiles.Duplicate">Duplicate the selected profile</sys:String>
-    <sys:String x:Key="CustomizationPage.Profiles.Delete">Delete the selected profile</sys:String>
-    <sys:String x:Key="CustomizationPage.Profiles.Empty">No profiles yet. Use the add button to create one.</sys:String>
-    <sys:String x:Key="CustomizationPage.Name.Title">Name</sys:String>
-    <sys:String x:Key="CustomizationPage.Delete.Title">Delete profile</sys:String>
+    <sys:String x:Key="CustomizationPage.AssignedProfile.Title">Assigned Profile</sys:String>
+    <!-- Delete -->
     <sys:String x:Key="CustomizationPage.Delete.Message">Delete profile "{name}"? Controllers assigned to it will fall back to the default profile.</sys:String>
+    <sys:String x:Key="CustomizationPage.Delete.Title">Delete profile</sys:String>
+    <!-- Forwarding -->
+    <sys:String x:Key="CustomizationPage.Forwarding.Description">Forward desktop audio to the controller's speaker, headset, and haptics</sys:String>
+    <sys:String x:Key="CustomizationPage.Forwarding.Title">Audio Forwarding</sys:String>
+    <!-- Lightbar -->
     <sys:String x:Key="CustomizationPage.Lightbar.Title">Lightbar</sys:String>
-    <sys:String x:Key="CustomizationPage.MicLed.Title">Microphone LED</sys:String>
+    <!-- MicLed -->
     <sys:String x:Key="CustomizationPage.MicLed.Mode">Mode</sys:String>
     <sys:String x:Key="CustomizationPage.MicLed.Mode.Off">Off</sys:String>
     <sys:String x:Key="CustomizationPage.MicLed.Mode.On">On</sys:String>
     <sys:String x:Key="CustomizationPage.MicLed.Mode.Pulse">Pulse</sys:String>
-    <sys:String x:Key="CustomizationPage.PlayerLeds.Title">Player LEDs</sys:String>
-    <sys:String x:Key="CustomizationPage.PlayerLeds.Player1">Player 1</sys:String>
-    <sys:String x:Key="CustomizationPage.PlayerLeds.Player2">Player 2</sys:String>
-    <sys:String x:Key="CustomizationPage.PlayerLeds.Player3">Player 3</sys:String>
-    <sys:String x:Key="CustomizationPage.PlayerLeds.Player4">Player 4</sys:String>
-    <sys:String x:Key="CustomizationPage.PlayerLeds.Player5">Player 5</sys:String>
+    <sys:String x:Key="CustomizationPage.MicLed.Title">Microphone LED</sys:String>
+    <!-- Name -->
+    <sys:String x:Key="CustomizationPage.Name.Title">Name</sys:String>
+    <!-- OutputTest -->
+    <sys:String x:Key="CustomizationPage.OutputTest.Description">Vibration and adaptive trigger testing</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.End">End position</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Force">Force</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Frequency">Frequency</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Left">L2</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Mode.Automatic">Automatic (vibration)</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Mode.Off">Off</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Mode.Resistance">Resistance</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Mode.Trigger">Trigger (weapon)</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Right">R2</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Start">Start position</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Title">Adaptive Triggers</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Enable">Rumble</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Left">Left Motor</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Right">Right Motor</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Title">Vibration</sys:String>
+    <!-- PlayerLeds -->
     <sys:String x:Key="CustomizationPage.PlayerLeds.Led1">LED 1</sys:String>
     <sys:String x:Key="CustomizationPage.PlayerLeds.Led2">LED 2</sys:String>
     <sys:String x:Key="CustomizationPage.PlayerLeds.Led3">LED 3</sys:String>
     <sys:String x:Key="CustomizationPage.PlayerLeds.Led4">LED 4</sys:String>
     <sys:String x:Key="CustomizationPage.PlayerLeds.Led5">LED 5</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.Title">Virtual Controller</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.Mode">Emulation Mode</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.Mode.Description">Creates a virtual controller that mirrors this controller's input to the host. Feedback (rumble, lightbar, triggers) is forwarded back. These settings are stored per controller.</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.Mode.Off">Off</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.Mode.Xbox360">Xbox 360</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.Mode.DualShock4">DualShock 4</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.Mode.DualSense">DualSense</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.DeviceType">DualSense Variant</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.DeviceType.Description">The hardware presentation of the virtual controller</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.DeviceType.Standard">Standard</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.DeviceType.Edge">Edge</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.Ds4Variant">DualShock 4 Variant</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.Ds4Variant.Description">The hardware generation of the virtual controller</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.Ds4Variant.V1">V1 (CUH-ZCT1)</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.Ds4Variant.V2">V2 (CUH-ZCT2)</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.AudioOutput">Forwarded Audio Output</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.AudioOutput.Description">Where host audio is played back on the physical controller.</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.AudioOutput.Speaker">Speaker</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.AudioOutput.Headset">Headset</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.ForwardVolume">Forwarded Audio Volume</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.ForwardVolume.Description">Volume of the desktop sounds forwarded to the controller. Only applies while the virtual audio output is selected as the default playback device.</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.ForwardHaptics">Forwarded Haptic Strength</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.ForwardHaptics.Description">Strength of the vibration generated from forwarded desktop sounds. Only applies while the virtual audio output is selected as the default playback device.</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.ForceAudioHaptics">Audio-based haptics</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.ForceAudioHaptics.Description">Derive vibration from the forwarded audio instead of the game's own haptics. The haptic strength slider always applies to audio-based haptics. Only applies to DualSense emulation over Bluetooth.</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.AudioSource">Audio source</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.AudioSource.Description">Where the forwarded speaker audio and haptics come from. The system output and application sources work without a virtual controller.</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.AudioSource.Controller">Virtual controller audio</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.AudioSource.SystemOutput">System output (loopback)</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.AudioSource.Application">Specific application</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.AudioSource.Application.Description">Capture only the selected application's audio, its child processes included. Requires Windows 11.</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.AudioSource.Refresh">Refresh app list</sys:String>
-    <sys:String x:Key="AudioSource.NoApplications">No application is currently playing audio. Start playback in the app, then refresh the list.</sys:String>
-    <sys:String x:Key="AudioSource.Mode.Title">Application selection</sys:String>
-    <sys:String x:Key="AudioSource.Mode.Description">How the application to capture is chosen: from the applications currently playing audio, or by browsing to an executable file.</sys:String>
-    <sys:String x:Key="AudioSource.Mode.PlayingApps">Applications playing audio</sys:String>
-    <sys:String x:Key="AudioSource.Mode.ExecutableFile">Executable file</sys:String>
-    <sys:String x:Key="AudioSource.Executable.Title">Executable file</sys:String>
-    <sys:String x:Key="AudioSource.Executable.Description">Program whose audio is forwarded</sys:String>
-    <sys:String x:Key="AudioSource.Executable.Placeholder">No executable selected. Browse to one.</sys:String>
-    <sys:String x:Key="AudioSource.Executable.Browse">Browse for a program</sys:String>
-    <sys:String x:Key="AudioSource.Executable.Picker">Select a program</sys:String>
-    <sys:String x:Key="AudioSource.Executable.FileType">Programs</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.Status.Idle">No virtual controller is active.</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.Status.Running">Virtual controller active: {mode}</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.Status.RunningEdge">Virtual controller active: DualSense Edge</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.Status.Creating">Creating virtual controller…</sys:String>
-    <sys:String x:Key="EmulationPage.Mapping.Title">Button Mapping</sys:String>
-    <sys:String x:Key="EmulationPage.Mapping.Description">Remap the physical buttons of this controller on the virtual controller. Click buttons on the illustration to select one or more sources, pick one or more targets (they are pressed together), then assign.</sys:String>
-    <sys:String x:Key="EmulationPage.Mapping.Clear">Clear the selection</sys:String>
-    <sys:String x:Key="EmulationPage.Mapping.Output">Trigger output</sys:String>
-    <sys:String x:Key="EmulationPage.Mapping.Output.Full">Full pull (analog)</sys:String>
-    <sys:String x:Key="EmulationPage.Mapping.Output.Click">Click flag only</sys:String>
-    <sys:String x:Key="EmulationPage.Mapping.SuppressSolos">Mute member buttons' own outputs while the combo is held</sys:String>
-    <sys:String x:Key="EmulationPage.Mapping.Assign">Assign mapping</sys:String>
-    <sys:String x:Key="EmulationPage.Mapping.Reset">Reset to defaults</sys:String>
-    <sys:String x:Key="EmulationPage.Mapping.Target.None">None (disabled)</sys:String>
-    <sys:String x:Key="EmulationPage.Binding.Remove">Remove this binding</sys:String>
-    <sys:String x:Key="EmulationPage.Binding.OutputClick">click only</sys:String>
-    <sys:String x:Key="EmulationPage.Binding.SolosKept">solos kept</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Hiding.Title">Hide this controller</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Hiding.HideController.Description">Blocks other applications from seeing this physical controller</sys:String>
-    <sys:String x:Key="DeviceInfoPage.Hiding.Description.NotInstalled">The HidHide driver is not installed. Install it to hide controllers.</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Title">Special Actions</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Description">Button combinations that execute actions (disconnect, lights)</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.New">Create a new special action</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Empty">No special actions yet. Use the add button to create one.</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Import.ToolTip">Import special actions from a file</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Import.Picker">Choose a special actions file</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Import.FileType">Special actions file</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Import.Empty.Title">No special actions</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Import.Empty.Message">The selected file contains no special actions.</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Import.Success.Title">Import complete</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Import.Success.Message">Imported {count} special action(s). Enable them for this controller to use them.</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Import.Error.Title">Import failed</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Import.Error.Message">The special actions could not be imported.</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Export.ToolTip">Export special actions to a file</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Export.Picker">Save special actions</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Export.Error.Title">Export failed</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Export.Error.Message">The special actions could not be exported.</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Export.One">Export this special action to a file</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Export.One.Picker">Export special action</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Name">Name</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Delete">Delete this special action</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.EnabledForThisController">Enabled for this controller</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Combo">Button combination</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Combo.Hint">Held exactly as selected (no extra buttons). Fires once, re-arms after release.</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Combo.None">No buttons</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Trigger">Trigger</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Trigger.Description">How the action fires: an exact button combination or a touchpad swipe. Only one trigger can be selected per action.</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Trigger.Buttons">Button combination</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Trigger.Touchpad">Touchpad gesture</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Gesture">Swipe direction</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Gesture.Description">Swipe on the touchpad with one finger in this direction to trigger the action. Fires once per swipe.</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Gesture.SwipeUp">Swipe up</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Gesture.SwipeDown">Swipe down</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Gesture.SwipeLeft">Swipe left</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Gesture.SwipeRight">Swipe right</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Button.Cross">Cross</sys:String>
+    <sys:String x:Key="CustomizationPage.PlayerLeds.Player1">Player 1</sys:String>
+    <sys:String x:Key="CustomizationPage.PlayerLeds.Player2">Player 2</sys:String>
+    <sys:String x:Key="CustomizationPage.PlayerLeds.Player3">Player 3</sys:String>
+    <sys:String x:Key="CustomizationPage.PlayerLeds.Player4">Player 4</sys:String>
+    <sys:String x:Key="CustomizationPage.PlayerLeds.Player5">Player 5</sys:String>
+    <sys:String x:Key="CustomizationPage.PlayerLeds.Title">Player LEDs</sys:String>
+    <!-- Profiles -->
+    <sys:String x:Key="CustomizationPage.Profiles.Delete">Delete the selected profile</sys:String>
+    <sys:String x:Key="CustomizationPage.Profiles.Description">Create, edit, and manage controller profiles</sys:String>
+    <sys:String x:Key="CustomizationPage.Profiles.Duplicate">Duplicate the selected profile</sys:String>
+    <sys:String x:Key="CustomizationPage.Profiles.Empty">No profiles yet. Use the add button to create one.</sys:String>
+    <sys:String x:Key="CustomizationPage.Profiles.New">Create a new profile</sys:String>
+    <sys:String x:Key="CustomizationPage.Profiles.Title">Profiles</sys:String>
+    <!-- SpecialActions -->
+    <sys:String x:Key="CustomizationPage.SpecialActions.ApplyWhileHeld">Apply only while held</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Battery">Battery level</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Description">Shows the current charge in 10 levels on the lightbar and/or in a notification popup; pick a color per level. Can be combined with a lightbar color, which takes over the lightbar. Not available with player LEDs.</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Lightbar">Show on lightbar</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Notify">Show notification</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Reset">Reset colors</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Button.Circle">Circle</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Button.Square">Square</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Button.Triangle">Triangle</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Button.DPadUp">D-Pad Up</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Button.Create">Create</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Button.Cross">Cross</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Button.DPadDown">D-Pad Down</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Button.DPadLeft">D-Pad Left</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Button.DPadRight">D-Pad Right</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Button.DPadUp">D-Pad Up</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Button.Edge_LeftFunction">Left Fn</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Button.Edge_LeftPaddle">Left Paddle</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Button.Edge_RightFunction">Right Fn</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Button.Edge_RightPaddle">Right Paddle</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Button.L1">L1</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Button.R1">R1</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Button.L2">L2</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Button.R2">R2</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Button.L3">L3</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Button.R3">R3</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Button.Create">Create</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Button.Mute">Mute</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Button.Options">Options</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Button.PS">PS</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Button.R1">R1</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Button.R2">R2</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Button.R3">R3</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Button.Square">Square</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Button.TouchPad">Touchpad</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Button.Mute">Mute</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Button.Edge_LeftFunction">Left Fn</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Button.Edge_RightFunction">Right Fn</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Button.Edge_LeftPaddle">Left Paddle</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Button.Edge_RightPaddle">Right Paddle</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Effects.Title">Effects</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Button.Triangle">Triangle</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Color">Lightbar color</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Combo">Button combination</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Combo.Hint">Held exactly as selected (no extra buttons). Fires once, re-arms after release.</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Combo.None">No buttons</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Delete">Delete this special action</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Description">Button combinations that execute actions (disconnect, lights)</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Duration">Show duration</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Duration.Description">Seconds the light effects stay applied before the profile is restored. 0 = stay applied.</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Effects.Battery">Battery level</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Effects.Description">Pick one or more effects the combination runs at the same time.</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Effects.Disconnect">Disconnect</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Effects.Lightbar">Lightbar color</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Effects.PlayerLeds">Player LEDs</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Effects.Sound">Play sound</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Effects.Battery">Battery level</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Battery">Battery level</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Description">Shows the current charge in 10 levels on the lightbar and/or in a notification popup; pick a color per level. Can be combined with a lightbar color, which takes over the lightbar. Not available with player LEDs.</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Notify">Show notification</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Lightbar">Show on lightbar</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Reset">Reset colors</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Color">Lightbar color</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Sound">Sound file</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Sound.Placeholder">No file selected</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Sound.Browse.ToolTip">Choose the audio file to play through the controller</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Sound.PickTitle">Choose a sound file</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Sound.Output.Speaker">Controller (Speaker)</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Sound.Output.Headset">External (Headset)</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Sound.Haptics">Haptic feedback</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Effects.Title">Effects</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Empty">No special actions yet. Use the add button to create one.</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.EnabledForThisController">Enabled for this controller</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Export.Error.Message">The special actions could not be exported.</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Export.Error.Title">Export failed</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Export.One">Export this special action to a file</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Export.One.Picker">Export special action</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Export.Picker">Save special actions</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Export.ToolTip">Export special actions to a file</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Gesture">Swipe direction</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Gesture.Description">Swipe on the touchpad with one finger in this direction to trigger the action. Fires once per swipe.</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Gesture.SwipeDown">Swipe down</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Gesture.SwipeLeft">Swipe left</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Gesture.SwipeRight">Swipe right</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Gesture.SwipeUp">Swipe up</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.HoldTime">Hold time</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.HoldTime.Description">Seconds to hold the combination before it fires. 0 = fires immediately.</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.ApplyWhileHeld">Apply only while held</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Duration">Show duration</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Duration.Description">Seconds the light effects stay applied before the profile is restored. 0 = stay applied.</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Import.Empty.Message">The selected file contains no special actions.</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Import.Empty.Title">No special actions</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Import.Error.Message">The special actions could not be imported.</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Import.Error.Title">Import failed</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Import.FileType">Special actions file</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Import.Picker">Choose a special actions file</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Import.Success.Message">Imported {count} special action(s). Enable them for this controller to use them.</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Import.Success.Title">Import complete</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Import.ToolTip">Import special actions from a file</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Name">Name</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.New">Create a new special action</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Sound">Sound file</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Sound.Browse.ToolTip">Choose the audio file to play through the controller</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Sound.Haptics">Haptic feedback</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Sound.Output.Headset">External (Headset)</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Sound.Output.Speaker">Controller (Speaker)</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Sound.PickTitle">Choose a sound file</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Sound.Placeholder">No file selected</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Title">Special Actions</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Trigger">Trigger</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Trigger.Buttons">Button combination</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Trigger.Description">How the action fires: an exact button combination or a touchpad swipe. Only one trigger can be selected per action.</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Trigger.Touchpad">Touchpad gesture</sys:String>
 
-    <!-- Settings Page -->
-    <sys:String x:Key="SettingsPage.Header.AppName">DualSense Client</sys:String>
-    <sys:String x:Key="SettingsPage.Header.Github">GitHub</sys:String>
-    <sys:String x:Key="SettingsPage.Updates.Check.Title">Check for updates</sys:String>
-    <sys:String x:Key="SettingsPage.Updates.Title">Updates</sys:String>
-    <sys:String x:Key="SettingsPage.Updates.Description">Release channel and automatic update checks</sys:String>
-    <sys:String x:Key="SettingsPage.Updates.Open.Title">Update</sys:String>
-    <sys:String x:Key="SettingsPage.Updates.Open.Description">Updates the app to the latest version</sys:String>
-    <sys:String x:Key="SettingsPage.Updates.Channel.Stable">Stable</sys:String>
-    <sys:String x:Key="SettingsPage.Updates.Channel.Nightly">Nightly</sys:String>
-    <sys:String x:Key="SettingsPage.Updates.Channel.Description">Stable follows versioned releases, nightly follows pre-release builds</sys:String>
-    <sys:String x:Key="SettingsPage.Updates.AutoCheck.Title">Automatically check for updates</sys:String>
-    <sys:String x:Key="SettingsPage.Updates.AutoCheck.Description">Check once per day during startup when enabled</sys:String>
-    <sys:String x:Key="SettingsPage.Ui.Title">UI</sys:String>
-    <sys:String x:Key="SettingsPage.Ui.Description">Language and theme settings</sys:String>
-    <sys:String x:Key="SettingsPage.Ui.Language.Title">Language</sys:String>
-    <sys:String x:Key="SettingsPage.Ui.Language.Description">Select the application language</sys:String>
-    <sys:String x:Key="SettingsPage.Ui.Theme.Title">Theme</sys:String>
-    <sys:String x:Key="SettingsPage.Ui.Theme.Description">Select the application theme</sys:String>
-    <sys:String x:Key="SettingsPage.Ui.Theme.Option.System">System</sys:String>
-    <sys:String x:Key="SettingsPage.Ui.Theme.Option.Light">Light</sys:String>
-    <sys:String x:Key="SettingsPage.Ui.Theme.Option.Dark">Dark</sys:String>
-    <sys:String x:Key="SettingsPage.Ui.Theme.Option.Amoled">AMOLED</sys:String>
-    <sys:String x:Key="SettingsPage.Ui.Theme.Option.Playstation">PlayStation</sys:String>
-    <sys:String x:Key="SettingsPage.Ui.Mica.Title">Mica backdrop</sys:String>
-    <sys:String x:Key="SettingsPage.Ui.Mica.Description">Blend the window with the desktop using the system backdrop. Available for the System, Light, and Dark themes.</sys:String>
-    <sys:String x:Key="SettingsPage.Debug.Title">Debug</sys:String>
-    <sys:String x:Key="SettingsPage.Debug.Description">Logging and diagnostics</sys:String>
-    <sys:String x:Key="SettingsPage.Debug.LogLevel.Title">Log Level</sys:String>
-    <sys:String x:Key="SettingsPage.Debug.LogLevel.Description">Set the minimum logging verbosity</sys:String>
-    <sys:String x:Key="SettingsPage.Window.Title">Window</sys:String>
-    <sys:String x:Key="SettingsPage.Window.Description">Tray icon and window behavior</sys:String>
-    <sys:String x:Key="SettingsPage.Window.CloseToTray.Title">Close to Tray</sys:String>
-    <sys:String x:Key="SettingsPage.Window.CloseToTray.Description">Close the window to the system tray instead of exiting the application</sys:String>
-    <sys:String x:Key="SettingsPage.Window.StartInTray.Title">Start in Tray</sys:String>
-    <sys:String x:Key="SettingsPage.Window.StartInTray.Description">Start the application with its window hidden in the system tray</sys:String>
-    <sys:String x:Key="SettingsPage.Window.BatteryPercentage.Title">Show Battery Percentage</sys:String>
-    <sys:String x:Key="SettingsPage.Window.BatteryPercentage.Description">Show the controller battery percentage on the tray icon</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Title">Notifications</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Description">Desktop popups for connection and battery events</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Enable.Title">Notifications</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Enable.Description">Show desktop notification popups</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Connection.Title">Connection notifications</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Connection.Description">Show a popup when a controller connects or disconnects</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.LowBattery.Title">Low battery notifications</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.LowBattery.Description">Show a popup when a controller battery runs low</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Charge.Title">Charge notifications</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Charge.Description">Show a popup when a charging controller reaches its target</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.LowThreshold.Title">Low battery threshold</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.LowThreshold.Description">Battery percentage that triggers the low battery popup (5-50)</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.ChargeThreshold.Title">Charge threshold</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.ChargeThreshold.Description">Battery percentage that triggers the charge popup while charging (50-100)</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Position.Title">Position</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Position.Description">Where on the screen notification popups appear</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Position.TopLeft">Top left</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Position.TopCenter">Top middle</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Position.TopRight">Top right</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Position.MiddleLeft">Middle left</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Position.MiddleRight">Middle right</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Position.BottomLeft">Bottom left</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Position.BottomCenter">Bottom middle</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Position.BottomRight">Bottom right</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Duration.Title">Duration</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Duration.Description">Seconds each notification popup stays visible (1-30)</sys:String>
-    <sys:String x:Key="SettingsPage.Notifications.Test.Title">Send test notification</sys:String>
+    <!-- EmulationPage -->
+    <!-- Audio -->
+    <sys:String x:Key="EmulationPage.Audio.Description">Play audio to your PC, the DualSense speaker, headset, or haptics</sys:String>
+    <sys:String x:Key="EmulationPage.Audio.File">File</sys:String>
+    <sys:String x:Key="EmulationPage.Audio.FileType">Audio files</sys:String>
+    <sys:String x:Key="EmulationPage.Audio.HapticStrength">Haptic Strength</sys:String>
+    <sys:String x:Key="EmulationPage.Audio.NoFile">No file loaded</sys:String>
+    <sys:String x:Key="EmulationPage.Audio.Open">Open</sys:String>
+    <sys:String x:Key="EmulationPage.Audio.Output.Desktop">Desktop Speakers</sys:String>
+    <sys:String x:Key="EmulationPage.Audio.Output.DualSense">DualSense Output</sys:String>
+    <sys:String x:Key="EmulationPage.Audio.Output.DualSense.Description">Where the controller plays the stream. The speaker and headset cannot run at the same time.</sys:String>
+    <sys:String x:Key="EmulationPage.Audio.Output.Haptics">Haptic Feedback</sys:String>
+    <sys:String x:Key="EmulationPage.Audio.Output.Headset">Headset</sys:String>
+    <sys:String x:Key="EmulationPage.Audio.Output.None">Off</sys:String>
+    <sys:String x:Key="EmulationPage.Audio.Output.Speaker">Speaker</sys:String>
+    <sys:String x:Key="EmulationPage.Audio.OutputVolume">Playback Volume</sys:String>
+    <sys:String x:Key="EmulationPage.Audio.PickTitle">Open audio file</sys:String>
+    <sys:String x:Key="EmulationPage.Audio.Title">Audio Player</sys:String>
+    <!-- Binding -->
+    <sys:String x:Key="EmulationPage.Binding.OutputClick">click only</sys:String>
+    <sys:String x:Key="EmulationPage.Binding.Remove">Remove this binding</sys:String>
+    <sys:String x:Key="EmulationPage.Binding.SolosKept">solos kept</sys:String>
+    <!-- Emulation -->
+    <sys:String x:Key="EmulationPage.Emulation.AudioOutput">Forwarded Audio Output</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.AudioOutput.Description">Where host audio is played back on the physical controller.</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.AudioOutput.Headset">Headset</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.AudioOutput.Speaker">Speaker</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.AudioSource">Audio source</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.AudioSource.Application">Specific application</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.AudioSource.Application.Description">Capture only the selected application's audio, its child processes included. Requires Windows 11.</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.AudioSource.Controller">Virtual controller audio</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.AudioSource.Description">Where the forwarded speaker audio and haptics come from. The system output and application sources work without a virtual controller.</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.AudioSource.Refresh">Refresh app list</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.AudioSource.SystemOutput">System output (loopback)</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.DeviceType">DualSense Variant</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.DeviceType.Description">The hardware presentation of the virtual controller</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.DeviceType.Edge">Edge</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.DeviceType.Standard">Standard</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Ds4Variant">DualShock 4 Variant</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Ds4Variant.Description">The hardware generation of the virtual controller</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Ds4Variant.V1">V1 (CUH-ZCT1)</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Ds4Variant.V2">V2 (CUH-ZCT2)</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.ForceAudioHaptics">Audio-based haptics</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.ForceAudioHaptics.Description">Derive vibration from the forwarded audio instead of the game's own haptics. The haptic strength slider always applies to audio-based haptics. Only applies to DualSense emulation over Bluetooth.</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.ForwardHaptics">Forwarded Haptic Strength</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.ForwardHaptics.Description">Strength of the vibration generated from forwarded desktop sounds. Only applies while the virtual audio output is selected as the default playback device.</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.ForwardVolume">Forwarded Audio Volume</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.ForwardVolume.Description">Volume of the desktop sounds forwarded to the controller. Only applies while the virtual audio output is selected as the default playback device.</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Mode">Emulation Mode</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Mode.Description">Creates a virtual controller that mirrors this controller's input to the host. Feedback (rumble, lightbar, triggers) is forwarded back. These settings are stored per controller.</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Mode.DualSense">DualSense</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Mode.DualShock4">DualShock 4</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Mode.Off">Off</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Mode.Xbox360">Xbox 360</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Status.Creating">Creating virtual controller…</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Status.Idle">No virtual controller is active.</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Status.Running">Virtual controller active: {mode}</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Status.RunningEdge">Virtual controller active: DualSense Edge</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Title">Virtual Controller</sys:String>
+    <!-- Mapping -->
+    <sys:String x:Key="EmulationPage.Mapping.Assign">Assign mapping</sys:String>
+    <sys:String x:Key="EmulationPage.Mapping.Clear">Clear the selection</sys:String>
+    <sys:String x:Key="EmulationPage.Mapping.Description">Remap the physical buttons of this controller on the virtual controller. Click buttons on the illustration to select one or more sources, pick one or more targets (they are pressed together), then assign.</sys:String>
+    <sys:String x:Key="EmulationPage.Mapping.Output">Trigger output</sys:String>
+    <sys:String x:Key="EmulationPage.Mapping.Output.Click">Click flag only</sys:String>
+    <sys:String x:Key="EmulationPage.Mapping.Output.Full">Full pull (analog)</sys:String>
+    <sys:String x:Key="EmulationPage.Mapping.Reset">Reset to defaults</sys:String>
+    <sys:String x:Key="EmulationPage.Mapping.SuppressSolos">Mute member buttons' own outputs while the combo is held</sys:String>
+    <sys:String x:Key="EmulationPage.Mapping.Target.None">None (disabled)</sys:String>
+    <sys:String x:Key="EmulationPage.Mapping.Title">Button Mapping</sys:String>
 
-    <!-- Auto Profiles Page -->
-    <sys:String x:Key="AutoProfilesPage.Unsupported.Title">Not supported on this platform</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Unsupported.Description">Foreground-app switching needs Windows focus tracking.</sys:String>
-    <sys:String x:Key="AutoProfilesPage.General.Title">Automatic Switching</sys:String>
-    <sys:String x:Key="AutoProfilesPage.General.Description">Apply a profile and emulation mode based on the focused program</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Rules.Title">Rules</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Rules.Description">First matching rule wins; empty patterns match anything of that kind</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Rules.New">Add rule</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Rules.Delete">Delete rule</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Rules.Empty">No rules yet. Add one to switch profiles per program.</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Name.Title">Rule name</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Name.Description">Shown in the rule list; empty shows the program path</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Exe.Title">Program</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Exe.Description">Executable path of the focused program</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Exe.Browse">Browse for a program</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Exe.Picker">Select a program</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Exe.FileType">Programs</sys:String>
-    <sys:String x:Key="AutoProfilesPage.RuleTitle.Title">Window title</sys:String>
-    <sys:String x:Key="AutoProfilesPage.RuleTitle.Description">Title of the focused window, or empty for any title</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Scope.Title">Match by</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Scope.Description">Which filters must match the focused program</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Scope.Exe">Program only</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Scope.TitleOnly">Window title only</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Scope.Both">Program and window title</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Patterns.Hint">Program and window title are case-insensitive regular expressions, e.g. ^Level \d+$ or game\.exe$. An invalid expression matches literally instead. Escape backslashes as \\.</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Controller.Title">Controller</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Controller.Description">Which controller this rule applies to</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Controller.All">All controllers</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Profile.Title">Profile</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Profile.Description">Profile applied while the rule matches</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Profile.Unchanged">Leave unchanged</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Emulation.Title">Virtual Controller</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Emulation.Description">Emulation mode applied while the rule matches</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Emulation.Unchanged">Leave unchanged</sys:String>
-    <sys:String x:Key="AutoProfilesPage.AudioSource.Title">Game Audio Source</sys:String>
-    <sys:String x:Key="AutoProfilesPage.AudioSource.Description">Which audio is forwarded to the controller while the rule matches. System output captures what your PC plays, and a specific application captures only that app, without needing a virtual controller.</sys:String>
-    <sys:String x:Key="AutoProfilesPage.AudioSource.Controller">Virtual controller audio</sys:String>
-    <sys:String x:Key="AutoProfilesPage.AudioSource.SystemOutput">System output (loopback)</sys:String>
+    <!-- AutoProfilesPage -->
+    <!-- AudioSource -->
     <sys:String x:Key="AutoProfilesPage.AudioSource.Application">Specific application</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Hiding.Title">Hide Controller</sys:String>
+    <sys:String x:Key="AutoProfilesPage.AudioSource.Controller">Virtual controller audio</sys:String>
+    <sys:String x:Key="AutoProfilesPage.AudioSource.Description">Which audio is forwarded to the controller while the rule matches. System output captures what your PC plays, and a specific application captures only that app, without needing a virtual controller.</sys:String>
+    <sys:String x:Key="AutoProfilesPage.AudioSource.SystemOutput">System output (loopback)</sys:String>
+    <sys:String x:Key="AutoProfilesPage.AudioSource.Title">Game Audio Source</sys:String>
+    <!-- Controller -->
+    <sys:String x:Key="AutoProfilesPage.Controller.All">All controllers</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Controller.Description">Which controller this rule applies to</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Controller.Title">Controller</sys:String>
+    <!-- Emulation -->
+    <sys:String x:Key="AutoProfilesPage.Emulation.Description">Emulation mode applied while the rule matches</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Emulation.Title">Virtual Controller</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Emulation.Unchanged">Leave unchanged</sys:String>
+    <!-- Exe -->
+    <sys:String x:Key="AutoProfilesPage.Exe.Browse">Browse for a program</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Exe.Description">Executable path of the focused program</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Exe.FileType">Programs</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Exe.Picker">Select a program</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Exe.Title">Program</sys:String>
+    <!-- General -->
+    <sys:String x:Key="AutoProfilesPage.General.Description">Apply a profile and emulation mode based on the focused program</sys:String>
+    <sys:String x:Key="AutoProfilesPage.General.Title">Automatic Switching</sys:String>
+    <!-- Hiding -->
     <sys:String x:Key="AutoProfilesPage.Hiding.Description">Hiding applied while the rule matches</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Hiding.Unchanged">Leave unchanged</sys:String>
     <sys:String x:Key="AutoProfilesPage.Hiding.Hide">Hide</sys:String>
     <sys:String x:Key="AutoProfilesPage.Hiding.Show">Show</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Trigger.Title">Adaptive Triggers</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Hiding.Title">Hide Controller</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Hiding.Unchanged">Leave unchanged</sys:String>
+    <!-- Name -->
+    <sys:String x:Key="AutoProfilesPage.Name.Description">Shown in the rule list; empty shows the program path</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Name.Title">Rule name</sys:String>
+    <!-- Patterns -->
+    <sys:String x:Key="AutoProfilesPage.Patterns.Hint">Program and window title are case-insensitive regular expressions, e.g. ^Level \d+$ or game\.exe$. An invalid expression matches literally instead. Escape backslashes as \\.</sys:String>
+    <!-- Profile -->
+    <sys:String x:Key="AutoProfilesPage.Profile.Description">Profile applied while the rule matches</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Profile.Title">Profile</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Profile.Unchanged">Leave unchanged</sys:String>
+    <!-- RuleTitle -->
+    <sys:String x:Key="AutoProfilesPage.RuleTitle.Description">Title of the focused window, or empty for any title</sys:String>
+    <sys:String x:Key="AutoProfilesPage.RuleTitle.Title">Window title</sys:String>
+    <!-- Rules -->
+    <sys:String x:Key="AutoProfilesPage.Rules.Delete">Delete rule</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Rules.Description">First matching rule wins; empty patterns match anything of that kind</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Rules.Empty">No rules yet. Add one to switch profiles per program.</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Rules.New">Add rule</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Rules.NoAction">This rule leaves profile, virtual controller, triggers, and hiding unchanged, so it does nothing.</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Rules.Title">Rules</sys:String>
+    <!-- Scope -->
+    <sys:String x:Key="AutoProfilesPage.Scope.Both">Program and window title</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Scope.Description">Which filters must match the focused program</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Scope.Exe">Program only</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Scope.Title">Match by</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Scope.TitleOnly">Window title only</sys:String>
+    <!-- Trigger -->
     <sys:String x:Key="AutoProfilesPage.Trigger.Description">Trigger effects applied while the rule matches</sys:String>
     <sys:String x:Key="AutoProfilesPage.Trigger.Left">Left trigger (L2)</sys:String>
     <sys:String x:Key="AutoProfilesPage.Trigger.Right">Right trigger (R2)</sys:String>
-    <sys:String x:Key="AutoProfilesPage.Rules.NoAction">This rule leaves profile, virtual controller, triggers, and hiding unchanged, so it does nothing.</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Trigger.Title">Adaptive Triggers</sys:String>
+    <!-- Unsupported -->
+    <sys:String x:Key="AutoProfilesPage.Unsupported.Description">Foreground-app switching needs Windows focus tracking.</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Unsupported.Title">Not supported on this platform</sys:String>
+
+    <!-- SettingsPage -->
+    <!-- Debug -->
+    <sys:String x:Key="SettingsPage.Debug.Description">Logging and diagnostics</sys:String>
+    <sys:String x:Key="SettingsPage.Debug.LogLevel.Description">Set the minimum logging verbosity</sys:String>
+    <sys:String x:Key="SettingsPage.Debug.LogLevel.Title">Log Level</sys:String>
+    <sys:String x:Key="SettingsPage.Debug.Title">Debug</sys:String>
+    <!-- Header -->
+    <sys:String x:Key="SettingsPage.Header.AppName">DualSense Client</sys:String>
+    <sys:String x:Key="SettingsPage.Header.Github">GitHub</sys:String>
+    <!-- Notifications -->
+    <sys:String x:Key="SettingsPage.Notifications.Charge.Description">Show a popup when a charging controller reaches its target</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Charge.Title">Charge notifications</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.ChargeThreshold.Description">Battery percentage that triggers the charge popup while charging (50-100)</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.ChargeThreshold.Title">Charge threshold</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Connection.Description">Show a popup when a controller connects or disconnects</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Connection.Title">Connection notifications</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Description">Desktop popups for connection and battery events</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Duration.Description">Seconds each notification popup stays visible (1-30)</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Duration.Title">Duration</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Enable.Description">Show desktop notification popups</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Enable.Title">Notifications</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.LowBattery.Description">Show a popup when a controller battery runs low</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.LowBattery.Title">Low battery notifications</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.LowThreshold.Description">Battery percentage that triggers the low battery popup (5-50)</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.LowThreshold.Title">Low battery threshold</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.BottomCenter">Bottom middle</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.BottomLeft">Bottom left</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.BottomRight">Bottom right</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.Description">Where on the screen notification popups appear</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.MiddleLeft">Middle left</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.MiddleRight">Middle right</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.Title">Position</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.TopCenter">Top middle</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.TopLeft">Top left</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Position.TopRight">Top right</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Test.Title">Send test notification</sys:String>
+    <sys:String x:Key="SettingsPage.Notifications.Title">Notifications</sys:String>
+    <!-- Ui -->
+    <sys:String x:Key="SettingsPage.Ui.Description">Language and theme settings</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Language.Description">Select the application language</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Language.Title">Language</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Mica.Description">Blend the window with the desktop using the system backdrop. Available for the System, Light, and Dark themes.</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Mica.Title">Mica backdrop</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Theme.Description">Select the application theme</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Theme.Option.Amoled">AMOLED</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Theme.Option.Dark">Dark</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Theme.Option.Light">Light</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Theme.Option.Playstation">PlayStation</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Theme.Option.System">System</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Theme.Title">Theme</sys:String>
+    <sys:String x:Key="SettingsPage.Ui.Title">UI</sys:String>
+    <!-- Updates -->
+    <sys:String x:Key="SettingsPage.Updates.AutoCheck.Description">Check once per day during startup when enabled</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.AutoCheck.Title">Automatically check for updates</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.Channel.Description">Stable follows versioned releases, nightly follows pre-release builds</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.Channel.Nightly">Nightly</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.Channel.Stable">Stable</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.Check.Title">Check for updates</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.Description">Release channel and automatic update checks</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.Open.Description">Updates the app to the latest version</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.Open.Title">Update</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.Title">Updates</sys:String>
+    <!-- Window -->
+    <sys:String x:Key="SettingsPage.Window.BatteryPercentage.Description">Show the controller battery percentage on the tray icon</sys:String>
+    <sys:String x:Key="SettingsPage.Window.BatteryPercentage.Title">Show Battery Percentage</sys:String>
+    <sys:String x:Key="SettingsPage.Window.CloseToTray.Description">Close the window to the system tray instead of exiting the application</sys:String>
+    <sys:String x:Key="SettingsPage.Window.CloseToTray.Title">Close to Tray</sys:String>
+    <sys:String x:Key="SettingsPage.Window.Description">Tray icon and window behavior</sys:String>
+    <sys:String x:Key="SettingsPage.Window.StartInTray.Description">Start the application with its window hidden in the system tray</sys:String>
+    <sys:String x:Key="SettingsPage.Window.StartInTray.Title">Start in Tray</sys:String>
+    <sys:String x:Key="SettingsPage.Window.Title">Window</sys:String>
+
+    <!-- AudioSource -->
+    <!-- General -->
+    <sys:String x:Key="AudioSource.NoApplications">No application is currently playing audio. Start playback in the app, then refresh the list.</sys:String>
+    <!-- Executable -->
+    <sys:String x:Key="AudioSource.Executable.Browse">Browse for a program</sys:String>
+    <sys:String x:Key="AudioSource.Executable.Description">Program whose audio is forwarded</sys:String>
+    <sys:String x:Key="AudioSource.Executable.FileType">Programs</sys:String>
+    <sys:String x:Key="AudioSource.Executable.Picker">Select a program</sys:String>
+    <sys:String x:Key="AudioSource.Executable.Placeholder">No executable selected. Browse to one.</sys:String>
+    <sys:String x:Key="AudioSource.Executable.Title">Executable file</sys:String>
+    <!-- Mode -->
+    <sys:String x:Key="AudioSource.Mode.Description">How the application to capture is chosen: from the applications currently playing audio, or by browsing to an executable file.</sys:String>
+    <sys:String x:Key="AudioSource.Mode.ExecutableFile">Executable file</sys:String>
+    <sys:String x:Key="AudioSource.Mode.PlayingApps">Applications playing audio</sys:String>
+    <sys:String x:Key="AudioSource.Mode.Title">Application selection</sys:String>
 </ResourceDictionary>
