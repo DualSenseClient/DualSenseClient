@@ -218,8 +218,8 @@ public class SpecialActionEffect
     /// <summary>
     /// Gets or sets whether <see cref="SpecialActionTypes.ShowBatteryLevel"/> also shows
     /// the current charge in a desktop notification popup. Works on its own or alongside
-    /// a set-lightbar-color effect (which then takes over the lightbar). Missing in
-    /// older files, which behaves as disabled.
+    /// a set-lightbar-color effect when not showing on the lightbar (which then takes
+    /// over the lightbar). Missing in older files, which behaves as disabled.
     /// </summary>
     [JsonPropertyName("show_battery_notification")]
     public bool ShowBatteryNotification { get; set; }
@@ -227,7 +227,9 @@ public class SpecialActionEffect
     /// <summary>
     /// Gets or sets whether <see cref="SpecialActionTypes.ShowBatteryLevel"/> shows the
     /// current charge on the controller lightbar using <see cref="BatteryColors"/>.
-    /// Disable for a notification-only effect. Missing in older files, which behaves as
+    /// Disable for a notification-only effect (which can be combined with a
+    /// set-lightbar-color effect). While enabled, the battery effect cannot be combined
+    /// with set-lightbar-color. Missing in older files, which behaves as
     /// enabled.
     /// </summary>
     [JsonPropertyName("show_battery_lightbar")]

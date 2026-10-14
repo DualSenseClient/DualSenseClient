@@ -614,6 +614,7 @@ public class SpecialActionEngineTests
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
         SpecialAction action = CreateBatteryNotificationAction(false);
+        action.Effects[0].ShowBatteryLightbar = false;
         action.Effects.Add(new SpecialActionEffect
         {
             Type = SpecialActionTypes.SetLightbarColor,
@@ -630,6 +631,48 @@ public class SpecialActionEngineTests
 
         // Raw battery 0x04 = 45%: the notification still fires, but the explicit
         // lightbar color (1, 2, 3) wins over the battery level color (255, 200, 30).
+        // Notification-only battery (show on lightbar off) is the supported way to
+        // combine with a lightbar color; legacy files with both enabled fall back
+        // the same way via lightbarTaken.
+        FeedReport(device, CreateReportWithBattery(0x04));
+        FeedReport(device, CreateReportWithBattery(0x04, ButtonType.L1, ButtonType.R1));
+
+        Assert.That(shown, Has.Count.EqualTo(1));
+        byte[] report = hid.Writes[^1];
+        Assert.Multiple(() =>
+        {
+            Assert.That(report[45], Is.EqualTo(1));
+            Assert.That(report[46], Is.EqualTo(2));
+            Assert.That(report[47], Is.EqualTo(3));
+        });
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void BatteryLevel_WithLightbarColor_LegacyComboLightbarWins()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();
+        SpecialAction action = CreateBatteryNotificationAction(false);
+        action.Effects[0].ShowBatteryLightbar = true;
+        action.Effects.Add(new SpecialActionEffect
+        {
+            Type = SpecialActionTypes.SetLightbarColor,
+            Lightbar = new LightbarSettings
+            {
+                Red = 1,
+                Green = 2,
+                Blue = 3
+            }
+        });
+        engine.UpdateActions([action]);
+        List<SpecialActionBatteryNotificationShownEventArgs> shown = new List<SpecialActionBatteryNotificationShownEventArgs>();
+        engine.BatteryNotificationShown += (_, e) => shown.Add(e);
+
+        // Legacy files may still carry both with show-on-lightbar on (the UI now
+        // prevents new combos): the engine keeps the explicit lightbar color while
+        // the notification still fires.
         FeedReport(device, CreateReportWithBattery(0x04));
         FeedReport(device, CreateReportWithBattery(0x04, ButtonType.L1, ButtonType.R1));
 

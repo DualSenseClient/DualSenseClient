@@ -206,7 +206,7 @@
     <!-- SpecialActions -->
     <sys:String x:Key="CustomizationPage.SpecialActions.ApplyWhileHeld">Apply only while held</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Battery">Battery level</sys:String>
-    <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Description">Shows the current charge in 10 levels on the lightbar and/or in a notification popup; pick a color per level. Can be combined with a lightbar color, which takes over the lightbar. Not available with player LEDs.</sys:String>
+    <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Description">Shows the current charge in 10 levels on the lightbar and/or in a notification popup; pick a color per level. A notification-only battery level (show on lightbar off) can be combined with a lightbar color, which takes over the lightbar. Not available with player LEDs.</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Lightbar">Show on lightbar</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Notify">Show notification</sys:String>
     <sys:String x:Key="CustomizationPage.SpecialActions.Battery.Reset">Reset colors</sys:String>
