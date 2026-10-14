@@ -167,7 +167,6 @@
     <!-- Name -->
     <sys:String x:Key="CustomizationPage.Name.Title">Name</sys:String>
     <!-- OutputTest -->
-    <sys:String x:Key="CustomizationPage.OutputTest.Description">Vibration and adaptive trigger testing</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Triggers.End">End position</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Force">Force</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Frequency">Frequency</sys:String>
@@ -179,10 +178,12 @@
     <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Right">R2</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Start">Start position</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Title">Adaptive Triggers</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Description">Manually control adaptive triggers with custom tuning to all effects</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Enable">Rumble</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Left">Left Motor</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Right">Right Motor</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Title">Vibration</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Description">Manually control the vibration of the controller's vibration motors</sys:String>
     <!-- PlayerLeds -->
     <sys:String x:Key="CustomizationPage.PlayerLeds.Led1">LED 1</sys:String>
     <sys:String x:Key="CustomizationPage.PlayerLeds.Led2">LED 2</sys:String>

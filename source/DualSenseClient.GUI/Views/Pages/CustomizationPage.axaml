@@ -585,7 +585,7 @@
             </ui:FASettingsExpander>
             <!-- Output test: vibration (left motor | right motor) -->
             <ui:FASettingsExpander Header="{DynamicResource CustomizationPage.OutputTest.Vibration.Title}"
-                                   Description="{DynamicResource CustomizationPage.OutputTest.Description}"
+                                   Description="{DynamicResource CustomizationPage.OutputTest.Vibration.Description}"
                                    IconSource="{icm:SymbolIconSource Symbol=FastAcceleration}"
                                    IsExpanded="False"
                                    IsVisible="{Binding HasDevice}">
@@ -618,7 +618,7 @@
 
             <!-- Output test: adaptive triggers (L2 | R2) -->
             <ui:FASettingsExpander Header="{DynamicResource CustomizationPage.OutputTest.Triggers.Title}"
-                                   Description="{DynamicResource CustomizationPage.OutputTest.Description}"
+                                   Description="{DynamicResource CustomizationPage.OutputTest.Triggers.Description}"
                                    IconSource="{icm:SymbolIconSource Symbol=Timer}"
                                    IsExpanded="False"
                                    IsVisible="{Binding HasDevice}">
