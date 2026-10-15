@@ -92,11 +92,14 @@ public sealed class AutoProfileCoordinator : IDisposable
     /// every tick so rule edits apply while focus is unchanged.
     /// </summary>
     private readonly Dictionary<DualSenseDevice, (string ProfileName, EmulationMode? Mode, DualSenseVariant? DsVariant,
-        DualShock4Variant? Ds4Variant, (int Mode, int Start, int End, int Force, int Frequency)? LeftTrigger,
-        (int Mode, int Start, int End, int Force, int Frequency)? RightTrigger, bool? Hide,
+        DualShock4Variant? Ds4Variant, (int Mode, int Start, int End, int Force, int Frequency, int SnapForce, int FirstFoot, int SecondFoot, int AmplitudeB,
+        int Period, int EndStrength)? LeftTrigger,
+        (int Mode, int Start, int End, int Force, int Frequency, int SnapForce, int FirstFoot, int SecondFoot, int AmplitudeB, int Period, int EndStrength)?
+        RightTrigger, bool? Hide,
         EmulationAudioSource AudioSource, string AudioApp)> _applied =
         new Dictionary<DualSenseDevice, (string, EmulationMode?, DualSenseVariant?, DualShock4Variant?,
-            (int, int, int, int, int)?, (int, int, int, int, int)?, bool?, EmulationAudioSource, string)>();
+            (int, int, int, int, int, int, int, int, int, int, int)?, (int, int, int, int, int, int, int, int, int, int, int)?, bool?, EmulationAudioSource,
+            string)>();
 
     /// <summary>
     /// The hidden state per controller before the hiding override was applied,
@@ -209,8 +212,10 @@ public sealed class AutoProfileCoordinator : IDisposable
                 EmulationMode? mode = rule?.EmulationMode;
                 DualSenseVariant? dsVariant = mode == EmulationMode.DualSense ? rule?.DualSenseVariant : null;
                 DualShock4Variant? ds4Variant = mode == EmulationMode.DualShock4 ? rule?.DualShock4Variant : null;
-                (int Mode, int Start, int End, int Force, int Frequency)? leftTrigger = SnapshotTrigger(rule?.LeftTrigger);
-                (int Mode, int Start, int End, int Force, int Frequency)? rightTrigger = SnapshotTrigger(rule?.RightTrigger);
+                (int Mode, int Start, int End, int Force, int Frequency, int SnapForce, int FirstFoot, int SecondFoot, int AmplitudeB, int Period, int
+                    EndStrength)? leftTrigger = SnapshotTrigger(rule?.LeftTrigger);
+                (int Mode, int Start, int End, int Force, int Frequency, int SnapForce, int FirstFoot, int SecondFoot, int AmplitudeB, int Period, int
+                    EndStrength)? rightTrigger = SnapshotTrigger(rule?.RightTrigger);
                 bool? hide = rule?.HideController;
                 EmulationAudioSource? ruleAudioSource = rule?.AudioSource;
                 string? ruleAudioApp = rule?.AudioApp;
@@ -220,8 +225,10 @@ public sealed class AutoProfileCoordinator : IDisposable
 
                 if (_applied.TryGetValue(device,
                         out (string ProfileName, EmulationMode? Mode, DualSenseVariant? DsVariant, DualShock4Variant? Ds4Variant,
-                        (int Mode, int Start, int End, int Force, int Frequency)? LeftTrigger,
-                        (int Mode, int Start, int End, int Force, int Frequency)? RightTrigger, bool? Hide,
+                        (int Mode, int Start, int End, int Force, int Frequency, int SnapForce, int FirstFoot, int SecondFoot, int AmplitudeB, int Period, int
+                        EndStrength)? LeftTrigger,
+                        (int Mode, int Start, int End, int Force, int Frequency, int SnapForce, int FirstFoot, int SecondFoot, int AmplitudeB, int Period, int
+                        EndStrength)? RightTrigger, bool? Hide,
                         EmulationAudioSource AudioSource, string AudioApp) applied)
                     && string.Equals(applied.ProfileName, profileName, StringComparison.OrdinalIgnoreCase)
                     && applied.Mode == mode
@@ -238,8 +245,10 @@ public sealed class AutoProfileCoordinator : IDisposable
 
                 bool hadPrevious = _applied.TryGetValue(device,
                     out (string ProfileName, EmulationMode? Mode, DualSenseVariant? DsVariant, DualShock4Variant? Ds4Variant,
-                    (int Mode, int Start, int End, int Force, int Frequency)? LeftTrigger,
-                    (int Mode, int Start, int End, int Force, int Frequency)? RightTrigger, bool? Hide,
+                    (int Mode, int Start, int End, int Force, int Frequency, int SnapForce, int FirstFoot, int SecondFoot, int AmplitudeB, int Period, int
+                    EndStrength)? LeftTrigger,
+                    (int Mode, int Start, int End, int Force, int Frequency, int SnapForce, int FirstFoot, int SecondFoot, int AmplitudeB, int Period, int
+                    EndStrength)? RightTrigger, bool? Hide,
                     EmulationAudioSource AudioSource, string AudioApp) previous);
                 EmulationMode? previousMode = hadPrevious ? previous.Mode : null;
                 DualSenseVariant? previousDsVariant = hadPrevious ? previous.DsVariant : null;
@@ -305,12 +314,17 @@ public sealed class AutoProfileCoordinator : IDisposable
     /// Snapshots (not the live objects) are compared every tick so in-place slider edits
     /// apply while focus is unchanged.
     /// </summary>
-    private static (int Mode, int Start, int End, int Force, int Frequency)? SnapshotTrigger(TriggerEffectSettings? settings)
-        => settings is null ? null : ((int)settings.Mode, settings.Start, settings.End, settings.Force, settings.Frequency);
+    private static (int Mode, int Start, int End, int Force, int Frequency, int SnapForce, int FirstFoot, int SecondFoot, int AmplitudeB, int Period, int
+        EndStrength)? SnapshotTrigger(TriggerEffectSettings? settings)
+        => settings is null
+            ? null
+            : ((int)settings.Mode, settings.Start, settings.End, settings.Force, settings.Frequency, settings.SnapForce, settings.FirstFoot,
+                settings.SecondFoot, settings.AmplitudeB, settings.Period, settings.EndStrength);
 
     /// <summary>
     /// Builds the effect block for a trigger setting (<see cref="TriggerEffectBuilder.Off"/>
-    /// when unchanged or off), clamping hand-edited values into range.
+    /// when unchanged or off), clamping hand-edited values into range. Invalid combinations
+    /// (e.g. end before start) fall back to Off so a bad slider never throws on the watcher thread.
     /// </summary>
     private static TriggerEffectBlock BuildTriggerEffect(TriggerEffectSettings? settings)
     {
@@ -319,17 +333,56 @@ public sealed class AutoProfileCoordinator : IDisposable
             return TriggerEffectBuilder.Off();
         }
 
-        byte start = (byte)Math.Clamp(settings.Start, 0, 255);
-        byte end = (byte)Math.Clamp(settings.End, 0, 255);
-        byte force = (byte)Math.Clamp(settings.Force, 0, 255);
-        byte frequency = (byte)Math.Clamp(settings.Frequency, 0, 15);
-        return settings.Mode switch
+        try
         {
-            AutoProfileTriggerMode.Resistance => TriggerEffectBuilder.Resistance(start, force),
-            AutoProfileTriggerMode.Trigger => TriggerEffectBuilder.Trigger(start, end, force),
-            AutoProfileTriggerMode.Automatic => TriggerEffectBuilder.Automatic(frequency, force, start),
-            _ => TriggerEffectBuilder.Off()
-        };
+            byte start = (byte)Math.Clamp(settings.Start, 0, 9);
+            byte end = (byte)Math.Clamp(settings.End, 0, 9);
+            byte force = (byte)Math.Clamp(settings.Force, 0, 8);
+            byte frequency = (byte)Math.Clamp(settings.Frequency, 0, 255);
+            byte snapForce = (byte)Math.Clamp(settings.SnapForce, 0, 8);
+            byte firstFoot = (byte)Math.Clamp(settings.FirstFoot, 0, 6);
+            byte secondFoot = (byte)Math.Clamp(settings.SecondFoot, 0, 7);
+            byte amplitudeB = (byte)Math.Clamp(settings.AmplitudeB, 0, 7);
+            byte period = (byte)Math.Clamp(settings.Period, 0, 255);
+            byte endStrength = (byte)Math.Clamp(settings.EndStrength, 0, 8);
+            return settings.Mode switch
+            {
+                AutoProfileTriggerMode.Feedback => TriggerEffectBuilder.Feedback(start, force),
+                AutoProfileTriggerMode.Weapon => TriggerEffectBuilder.Weapon(
+                    (byte)Math.Clamp((int)start, 2, 7),
+                    (byte)Math.Clamp((int)end, Math.Min((int)start + 1, 8), 8),
+                    force),
+                AutoProfileTriggerMode.Vibration => TriggerEffectBuilder.Vibration(start, force, frequency),
+                AutoProfileTriggerMode.Bow => TriggerEffectBuilder.Bow(
+                    start,
+                    (byte)Math.Clamp((int)end, Math.Min((int)start + 1, 8), 8),
+                    force,
+                    snapForce),
+                AutoProfileTriggerMode.Galloping => TriggerEffectBuilder.Galloping(
+                    start,
+                    (byte)Math.Clamp((int)end, Math.Min((int)start + 1, 9), 9),
+                    firstFoot,
+                    (byte)Math.Clamp((int)secondFoot, Math.Min((int)firstFoot + 1, 7), 7),
+                    frequency),
+                AutoProfileTriggerMode.Machine => TriggerEffectBuilder.Machine(
+                    start,
+                    (byte)Math.Clamp((int)end, Math.Min((int)start + 1, 9), 9),
+                    (byte)Math.Clamp((int)force, 0, 7),
+                    amplitudeB,
+                    frequency,
+                    period),
+                AutoProfileTriggerMode.SlopeFeedback => TriggerEffectBuilder.SlopeFeedback(
+                    start,
+                    (byte)Math.Clamp((int)end, Math.Min((int)start + 1, 9), 9),
+                    force,
+                    endStrength),
+                _ => TriggerEffectBuilder.Off()
+            };
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return TriggerEffectBuilder.Off();
+        }
     }
 
     /// <summary>

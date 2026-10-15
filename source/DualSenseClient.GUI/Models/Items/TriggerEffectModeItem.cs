@@ -1,10 +1,12 @@
-﻿using DualSenseClient.Controllers.DualSense.Triggers;
+﻿using DualSenseClient.Settings.Sections;
 
 namespace DualSenseClient.GUI.Models.Items;
 
 /// <summary>
-/// Display item for the adaptive trigger mode picker. Wraps a <see cref="TriggerEffectType"/>
-/// with its localized display name.
+/// Display item for the adaptive trigger mode picker. Wraps an
+/// <see cref="AutoProfileTriggerMode"/> with its localized display name.
+/// The output tester and auto profiles share the same picker modes so both
+/// build through the same <see cref="Controllers.DualSense.Triggers.TriggerEffectBuilder"/> methods.
 /// </summary>
 public sealed class TriggerEffectModeItem
 {
@@ -13,7 +15,7 @@ public sealed class TriggerEffectModeItem
     /// </summary>
     /// <param name="value">The trigger effect mode this item represents.</param>
     /// <param name="name">Localized display name.</param>
-    public TriggerEffectModeItem(TriggerEffectType value, string name)
+    public TriggerEffectModeItem(AutoProfileTriggerMode value, string name)
     {
         Value = value;
         Name = name;
@@ -22,7 +24,7 @@ public sealed class TriggerEffectModeItem
     /// <summary>
     /// The trigger effect mode this item represents.
     /// </summary>
-    public TriggerEffectType Value { get; }
+    public AutoProfileTriggerMode Value { get; }
 
     /// <summary>
     /// Localized display name.

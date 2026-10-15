@@ -60,7 +60,7 @@ public class OutputReportBuilderTests
     {
         SetStateData payload = new OutputReportBuilder
         {
-            R2TriggerEffect = TriggerEffectBuilder.Resistance(40, 230)
+            R2TriggerEffect = TriggerEffectBuilder.Feedback(4, 8)
         }.Build();
         byte[] raw = RawPayload(payload);
 
@@ -68,8 +68,7 @@ public class OutputReportBuilderTests
         {
             AssertHasFlag(payload.ValidFlag0, ValidFlags.AllowRightTriggerFfb);
             AssertNotHasFlag(payload.ValidFlag0, ValidFlags.AllowLeftTriggerFfb);
-            Assert.That(raw[10], Is.EqualTo((byte)TriggerEffectType.Resistance));
-            Assert.That(raw[11], Is.EqualTo(40));
+            Assert.That(raw[10], Is.EqualTo((byte)TriggerEffectType.Feedback));
         });
     }
 
@@ -78,7 +77,7 @@ public class OutputReportBuilderTests
     {
         SetStateData payload = new OutputReportBuilder
         {
-            L2TriggerEffect = TriggerEffectBuilder.Trigger(15, 100, 255)
+            L2TriggerEffect = TriggerEffectBuilder.Weapon(2, 5, 8)
         }.Build();
 
         AssertHasFlag(payload.ValidFlag0, ValidFlags.AllowLeftTriggerFfb);

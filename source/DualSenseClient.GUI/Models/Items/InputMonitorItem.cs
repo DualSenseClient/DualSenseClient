@@ -7,6 +7,7 @@ using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.DualSense.Triggers;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.GUI.Services;
+using DualSenseClient.Settings.Sections;
 using DualSenseClient.Hid;
 using SoundFlow.Abstracts;
 
@@ -139,24 +140,55 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     private int _leftTriggerModeIndex;
 
     /// <summary>
-    /// Left (L2) trigger resistance/effect force (0-255).
+    /// Left (L2) trigger resistance/effect force (0-8; slope mode reuses this as start strength,
+    /// machine mode as amplitude A).
     /// </summary>
-    private int _leftTriggerForce = 100;
+    private int _leftTriggerForce = 8;
 
     /// <summary>
-    /// Left (L2) trigger effect start position (0-255).
+    /// Left (L2) trigger effect start position (0-9).
     /// </summary>
     private int _leftTriggerStart;
 
     /// <summary>
-    /// Left (L2) trigger effect end position (0-255).
+    /// Left (L2) trigger effect end position (0-9).
     /// </summary>
-    private int _leftTriggerEnd = 255;
+    private int _leftTriggerEnd = 8;
 
     /// <summary>
-    /// Left (L2) automatic mode effect frequency (0-15).
+    /// Left (L2) vibration/galloping/machine effect frequency (0-255).
     /// </summary>
-    private int _leftTriggerFrequency = 5;
+    private int _leftTriggerFrequency = 10;
+
+    /// <summary>
+    /// Left (L2) bow snap-back force (0-8).
+    /// </summary>
+    private int _leftTriggerSnapForce = 8;
+
+    /// <summary>
+    /// Left (L2) galloping first foot position (0-6).
+    /// </summary>
+    private int _leftTriggerFirstFoot;
+
+    /// <summary>
+    /// Left (L2) galloping second foot position (1-7).
+    /// </summary>
+    private int _leftTriggerSecondFoot = 1;
+
+    /// <summary>
+    /// Left (L2) machine secondary amplitude (0-7).
+    /// </summary>
+    private int _leftTriggerAmplitudeB = 4;
+
+    /// <summary>
+    /// Left (L2) machine oscillation period in tenths of a second (0-255).
+    /// </summary>
+    private int _leftTriggerPeriod = 5;
+
+    /// <summary>
+    /// Left (L2) slope mode end strength (1-8).
+    /// </summary>
+    private int _leftTriggerEndStrength = 8;
 
     /// <summary>
     /// Index into <see cref="TriggerEffectModes"/>: the right (R2) adaptive trigger effect mode.
@@ -164,24 +196,55 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     private int _rightTriggerModeIndex;
 
     /// <summary>
-    /// Right (R2) trigger resistance/effect force (0-255).
+    /// Right (R2) trigger resistance/effect force (0-8; slope mode reuses this as start strength,
+    /// machine mode as amplitude A).
     /// </summary>
-    private int _rightTriggerForce = 100;
+    private int _rightTriggerForce = 8;
 
     /// <summary>
-    /// Right (R2) trigger effect start position (0-255).
+    /// Right (R2) trigger effect start position (0-9).
     /// </summary>
     private int _rightTriggerStart;
 
     /// <summary>
-    /// Right (R2) trigger effect end position (0-255).
+    /// Right (R2) trigger effect end position (0-9).
     /// </summary>
-    private int _rightTriggerEnd = 255;
+    private int _rightTriggerEnd = 8;
 
     /// <summary>
-    /// Right (R2) automatic mode effect frequency (0-15).
+    /// Right (R2) vibration/galloping/machine effect frequency (0-255).
     /// </summary>
-    private int _rightTriggerFrequency = 5;
+    private int _rightTriggerFrequency = 10;
+
+    /// <summary>
+    /// Right (R2) bow snap-back force (0-8).
+    /// </summary>
+    private int _rightTriggerSnapForce = 8;
+
+    /// <summary>
+    /// Right (R2) galloping first foot position (0-6).
+    /// </summary>
+    private int _rightTriggerFirstFoot;
+
+    /// <summary>
+    /// Right (R2) galloping second foot position (1-7).
+    /// </summary>
+    private int _rightTriggerSecondFoot = 1;
+
+    /// <summary>
+    /// Right (R2) machine secondary amplitude (0-7).
+    /// </summary>
+    private int _rightTriggerAmplitudeB = 4;
+
+    /// <summary>
+    /// Right (R2) machine oscillation period in tenths of a second (0-255).
+    /// </summary>
+    private int _rightTriggerPeriod = 5;
+
+    /// <summary>
+    /// Right (R2) slope mode end strength (1-8).
+    /// </summary>
+    private int _rightTriggerEndStrength = 8;
 
     /// <summary>
     /// Delay after a slider stops changing before its value is applied to the controller,
@@ -235,10 +298,14 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// </summary>
     public static IReadOnlyList<TriggerEffectModeItem> SharedTriggerEffectModes { get; } =
     [
-        new TriggerEffectModeItem(TriggerEffectType.Off, GetText("CustomizationPage.OutputTest.Triggers.Mode.Off")),
-        new TriggerEffectModeItem(TriggerEffectType.Resistance, GetText("CustomizationPage.OutputTest.Triggers.Mode.Resistance")),
-        new TriggerEffectModeItem(TriggerEffectType.Trigger, GetText("CustomizationPage.OutputTest.Triggers.Mode.Trigger")),
-        new TriggerEffectModeItem(TriggerEffectType.Automatic, GetText("CustomizationPage.OutputTest.Triggers.Mode.Automatic"))
+        new TriggerEffectModeItem(AutoProfileTriggerMode.Off, GetText("CustomizationPage.OutputTest.Triggers.Mode.Off")),
+        new TriggerEffectModeItem(AutoProfileTriggerMode.Feedback, GetText("CustomizationPage.OutputTest.Triggers.Mode.Feedback")),
+        new TriggerEffectModeItem(AutoProfileTriggerMode.Weapon, GetText("CustomizationPage.OutputTest.Triggers.Mode.Weapon")),
+        new TriggerEffectModeItem(AutoProfileTriggerMode.Vibration, GetText("CustomizationPage.OutputTest.Triggers.Mode.Vibration")),
+        new TriggerEffectModeItem(AutoProfileTriggerMode.Bow, GetText("CustomizationPage.OutputTest.Triggers.Mode.Bow")),
+        new TriggerEffectModeItem(AutoProfileTriggerMode.Galloping, GetText("CustomizationPage.OutputTest.Triggers.Mode.Galloping")),
+        new TriggerEffectModeItem(AutoProfileTriggerMode.Machine, GetText("CustomizationPage.OutputTest.Triggers.Mode.Machine")),
+        new TriggerEffectModeItem(AutoProfileTriggerMode.SlopeFeedback, GetText("CustomizationPage.OutputTest.Triggers.Mode.SlopeFeedback"))
     ];
 
     /// <inheritdoc cref="SharedTriggerEffectModes"/>
@@ -339,12 +406,13 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
             {
                 ApplyTriggerEffects();
                 NotifyLeftTriggerVisibilities();
+                NotifyLeftTriggerRangeLimits();
             }
         }
     }
 
     /// <summary>
-    /// Left (L2) trigger force (0-255). Applied to the controller once the slider settles.
+    /// Left (L2) trigger force (0-8). Applied to the controller once the slider settles.
     /// </summary>
     public int LeftTriggerForce
     {
@@ -362,7 +430,7 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     }
 
     /// <summary>
-    /// Left (L2) trigger effect start position (0-255). Applied to the controller once the slider settles.
+    /// Left (L2) trigger effect start position (0-9). Applied to the controller once the slider settles.
     /// </summary>
     public int LeftTriggerStart
     {
@@ -374,13 +442,14 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
         {
             if (SetProperty(ref _leftTriggerStart, value))
             {
+                OnPropertyChanged(nameof(LeftTriggerEndMinimum));
                 ScheduleTriggerUpdate();
             }
         }
     }
 
     /// <summary>
-    /// Left (L2) trigger effect end position (0-255). Applied to the controller once the slider settles.
+    /// Left (L2) trigger effect end position (0-9). Applied to the controller once the slider settles.
     /// </summary>
     public int LeftTriggerEnd
     {
@@ -398,7 +467,7 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     }
 
     /// <summary>
-    /// Left (L2) automatic mode effect frequency (0-15). Applied to the controller once the slider settles.
+    /// Left (L2) vibration/galloping/machine effect frequency (0-255). Applied to the controller once the slider settles.
     /// </summary>
     public int LeftTriggerFrequency
     {
@@ -409,6 +478,115 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
         set
         {
             if (SetProperty(ref _leftTriggerFrequency, value))
+            {
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Left (L2) bow snap-back force (0-8). Applied to the controller once the slider settles.
+    /// </summary>
+    public int LeftTriggerSnapForce
+    {
+        get
+        {
+            return _leftTriggerSnapForce;
+        }
+        set
+        {
+            if (SetProperty(ref _leftTriggerSnapForce, value))
+            {
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Left (L2) galloping first foot position (0-6). Applied to the controller once the slider settles.
+    /// </summary>
+    public int LeftTriggerFirstFoot
+    {
+        get
+        {
+            return _leftTriggerFirstFoot;
+        }
+        set
+        {
+            if (SetProperty(ref _leftTriggerFirstFoot, value))
+            {
+                OnPropertyChanged(nameof(LeftTriggerSecondFootMinimum));
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Left (L2) galloping second foot position (1-7). Applied to the controller once the slider settles.
+    /// </summary>
+    public int LeftTriggerSecondFoot
+    {
+        get
+        {
+            return _leftTriggerSecondFoot;
+        }
+        set
+        {
+            if (SetProperty(ref _leftTriggerSecondFoot, value))
+            {
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Left (L2) machine secondary amplitude (0-7). Applied to the controller once the slider settles.
+    /// </summary>
+    public int LeftTriggerAmplitudeB
+    {
+        get
+        {
+            return _leftTriggerAmplitudeB;
+        }
+        set
+        {
+            if (SetProperty(ref _leftTriggerAmplitudeB, value))
+            {
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Left (L2) machine oscillation period (0-255). Applied to the controller once the slider settles.
+    /// </summary>
+    public int LeftTriggerPeriod
+    {
+        get
+        {
+            return _leftTriggerPeriod;
+        }
+        set
+        {
+            if (SetProperty(ref _leftTriggerPeriod, value))
+            {
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Left (L2) slope mode end strength (1-8). Applied to the controller once the slider settles.
+    /// </summary>
+    public int LeftTriggerEndStrength
+    {
+        get
+        {
+            return _leftTriggerEndStrength;
+        }
+        set
+        {
+            if (SetProperty(ref _leftTriggerEndStrength, value))
             {
                 ScheduleTriggerUpdate();
             }
@@ -432,12 +610,13 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
             {
                 ApplyTriggerEffects();
                 NotifyRightTriggerVisibilities();
+                NotifyRightTriggerRangeLimits();
             }
         }
     }
 
     /// <summary>
-    /// Right (R2) trigger force (0-255). Applied to the controller once the slider settles.
+    /// Right (R2) trigger force (0-8). Applied to the controller once the slider settles.
     /// </summary>
     public int RightTriggerForce
     {
@@ -455,7 +634,7 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     }
 
     /// <summary>
-    /// Right (R2) trigger effect start position (0-255). Applied to the controller once the slider settles.
+    /// Right (R2) trigger effect start position (0-9). Applied to the controller once the slider settles.
     /// </summary>
     public int RightTriggerStart
     {
@@ -467,13 +646,14 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
         {
             if (SetProperty(ref _rightTriggerStart, value))
             {
+                OnPropertyChanged(nameof(RightTriggerEndMinimum));
                 ScheduleTriggerUpdate();
             }
         }
     }
 
     /// <summary>
-    /// Right (R2) trigger effect end position (0-255). Applied to the controller once the slider settles.
+    /// Right (R2) trigger effect end position (0-9). Applied to the controller once the slider settles.
     /// </summary>
     public int RightTriggerEnd
     {
@@ -491,7 +671,7 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     }
 
     /// <summary>
-    /// Right (R2) automatic mode effect frequency (0-15). Applied to the controller once the slider settles.
+    /// Right (R2) vibration/galloping/machine effect frequency (0-255). Applied to the controller once the slider settles.
     /// </summary>
     public int RightTriggerFrequency
     {
@@ -509,13 +689,122 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     }
 
     /// <summary>
+    /// Right (R2) bow snap-back force (0-8). Applied to the controller once the slider settles.
+    /// </summary>
+    public int RightTriggerSnapForce
+    {
+        get
+        {
+            return _rightTriggerSnapForce;
+        }
+        set
+        {
+            if (SetProperty(ref _rightTriggerSnapForce, value))
+            {
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Right (R2) galloping first foot position (0-6). Applied to the controller once the slider settles.
+    /// </summary>
+    public int RightTriggerFirstFoot
+    {
+        get
+        {
+            return _rightTriggerFirstFoot;
+        }
+        set
+        {
+            if (SetProperty(ref _rightTriggerFirstFoot, value))
+            {
+                OnPropertyChanged(nameof(RightTriggerSecondFootMinimum));
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Right (R2) galloping second foot position (1-7). Applied to the controller once the slider settles.
+    /// </summary>
+    public int RightTriggerSecondFoot
+    {
+        get
+        {
+            return _rightTriggerSecondFoot;
+        }
+        set
+        {
+            if (SetProperty(ref _rightTriggerSecondFoot, value))
+            {
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Right (R2) machine secondary amplitude (0-7). Applied to the controller once the slider settles.
+    /// </summary>
+    public int RightTriggerAmplitudeB
+    {
+        get
+        {
+            return _rightTriggerAmplitudeB;
+        }
+        set
+        {
+            if (SetProperty(ref _rightTriggerAmplitudeB, value))
+            {
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Right (R2) machine oscillation period (0-255). Applied to the controller once the slider settles.
+    /// </summary>
+    public int RightTriggerPeriod
+    {
+        get
+        {
+            return _rightTriggerPeriod;
+        }
+        set
+        {
+            if (SetProperty(ref _rightTriggerPeriod, value))
+            {
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Right (R2) slope mode end strength (1-8). Applied to the controller once the slider settles.
+    /// </summary>
+    public int RightTriggerEndStrength
+    {
+        get
+        {
+            return _rightTriggerEndStrength;
+        }
+        set
+        {
+            if (SetProperty(ref _rightTriggerEndStrength, value))
+            {
+                ScheduleTriggerUpdate();
+            }
+        }
+    }
+
+    /// <summary>
     /// Whether any left (L2) trigger effect parameter is applicable, i.e. a mode other than Off is selected.
     /// </summary>
     public bool LeftTriggerParametersVisible
     {
         get
         {
-            return SelectedLeftTriggerMode != TriggerEffectType.Off;
+            return SelectedLeftTriggerMode != AutoProfileTriggerMode.Off;
         }
     }
 
@@ -531,13 +820,17 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     }
 
     /// <summary>
-    /// Whether the left (L2) end-position slider applies to the selected mode (Trigger mode only).
+    /// Whether the left (L2) end-position slider applies to the selected mode.
     /// </summary>
     public bool LeftTriggerEndVisible
     {
         get
         {
-            return SelectedLeftTriggerMode == TriggerEffectType.Trigger;
+            return SelectedLeftTriggerMode is AutoProfileTriggerMode.Weapon
+                or AutoProfileTriggerMode.Bow
+                or AutoProfileTriggerMode.Galloping
+                or AutoProfileTriggerMode.Machine
+                or AutoProfileTriggerMode.SlopeFeedback;
         }
     }
 
@@ -548,18 +841,91 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     {
         get
         {
-            return LeftTriggerParametersVisible;
+            return SelectedLeftTriggerMode is AutoProfileTriggerMode.Feedback
+                or AutoProfileTriggerMode.Weapon
+                or AutoProfileTriggerMode.Vibration
+                or AutoProfileTriggerMode.Bow
+                or AutoProfileTriggerMode.Machine
+                or AutoProfileTriggerMode.SlopeFeedback;
         }
     }
 
     /// <summary>
-    /// Whether the left (L2) frequency slider applies to the selected mode (Automatic mode only).
+    /// Whether the left (L2) frequency slider applies to the selected mode.
     /// </summary>
     public bool LeftTriggerFrequencyVisible
     {
         get
         {
-            return SelectedLeftTriggerMode == TriggerEffectType.Automatic;
+            return SelectedLeftTriggerMode is AutoProfileTriggerMode.Vibration
+                or AutoProfileTriggerMode.Galloping
+                or AutoProfileTriggerMode.Machine;
+        }
+    }
+
+    /// <summary>
+    /// Whether the left (L2) snap-force slider applies (bow mode only).
+    /// </summary>
+    public bool LeftTriggerSnapForceVisible
+    {
+        get
+        {
+            return SelectedLeftTriggerMode == AutoProfileTriggerMode.Bow;
+        }
+    }
+
+    /// <summary>
+    /// Whether the left (L2) first-foot slider applies (galloping mode only).
+    /// </summary>
+    public bool LeftTriggerFirstFootVisible
+    {
+        get
+        {
+            return SelectedLeftTriggerMode == AutoProfileTriggerMode.Galloping;
+        }
+    }
+
+    /// <summary>
+    /// Whether the left (L2) second-foot slider applies (galloping mode only).
+    /// </summary>
+    public bool LeftTriggerSecondFootVisible
+    {
+        get
+        {
+            return SelectedLeftTriggerMode == AutoProfileTriggerMode.Galloping;
+        }
+    }
+
+    /// <summary>
+    /// Whether the left (L2) amplitude-B slider applies (machine mode only).
+    /// </summary>
+    public bool LeftTriggerAmplitudeBVisible
+    {
+        get
+        {
+            return SelectedLeftTriggerMode == AutoProfileTriggerMode.Machine;
+        }
+    }
+
+    /// <summary>
+    /// Whether the left (L2) period slider applies (machine mode only).
+    /// </summary>
+    public bool LeftTriggerPeriodVisible
+    {
+        get
+        {
+            return SelectedLeftTriggerMode == AutoProfileTriggerMode.Machine;
+        }
+    }
+
+    /// <summary>
+    /// Whether the left (L2) end-strength slider applies (slope mode only).
+    /// </summary>
+    public bool LeftTriggerEndStrengthVisible
+    {
+        get
+        {
+            return SelectedLeftTriggerMode == AutoProfileTriggerMode.SlopeFeedback;
         }
     }
 
@@ -570,7 +936,7 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     {
         get
         {
-            return SelectedRightTriggerMode != TriggerEffectType.Off;
+            return SelectedRightTriggerMode != AutoProfileTriggerMode.Off;
         }
     }
 
@@ -586,13 +952,17 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     }
 
     /// <summary>
-    /// Whether the right (R2) end-position slider applies to the selected mode (Trigger mode only).
+    /// Whether the right (R2) end-position slider applies to the selected mode.
     /// </summary>
     public bool RightTriggerEndVisible
     {
         get
         {
-            return SelectedRightTriggerMode == TriggerEffectType.Trigger;
+            return SelectedRightTriggerMode is AutoProfileTriggerMode.Weapon
+                or AutoProfileTriggerMode.Bow
+                or AutoProfileTriggerMode.Galloping
+                or AutoProfileTriggerMode.Machine
+                or AutoProfileTriggerMode.SlopeFeedback;
         }
     }
 
@@ -603,18 +973,237 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     {
         get
         {
-            return RightTriggerParametersVisible;
+            return SelectedRightTriggerMode is AutoProfileTriggerMode.Feedback
+                or AutoProfileTriggerMode.Weapon
+                or AutoProfileTriggerMode.Vibration
+                or AutoProfileTriggerMode.Bow
+                or AutoProfileTriggerMode.Machine
+                or AutoProfileTriggerMode.SlopeFeedback;
         }
     }
 
     /// <summary>
-    /// Whether the right (R2) frequency slider applies to the selected mode (Automatic mode only).
+    /// Whether the right (R2) frequency slider applies to the selected mode.
     /// </summary>
     public bool RightTriggerFrequencyVisible
     {
         get
         {
-            return SelectedRightTriggerMode == TriggerEffectType.Automatic;
+            return SelectedRightTriggerMode is AutoProfileTriggerMode.Vibration
+                or AutoProfileTriggerMode.Galloping
+                or AutoProfileTriggerMode.Machine;
+        }
+    }
+
+    /// <summary>
+    /// Whether the right (R2) snap-force slider applies (bow mode only).
+    /// </summary>
+    public bool RightTriggerSnapForceVisible
+    {
+        get
+        {
+            return SelectedRightTriggerMode == AutoProfileTriggerMode.Bow;
+        }
+    }
+
+    /// <summary>
+    /// Whether the right (R2) first-foot slider applies (galloping mode only).
+    /// </summary>
+    public bool RightTriggerFirstFootVisible
+    {
+        get
+        {
+            return SelectedRightTriggerMode == AutoProfileTriggerMode.Galloping;
+        }
+    }
+
+    /// <summary>
+    /// Whether the right (R2) second-foot slider applies (galloping mode only).
+    /// </summary>
+    public bool RightTriggerSecondFootVisible
+    {
+        get
+        {
+            return SelectedRightTriggerMode == AutoProfileTriggerMode.Galloping;
+        }
+    }
+
+    /// <summary>
+    /// Whether the right (R2) amplitude-B slider applies (machine mode only).
+    /// </summary>
+    public bool RightTriggerAmplitudeBVisible
+    {
+        get
+        {
+            return SelectedRightTriggerMode == AutoProfileTriggerMode.Machine;
+        }
+    }
+
+    /// <summary>
+    /// Whether the right (R2) period slider applies (machine mode only).
+    /// </summary>
+    public bool RightTriggerPeriodVisible
+    {
+        get
+        {
+            return SelectedRightTriggerMode == AutoProfileTriggerMode.Machine;
+        }
+    }
+
+    /// <summary>
+    /// Whether the right (R2) end-strength slider applies (slope mode only).
+    /// </summary>
+    public bool RightTriggerEndStrengthVisible
+    {
+        get
+        {
+            return SelectedRightTriggerMode == AutoProfileTriggerMode.SlopeFeedback;
+        }
+    }
+
+    /// <summary>
+    /// Left (L2) start-position slider minimum for the selected mode (weapon starts at zone 2).
+    /// </summary>
+    public int LeftTriggerStartMinimum
+    {
+        get
+        {
+            return SelectedLeftTriggerMode == AutoProfileTriggerMode.Weapon ? 2 : 0;
+        }
+    }
+
+    /// <summary>
+    /// Left (L2) start-position slider maximum for the selected mode.
+    /// </summary>
+    public int LeftTriggerStartMaximum
+    {
+        get
+        {
+            return SelectedLeftTriggerMode switch
+            {
+                AutoProfileTriggerMode.Feedback or AutoProfileTriggerMode.Vibration => 9,
+                AutoProfileTriggerMode.Weapon or AutoProfileTriggerMode.Bow => 7,
+                _ => 8
+            };
+        }
+    }
+
+    /// <summary>
+    /// Left (L2) end-position slider minimum: always past the current start position.
+    /// </summary>
+    public int LeftTriggerEndMinimum
+    {
+        get
+        {
+            return SelectedLeftTriggerMode is AutoProfileTriggerMode.Weapon or AutoProfileTriggerMode.Bow
+                ? Math.Min(LeftTriggerStart + 1, 8)
+                : Math.Min(LeftTriggerStart + 1, 9);
+        }
+    }
+
+    /// <summary>
+    /// Left (L2) end-position slider maximum for the selected mode.
+    /// </summary>
+    public int LeftTriggerEndMaximum
+    {
+        get
+        {
+            return SelectedLeftTriggerMode is AutoProfileTriggerMode.Weapon or AutoProfileTriggerMode.Bow ? 8 : 9;
+        }
+    }
+
+    /// <summary>
+    /// Left (L2) force slider maximum: machine mode amplitudes stop at 7, the rest at 8.
+    /// </summary>
+    public int LeftTriggerForceMaximum
+    {
+        get
+        {
+            return SelectedLeftTriggerMode == AutoProfileTriggerMode.Machine ? 7 : 8;
+        }
+    }
+
+    /// <summary>
+    /// Left (L2) second-foot slider minimum: always past the current first foot.
+    /// </summary>
+    public int LeftTriggerSecondFootMinimum
+    {
+        get
+        {
+            return Math.Min(LeftTriggerFirstFoot + 1, 7);
+        }
+    }
+
+    /// <summary>
+    /// Right (R2) start-position slider minimum for the selected mode (weapon starts at zone 2).
+    /// </summary>
+    public int RightTriggerStartMinimum
+    {
+        get
+        {
+            return SelectedRightTriggerMode == AutoProfileTriggerMode.Weapon ? 2 : 0;
+        }
+    }
+
+    /// <summary>
+    /// Right (R2) start-position slider maximum for the selected mode.
+    /// </summary>
+    public int RightTriggerStartMaximum
+    {
+        get
+        {
+            return SelectedRightTriggerMode switch
+            {
+                AutoProfileTriggerMode.Feedback or AutoProfileTriggerMode.Vibration => 9,
+                AutoProfileTriggerMode.Weapon or AutoProfileTriggerMode.Bow => 7,
+                _ => 8
+            };
+        }
+    }
+
+    /// <summary>
+    /// Right (R2) end-position slider minimum: always past the current start position.
+    /// </summary>
+    public int RightTriggerEndMinimum
+    {
+        get
+        {
+            return SelectedRightTriggerMode is AutoProfileTriggerMode.Weapon or AutoProfileTriggerMode.Bow
+                ? Math.Min(RightTriggerStart + 1, 8)
+                : Math.Min(RightTriggerStart + 1, 9);
+        }
+    }
+
+    /// <summary>
+    /// Right (R2) end-position slider maximum for the selected mode.
+    /// </summary>
+    public int RightTriggerEndMaximum
+    {
+        get
+        {
+            return SelectedRightTriggerMode is AutoProfileTriggerMode.Weapon or AutoProfileTriggerMode.Bow ? 8 : 9;
+        }
+    }
+
+    /// <summary>
+    /// Right (R2) force slider maximum: machine mode amplitudes stop at 7, the rest at 8.
+    /// </summary>
+    public int RightTriggerForceMaximum
+    {
+        get
+        {
+            return SelectedRightTriggerMode == AutoProfileTriggerMode.Machine ? 7 : 8;
+        }
+    }
+
+    /// <summary>
+    /// Right (R2) second-foot slider minimum: always past the current first foot.
+    /// </summary>
+    public int RightTriggerSecondFootMinimum
+    {
+        get
+        {
+            return Math.Min(RightTriggerFirstFoot + 1, 7);
         }
     }
 
@@ -1404,16 +1993,61 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
 
     /// <summary>
     /// Builds the adaptive trigger effect block for the given mode and parameters.
+    /// Invalid combinations fall back to Off so a mid-drag slider never throws.
     /// </summary>
-    private static TriggerEffectBlock BuildTriggerEffect(TriggerEffectType mode, byte start, byte end, byte force, byte frequency)
+    private static TriggerEffectBlock BuildTriggerEffect(
+        AutoProfileTriggerMode mode,
+        byte start,
+        byte end,
+        byte force,
+        byte frequency,
+        byte snapForce,
+        byte firstFoot,
+        byte secondFoot,
+        byte amplitudeB,
+        byte period,
+        byte endStrength)
     {
-        return mode switch
+        try
         {
-            TriggerEffectType.Resistance => TriggerEffectBuilder.Resistance(start, force),
-            TriggerEffectType.Trigger => TriggerEffectBuilder.Trigger(start, end, force),
-            TriggerEffectType.Automatic => TriggerEffectBuilder.Automatic(frequency, force, start),
-            _ => TriggerEffectBuilder.Off()
-        };
+            return mode switch
+            {
+                AutoProfileTriggerMode.Feedback => TriggerEffectBuilder.Feedback(start, force),
+                AutoProfileTriggerMode.Weapon => TriggerEffectBuilder.Weapon(
+                    (byte)Math.Clamp((int)start, 2, 7),
+                    (byte)Math.Clamp((int)end, Math.Min((int)start + 1, 8), 8),
+                    force),
+                AutoProfileTriggerMode.Vibration => TriggerEffectBuilder.Vibration(start, force, frequency),
+                AutoProfileTriggerMode.Bow => TriggerEffectBuilder.Bow(
+                    start,
+                    (byte)Math.Clamp((int)end, Math.Min((int)start + 1, 8), 8),
+                    force,
+                    snapForce),
+                AutoProfileTriggerMode.Galloping => TriggerEffectBuilder.Galloping(
+                    start,
+                    (byte)Math.Clamp((int)end, Math.Min((int)start + 1, 9), 9),
+                    firstFoot,
+                    (byte)Math.Clamp((int)secondFoot, Math.Min((int)firstFoot + 1, 7), 7),
+                    frequency),
+                AutoProfileTriggerMode.Machine => TriggerEffectBuilder.Machine(
+                    start,
+                    (byte)Math.Clamp((int)end, Math.Min((int)start + 1, 9), 9),
+                    (byte)Math.Clamp((int)force, 0, 7),
+                    amplitudeB,
+                    frequency,
+                    period),
+                AutoProfileTriggerMode.SlopeFeedback => TriggerEffectBuilder.SlopeFeedback(
+                    start,
+                    (byte)Math.Clamp((int)end, Math.Min((int)start + 1, 9), 9),
+                    force,
+                    endStrength),
+                _ => TriggerEffectBuilder.Off()
+            };
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return TriggerEffectBuilder.Off();
+        }
     }
 
     /// <summary>
@@ -1428,11 +2062,29 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
         }
 
         TriggerEffectBlock left = BuildTriggerEffect(
-            SelectedLeftTriggerMode, (byte)LeftTriggerStart, (byte)LeftTriggerEnd,
-            (byte)LeftTriggerForce, (byte)LeftTriggerFrequency);
+            SelectedLeftTriggerMode,
+            (byte)Math.Clamp(LeftTriggerStart, 0, 9),
+            (byte)Math.Clamp(LeftTriggerEnd, 0, 9),
+            (byte)Math.Clamp(LeftTriggerForce, 0, 8),
+            (byte)Math.Clamp(LeftTriggerFrequency, 0, 255),
+            (byte)Math.Clamp(LeftTriggerSnapForce, 0, 8),
+            (byte)Math.Clamp(LeftTriggerFirstFoot, 0, 6),
+            (byte)Math.Clamp(LeftTriggerSecondFoot, 0, 7),
+            (byte)Math.Clamp(LeftTriggerAmplitudeB, 0, 7),
+            (byte)Math.Clamp(LeftTriggerPeriod, 0, 255),
+            (byte)Math.Clamp(LeftTriggerEndStrength, 0, 8));
         TriggerEffectBlock right = BuildTriggerEffect(
-            SelectedRightTriggerMode, (byte)RightTriggerStart, (byte)RightTriggerEnd,
-            (byte)RightTriggerForce, (byte)RightTriggerFrequency);
+            SelectedRightTriggerMode,
+            (byte)Math.Clamp(RightTriggerStart, 0, 9),
+            (byte)Math.Clamp(RightTriggerEnd, 0, 9),
+            (byte)Math.Clamp(RightTriggerForce, 0, 8),
+            (byte)Math.Clamp(RightTriggerFrequency, 0, 255),
+            (byte)Math.Clamp(RightTriggerSnapForce, 0, 8),
+            (byte)Math.Clamp(RightTriggerFirstFoot, 0, 6),
+            (byte)Math.Clamp(RightTriggerSecondFoot, 0, 7),
+            (byte)Math.Clamp(RightTriggerAmplitudeB, 0, 7),
+            (byte)Math.Clamp(RightTriggerPeriod, 0, 255),
+            (byte)Math.Clamp(RightTriggerEndStrength, 0, 8));
         _device.SetTriggerEffects(left, right);
     }
 
@@ -1463,7 +2115,7 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// <summary>
     /// The trigger effect mode currently selected in the left (L2) picker.
     /// </summary>
-    private TriggerEffectType SelectedLeftTriggerMode
+    private AutoProfileTriggerMode SelectedLeftTriggerMode
     {
         get
         {
@@ -1474,7 +2126,7 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     /// <summary>
     /// The trigger effect mode currently selected in the right (R2) picker.
     /// </summary>
-    private TriggerEffectType SelectedRightTriggerMode
+    private AutoProfileTriggerMode SelectedRightTriggerMode
     {
         get
         {
@@ -1492,6 +2144,12 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
         OnPropertyChanged(nameof(LeftTriggerEndVisible));
         OnPropertyChanged(nameof(LeftTriggerForceVisible));
         OnPropertyChanged(nameof(LeftTriggerFrequencyVisible));
+        OnPropertyChanged(nameof(LeftTriggerSnapForceVisible));
+        OnPropertyChanged(nameof(LeftTriggerFirstFootVisible));
+        OnPropertyChanged(nameof(LeftTriggerSecondFootVisible));
+        OnPropertyChanged(nameof(LeftTriggerAmplitudeBVisible));
+        OnPropertyChanged(nameof(LeftTriggerPeriodVisible));
+        OnPropertyChanged(nameof(LeftTriggerEndStrengthVisible));
     }
 
     /// <summary>
@@ -1504,6 +2162,38 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
         OnPropertyChanged(nameof(RightTriggerEndVisible));
         OnPropertyChanged(nameof(RightTriggerForceVisible));
         OnPropertyChanged(nameof(RightTriggerFrequencyVisible));
+        OnPropertyChanged(nameof(RightTriggerSnapForceVisible));
+        OnPropertyChanged(nameof(RightTriggerFirstFootVisible));
+        OnPropertyChanged(nameof(RightTriggerSecondFootVisible));
+        OnPropertyChanged(nameof(RightTriggerAmplitudeBVisible));
+        OnPropertyChanged(nameof(RightTriggerPeriodVisible));
+        OnPropertyChanged(nameof(RightTriggerEndStrengthVisible));
+    }
+
+    /// <summary>
+    /// Re-raises the left (L2) trigger range-limit properties after its mode changes.
+    /// </summary>
+    private void NotifyLeftTriggerRangeLimits()
+    {
+        OnPropertyChanged(nameof(LeftTriggerStartMinimum));
+        OnPropertyChanged(nameof(LeftTriggerStartMaximum));
+        OnPropertyChanged(nameof(LeftTriggerEndMinimum));
+        OnPropertyChanged(nameof(LeftTriggerEndMaximum));
+        OnPropertyChanged(nameof(LeftTriggerForceMaximum));
+        OnPropertyChanged(nameof(LeftTriggerSecondFootMinimum));
+    }
+
+    /// <summary>
+    /// Re-raises the right (R2) trigger range-limit properties after its mode changes.
+    /// </summary>
+    private void NotifyRightTriggerRangeLimits()
+    {
+        OnPropertyChanged(nameof(RightTriggerStartMinimum));
+        OnPropertyChanged(nameof(RightTriggerStartMaximum));
+        OnPropertyChanged(nameof(RightTriggerEndMinimum));
+        OnPropertyChanged(nameof(RightTriggerEndMaximum));
+        OnPropertyChanged(nameof(RightTriggerForceMaximum));
+        OnPropertyChanged(nameof(RightTriggerSecondFootMinimum));
     }
 
     /// <summary>

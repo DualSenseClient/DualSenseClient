@@ -104,18 +104,16 @@ public class SetStateDataTests
     {
         SetStateData payload = new SetStateData
         {
-            R2TriggerEffect = TriggerEffectBuilder.Resistance(40, 230),
-            L2TriggerEffect = TriggerEffectBuilder.Automatic(10, 255, 20)
+            R2TriggerEffect = TriggerEffectBuilder.Feedback(4, 8),
+            L2TriggerEffect = TriggerEffectBuilder.SimpleVibration(20, 255, 10)
         };
         byte[] raw = new byte[SetStateData.PayloadSize];
         payload.CopyTo(raw, 0);
 
         Assert.Multiple(() =>
         {
-            Assert.That(raw[10], Is.EqualTo((byte)TriggerEffectType.Resistance));
-            Assert.That(raw[11], Is.EqualTo(40));
-            Assert.That(raw[12], Is.EqualTo(230));
-            Assert.That(raw[21], Is.EqualTo((byte)TriggerEffectType.Automatic));
+            Assert.That(raw[10], Is.EqualTo((byte)TriggerEffectType.Feedback));
+            Assert.That(raw[21], Is.EqualTo((byte)TriggerEffectType.Simple_Vibration));
             Assert.That(raw[22], Is.EqualTo(10));
             Assert.That(raw[23], Is.EqualTo(255));
             Assert.That(raw[24], Is.EqualTo(20));

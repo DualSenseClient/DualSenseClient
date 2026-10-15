@@ -350,9 +350,9 @@ public class ViiperDualSenseAudioForwarderTests
     public void UpdateGameOutputState_StateRidesTheCombinedAndPrimeReports()
     {
         byte[] right = new byte[11];
-        right[0] = (byte)TriggerEffectType.Trigger;
+        right[0] = (byte)TriggerEffectType.Weapon;
         byte[] left = new byte[11];
-        left[0] = (byte)TriggerEffectType.Automatic;
+        left[0] = (byte)TriggerEffectType.Vibration;
 
         FakeAudioOutputs fake = new FakeAudioOutputs
         {
@@ -385,7 +385,7 @@ public class ViiperDualSenseAudioForwarderTests
             Assert.That(prime[0], Is.EqualTo(0xBC), "the init-prime must carry the merged flags (rumble bits cleared, triggers and audio enabled)");
             Assert.That(prime[3], Is.EqualTo(0x90), "the init-prime must carry the game's rumble bytes");
             Assert.That(prime[44], Is.EqualTo(0x12), "the init-prime must carry the lightbar");
-            Assert.That(prime[10], Is.EqualTo((byte)TriggerEffectType.Trigger), "the init-prime must carry the R2 trigger block");
+            Assert.That(prime[10], Is.EqualTo((byte)TriggerEffectType.Weapon), "the init-prime must carry the R2 trigger block");
 
             byte[] state = fake.LastStateBlock;
             Assert.That(state[0] & 0x03, Is.Zero, "the rumble-mode bits must be cleared while the audio lane is open");
@@ -399,8 +399,8 @@ public class ViiperDualSenseAudioForwarderTests
             Assert.That(state[44], Is.EqualTo(0x12), "the lightbar must ride the state block");
             Assert.That(state[45], Is.EqualTo(0x34));
             Assert.That(state[46], Is.EqualTo(0x56));
-            Assert.That(state[10], Is.EqualTo((byte)TriggerEffectType.Trigger), "the R2 trigger block must ride the state block");
-            Assert.That(state[21], Is.EqualTo((byte)TriggerEffectType.Automatic), "the L2 trigger block must ride the state block");
+            Assert.That(state[10], Is.EqualTo((byte)TriggerEffectType.Weapon), "the R2 trigger block must ride the state block");
+            Assert.That(state[21], Is.EqualTo((byte)TriggerEffectType.Vibration), "the L2 trigger block must ride the state block");
             Assert.That(state[4], Is.EqualTo(0x3F), "the headphone volume must be overridden for the speaker route");
             Assert.That(state[5], Is.EqualTo(0x50), "the speaker volume must be overridden");
             Assert.That(state[7], Is.EqualTo((byte)AudioControl.OutputPathSpeaker), "the audio control must be overridden");

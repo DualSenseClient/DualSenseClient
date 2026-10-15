@@ -96,6 +96,7 @@ public sealed class AutoProfileService
     /// <summary>
     /// Loads auto profile rules from persistent storage.
     /// Falls back to defaults if the file does not exist or is invalid.
+    /// Legacy 0-255 trigger values are scaled once into the official 0-9 / 0-8 ranges.
     /// </summary>
     public void Load()
     {
@@ -103,8 +104,73 @@ public sealed class AutoProfileService
         {
             _log.Info($"Loading auto profiles from '{_store.FilePath}'");
             _store.Load();
+            NormalizeTriggerRanges();
             _loaded = true;
         }
+    }
+
+    /// <summary>
+    /// Scales legacy trigger values into the official ranges. Rules saved with the old
+    /// 0-255 layout (resistance/trigger/automatic) carry positions up to 255 and forces
+    /// up to 255; official modes use position 0-9 and strength 0-8. Values already in
+    /// range pass through untouched, so this is idempotent.
+    /// </summary>
+    private void NormalizeTriggerRanges()
+    {
+        foreach (AutoProfileRule rule in _store.Item.Rules)
+        {
+            NormalizeTriggerSettings(rule.LeftTrigger);
+            NormalizeTriggerSettings(rule.RightTrigger);
+        }
+    }
+
+    private static void NormalizeTriggerSettings(TriggerEffectSettings? settings)
+    {
+        if (settings is null)
+        {
+            return;
+        }
+
+#pragma warning disable CS0618 // Legacy aliases are intentional for old rule files.
+        if (settings.Mode == AutoProfileTriggerMode.Resistance)
+        {
+            settings.Mode = AutoProfileTriggerMode.Feedback;
+        }
+        else if (settings.Mode == AutoProfileTriggerMode.Trigger)
+        {
+            settings.Mode = AutoProfileTriggerMode.Weapon;
+        }
+        else if (settings.Mode == AutoProfileTriggerMode.Automatic)
+        {
+            settings.Mode = AutoProfileTriggerMode.Vibration;
+        }
+#pragma warning restore CS0618
+
+        if (settings.Start > 9)
+        {
+            settings.Start = (int)Math.Round(settings.Start * 9.0 / 255);
+        }
+
+        if (settings.End > 9)
+        {
+            settings.End = (int)Math.Round(settings.End * 9.0 / 255);
+        }
+
+        if (settings.Force > 8)
+        {
+            settings.Force = (int)Math.Round(settings.Force * 8.0 / 255);
+        }
+
+        settings.Start = Math.Clamp(settings.Start, 0, 9);
+        settings.End = Math.Clamp(settings.End, 0, 9);
+        settings.Force = Math.Clamp(settings.Force, 0, 8);
+        settings.Frequency = Math.Clamp(settings.Frequency, 0, 255);
+        settings.SnapForce = Math.Clamp(settings.SnapForce, 0, 8);
+        settings.FirstFoot = Math.Clamp(settings.FirstFoot, 0, 6);
+        settings.SecondFoot = Math.Clamp(settings.SecondFoot, 0, 7);
+        settings.AmplitudeB = Math.Clamp(settings.AmplitudeB, 0, 7);
+        settings.Period = Math.Clamp(settings.Period, 0, 255);
+        settings.EndStrength = Math.Clamp(settings.EndStrength, 0, 8);
     }
 
     /// <summary>

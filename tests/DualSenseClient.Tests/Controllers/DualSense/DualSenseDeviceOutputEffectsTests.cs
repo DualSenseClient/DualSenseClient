@@ -270,21 +270,17 @@ public class DualSenseDeviceOutputEffectsTests
         CapturingHidDevice hid = new CapturingHidDevice();
         using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Usb));
 
-        TriggerEffectBlock resistance = TriggerEffectBuilder.Resistance(0x20, 0x64);
-        device.SetTriggerEffects(resistance, resistance);
+        TriggerEffectBlock feedback = TriggerEffectBuilder.Feedback(4, 8);
+        device.SetTriggerEffects(feedback, feedback);
 
         Assert.Multiple(() =>
         {
             // flag0 = allow L2 + R2 trigger FFB
             Assert.That(hid.LastWrite![1], Is.EqualTo(0x0C));
             // R2 block at payload offset 10
-            Assert.That(hid.LastWrite[1 + 10], Is.EqualTo((byte)TriggerEffectType.Resistance));
-            Assert.That(hid.LastWrite[1 + 11], Is.EqualTo(0x20));
-            Assert.That(hid.LastWrite[1 + 12], Is.EqualTo(0x64));
+            Assert.That(hid.LastWrite[1 + 10], Is.EqualTo((byte)TriggerEffectType.Feedback));
             // L2 block at payload offset 21
-            Assert.That(hid.LastWrite[1 + 21], Is.EqualTo((byte)TriggerEffectType.Resistance));
-            Assert.That(hid.LastWrite[1 + 22], Is.EqualTo(0x20));
-            Assert.That(hid.LastWrite[1 + 23], Is.EqualTo(0x64));
+            Assert.That(hid.LastWrite[1 + 21], Is.EqualTo((byte)TriggerEffectType.Feedback));
         });
     }
 
@@ -299,8 +295,8 @@ public class DualSenseDeviceOutputEffectsTests
         Assert.Multiple(() =>
         {
             Assert.That(hid.LastWrite![1], Is.EqualTo(0x0C));
-            Assert.That(hid.LastWrite[1 + 10], Is.EqualTo(0x00));
-            Assert.That(hid.LastWrite[1 + 21], Is.EqualTo(0x00));
+            Assert.That(hid.LastWrite[1 + 10], Is.EqualTo(0x05));
+            Assert.That(hid.LastWrite[1 + 21], Is.EqualTo(0x05));
         });
     }
 
@@ -311,7 +307,7 @@ public class DualSenseDeviceOutputEffectsTests
         using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Usb));
 
         device.SetVibration(0xFF, 0xFF);
-        device.SetTriggerEffects(TriggerEffectBuilder.Resistance(0x20, 0x64), TriggerEffectBuilder.Resistance(0x20, 0x64));
+        device.SetTriggerEffects(TriggerEffectBuilder.Feedback(4, 8), TriggerEffectBuilder.Feedback(4, 8));
         device.ResetOutputs();
 
         Assert.Multiple(() =>
@@ -320,8 +316,8 @@ public class DualSenseDeviceOutputEffectsTests
             Assert.That(hid.LastWrite![1], Is.EqualTo(0x0C));
             Assert.That(hid.LastWrite[1 + 2], Is.EqualTo(0x00));
             Assert.That(hid.LastWrite[1 + 3], Is.EqualTo(0x00));
-            Assert.That(hid.LastWrite[1 + 10], Is.EqualTo(0x00));
-            Assert.That(hid.LastWrite[1 + 21], Is.EqualTo(0x00));
+            Assert.That(hid.LastWrite[1 + 10], Is.EqualTo(0x05));
+            Assert.That(hid.LastWrite[1 + 21], Is.EqualTo(0x05));
         });
     }
 }

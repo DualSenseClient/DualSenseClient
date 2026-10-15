@@ -260,8 +260,8 @@
                                             <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Start}"
                                                        FontSize="12"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="0"
-                                                                  Maximum="255"
+                                            <controls:SliderInput Minimum="{Binding LeftTriggerStartMinimum}"
+                                                                  Maximum="{Binding LeftTriggerStartMaximum}"
                                                                   Value="{Binding LeftTriggerStart, Mode=TwoWay}" />
                                         </StackPanel>
                                         <StackPanel Spacing="2"
@@ -269,8 +269,8 @@
                                             <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.End}"
                                                        FontSize="12"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="0"
-                                                                  Maximum="255"
+                                            <controls:SliderInput Minimum="{Binding LeftTriggerEndMinimum}"
+                                                                  Maximum="{Binding LeftTriggerEndMaximum}"
                                                                   Value="{Binding LeftTriggerEnd, Mode=TwoWay}" />
                                         </StackPanel>
                                         <StackPanel Spacing="2"
@@ -279,7 +279,7 @@
                                                        FontSize="12"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                             <controls:SliderInput Minimum="0"
-                                                                  Maximum="255"
+                                                                  Maximum="{Binding LeftTriggerForceMaximum}"
                                                                   Value="{Binding LeftTriggerForce, Mode=TwoWay}" />
                                         </StackPanel>
                                         <StackPanel Spacing="2"
@@ -288,8 +288,62 @@
                                                        FontSize="12"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                             <controls:SliderInput Minimum="0"
-                                                                  Maximum="15"
+                                                                  Maximum="255"
                                                                   Value="{Binding LeftTriggerFrequency, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding LeftTriggerSnapForceVisible}">
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.SnapForce}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="0"
+                                                                  Maximum="8"
+                                                                  Value="{Binding LeftTriggerSnapForce, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding LeftTriggerFirstFootVisible}">
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.FirstFoot}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="0"
+                                                                  Maximum="6"
+                                                                  Value="{Binding LeftTriggerFirstFoot, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding LeftTriggerSecondFootVisible}">
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.SecondFoot}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="{Binding LeftTriggerSecondFootMinimum}"
+                                                                  Maximum="7"
+                                                                  Value="{Binding LeftTriggerSecondFoot, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding LeftTriggerAmplitudeBVisible}">
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.AmplitudeB}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="0"
+                                                                  Maximum="7"
+                                                                  Value="{Binding LeftTriggerAmplitudeB, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding LeftTriggerPeriodVisible}">
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Period}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="0"
+                                                                  Maximum="255"
+                                                                  Value="{Binding LeftTriggerPeriod, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding LeftTriggerEndStrengthVisible}">
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.EndStrength}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="0"
+                                                                  Maximum="8"
+                                                                  Value="{Binding LeftTriggerEndStrength, Mode=TwoWay}" />
                                         </StackPanel>
                                     </StackPanel>
                                     <StackPanel Grid.Column="2"
@@ -304,8 +358,8 @@
                                             <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Start}"
                                                        FontSize="12"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="0"
-                                                                  Maximum="255"
+                                            <controls:SliderInput Minimum="{Binding RightTriggerStartMinimum}"
+                                                                  Maximum="{Binding RightTriggerStartMaximum}"
                                                                   Value="{Binding RightTriggerStart, Mode=TwoWay}" />
                                         </StackPanel>
                                         <StackPanel Spacing="2"
@@ -313,8 +367,8 @@
                                             <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.End}"
                                                        FontSize="12"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="0"
-                                                                  Maximum="255"
+                                            <controls:SliderInput Minimum="{Binding RightTriggerEndMinimum}"
+                                                                  Maximum="{Binding RightTriggerEndMaximum}"
                                                                   Value="{Binding RightTriggerEnd, Mode=TwoWay}" />
                                         </StackPanel>
                                         <StackPanel Spacing="2"
@@ -323,7 +377,7 @@
                                                        FontSize="12"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                             <controls:SliderInput Minimum="0"
-                                                                  Maximum="255"
+                                                                  Maximum="{Binding RightTriggerForceMaximum}"
                                                                   Value="{Binding RightTriggerForce, Mode=TwoWay}" />
                                         </StackPanel>
                                         <StackPanel Spacing="2"
@@ -332,8 +386,62 @@
                                                        FontSize="12"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                             <controls:SliderInput Minimum="0"
-                                                                  Maximum="15"
+                                                                  Maximum="255"
                                                                   Value="{Binding RightTriggerFrequency, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding RightTriggerSnapForceVisible}">
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.SnapForce}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="0"
+                                                                  Maximum="8"
+                                                                  Value="{Binding RightTriggerSnapForce, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding RightTriggerFirstFootVisible}">
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.FirstFoot}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="0"
+                                                                  Maximum="6"
+                                                                  Value="{Binding RightTriggerFirstFoot, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding RightTriggerSecondFootVisible}">
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.SecondFoot}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="{Binding RightTriggerSecondFootMinimum}"
+                                                                  Maximum="7"
+                                                                  Value="{Binding RightTriggerSecondFoot, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding RightTriggerAmplitudeBVisible}">
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.AmplitudeB}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="0"
+                                                                  Maximum="7"
+                                                                  Value="{Binding RightTriggerAmplitudeB, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding RightTriggerPeriodVisible}">
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Period}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="0"
+                                                                  Maximum="255"
+                                                                  Value="{Binding RightTriggerPeriod, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="2"
+                                                    IsVisible="{Binding RightTriggerEndStrengthVisible}">
+                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.EndStrength}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            <controls:SliderInput Minimum="0"
+                                                                  Maximum="8"
+                                                                  Value="{Binding RightTriggerEndStrength, Mode=TwoWay}" />
                                         </StackPanel>
                                     </StackPanel>
                                 </Grid>

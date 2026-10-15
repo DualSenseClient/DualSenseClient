@@ -246,10 +246,10 @@ public class AutoProfileServiceTests
             ExePattern = "game\\.exe",
             LeftTrigger = new TriggerEffectSettings
             {
-                Mode = AutoProfileTriggerMode.Trigger,
-                Start = 10,
-                End = 200,
-                Force = 150
+                Mode = AutoProfileTriggerMode.Weapon,
+                Start = 2,
+                End = 7,
+                Force = 5
             }
         });
 
@@ -260,12 +260,59 @@ public class AutoProfileServiceTests
         {
             Assert.That(match, Is.Not.Null);
             Assert.That(match!.LeftTrigger, Is.Not.Null);
-            Assert.That(match.LeftTrigger!.Mode, Is.EqualTo(AutoProfileTriggerMode.Trigger));
-            Assert.That(match.LeftTrigger.Start, Is.EqualTo(10));
-            Assert.That(match.LeftTrigger.End, Is.EqualTo(200));
-            Assert.That(match.LeftTrigger.Force, Is.EqualTo(150));
+            Assert.That(match.LeftTrigger!.Mode, Is.EqualTo(AutoProfileTriggerMode.Weapon));
+            Assert.That(match.LeftTrigger.Start, Is.EqualTo(2));
+            Assert.That(match.LeftTrigger.End, Is.EqualTo(7));
+            Assert.That(match.LeftTrigger.Force, Is.EqualTo(5));
             Assert.That(match.RightTrigger, Is.Null);
             Assert.That(match.IsActionless, Is.False);
+        });
+    }
+
+    [Test]
+    public void Rule_LegacyTriggerValues_ScaleIntoOfficialRanges()
+    {
+        AutoProfileService service = CreateService();
+        service.AddRule(new AutoProfileRule
+        {
+            ExePattern = "game\\.exe",
+            LeftTrigger = new TriggerEffectSettings
+            {
+                Mode = AutoProfileTriggerMode.Weapon,
+                Start = 10,
+                End = 200,
+                Force = 150,
+                Frequency = 10
+            }
+        });
+
+        AutoProfileService reloaded = CreateService();
+        AutoProfileRule? match = reloaded.FindMatch(@"C:\game.exe", "Title", null, null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(match, Is.Not.Null);
+            Assert.That(match!.LeftTrigger!.Start, Is.EqualTo((int)Math.Round(10 * 9.0 / 255)));
+            Assert.That(match.LeftTrigger.End, Is.EqualTo((int)Math.Round(200 * 9.0 / 255)));
+            Assert.That(match.LeftTrigger.Force, Is.EqualTo((int)Math.Round(150 * 8.0 / 255)));
+        });
+    }
+
+    [Test]
+    public void Rule_LegacyModeNames_DeserializeToNewModes()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(RulesPath)!);
+        File.WriteAllText(RulesPath,
+            """{"enabled":true,"rules":[{"exe":"game\\.exe","left_trigger":{"mode":"Resistance","start":0,"end":8,"force":8,"frequency":10},"right_trigger":{"mode":"Trigger","start":2,"end":7,"force":5,"frequency":10}}]}""");
+
+        AutoProfileService reloaded = CreateService();
+        AutoProfileRule? match = reloaded.FindMatch(@"C:\game.exe", "Title", null, null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(match, Is.Not.Null);
+            Assert.That(match!.LeftTrigger!.Mode, Is.EqualTo(AutoProfileTriggerMode.Feedback));
+            Assert.That(match.RightTrigger!.Mode, Is.EqualTo(AutoProfileTriggerMode.Weapon));
         });
     }
 

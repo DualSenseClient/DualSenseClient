@@ -66,7 +66,7 @@ DualSense Client
 ### Output Control
 
 - Rumble output test with independent left/right motor strength
-- Adaptive trigger modes for L2/R2 (Resistance, Trigger, Automatic) with force, frequency, start, and end adjustments
+- Adaptive trigger modes for L2/R2 (Feedback, Weapon, Vibration, Bow, Galloping, Machine, Slope Feedback) with per-mode tuning
 
 ### Audio
 
@@ -180,6 +180,7 @@ The DualSense protocol, audio, and haptics implementations were developed using 
 
 - [Linux kernel hid-playstation driver](https://github.com/torvalds/linux/blob/master/drivers/hid/hid-playstation.c) — Protocol reference, report layouts, calibration, and battery logic
 - [dualsense-tester](https://github.com/daidr/dualsense-tester) — Input/output report field maps and trigger effect logic
+- [ExtendInput TriggerEffectGenerator by Nielk1](https://gist.github.com/Nielk1/6d54cc2c00d2201ccb8c2720ad7538db) — Adaptive trigger effect byte layouts, parameter packing, and validation ranges
 - [vds](https://github.com/hurryman2212/vds) — Output report structs and Bluetooth audio/haptics implementation
 - [VIIPER](https://github.com/hbashton/VIIPER) — Virtual DualSense emulation, stream protocol, and haptics (base for libVIIPER)
 - [HidHide](https://github.com/nefarius/HidHide) — Driver for hiding physical controllers from other applications

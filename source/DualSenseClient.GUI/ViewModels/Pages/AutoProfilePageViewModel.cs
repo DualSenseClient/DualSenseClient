@@ -127,21 +127,57 @@ public partial class AutoProfilePageViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(LeftTriggerEnd))]
     [NotifyPropertyChangedFor(nameof(LeftTriggerForce))]
     [NotifyPropertyChangedFor(nameof(LeftTriggerFrequency))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerSnapForce))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerFirstFoot))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerSecondFoot))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerAmplitudeB))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerPeriod))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerEndStrength))]
     [NotifyPropertyChangedFor(nameof(LeftTriggerParametersVisible))]
     [NotifyPropertyChangedFor(nameof(LeftTriggerStartVisible))]
     [NotifyPropertyChangedFor(nameof(LeftTriggerEndVisible))]
     [NotifyPropertyChangedFor(nameof(LeftTriggerForceVisible))]
     [NotifyPropertyChangedFor(nameof(LeftTriggerFrequencyVisible))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerSnapForceVisible))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerFirstFootVisible))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerSecondFootVisible))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerAmplitudeBVisible))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerPeriodVisible))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerEndStrengthVisible))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerStartMinimum))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerStartMaximum))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerEndMinimum))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerEndMaximum))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerForceMaximum))]
+    [NotifyPropertyChangedFor(nameof(LeftTriggerSecondFootMinimum))]
     [NotifyPropertyChangedFor(nameof(SelectedRightTriggerIndex))]
     [NotifyPropertyChangedFor(nameof(RightTriggerStart))]
     [NotifyPropertyChangedFor(nameof(RightTriggerEnd))]
     [NotifyPropertyChangedFor(nameof(RightTriggerForce))]
     [NotifyPropertyChangedFor(nameof(RightTriggerFrequency))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerSnapForce))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerFirstFoot))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerSecondFoot))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerAmplitudeB))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerPeriod))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerEndStrength))]
     [NotifyPropertyChangedFor(nameof(RightTriggerParametersVisible))]
     [NotifyPropertyChangedFor(nameof(RightTriggerStartVisible))]
     [NotifyPropertyChangedFor(nameof(RightTriggerEndVisible))]
     [NotifyPropertyChangedFor(nameof(RightTriggerForceVisible))]
     [NotifyPropertyChangedFor(nameof(RightTriggerFrequencyVisible))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerSnapForceVisible))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerFirstFootVisible))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerSecondFootVisible))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerAmplitudeBVisible))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerPeriodVisible))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerEndStrengthVisible))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerStartMinimum))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerStartMaximum))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerEndMinimum))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerEndMaximum))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerForceMaximum))]
+    [NotifyPropertyChangedFor(nameof(RightTriggerSecondFootMinimum))]
     [NotifyPropertyChangedFor(nameof(SelectedHideIndex))]
     [NotifyPropertyChangedFor(nameof(SelectedControllerIndex))]
     [NotifyPropertyChangedFor(nameof(SelectedMatchScopeIndex))]
@@ -685,9 +721,13 @@ public partial class AutoProfilePageViewModel : ObservableObject
     [
         LocalizationService.GetText("AutoProfilesPage.Emulation.Unchanged"),
         LocalizationService.GetText("CustomizationPage.OutputTest.Triggers.Mode.Off"),
-        LocalizationService.GetText("CustomizationPage.OutputTest.Triggers.Mode.Resistance"),
-        LocalizationService.GetText("CustomizationPage.OutputTest.Triggers.Mode.Trigger"),
-        LocalizationService.GetText("CustomizationPage.OutputTest.Triggers.Mode.Automatic")
+        LocalizationService.GetText("CustomizationPage.OutputTest.Triggers.Mode.Feedback"),
+        LocalizationService.GetText("CustomizationPage.OutputTest.Triggers.Mode.Weapon"),
+        LocalizationService.GetText("CustomizationPage.OutputTest.Triggers.Mode.Vibration"),
+        LocalizationService.GetText("CustomizationPage.OutputTest.Triggers.Mode.Bow"),
+        LocalizationService.GetText("CustomizationPage.OutputTest.Triggers.Mode.Galloping"),
+        LocalizationService.GetText("CustomizationPage.OutputTest.Triggers.Mode.Machine"),
+        LocalizationService.GetText("CustomizationPage.OutputTest.Triggers.Mode.SlopeFeedback")
     ];
 
     /// <summary>
@@ -728,7 +768,7 @@ public partial class AutoProfilePageViewModel : ObservableObject
     /// </summary>
     private void SetTriggerMode(bool left, int value)
     {
-        if (SelectedRule is null || value < 0 || value > 4)
+        if (SelectedRule is null || value < 0 || value > 8)
         {
             return;
         }
@@ -824,15 +864,71 @@ public partial class AutoProfilePageViewModel : ObservableObject
 
                 settings.Frequency = clamped;
                 break;
+            case nameof(TriggerEffectSettings.SnapForce):
+                if (settings.SnapForce == clamped)
+                {
+                    return;
+                }
+
+                settings.SnapForce = clamped;
+                break;
+            case nameof(TriggerEffectSettings.FirstFoot):
+                if (settings.FirstFoot == clamped)
+                {
+                    return;
+                }
+
+                settings.FirstFoot = clamped;
+                break;
+            case nameof(TriggerEffectSettings.SecondFoot):
+                if (settings.SecondFoot == clamped)
+                {
+                    return;
+                }
+
+                settings.SecondFoot = clamped;
+                break;
+            case nameof(TriggerEffectSettings.AmplitudeB):
+                if (settings.AmplitudeB == clamped)
+                {
+                    return;
+                }
+
+                settings.AmplitudeB = clamped;
+                break;
+            case nameof(TriggerEffectSettings.Period):
+                if (settings.Period == clamped)
+                {
+                    return;
+                }
+
+                settings.Period = clamped;
+                break;
+            case nameof(TriggerEffectSettings.EndStrength):
+                if (settings.EndStrength == clamped)
+                {
+                    return;
+                }
+
+                settings.EndStrength = clamped;
+                break;
             default:
                 return;
         }
 
         OnPropertyChanged(left ? "LeftTrigger" + property : "RightTrigger" + property);
+        if (property == nameof(TriggerEffectSettings.Start))
+        {
+            OnPropertyChanged(left ? nameof(LeftTriggerEndMinimum) : nameof(RightTriggerEndMinimum));
+        }
+        else if (property == nameof(TriggerEffectSettings.FirstFoot))
+        {
+            OnPropertyChanged(left ? nameof(LeftTriggerSecondFootMinimum) : nameof(RightTriggerSecondFootMinimum));
+        }
     }
 
     /// <summary>
-    /// Left trigger effect start position (0-255).
+    /// Left trigger effect start position (0-9).
     /// </summary>
     public int LeftTriggerStart
     {
@@ -842,57 +938,147 @@ public partial class AutoProfilePageViewModel : ObservableObject
         }
         set
         {
-            SetTriggerSlider(true, nameof(TriggerEffectSettings.Start), value, 0, 255);
+            SetTriggerSlider(true, nameof(TriggerEffectSettings.Start), value, 0, 9);
         }
     }
 
     /// <summary>
-    /// Left trigger effect end position (0-255).
+    /// Left trigger effect end position (0-9).
     /// </summary>
     public int LeftTriggerEnd
     {
         get
         {
-            return SelectedRule?.LeftTrigger?.End ?? 255;
+            return SelectedRule?.LeftTrigger?.End ?? 8;
         }
         set
         {
-            SetTriggerSlider(true, nameof(TriggerEffectSettings.End), value, 0, 255);
+            SetTriggerSlider(true, nameof(TriggerEffectSettings.End), value, 0, 9);
         }
     }
 
     /// <summary>
-    /// Left trigger effect force (0-255).
+    /// Left trigger effect force (0-8).
     /// </summary>
     public int LeftTriggerForce
     {
         get
         {
-            return SelectedRule?.LeftTrigger?.Force ?? 100;
+            return SelectedRule?.LeftTrigger?.Force ?? 8;
         }
         set
         {
-            SetTriggerSlider(true, nameof(TriggerEffectSettings.Force), value, 0, 255);
+            SetTriggerSlider(true, nameof(TriggerEffectSettings.Force), value, 0, 8);
         }
     }
 
     /// <summary>
-    /// Left trigger automatic mode frequency (0-15).
+    /// Left trigger vibration/galloping/machine frequency (0-255).
     /// </summary>
     public int LeftTriggerFrequency
     {
         get
         {
-            return SelectedRule?.LeftTrigger?.Frequency ?? 5;
+            return SelectedRule?.LeftTrigger?.Frequency ?? 10;
         }
         set
         {
-            SetTriggerSlider(true, nameof(TriggerEffectSettings.Frequency), value, 0, 15);
+            SetTriggerSlider(true, nameof(TriggerEffectSettings.Frequency), value, 0, 255);
         }
     }
 
     /// <summary>
-    /// Right trigger effect start position (0-255).
+    /// Left trigger bow snap-back force (0-8).
+    /// </summary>
+    public int LeftTriggerSnapForce
+    {
+        get
+        {
+            return SelectedRule?.LeftTrigger?.SnapForce ?? 8;
+        }
+        set
+        {
+            SetTriggerSlider(true, nameof(TriggerEffectSettings.SnapForce), value, 0, 8);
+        }
+    }
+
+    /// <summary>
+    /// Left trigger galloping first foot (0-6).
+    /// </summary>
+    public int LeftTriggerFirstFoot
+    {
+        get
+        {
+            return SelectedRule?.LeftTrigger?.FirstFoot ?? 0;
+        }
+        set
+        {
+            SetTriggerSlider(true, nameof(TriggerEffectSettings.FirstFoot), value, 0, 6);
+        }
+    }
+
+    /// <summary>
+    /// Left trigger galloping second foot (1-7).
+    /// </summary>
+    public int LeftTriggerSecondFoot
+    {
+        get
+        {
+            return SelectedRule?.LeftTrigger?.SecondFoot ?? 1;
+        }
+        set
+        {
+            SetTriggerSlider(true, nameof(TriggerEffectSettings.SecondFoot), value, 0, 7);
+        }
+    }
+
+    /// <summary>
+    /// Left trigger machine secondary amplitude (0-7).
+    /// </summary>
+    public int LeftTriggerAmplitudeB
+    {
+        get
+        {
+            return SelectedRule?.LeftTrigger?.AmplitudeB ?? 4;
+        }
+        set
+        {
+            SetTriggerSlider(true, nameof(TriggerEffectSettings.AmplitudeB), value, 0, 7);
+        }
+    }
+
+    /// <summary>
+    /// Left trigger machine period (0-255).
+    /// </summary>
+    public int LeftTriggerPeriod
+    {
+        get
+        {
+            return SelectedRule?.LeftTrigger?.Period ?? 5;
+        }
+        set
+        {
+            SetTriggerSlider(true, nameof(TriggerEffectSettings.Period), value, 0, 255);
+        }
+    }
+
+    /// <summary>
+    /// Left trigger slope end strength (0-8, 0 yields Off).
+    /// </summary>
+    public int LeftTriggerEndStrength
+    {
+        get
+        {
+            return SelectedRule?.LeftTrigger?.EndStrength ?? 8;
+        }
+        set
+        {
+            SetTriggerSlider(true, nameof(TriggerEffectSettings.EndStrength), value, 0, 8);
+        }
+    }
+
+    /// <summary>
+    /// Right trigger effect start position (0-9).
     /// </summary>
     public int RightTriggerStart
     {
@@ -902,52 +1088,158 @@ public partial class AutoProfilePageViewModel : ObservableObject
         }
         set
         {
-            SetTriggerSlider(false, nameof(TriggerEffectSettings.Start), value, 0, 255);
+            SetTriggerSlider(false, nameof(TriggerEffectSettings.Start), value, 0, 9);
         }
     }
 
     /// <summary>
-    /// Right trigger effect end position (0-255).
+    /// Right trigger effect end position (0-9).
     /// </summary>
     public int RightTriggerEnd
     {
         get
         {
-            return SelectedRule?.RightTrigger?.End ?? 255;
+            return SelectedRule?.RightTrigger?.End ?? 8;
         }
         set
         {
-            SetTriggerSlider(false, nameof(TriggerEffectSettings.End), value, 0, 255);
+            SetTriggerSlider(false, nameof(TriggerEffectSettings.End), value, 0, 9);
         }
     }
 
     /// <summary>
-    /// Right trigger effect force (0-255).
+    /// Right trigger effect force (0-8).
     /// </summary>
     public int RightTriggerForce
     {
         get
         {
-            return SelectedRule?.RightTrigger?.Force ?? 100;
+            return SelectedRule?.RightTrigger?.Force ?? 8;
         }
         set
         {
-            SetTriggerSlider(false, nameof(TriggerEffectSettings.Force), value, 0, 255);
+            SetTriggerSlider(false, nameof(TriggerEffectSettings.Force), value, 0, 8);
         }
     }
 
     /// <summary>
-    /// Right trigger automatic mode frequency (0-15).
+    /// Right trigger vibration/galloping/machine frequency (0-255).
     /// </summary>
     public int RightTriggerFrequency
     {
         get
         {
-            return SelectedRule?.RightTrigger?.Frequency ?? 5;
+            return SelectedRule?.RightTrigger?.Frequency ?? 10;
         }
         set
         {
-            SetTriggerSlider(false, nameof(TriggerEffectSettings.Frequency), value, 0, 15);
+            SetTriggerSlider(false, nameof(TriggerEffectSettings.Frequency), value, 0, 255);
+        }
+    }
+
+    /// <summary>
+    /// Right trigger bow snap-back force (0-8).
+    /// </summary>
+    public int RightTriggerSnapForce
+    {
+        get
+        {
+            return SelectedRule?.RightTrigger?.SnapForce ?? 8;
+        }
+        set
+        {
+            SetTriggerSlider(false, nameof(TriggerEffectSettings.SnapForce), value, 0, 8);
+        }
+    }
+
+    /// <summary>
+    /// Right trigger galloping first foot (0-6).
+    /// </summary>
+    public int RightTriggerFirstFoot
+    {
+        get
+        {
+            return SelectedRule?.RightTrigger?.FirstFoot ?? 0;
+        }
+        set
+        {
+            SetTriggerSlider(false, nameof(TriggerEffectSettings.FirstFoot), value, 0, 6);
+        }
+    }
+
+    /// <summary>
+    /// Right trigger galloping second foot (1-7).
+    /// </summary>
+    public int RightTriggerSecondFoot
+    {
+        get
+        {
+            return SelectedRule?.RightTrigger?.SecondFoot ?? 1;
+        }
+        set
+        {
+            SetTriggerSlider(false, nameof(TriggerEffectSettings.SecondFoot), value, 0, 7);
+        }
+    }
+
+    /// <summary>
+    /// Right trigger machine secondary amplitude (0-7).
+    /// </summary>
+    public int RightTriggerAmplitudeB
+    {
+        get
+        {
+            return SelectedRule?.RightTrigger?.AmplitudeB ?? 4;
+        }
+        set
+        {
+            SetTriggerSlider(false, nameof(TriggerEffectSettings.AmplitudeB), value, 0, 7);
+        }
+    }
+
+    /// <summary>
+    /// Right trigger machine period (0-255).
+    /// </summary>
+    public int RightTriggerPeriod
+    {
+        get
+        {
+            return SelectedRule?.RightTrigger?.Period ?? 5;
+        }
+        set
+        {
+            SetTriggerSlider(false, nameof(TriggerEffectSettings.Period), value, 0, 255);
+        }
+    }
+
+    /// <summary>
+    /// Right trigger slope end strength (0-8, 0 yields Off).
+    /// </summary>
+    public int RightTriggerEndStrength
+    {
+        get
+        {
+            return SelectedRule?.RightTrigger?.EndStrength ?? 8;
+        }
+        set
+        {
+            SetTriggerSlider(false, nameof(TriggerEffectSettings.EndStrength), value, 0, 8);
+        }
+    }
+
+    private AutoProfileTriggerMode SelectedLeftTriggerModeOrOff
+    {
+        get
+        {
+            return SelectedRule?.LeftTrigger?.Mode ?? AutoProfileTriggerMode.Off;
+        }
+    }
+
+    private AutoProfileTriggerMode SelectedRightTriggerModeOrOff
+    {
+        get
+        {
+            return SelectedRule?.RightTrigger?.Mode ?? AutoProfileTriggerMode.Off;
         }
     }
 
@@ -974,13 +1266,17 @@ public partial class AutoProfilePageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Whether the left end-position slider applies to the selected mode (weapon mode only).
+    /// Whether the left end-position slider applies to the selected mode.
     /// </summary>
     public bool LeftTriggerEndVisible
     {
         get
         {
-            return SelectedLeftTriggerIndex == 3;
+            return SelectedLeftTriggerModeOrOff is AutoProfileTriggerMode.Weapon
+                or AutoProfileTriggerMode.Bow
+                or AutoProfileTriggerMode.Galloping
+                or AutoProfileTriggerMode.Machine
+                or AutoProfileTriggerMode.SlopeFeedback;
         }
     }
 
@@ -991,18 +1287,91 @@ public partial class AutoProfilePageViewModel : ObservableObject
     {
         get
         {
-            return LeftTriggerParametersVisible;
+            return SelectedLeftTriggerModeOrOff is AutoProfileTriggerMode.Feedback
+                or AutoProfileTriggerMode.Weapon
+                or AutoProfileTriggerMode.Vibration
+                or AutoProfileTriggerMode.Bow
+                or AutoProfileTriggerMode.Machine
+                or AutoProfileTriggerMode.SlopeFeedback;
         }
     }
 
     /// <summary>
-    /// Whether the left frequency slider applies to the selected mode (automatic mode only).
+    /// Whether the left frequency slider applies to the selected mode.
     /// </summary>
     public bool LeftTriggerFrequencyVisible
     {
         get
         {
-            return SelectedLeftTriggerIndex == 4;
+            return SelectedLeftTriggerModeOrOff is AutoProfileTriggerMode.Vibration
+                or AutoProfileTriggerMode.Galloping
+                or AutoProfileTriggerMode.Machine;
+        }
+    }
+
+    /// <summary>
+    /// Whether the left snap-force slider applies (bow mode only).
+    /// </summary>
+    public bool LeftTriggerSnapForceVisible
+    {
+        get
+        {
+            return SelectedLeftTriggerModeOrOff == AutoProfileTriggerMode.Bow;
+        }
+    }
+
+    /// <summary>
+    /// Whether the left first-foot slider applies (galloping mode only).
+    /// </summary>
+    public bool LeftTriggerFirstFootVisible
+    {
+        get
+        {
+            return SelectedLeftTriggerModeOrOff == AutoProfileTriggerMode.Galloping;
+        }
+    }
+
+    /// <summary>
+    /// Whether the left second-foot slider applies (galloping mode only).
+    /// </summary>
+    public bool LeftTriggerSecondFootVisible
+    {
+        get
+        {
+            return SelectedLeftTriggerModeOrOff == AutoProfileTriggerMode.Galloping;
+        }
+    }
+
+    /// <summary>
+    /// Whether the left amplitude-B slider applies (machine mode only).
+    /// </summary>
+    public bool LeftTriggerAmplitudeBVisible
+    {
+        get
+        {
+            return SelectedLeftTriggerModeOrOff == AutoProfileTriggerMode.Machine;
+        }
+    }
+
+    /// <summary>
+    /// Whether the left period slider applies (machine mode only).
+    /// </summary>
+    public bool LeftTriggerPeriodVisible
+    {
+        get
+        {
+            return SelectedLeftTriggerModeOrOff == AutoProfileTriggerMode.Machine;
+        }
+    }
+
+    /// <summary>
+    /// Whether the left end-strength slider applies (slope mode only).
+    /// </summary>
+    public bool LeftTriggerEndStrengthVisible
+    {
+        get
+        {
+            return SelectedLeftTriggerModeOrOff == AutoProfileTriggerMode.SlopeFeedback;
         }
     }
 
@@ -1029,13 +1398,17 @@ public partial class AutoProfilePageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Whether the right end-position slider applies to the selected mode (weapon mode only).
+    /// Whether the right end-position slider applies to the selected mode.
     /// </summary>
     public bool RightTriggerEndVisible
     {
         get
         {
-            return SelectedRightTriggerIndex == 3;
+            return SelectedRightTriggerModeOrOff is AutoProfileTriggerMode.Weapon
+                or AutoProfileTriggerMode.Bow
+                or AutoProfileTriggerMode.Galloping
+                or AutoProfileTriggerMode.Machine
+                or AutoProfileTriggerMode.SlopeFeedback;
         }
     }
 
@@ -1046,18 +1419,239 @@ public partial class AutoProfilePageViewModel : ObservableObject
     {
         get
         {
-            return RightTriggerParametersVisible;
+            return SelectedRightTriggerModeOrOff is AutoProfileTriggerMode.Feedback
+                or AutoProfileTriggerMode.Weapon
+                or AutoProfileTriggerMode.Vibration
+                or AutoProfileTriggerMode.Bow
+                or AutoProfileTriggerMode.Machine
+                or AutoProfileTriggerMode.SlopeFeedback;
         }
     }
 
     /// <summary>
-    /// Whether the right frequency slider applies to the selected mode (automatic mode only).
+    /// Whether the right frequency slider applies to the selected mode.
     /// </summary>
     public bool RightTriggerFrequencyVisible
     {
         get
         {
-            return SelectedRightTriggerIndex == 4;
+            return SelectedRightTriggerModeOrOff is AutoProfileTriggerMode.Vibration
+                or AutoProfileTriggerMode.Galloping
+                or AutoProfileTriggerMode.Machine;
+        }
+    }
+
+    /// <summary>
+    /// Whether the right snap-force slider applies (bow mode only).
+    /// </summary>
+    public bool RightTriggerSnapForceVisible
+    {
+        get
+        {
+            return SelectedRightTriggerModeOrOff == AutoProfileTriggerMode.Bow;
+        }
+    }
+
+    /// <summary>
+    /// Whether the right first-foot slider applies (galloping mode only).
+    /// </summary>
+    public bool RightTriggerFirstFootVisible
+    {
+        get
+        {
+            return SelectedRightTriggerModeOrOff == AutoProfileTriggerMode.Galloping;
+        }
+    }
+
+    /// <summary>
+    /// Whether the right second-foot slider applies (galloping mode only).
+    /// </summary>
+    public bool RightTriggerSecondFootVisible
+    {
+        get
+        {
+            return SelectedRightTriggerModeOrOff == AutoProfileTriggerMode.Galloping;
+        }
+    }
+
+    /// <summary>
+    /// Whether the right amplitude-B slider applies (machine mode only).
+    /// </summary>
+    public bool RightTriggerAmplitudeBVisible
+    {
+        get
+        {
+            return SelectedRightTriggerModeOrOff == AutoProfileTriggerMode.Machine;
+        }
+    }
+
+    /// <summary>
+    /// Whether the right period slider applies (machine mode only).
+    /// </summary>
+    public bool RightTriggerPeriodVisible
+    {
+        get
+        {
+            return SelectedRightTriggerModeOrOff == AutoProfileTriggerMode.Machine;
+        }
+    }
+
+    /// <summary>
+    /// Whether the right end-strength slider applies (slope mode only).
+    /// </summary>
+    public bool RightTriggerEndStrengthVisible
+    {
+        get
+        {
+            return SelectedRightTriggerModeOrOff == AutoProfileTriggerMode.SlopeFeedback;
+        }
+    }
+
+    /// <summary>
+    /// Left start-position slider minimum for the selected mode (weapon starts at zone 2).
+    /// </summary>
+    public int LeftTriggerStartMinimum
+    {
+        get
+        {
+            return SelectedLeftTriggerModeOrOff == AutoProfileTriggerMode.Weapon ? 2 : 0;
+        }
+    }
+
+    /// <summary>
+    /// Left start-position slider maximum for the selected mode.
+    /// </summary>
+    public int LeftTriggerStartMaximum
+    {
+        get
+        {
+            return SelectedLeftTriggerModeOrOff switch
+            {
+                AutoProfileTriggerMode.Feedback or AutoProfileTriggerMode.Vibration => 9,
+                AutoProfileTriggerMode.Weapon or AutoProfileTriggerMode.Bow => 7,
+                _ => 8
+            };
+        }
+    }
+
+    /// <summary>
+    /// Left end-position slider minimum: always past the current start position.
+    /// </summary>
+    public int LeftTriggerEndMinimum
+    {
+        get
+        {
+            int start = SelectedRule?.LeftTrigger?.Start ?? 0;
+            return SelectedLeftTriggerModeOrOff is AutoProfileTriggerMode.Weapon or AutoProfileTriggerMode.Bow
+                ? Math.Min(start + 1, 8)
+                : Math.Min(start + 1, 9);
+        }
+    }
+
+    /// <summary>
+    /// Left end-position slider maximum for the selected mode.
+    /// </summary>
+    public int LeftTriggerEndMaximum
+    {
+        get
+        {
+            return SelectedLeftTriggerModeOrOff is AutoProfileTriggerMode.Weapon or AutoProfileTriggerMode.Bow ? 8 : 9;
+        }
+    }
+
+    /// <summary>
+    /// Left force slider maximum: machine mode amplitudes stop at 7, the rest at 8.
+    /// </summary>
+    public int LeftTriggerForceMaximum
+    {
+        get
+        {
+            return SelectedLeftTriggerModeOrOff == AutoProfileTriggerMode.Machine ? 7 : 8;
+        }
+    }
+
+    /// <summary>
+    /// Left second-foot slider minimum: always past the current first foot.
+    /// </summary>
+    public int LeftTriggerSecondFootMinimum
+    {
+        get
+        {
+            return Math.Min((SelectedRule?.LeftTrigger?.FirstFoot ?? 0) + 1, 7);
+        }
+    }
+
+    /// <summary>
+    /// Right start-position slider minimum for the selected mode (weapon starts at zone 2).
+    /// </summary>
+    public int RightTriggerStartMinimum
+    {
+        get
+        {
+            return SelectedRightTriggerModeOrOff == AutoProfileTriggerMode.Weapon ? 2 : 0;
+        }
+    }
+
+    /// <summary>
+    /// Right start-position slider maximum for the selected mode.
+    /// </summary>
+    public int RightTriggerStartMaximum
+    {
+        get
+        {
+            return SelectedRightTriggerModeOrOff switch
+            {
+                AutoProfileTriggerMode.Feedback or AutoProfileTriggerMode.Vibration => 9,
+                AutoProfileTriggerMode.Weapon or AutoProfileTriggerMode.Bow => 7,
+                _ => 8
+            };
+        }
+    }
+
+    /// <summary>
+    /// Right end-position slider minimum: always past the current start position.
+    /// </summary>
+    public int RightTriggerEndMinimum
+    {
+        get
+        {
+            int start = SelectedRule?.RightTrigger?.Start ?? 0;
+            return SelectedRightTriggerModeOrOff is AutoProfileTriggerMode.Weapon or AutoProfileTriggerMode.Bow
+                ? Math.Min(start + 1, 8)
+                : Math.Min(start + 1, 9);
+        }
+    }
+
+    /// <summary>
+    /// Right end-position slider maximum for the selected mode.
+    /// </summary>
+    public int RightTriggerEndMaximum
+    {
+        get
+        {
+            return SelectedRightTriggerModeOrOff is AutoProfileTriggerMode.Weapon or AutoProfileTriggerMode.Bow ? 8 : 9;
+        }
+    }
+
+    /// <summary>
+    /// Right force slider maximum: machine mode amplitudes stop at 7, the rest at 8.
+    /// </summary>
+    public int RightTriggerForceMaximum
+    {
+        get
+        {
+            return SelectedRightTriggerModeOrOff == AutoProfileTriggerMode.Machine ? 7 : 8;
+        }
+    }
+
+    /// <summary>
+    /// Right second-foot slider minimum: always past the current first foot.
+    /// </summary>
+    public int RightTriggerSecondFootMinimum
+    {
+        get
+        {
+            return Math.Min((SelectedRule?.RightTrigger?.FirstFoot ?? 0) + 1, 7);
         }
     }
 
@@ -1071,6 +1665,18 @@ public partial class AutoProfilePageViewModel : ObservableObject
         OnPropertyChanged(nameof(LeftTriggerEndVisible));
         OnPropertyChanged(nameof(LeftTriggerForceVisible));
         OnPropertyChanged(nameof(LeftTriggerFrequencyVisible));
+        OnPropertyChanged(nameof(LeftTriggerSnapForceVisible));
+        OnPropertyChanged(nameof(LeftTriggerFirstFootVisible));
+        OnPropertyChanged(nameof(LeftTriggerSecondFootVisible));
+        OnPropertyChanged(nameof(LeftTriggerAmplitudeBVisible));
+        OnPropertyChanged(nameof(LeftTriggerPeriodVisible));
+        OnPropertyChanged(nameof(LeftTriggerEndStrengthVisible));
+        OnPropertyChanged(nameof(LeftTriggerStartMinimum));
+        OnPropertyChanged(nameof(LeftTriggerStartMaximum));
+        OnPropertyChanged(nameof(LeftTriggerEndMinimum));
+        OnPropertyChanged(nameof(LeftTriggerEndMaximum));
+        OnPropertyChanged(nameof(LeftTriggerForceMaximum));
+        OnPropertyChanged(nameof(LeftTriggerSecondFootMinimum));
     }
 
     /// <summary>
@@ -1083,6 +1689,18 @@ public partial class AutoProfilePageViewModel : ObservableObject
         OnPropertyChanged(nameof(RightTriggerEndVisible));
         OnPropertyChanged(nameof(RightTriggerForceVisible));
         OnPropertyChanged(nameof(RightTriggerFrequencyVisible));
+        OnPropertyChanged(nameof(RightTriggerSnapForceVisible));
+        OnPropertyChanged(nameof(RightTriggerFirstFootVisible));
+        OnPropertyChanged(nameof(RightTriggerSecondFootVisible));
+        OnPropertyChanged(nameof(RightTriggerAmplitudeBVisible));
+        OnPropertyChanged(nameof(RightTriggerPeriodVisible));
+        OnPropertyChanged(nameof(RightTriggerEndStrengthVisible));
+        OnPropertyChanged(nameof(RightTriggerStartMinimum));
+        OnPropertyChanged(nameof(RightTriggerStartMaximum));
+        OnPropertyChanged(nameof(RightTriggerEndMinimum));
+        OnPropertyChanged(nameof(RightTriggerEndMaximum));
+        OnPropertyChanged(nameof(RightTriggerForceMaximum));
+        OnPropertyChanged(nameof(RightTriggerSecondFootMinimum));
     }
 
     /// <summary>
