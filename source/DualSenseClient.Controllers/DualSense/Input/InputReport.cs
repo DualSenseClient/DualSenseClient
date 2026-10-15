@@ -42,12 +42,29 @@ public readonly struct InputReport
     public ConnectionStatus Connection { get; }
 
     /// <summary>
+    /// Exact 64B USB input report 0x01 for verbatim passthrough,
+    /// or <c>null</c> when only the parsed fields are available.
+    /// </summary>
+    public byte[]? UsbRaw64 { get; init; }
+
+    /// <summary>
     /// Creates a new parsed input report. All sub-state values are parsed
     /// from the buffer at construction time.
     /// </summary>
     /// <param name="buffer">The full HID input report buffer.</param>
     /// <param name="offset">Offset to the 63-byte data payload (1 for USB, 2 for Bluetooth).</param>
     public InputReport(byte[] buffer, int offset)
+        : this(buffer, offset, null)
+    {
+    }
+
+    /// <summary>
+    /// Creates a parsed report with a verbatim USB image attached.
+    /// </summary>
+    /// <param name="buffer">The full HID input report buffer.</param>
+    /// <param name="offset">Offset to the 63-byte data payload (1 for USB, 2 for Bluetooth).</param>
+    /// <param name="usbRaw64">Exact 64B USB report 0x01, or <c>null</c>.</param>
+    public InputReport(byte[] buffer, int offset, byte[]? usbRaw64)
     {
         Input = new InputState(buffer, offset);
         Motion = new MotionState(buffer, offset);
@@ -56,5 +73,6 @@ public readonly struct InputReport
         DeviceTimestamp = new DeviceTimestamp(buffer, offset);
         Battery = new BatteryState(buffer[offset + 52]);
         Connection = new ConnectionStatus(buffer[offset + 53]);
+        UsbRaw64 = usbRaw64;
     }
 }

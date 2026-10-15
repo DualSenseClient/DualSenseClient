@@ -1,8 +1,8 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Reflection;
+using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Enum;
 using DualSenseClient.Controllers.DualSense.Output;
-using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.SpecialActions;
 using DualSenseClient.Hid;
 using DualSenseClient.Settings.Sections;
@@ -251,7 +251,7 @@ public class SpecialActionEngineTests
     }
 
     private static void FeedReport(DualSenseDevice device, byte[] buffer) =>
-        ProcessInputReportMethod.Invoke(device, [buffer]);
+        ProcessInputReportMethod.Invoke(device, [buffer, buffer.Length]);
 
     /// <summary>
     /// Performs a single-finger swipe: finger down at <paramref name="fromX"/>, then moved to

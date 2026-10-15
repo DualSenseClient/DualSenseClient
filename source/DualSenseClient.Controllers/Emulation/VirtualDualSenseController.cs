@@ -50,6 +50,13 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
     private bool _metaInitialized;
 
     /// <summary>
+    /// Whether a raw passthrough report is currently published on the virtual
+    /// device. While set, the synth builder is frozen (see libVIIPER raw.go);
+    /// pushing synth input requires clearing first.
+    /// </summary>
+    private bool _rawActive;
+
+    /// <summary>
     /// Whether the physical controller uses the "vibration v2" rumble encoding.
     /// </summary>
     private readonly bool _vibrationV2;
@@ -112,13 +119,83 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
     }
 
     /// <summary>
+    /// Whether verbatim raw passthrough is safe: only with the built-in
+    /// one-to-one mapping. Custom remaps must use the synthesized state so
+    /// every game-visible button follows the user's rules.
+    /// </summary>
+    public bool ShouldUseRaw
+    {
+        get
+        {
+            return ShouldUseRawMapping(ButtonMappings);
+        }
+    }
+
+    /// <summary>
+    /// Whether the given mapping table allows verbatim raw passthrough.
+    /// </summary>
+    public static bool ShouldUseRawMapping(ButtonMappingTable? table)
+        => table is null || ReferenceEquals(table, VirtualInputMapper.DualSenseDefaultTable);
+
+    /// <summary>
+    /// Pipes one exact 64B USB input report to the virtual device, served
+    /// verbatim to the host.
+    /// </summary>
+    /// <returns>True when the native library accepted the report.</returns>
+    public bool PushRawInput(byte[] usbRaw64)
+    {
+        if (DeviceHandle is not { } handle || usbRaw64 is null || usbRaw64.Length != DualSenseRawReport.UsbReportSize
+            || usbRaw64[0] != 0x01)
+        {
+            return false;
+        }
+
+        bool ok = LibVIIPER.SetDualSenseRawInputReport(handle, usbRaw64, (nuint)usbRaw64.Length);
+        if (ok)
+        {
+            _rawActive = true;
+        }
+
+        return ok;
+    }
+
+    /// <summary>
+    /// Drops the raw passthrough and restores synthesized reports.
+    /// </summary>
+    public void ClearRawInput()
+    {
+        if (DeviceHandle is { } handle)
+        {
+            LibVIIPER.ClearDualSenseRawInputReport(handle);
+        }
+
+        _rawActive = false;
+    }
+
+    /// <summary>
     /// Translates physical input to the virtual DualSense input state and pushes it.
+    /// Prefers the verbatim raw report when the mapping is
+    /// one-to-one; falls back to the synthesized state for remaps or short reads.
     /// </summary>
     public override void PushInput(InputReport report)
     {
         if (DeviceHandle is not { } handle)
         {
             return;
+        }
+
+        if (report.UsbRaw64 is { } raw && ShouldUseRaw)
+        {
+            if (PushRawInput(raw))
+            {
+                EnsureInitialMeta(report);
+                return;
+            }
+        }
+
+        if (_rawActive)
+        {
+            ClearRawInput();
         }
 
         InputState input = report.Input;

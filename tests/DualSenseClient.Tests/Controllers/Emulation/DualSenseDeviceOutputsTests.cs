@@ -1,7 +1,7 @@
-﻿using System.Reflection;
+using System.Reflection;
+using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Enum;
 using DualSenseClient.Controllers.DualSense.Output;
-using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Controllers.SpecialActions;
 using DualSenseClient.Hid;
@@ -150,7 +150,7 @@ public class DualSenseDeviceOutputsTests
         .GetMethod("ProcessInputReport", BindingFlags.NonPublic | BindingFlags.Instance)!;
 
     private static void FeedReport(DualSenseDevice device, byte[] buffer) =>
-        ProcessInputReportMethod.Invoke(device, [buffer]);
+        ProcessInputReportMethod.Invoke(device, [buffer, buffer.Length]);
 
     private static byte[] CreateReport(params ButtonType[] pressed)
     {

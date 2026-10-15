@@ -181,6 +181,25 @@ public static class LibVIIPER
     public static extern bool SetDualSenseMicrophonePCM(nuint deviceHandle, byte[] data, nuint length);
 
     /// <summary>
+    /// Pipes one exact 64B USB input report 0x01 (real controller bytes).
+    /// While set, interrupt IN and GET_REPORT serve it verbatim.
+    /// </summary>
+    /// <param name="deviceHandle">Handle to the DualSense device.</param>
+    /// <param name="data">64B USB report with report ID 0x01.</param>
+    /// <param name="length">Length of the report (must be 64).</param>
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    public static extern bool SetDualSenseRawInputReport(nuint deviceHandle, byte[] data, nuint length);
+
+    /// <summary>
+    /// Drops the raw passthrough and restores synthetic input reports.
+    /// </summary>
+    /// <param name="deviceHandle">Handle to the DualSense device.</param>
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    public static extern bool ClearDualSenseRawInputReport(nuint deviceHandle);
+
+    /// <summary>
     /// Removes the DualSense device associated with the given handle from the server.
     /// </summary>
     /// <param name="deviceHandle">Handle to the DualSense device to remove.</param>

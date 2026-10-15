@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
+using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.DualSense.Events;
 using DualSenseClient.Controllers.DualSense.Input;
-using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.SpecialActions;
 using DualSenseClient.Hid;
 using DualSenseClient.Logging;
@@ -449,6 +449,15 @@ public sealed class EmulationService : IEmulationService
     private void ApplyButtonMappingsLocked(IVirtualController virtualController, DualSenseDevice device)
     {
         EmulationSettings emulation = GetEmulationSettings(device);
+        if (virtualController.Mode == EmulationMode.DualSense
+            && (emulation.Mappings.DualSense is null || emulation.Mappings.DualSense.Count == 0))
+        {
+            // Built-in one-to-one mapping: share the singleton so the virtual
+            // controller can take the verbatim raw path.
+            virtualController.ButtonMappings = VirtualInputMapper.DualSenseDefaultTable;
+            return;
+        }
+
         virtualController.ButtonMappings = virtualController.Mode switch
         {
             EmulationMode.Xbox360 => VirtualInputMapper.Xbox360Table(emulation.Mappings.Xbox360, WarnInvalidMapping),

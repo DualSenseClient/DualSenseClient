@@ -139,7 +139,7 @@ public class DualSenseDeviceEventTests
         .GetMethod("ProcessInputReport", BindingFlags.NonPublic | BindingFlags.Instance)!;
 
     private static void FeedReport(DualSenseDevice device, byte[] buffer) =>
-        ProcessInputReportMethod.Invoke(device, [buffer]);
+        ProcessInputReportMethod.Invoke(device, [buffer, buffer.Length]);
 
     private static byte[] CloneUsbReport()
     {

@@ -1,12 +1,12 @@
-﻿using DualSenseClient.Controllers.DualSense.Events;
+using DualSenseClient.Controllers.DualSense.Enum;
+using DualSenseClient.Controllers.DualSense.Events;
 using DualSenseClient.Controllers.DualSense.Feature;
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.DualSense.Output;
+using DualSenseClient.Controllers.DualSense.Triggers;
 using DualSenseClient.Hid;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings.Sections;
-using DualSenseClient.Controllers.DualSense.Enum;
-using DualSenseClient.Controllers.DualSense.Triggers;
 
 namespace DualSenseClient.Controllers.Devices;
 
@@ -300,7 +300,10 @@ public class DualSenseDevice : ControllerDevice
     private void ReadLoop(CancellationToken ct)
     {
         _log.Debug("Read Loop Start");
-        byte[] buffer = new byte[MaxOutputReportLength];
+        // Size by input, not output: USB 0x01 is 64B while MaxOutputReportLength
+        // is 63 on USB; BT 0x31 fills 78B. A 63B buffer would truncate the USB
+        // AES tail needed for verbatim raw passthrough.
+        byte[] buffer = new byte[Math.Max(MaxOutputReportLength, 78)];
         while (!ct.IsCancellationRequested)
         {
             try
@@ -324,7 +327,7 @@ public class DualSenseDevice : ControllerDevice
                     continue;
                 }
 
-                ProcessInputReport(buffer);
+                ProcessInputReport(buffer, result);
             }
             catch (HidException ex)
             {
@@ -347,9 +350,11 @@ public class DualSenseDevice : ControllerDevice
     /// <summary>
     /// Routes a raw HID report to the correct parser based on connection type and report ID.
     /// Strips the protocol header bytes before forwarding to the input parser.
+    /// Attaches the verbatim 64B USB report for raw passthrough when available.
     /// </summary>
     /// <param name="data">Raw HID input report buffer.</param>
-    private void ProcessInputReport(byte[] data)
+    /// <param name="bytesRead">Valid bytes in <paramref name="data"/>.</param>
+    private void ProcessInputReport(byte[] data, int bytesRead)
     {
         byte reportId = data[0];
         int offset;
@@ -379,7 +384,9 @@ public class DualSenseDevice : ControllerDevice
             offset = 1;
         }
 
-        InputReport report = new InputReport(data, offset);
+        byte[]? usbRaw = null;
+        DualSenseRawReport.TryBuildUsbRaw64(data, bytesRead, ConnectionType, out usbRaw);
+        InputReport report = new InputReport(data, offset, usbRaw);
         _log.Trace($"Input report 0x{reportId:X2} ({data.Length} byte(s)): {BitConverter.ToString(data, 0, data.Length)}");
         if (_previousInputReport is { } prev)
         {
