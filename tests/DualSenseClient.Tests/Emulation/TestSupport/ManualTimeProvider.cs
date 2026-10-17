@@ -25,6 +25,21 @@ public sealed class ManualTimeProvider : TimeProvider
         }
     }
 
+    /// <summary>
+    /// Number of timers the provider currently tracks; a test hook for asserting that no scheduler
+    /// entry leaks, e.g. that every endpoint pacer disposed its timer on session teardown.
+    /// </summary>
+    public int TimerCount
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _timers.Count;
+            }
+        }
+    }
+
     /// <summary>Gets the clock time, which starts at 2000-01-01T00:00:00Z and only moves on <see cref="Advance"/>.</summary>
     /// <returns>The current clock time in UTC.</returns>
     public override DateTimeOffset GetUtcNow()

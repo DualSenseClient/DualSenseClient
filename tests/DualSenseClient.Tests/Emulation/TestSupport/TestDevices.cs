@@ -51,6 +51,18 @@ public static class TestDevices
     /// <summary>Serial number string of the simple device (string descriptor index 3).</summary>
     public const string SimpleSerialNumber = "Emulation Test Serial";
 
+    /// <summary>Interface class of the bulk device's interface (bInterfaceClass; vendor specific).</summary>
+    public const byte BulkInterfaceClass = 0xFF;
+
+    /// <summary>Endpoint address of the bulk device's bulk IN endpoint (IN, endpoint 1).</summary>
+    public const byte BulkInAddress = 0x81;
+
+    /// <summary>Endpoint address of the bulk device's bulk OUT endpoint (OUT, endpoint 2).</summary>
+    public const byte BulkOutAddress = 0x02;
+
+    /// <summary>Maximum packet size of the bulk device's endpoints (wMaxPacketSize).</summary>
+    public const ushort BulkPacketSize = 64;
+
     /// <summary>
     /// Creates the simple synthetic device: one configuration with HID interface 0 (interrupt IN
     /// endpoint 0x81, interrupt OUT endpoint 0x02) and the manufacturer, product and serial strings.
@@ -63,6 +75,65 @@ public static class TestDevices
             CreateSimpleConfigDescriptor(),
             CreateSimpleHidReportDescriptor(),
             CreateSimpleStrings());
+    }
+
+    /// <summary>
+    /// Creates the bulk synthetic device: one configuration with a vendor-specific interface 0
+    /// declaring a bulk IN endpoint (0x81) and a bulk OUT endpoint (0x02), and no HID report
+    /// descriptor. Used to exercise the immediate (unpaced) transfer paths of the server.
+    /// </summary>
+    /// <returns>The descriptor set of the bulk device.</returns>
+    public static UsbDescriptorSet CreateBulkDevice()
+    {
+        return UsbDescriptorSet.Create(
+            CreateSimpleDeviceDescriptor(),
+            CreateBulkConfigDescriptor(),
+            null,
+            []);
+    }
+
+    /// <summary>
+    /// Creates the 32-byte configuration descriptor blob of the bulk device: the configuration
+    /// descriptor, the vendor-specific interface descriptor and the bulk IN and bulk OUT endpoint
+    /// descriptors (USB 2.0, sections 9.6.3 to 9.6.6).
+    /// </summary>
+    /// <returns>The configuration descriptor bytes.</returns>
+    public static byte[] CreateBulkConfigDescriptor()
+    {
+        int totalLength = 9 + 9 + 7 + 7;
+
+        return
+        [
+            0x09, // bLength: 9
+            0x02, // bDescriptorType: CONFIGURATION
+            (byte)totalLength, 0x00, // wTotalLength: 32
+            0x01, // bNumInterfaces: 1
+            SimpleConfigurationValue, // bConfigurationValue: 1
+            0x00, // iConfiguration: none
+            0x80, // bmAttributes: bus powered
+            0x32, // bMaxPower: 100 mA
+            0x09, // bLength: 9
+            0x04, // bDescriptorType: INTERFACE
+            0x00, // bInterfaceNumber: 0
+            0x00, // bAlternateSetting: 0
+            0x02, // bNumEndpoints: 2
+            BulkInterfaceClass, // bInterfaceClass: vendor specific
+            0x00, // bInterfaceSubClass: none
+            0x00, // bInterfaceProtocol: none
+            0x00, // iInterface: none
+            0x07, // bLength: 7
+            0x05, // bDescriptorType: ENDPOINT
+            BulkInAddress, // bEndpointAddress: bulk IN, endpoint 1
+            0x02, // bmAttributes: bulk
+            (byte)BulkPacketSize, 0x00, // wMaxPacketSize: 64
+            0x00, // bInterval: ignored for bulk
+            0x07, // bLength: 7
+            0x05, // bDescriptorType: ENDPOINT
+            BulkOutAddress, // bEndpointAddress: bulk OUT, endpoint 2
+            0x02, // bmAttributes: bulk
+            (byte)BulkPacketSize, 0x00, // wMaxPacketSize: 64
+            0x00 // bInterval: ignored for bulk
+        ];
     }
 
     /// <summary>Creates the 18-byte device descriptor of the simple device (USB 2.0, section 9.6.1).</summary>
