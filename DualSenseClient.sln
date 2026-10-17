@@ -24,6 +24,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DualSenseClient.VIIPER", "s
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DualSenseClient.HidHide", "source\DualSenseClient.HidHide\DualSenseClient.HidHide.csproj", "{E077428C-7EE4-46F1-96EE-8017685980F3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DualSenseClient.Emulation", "source\DualSenseClient.Emulation\DualSenseClient.Emulation.csproj", "{420BB25A-A64D-4792-A192-BC960CE57AEE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -70,6 +72,10 @@ Global
 		{E077428C-7EE4-46F1-96EE-8017685980F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E077428C-7EE4-46F1-96EE-8017685980F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E077428C-7EE4-46F1-96EE-8017685980F3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{420BB25A-A64D-4792-A192-BC960CE57AEE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{420BB25A-A64D-4792-A192-BC960CE57AEE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{420BB25A-A64D-4792-A192-BC960CE57AEE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{420BB25A-A64D-4792-A192-BC960CE57AEE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -85,5 +91,6 @@ Global
 		{A236F4C0-598E-4947-9FF7-F316DEB5D643} = {77A08309-9E5D-4D70-A97A-BC5FFEA55A63}
 		{98667103-1FBF-457B-B9FE-E1609DE0154B} = {77A08309-9E5D-4D70-A97A-BC5FFEA55A63}
 		{E077428C-7EE4-46F1-96EE-8017685980F3} = {77A08309-9E5D-4D70-A97A-BC5FFEA55A63}
+		{420BB25A-A64D-4792-A192-BC960CE57AEE} = {77A08309-9E5D-4D70-A97A-BC5FFEA55A63}
 	EndGlobalSection
 EndGlobal
