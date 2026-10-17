@@ -895,7 +895,20 @@ public sealed class UsbIpServer : IDisposable
             {
                 byte[] payload = new byte[transfer.MaxTransferLength];
                 VirtualUsbDevice device = _device!;
-                int count = device.ProvideInputReport(payload);
+                int count;
+                try
+                {
+                    count = device.ProvideInputReport(payload);
+                }
+                catch (Exception exception)
+                {
+                    // A persona bug must not be swallowed by the pacer's catch-all with the dequeued
+                    // URB unanswered: the client would read forever. Answer it and keep the session.
+                    _server._logger?.Log(EmulationLogLevel.Error, $"Interrupt IN report failed: {exception}");
+                    SendRetSubmit(transfer.SeqNum, UsbIpStatus.Shutdown, ReadOnlyMemory<byte>.Empty);
+                    return;
+                }
+
                 if (count <= 0)
                 {
                     endpoint.Block(transfer); // no report yet: the URB stays pending
@@ -1054,7 +1067,8 @@ public sealed class UsbIpServer : IDisposable
                 endpoint.Clear();
             }
 
-            _writeLock.Dispose();
+            // _writeLock is deliberately not disposed: a blocked Send waiter must keep its
+            // documented SemaphoreSlim behaviour during a concurrent teardown.
             _stream.Dispose();
             _client.Dispose();
             _server._logger?.Log(EmulationLogLevel.Debug, "Session ended.");

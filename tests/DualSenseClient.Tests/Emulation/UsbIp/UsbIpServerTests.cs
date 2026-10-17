@@ -275,6 +275,34 @@ public sealed class UsbIpServerTests
     }
 
     [Test]
+    public void InterruptIn_DeviceThrows_AnswersUrbWithShutdownAndLogsError()
+    {
+        ThrowingInputDevice device = new ThrowingInputDevice();
+        using ServerHarness harness = new ServerHarness(device);
+        using UsbIpClient client = harness.Connect();
+        ImportDevice(client, TestBusId);
+
+        SendInterruptInSubmit(client, 44, 64);
+        SendBarrier(client, 45);
+        harness.TimeProvider.Advance(Interval);
+
+        RetFrame ret = ReadRetFrame(client);
+        Assert.That(ret.Command, Is.EqualTo(UsbIpProtocol.CommandRetSubmit));
+        Assert.That(ret.SeqNum, Is.EqualTo(44u));
+        Assert.That(ret.Status, Is.EqualTo(-108)); // ESHUTDOWN: the persona could not provide the report
+        Assert.That(ret.ActualLength, Is.Zero);
+        Assert.That(harness.Logger.ErrorEntries, Has.Count.EqualTo(1));
+        Assert.That(harness.Logger.ErrorEntries[0].Message, Does.Contain("persona input failure"));
+
+        // The session survives the persona fault: framing is intact and the next request is served.
+        client.Send(CreateControlSubmitFrame(46, CreateGetDeviceDescriptorSetup(), UsbIpDirection.In, 18));
+        RetFrame next = ReadRetFrame(client);
+        Assert.That(next.SeqNum, Is.EqualTo(46u));
+        Assert.That(next.Status, Is.Zero);
+        Assert.That(client.ReadExactly(18), Is.EqualTo(TestDevices.CreateSimpleDeviceDescriptor()));
+    }
+
+    [Test]
     public void InterruptIn_ThreeUrbsTwoIntervals_CompletesInOrderWithDistinctPayloads()
     {
         TestVirtualUsbDevice device = new TestVirtualUsbDevice();
@@ -809,6 +837,23 @@ public sealed class UsbIpServerTests
     /// <param name="client">Connected test client.</param>
     /// <returns>The parsed return header.</returns>
     private static RetFrame ReadRetFrame(UsbIpClient client) => new RetFrame(client.ReadExactly(UsbIpProtocol.HeaderSize));
+
+    /// <summary>
+    /// Device whose input report request always throws; drives the server's containment path that
+    /// answers the dequeued interrupt IN URB with a shutdown status instead of dropping it.
+    /// </summary>
+    private sealed class ThrowingInputDevice : VirtualUsbDevice
+    {
+        /// <summary>Initializes the device with the simple test device's descriptor set.</summary>
+        public ThrowingInputDevice()
+            : base(TestDevices.CreateSimpleDevice())
+        {
+        }
+
+        /// <inheritdoc/>
+        public override int ProvideInputReport(Span<byte> destination) =>
+            throw new InvalidOperationException("persona input failure");
+    }
 
     /// <summary>One USBIP_RET_SUBMIT or USBIP_RET_UNLINK frame with the fields the tests assert on.</summary>
     private sealed class RetFrame

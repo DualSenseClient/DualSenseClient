@@ -102,6 +102,58 @@ public sealed class VirtualUsbDeviceTests
     }
 
     [Test]
+    public void HandleControlRequest_GetDescriptorReportNonHidInterface_ReturnsStall()
+    {
+        // A report descriptor can exist while interface 0 is not HID (M2 personas add audio
+        // interfaces): only a HID interface may serve the report descriptor.
+        TestVirtualDevice device = new TestVirtualDevice(UsbDescriptorSet.Create(
+            TestDevices.CreateSimpleDeviceDescriptor(),
+            TestDevices.CreateBulkConfigDescriptor(),
+            TestDevices.CreateSimpleHidReportDescriptor(),
+            []));
+
+        ControlResult result = Send(device, 0x80, 0x06, 0x2200, 0, 64);
+
+        Assert.That(result.Count, Is.EqualTo(-1));
+    }
+
+    [Test]
+    public void HandleControlRequest_GetDescriptorReportInterfaceRecipient_ReturnsHidReportDescriptor()
+    {
+        // The shape a real host uses: standard GET_DESCRIPTOR(REPORT), recipient interface
+        // (bmRequestType 0x81), interface number in wIndex. Observed on a live Windows
+        // enumeration; the engine stalled it before this regression test existed.
+        TestVirtualDevice device = CreateDevice();
+
+        ControlResult result = Send(device, 0x81, 0x06, 0x2200, 0, 571);
+
+        Assert.That(result.Count, Is.EqualTo(TestDevices.CreateSimpleHidReportDescriptor().Length));
+        Assert.That(result.Data[..result.Count], Is.EqualTo(TestDevices.CreateSimpleHidReportDescriptor()));
+    }
+
+    [Test]
+    public void HandleControlRequest_GetDescriptorReportInterfaceRecipientUnknownInterface_ReturnsStall()
+    {
+        TestVirtualDevice device = CreateDevice();
+
+        ControlResult result = Send(device, 0x81, 0x06, 0x2200, 5, 571);
+
+        Assert.That(result.Count, Is.EqualTo(-1));
+    }
+
+    [Test]
+    public void HandleControlRequest_GetDescriptorDeviceInterfaceRecipient_ReturnsStall()
+    {
+        // Only the report descriptor travels through the interface recipient; a device descriptor
+        // requested that way keeps stalling.
+        TestVirtualDevice device = CreateDevice();
+
+        ControlResult result = Send(device, 0x81, 0x06, 0x0100, 0, 64);
+
+        Assert.That(result.Count, Is.EqualTo(-1));
+    }
+
+    [Test]
     public void HandleControlRequest_GetDescriptorUnknownType_ReturnsStall()
     {
         TestVirtualDevice device = CreateDevice();

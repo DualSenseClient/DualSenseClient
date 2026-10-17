@@ -73,6 +73,9 @@ public abstract class VirtualUsbDevice
     /// <summary>Descriptor type of the HID report descriptor (wValue high byte).</summary>
     private const byte DescriptorTypeHidReport = 0x22;
 
+    /// <summary>Interface class value of a HID interface (bInterfaceClass; USB HID 1.11).</summary>
+    private const byte InterfaceClassHid = 0x03;
+
     /// <summary>String descriptor index of the language id (LANGID) descriptor, which is not part of the descriptor set.</summary>
     private const byte LanguageIdIndex = 0;
 
@@ -177,7 +180,13 @@ public abstract class VirtualUsbDevice
         switch (setup.Request)
         {
             case RequestGetDescriptor:
-                if (recipient != RecipientDevice || !deviceToHost)
+                // The HID report descriptor is the one descriptor a host requests through the
+                // interface recipient (HID 1.11 request table: bmRequestType 0x81 with the interface
+                // number in wIndex, observed on a real Windows enumeration); every other descriptor
+                // keeps the device recipient.
+                bool interfaceReportDescriptor = recipient == RecipientInterface
+                                                 && (byte)(setup.Value >> 8) == DescriptorTypeHidReport;
+                if ((recipient != RecipientDevice && !interfaceReportDescriptor) || !deviceToHost)
                 {
                     return Stall;
                 }
@@ -317,14 +326,14 @@ public abstract class VirtualUsbDevice
     /// <summary>
     /// Serves GET_DESCRIPTOR(REPORT, wIndex) for the HID interface named by
     /// <paramref name="setup"/>; stalls when the device has no HID report descriptor or the
-    /// interface is not declared by the configuration.
+    /// interface is not declared as HID (class 0x03).
     /// </summary>
     /// <param name="setup">Setup packet of the transfer.</param>
     /// <param name="response">Buffer the response is written to.</param>
     /// <returns>The number of bytes written, or -1 for STALL.</returns>
     private int HandleGetReportDescriptor(in UsbSetupPacket setup, Span<byte> response)
     {
-        if (Descriptors.HidReportDescriptor is null || !HasInterface((byte)setup.Index))
+        if (Descriptors.HidReportDescriptor is null || !IsHidInterface((byte)setup.Index))
         {
             return Stall;
         }
@@ -416,6 +425,27 @@ public abstract class VirtualUsbDevice
         }
 
         return Math.Min(result, Math.Min(setup.Length, response.Length));
+    }
+
+    /// <summary>
+    /// Returns whether the configuration descriptor declares an interface with
+    /// <paramref name="number"/> whose class is HID (0x03); only a HID interface may serve a HID
+    /// report descriptor.
+    /// </summary>
+    /// <param name="number">Interface number (bInterfaceNumber) to look up.</param>
+    /// <returns><see langword="true"/> when the interface is declared as HID; otherwise <see langword="false"/>.</returns>
+    private bool IsHidInterface(byte number)
+    {
+        IReadOnlyList<UsbInterfaceInfo> interfaces = Descriptors.Interfaces;
+        for (int i = 0; i < interfaces.Count; i++)
+        {
+            if (interfaces[i].Number == number)
+            {
+                return interfaces[i].Class == InterfaceClassHid;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

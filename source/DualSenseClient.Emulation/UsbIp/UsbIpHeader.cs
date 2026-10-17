@@ -158,7 +158,9 @@ public readonly struct UsbIpHeader
     /// <summary>
     /// Creates a USBIP_RET_SUBMIT header answering a submitted URB. The reply only
     /// carries the sequence number, status and transferred byte count; the remaining
-    /// fields are zero as the protocol requires for server-side replies.
+    /// fields are zero as the protocol requires for server-side replies. The
+    /// <see cref="NumberOfPackets"/> default of 0 is the ISO/unspecified shape: non-ISO RET callers
+    /// (the server) overwrite it with 0xFFFFFFFF per the kernel protocol documentation.
     /// </summary>
     /// <param name="seqNum">Sequence number of the submitted URB being answered.</param>
     /// <param name="status">Completion status: zero on success, a negative errno otherwise.</param>
