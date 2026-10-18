@@ -272,7 +272,7 @@ public sealed class UsbIpServer : IDisposable
         ArgumentException.ThrowIfNullOrEmpty(busId);
         ArgumentNullException.ThrowIfNull(device);
         uint busNum = ParseBusNumber(busId);
-        UsbIpDeviceInfo info = CreateDeviceInfo(busId, busNum, device.Descriptors);
+        UsbIpDeviceInfo info = CreateDeviceInfo(busId, busNum, device);
         lock (_devicesLock)
         {
             foreach (DeviceRegistration registration in _devices)
@@ -350,16 +350,17 @@ public sealed class UsbIpServer : IDisposable
     }
 
     /// <summary>
-    /// Builds the handshake entry of one device from its descriptor set: the interface triplets
-    /// come from the parsed interfaces and the configuration value from the configuration
-    /// descriptor.
+    /// Builds the handshake entry of one device: the interface triplets come from the parsed
+    /// interfaces, the configuration value from the configuration descriptor and the export speed
+    /// from <see cref="VirtualUsbDevice.Speed"/>.
     /// </summary>
     /// <param name="busId">Bus id of the device.</param>
     /// <param name="busNum">Bus number parsed from the bus id.</param>
-    /// <param name="descriptors">Descriptor set of the device.</param>
+    /// <param name="device">Device to build the handshake entry for.</param>
     /// <returns>The device entry written into OP_REP_DEVLIST and OP_REP_IMPORT.</returns>
-    private static UsbIpDeviceInfo CreateDeviceInfo(string busId, uint busNum, UsbDescriptorSet descriptors)
+    private static UsbIpDeviceInfo CreateDeviceInfo(string busId, uint busNum, VirtualUsbDevice device)
     {
+        UsbDescriptorSet descriptors = device.Descriptors;
         UsbIpInterfaceInfo[] interfaces = new UsbIpInterfaceInfo[descriptors.Interfaces.Count];
         for (int i = 0; i < descriptors.Interfaces.Count; i++)
         {
@@ -377,7 +378,7 @@ public sealed class UsbIpServer : IDisposable
             BusId = busId,
             BusNum = busNum,
             DevNum = 1, // every exported device is a single-port virtual device
-            Speed = UsbIpDeviceSpeed.Full, // the M1 personas are full-speed devices
+            Speed = device.Speed,
             IdVendor = descriptors.IdVendor,
             IdProduct = descriptors.IdProduct,
             BcdDevice = descriptors.BcdDevice,

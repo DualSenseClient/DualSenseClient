@@ -83,6 +83,32 @@ public sealed class UsbIpServerTests
     }
 
     [Test]
+    public void DevList_DefaultSpeed_RepliesFull()
+    {
+        TestVirtualUsbDevice device = new TestVirtualUsbDevice();
+        using ServerHarness harness = new ServerHarness(device);
+        using UsbIpClient client = harness.Connect();
+
+        client.Send(CreateDevListRequest());
+
+        byte[] reply = client.ReadExactly(DevListReplySize);
+        Assert.That(BinaryPrimitives.ReadUInt32BigEndian(reply.AsSpan(308)), Is.EqualTo((uint)UsbIpDeviceSpeed.Full)); // speed
+    }
+
+    [Test]
+    public void DevList_OverriddenSpeed_RepliesHigh()
+    {
+        HighSpeedDevice device = new HighSpeedDevice();
+        using ServerHarness harness = new ServerHarness(device);
+        using UsbIpClient client = harness.Connect();
+
+        client.Send(CreateDevListRequest());
+
+        byte[] reply = client.ReadExactly(DevListReplySize);
+        Assert.That(BinaryPrimitives.ReadUInt32BigEndian(reply.AsSpan(308)), Is.EqualTo((uint)UsbIpDeviceSpeed.High)); // speed
+    }
+
+    [Test]
     public void Import_KnownBusId_RepliesBaseEntryThenServesUrbs()
     {
         TestVirtualUsbDevice device = new TestVirtualUsbDevice();
@@ -110,6 +136,19 @@ public sealed class UsbIpServerTests
         Assert.That(ret.Status, Is.Zero);
         Assert.That(ret.ActualLength, Is.EqualTo(18u));
         Assert.That(client.ReadExactly(18), Is.EqualTo(TestDevices.CreateSimpleDeviceDescriptor()));
+    }
+
+    [Test]
+    public void Import_OverriddenSpeed_RepliesHighInBaseEntry()
+    {
+        HighSpeedDevice device = new HighSpeedDevice();
+        using ServerHarness harness = new ServerHarness(device);
+        using UsbIpClient client = harness.Connect();
+
+        client.Send(CreateImportRequest(TestBusId));
+
+        byte[] reply = client.ReadExactly(UsbIpProtocol.OpCommonSize + UsbIpDeviceInfo.EntrySize);
+        Assert.That(BinaryPrimitives.ReadUInt32BigEndian(reply.AsSpan(8 + 296)), Is.EqualTo((uint)UsbIpDeviceSpeed.High)); // speed
     }
 
     [Test]
@@ -853,6 +892,25 @@ public sealed class UsbIpServerTests
         /// <inheritdoc/>
         public override int ProvideInputReport(Span<byte> destination) =>
             throw new InvalidOperationException("persona input failure");
+    }
+
+    /// <summary>Device that declares itself as a high-speed USB/IP export over the simple test device's descriptor set.</summary>
+    private sealed class HighSpeedDevice : VirtualUsbDevice
+    {
+        /// <summary>Initializes the device with the simple test device's descriptor set.</summary>
+        public HighSpeedDevice()
+            : base(TestDevices.CreateSimpleDevice())
+        {
+        }
+
+        /// <inheritdoc/>
+        public override UsbIpDeviceSpeed Speed
+        {
+            get
+            {
+                return UsbIpDeviceSpeed.High;
+            }
+        }
     }
 
     /// <summary>One USBIP_RET_SUBMIT or USBIP_RET_UNLINK frame with the fields the tests assert on.</summary>

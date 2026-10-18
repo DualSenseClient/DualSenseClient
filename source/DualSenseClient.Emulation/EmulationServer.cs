@@ -1,15 +1,17 @@
 using System.Globalization;
 using System.Net;
 using DualSenseClient.Emulation.Core;
+using DualSenseClient.Emulation.Devices.DualSense;
 using DualSenseClient.Emulation.Devices.DualShock4;
+using DualSenseClient.Emulation.Devices.Xbox360;
 using DualSenseClient.Emulation.UsbIp;
 using DualSenseClient.Emulation.Windows;
 
 namespace DualSenseClient.Emulation;
 
 /// <summary>
-/// Public facade over the Emulation engine: exports DualShock 4 persona devices over the
-/// <see cref="UsbIpServer"/> and attaches them to the local Windows host through an
+/// Public facade over the Emulation engine: exports persona devices (DualSense, DualShock 4 and
+/// Xbox 360) over the <see cref="UsbIpServer"/> and attaches them to the local Windows host through an
 /// <see cref="IUsbIpAttachStrategy"/> (the installed usbip.exe by default). Devices are registered
 /// under auto-assigned USB/IP bus ids of the form "&lt;busnum&gt;-1" starting at "1-1", and the
 /// facade tracks the attach state of every device so a repeated attach or a detach of a device that
@@ -30,8 +32,8 @@ public sealed class EmulationServer : IDisposable
     /// <summary>Guards the registered devices, the bus number bookkeeping and <see cref="_isDisposed"/>.</summary>
     private readonly object _devicesLock = new object();
 
-    /// <summary>Registered devices with their bus id and attach state; guarded by <see cref="_devicesLock"/>.</summary>
-    private readonly Dictionary<DualShock4Device, DeviceEntry> _devices = new Dictionary<DualShock4Device, DeviceEntry>();
+    /// <summary>Registered persona devices with their bus id and attach state; guarded by <see cref="_devicesLock"/>.</summary>
+    private readonly Dictionary<VirtualUsbDevice, DeviceEntry> _devices = new Dictionary<VirtualUsbDevice, DeviceEntry>();
 
     /// <summary>Bus numbers currently assigned to a registered device; guarded by <see cref="_devicesLock"/>.</summary>
     private readonly HashSet<int> _usedBusNumbers = new HashSet<int>();
@@ -97,39 +99,75 @@ public sealed class EmulationServer : IDisposable
     public void Stop() => _server.Stop();
 
     /// <summary>
-    /// Registers a new DualShock 4 persona device and assigns it the lowest free USB/IP bus id of
-    /// the form "&lt;busnum&gt;-1" (the first device gets "1-1"); the bus number of the assigned id
-    /// is the device entry's busnum and its devnum is 1. Devices may be added whether or not the
+    /// Registers a new DualShock 4 v2 persona device and assigns it the lowest free USB/IP bus id
+    /// of the form "&lt;busnum&gt;-1" (the first device gets "1-1"); the bus number of the assigned
+    /// id is the device entry's busnum and its devnum is 1. Devices may be added whether or not the
     /// server is running.
     /// </summary>
     /// <param name="identity">Identity of the persona; <see langword="null"/> uses the reference DualShock 4 v2 defaults.</param>
     /// <returns>The registered device.</returns>
     /// <exception cref="ObjectDisposedException">The facade has been disposed.</exception>
-    public DualShock4Device AddDualShock4(DualShock4Identity? identity = null)
+    public DualShock4Device AddDualShock4(DualShock4Identity? identity = null) => AddDualShock4(DualShock4Variant.V2, identity);
+
+    /// <summary>
+    /// Registers a new DualShock 4 persona device of <paramref name="variant"/> under the lowest
+    /// free USB/IP bus id of the form "&lt;busnum&gt;-1". The variant-distinguishing reference
+    /// facts (the v1 product id and manufacturer string) are pinned by the device's descriptor
+    /// set exactly as the persona's own factory resolves them; the facade pins nothing itself.
+    /// </summary>
+    /// <param name="variant">Descriptor variant of the persona (v1 or v2).</param>
+    /// <param name="identity">Identity of the persona; <see langword="null"/> uses the reference DualShock 4 defaults.</param>
+    /// <returns>The registered device.</returns>
+    /// <exception cref="ObjectDisposedException">The facade has been disposed.</exception>
+    public DualShock4Device AddDualShock4(DualShock4Variant variant, DualShock4Identity? identity = null)
     {
-        DualShock4Device device = new DualShock4Device(identity ?? new DualShock4Identity(), _logger);
-        lock (_devicesLock)
-        {
-            ObjectDisposedException.ThrowIf(_isDisposed, this);
-            int busNumber = FindFreeBusNumber();
-            string busId = busNumber.ToString(CultureInfo.InvariantCulture) + "-1";
-            _server.AddDevice(busId, device);
-            _devices.Add(device, new DeviceEntry(busNumber, busId));
-            _usedBusNumbers.Add(busNumber);
-            return device;
-        }
+        DualShock4Device device = new DualShock4Device(identity ?? new DualShock4Identity(), _logger, variant);
+        RegisterDevice(device);
+        return device;
     }
 
     /// <summary>
-    /// Unregisters a device: its bus id is freed for the next <see cref="AddDualShock4"/> and the
-    /// device can no longer be attached through this facade. A device that is currently attached to
-    /// the local host is not detached here; detach it first so the host releases the vhci port. A
-    /// session that already imported the device keeps serving it until it ends.
+    /// Registers a new DualSense persona device under the lowest free USB/IP bus id of the form
+    /// "&lt;busnum&gt;-1"; on <paramref name="edge"/> the device serves the Edge persona (its
+    /// factory pins the Edge product id and product string). The bus id assignment is the one of
+    /// <see cref="AddDualShock4(DualShock4Identity?)"/> and is shared by every persona.
+    /// </summary>
+    /// <param name="edge"><see langword="true"/> for the DualSense Edge persona; <see langword="false"/> for the base DualSense.</param>
+    /// <param name="identity">Identity of the persona; <see langword="null"/> uses the reference DualSense defaults.</param>
+    /// <returns>The registered device.</returns>
+    /// <exception cref="ObjectDisposedException">The facade has been disposed.</exception>
+    public DualSenseDevice AddDualSense(bool edge = false, DualSenseIdentity? identity = null)
+    {
+        DualSenseDevice device = new DualSenseDevice(identity ?? new DualSenseIdentity(), edge, _logger);
+        RegisterDevice(device);
+        return device;
+    }
+
+    /// <summary>
+    /// Registers a new Xbox 360 wired controller persona device under the lowest free USB/IP bus id
+    /// of the form "&lt;busnum&gt;-1"; the persona is a vendor-class, non-HID device, which the
+    /// facade treats like every other persona.
+    /// </summary>
+    /// <param name="identity">Identity of the persona; <see langword="null"/> uses the reference Xbox 360 defaults.</param>
+    /// <returns>The registered device.</returns>
+    /// <exception cref="ObjectDisposedException">The facade has been disposed.</exception>
+    public Xbox360Device AddXbox360(Xbox360Identity? identity = null)
+    {
+        Xbox360Device device = new Xbox360Device(identity ?? new Xbox360Identity(), _logger);
+        RegisterDevice(device);
+        return device;
+    }
+
+    /// <summary>
+    /// Unregisters a device: its bus id is freed for reuse by the next persona added to the facade
+    /// and the device can no longer be attached through this facade. A device that is currently
+    /// attached to the local host is not detached here; detach it first so the host releases the
+    /// vhci port. A session that already imported the device keeps serving it until it ends.
     /// </summary>
     /// <param name="device">Device to unregister.</param>
     /// <returns><see langword="true"/> when the device was registered; <see langword="false"/> when it is unknown to the facade.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="device"/> is <see langword="null"/>.</exception>
-    public bool RemoveDevice(DualShock4Device device)
+    public bool RemoveDevice(VirtualUsbDevice device)
     {
         ArgumentNullException.ThrowIfNull(device);
         lock (_devicesLock)
@@ -155,7 +193,7 @@ public sealed class EmulationServer : IDisposable
     /// <returns><see langword="true"/> when the device is attached.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="device"/> is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException">The server has not been started yet, so there is no bound endpoint to attach to.</exception>
-    public bool TryAttach(DualShock4Device device, out string? error)
+    public bool TryAttach(VirtualUsbDevice device, out string? error)
     {
         ArgumentNullException.ThrowIfNull(device);
         DeviceEntry entry;
@@ -163,7 +201,7 @@ public sealed class EmulationServer : IDisposable
         {
             if (!_devices.TryGetValue(device, out DeviceEntry? registered))
             {
-                error = "The device is not registered with the server; add it with AddDualShock4 first.";
+                error = "The device is not registered with the server; add it with AddDualSense, AddDualShock4 or AddXbox360 first.";
                 return false;
             }
 
@@ -194,7 +232,7 @@ public sealed class EmulationServer : IDisposable
     /// <param name="error">Actionable failure reason; <see langword="null"/> on success.</param>
     /// <returns><see langword="true"/> when the device is detached.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="device"/> is <see langword="null"/>.</exception>
-    public bool TryDetach(DualShock4Device device, out string? error)
+    public bool TryDetach(VirtualUsbDevice device, out string? error)
     {
         ArgumentNullException.ThrowIfNull(device);
         DeviceEntry entry;
@@ -202,7 +240,7 @@ public sealed class EmulationServer : IDisposable
         {
             if (!_devices.TryGetValue(device, out DeviceEntry? registered))
             {
-                error = "The device is not registered with the server; add it with AddDualShock4 first.";
+                error = "The device is not registered with the server; add it with AddDualSense, AddDualShock4 or AddXbox360 first.";
                 return false;
             }
 
@@ -245,13 +283,33 @@ public sealed class EmulationServer : IDisposable
     }
 
     /// <summary>
+    /// Assigns the already constructed <paramref name="device"/> the lowest free USB/IP bus id of
+    /// the form "&lt;busnum&gt;-1" and registers it with the server and the facade's bookkeeping;
+    /// the persona's construction stays with the caller.
+    /// </summary>
+    /// <param name="device">Persona device to register.</param>
+    /// <exception cref="ObjectDisposedException">The facade has been disposed.</exception>
+    private void RegisterDevice(VirtualUsbDevice device)
+    {
+        lock (_devicesLock)
+        {
+            ObjectDisposedException.ThrowIf(_isDisposed, this);
+            int busNumber = FindFreeBusNumber();
+            string busId = busNumber.ToString(CultureInfo.InvariantCulture) + "-1";
+            _server.AddDevice(busId, device);
+            _devices.Add(device, new DeviceEntry(busNumber, busId));
+            _usedBusNumbers.Add(busNumber);
+        }
+    }
+
+    /// <summary>
     /// Updates the attach state of <paramref name="device"/> when its registration is still
     /// <paramref name="entry"/> (the device can be removed while the strategy runs).
     /// </summary>
     /// <param name="device">Device whose state changed.</param>
     /// <param name="entry">Registration the state change belongs to.</param>
     /// <param name="attached">New attach state.</param>
-    private void SetAttached(DualShock4Device device, DeviceEntry entry, bool attached)
+    private void SetAttached(VirtualUsbDevice device, DeviceEntry entry, bool attached)
     {
         lock (_devicesLock)
         {

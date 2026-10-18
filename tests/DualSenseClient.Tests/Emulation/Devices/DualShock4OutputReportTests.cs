@@ -1,4 +1,5 @@
 using DualSenseClient.Tests.Emulation.TestSupport;
+using DualSenseClient.Emulation.Core;
 using DualSenseClient.Emulation.Devices.DualShock4;
 
 namespace DualSenseClient.Tests.Emulation.Devices;
@@ -339,6 +340,65 @@ public sealed class DualShock4OutputReportTests
     }
 
     [Test]
+    public void ProvideInputReport_RawReportSet_ServesTheRawBytesVerbatimAcrossTicks()
+    {
+        DualShock4Device device = CreateDevice();
+        byte[] raw = CreateRawReport();
+        device.SetRawInputReport(raw);
+        byte[] first = new byte[DualShock4InputReport.Size];
+        byte[] second = new byte[DualShock4InputReport.Size];
+        byte[] third = new byte[DualShock4InputReport.Size];
+
+        int written = device.ProvideInputReport(first);
+        device.ProvideInputReport(second);
+        device.ProvideInputReport(third);
+
+        Assert.That(written, Is.EqualTo(DualShock4InputReport.Size));
+        Assert.That(first, Is.EqualTo(raw)); // byte-exact: report id, counter, touch and battery bytes as supplied
+        Assert.That(second, Is.EqualTo(raw)); // the same bytes again on the next tick
+        Assert.That(third, Is.EqualTo(raw));
+    }
+
+    [Test]
+    public void ProvideInputReport_RawCleared_ResumesTheSyntheticCountersWithoutAJump()
+    {
+        DualShock4Device device = CreateDevice();
+        byte[] synthetic = new byte[DualShock4InputReport.Size];
+        byte[] whileRawFirst = new byte[DualShock4InputReport.Size];
+        byte[] whileRawSecond = new byte[DualShock4InputReport.Size];
+        byte[] resumed = new byte[DualShock4InputReport.Size];
+        byte[] raw = CreateRawReport();
+        DualShock4InputState pressed = CreateNeutralState();
+        pressed.Cross = true;
+
+        device.ProvideInputReport(synthetic); // the synthetic builder's first tick, packet counter zero
+        device.SetRawInputReport(raw);
+        device.ProvideInputReport(whileRawFirst);
+        device.ProvideInputReport(whileRawSecond);
+        device.SetInput(pressed); // buffered while raw is set; not reported until raw clears
+        device.ClearRawInputReport();
+        device.ProvideInputReport(resumed);
+
+        Assert.That(synthetic[OffsetPacketCounter], Is.Zero);
+        Assert.That(whileRawFirst, Is.EqualTo(raw)); // raw wins over the stored state
+        Assert.That(whileRawSecond, Is.EqualTo(raw));
+        Assert.That(resumed[OffsetPacketCounter], Is.EqualTo(0x04)); // one increment past the first tick, not three: raw froze the counter
+        Assert.That(resumed[OffsetFaceAndDpad], Is.EqualTo(ReleasedHat | CrossBit)); // the state stored while raw was set is served now
+    }
+
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(63)]
+    [TestCase(65)]
+    [TestCase(128)]
+    public void SetRawInputReport_WrongLength_ThrowsArgumentException(int length)
+    {
+        DualShock4Device device = CreateDevice();
+
+        Assert.That(() => device.SetRawInputReport(new byte[length]), Throws.TypeOf<ArgumentException>());
+    }
+
+    [Test]
     public void OnOutputReport_FullPayload_RaisesTheEventWithTheParsedFields()
     {
         DualShock4Device device = CreateDevice();
@@ -391,9 +451,8 @@ public sealed class DualShock4OutputReportTests
     [Test]
     public void OnOutputReport_ControlPathPayloadWithoutReportId_RaisesNothingAndDoesNotThrow()
     {
-        // The class SET_REPORT path delivers the payload report-id-exclusive (the id travels in
-        // wValue); the device decodes the id-prefixed interrupt OUT shape Windows uses, so a
-        // control-path payload is ignored without error (the documented choice of the id ruling).
+        // The direct OnOutputReport contract is id-prefixed; the base engine prepends the wValue id
+        // for SET_REPORT, so a bare payload is only invalid when passed directly.
         DualShock4Device device = CreateDevice();
         int raised = 0;
         device.OutputReportReceived += _ => raised++;
@@ -402,6 +461,35 @@ public sealed class DualShock4OutputReportTests
         Assert.That(() => device.OnOutputReport(payload), Throws.Nothing);
 
         Assert.That(raised, Is.Zero);
+    }
+
+    [Test]
+    public void HandleControlRequest_SetReportOutput_PrependsReportIdAndRaisesTheEvent()
+    {
+        DualShock4Device device = CreateDevice();
+        List<DualShock4OutputReport> received = [];
+        device.OutputReportReceived += report => received.Add(report);
+        byte[] payload = CreateOutputPayload(0x07, 0x28, 0x64, 0x12, 0x34, 0x56, 0x0A, 0x14)[1..];
+        UsbSetupPacket setup = new UsbSetupPacket
+        {
+            RequestType = 0x21, // host-to-device, class, interface
+            Request = 0x09, // SET_REPORT
+            Value = 0x0205, // output report, id 0x05
+            Index = 3, // DS4 HID interface
+            Length = (ushort)payload.Length
+        };
+
+        int count = device.HandleControlRequest(setup, payload, []);
+
+        Assert.That(count, Is.Zero);
+        Assert.That(received, Has.Count.EqualTo(1));
+        Assert.That(received[0].RumbleEnabled, Is.True);
+        Assert.That(received[0].LeftMotor, Is.EqualTo(0x64));
+        Assert.That(received[0].RightMotor, Is.EqualTo(0x28));
+        Assert.That(received[0].LightbarEnabled, Is.True);
+        Assert.That(received[0].Red, Is.EqualTo(0x12));
+        Assert.That(received[0].Green, Is.EqualTo(0x34));
+        Assert.That(received[0].Blue, Is.EqualTo(0x56));
     }
 
     [Test]
@@ -457,6 +545,18 @@ public sealed class DualShock4OutputReportTests
             Dpad = DualShock4DpadDirection.Released,
             BatteryLevel = 10
         };
+    }
+
+    /// <summary>
+    /// Creates one raw 64-byte report with the given fill byte; report byte 0 stays the input
+    /// report id, like the report id byte of a captured hardware report.
+    /// </summary>
+    private static byte[] CreateRawReport(byte fill = 0x5A)
+    {
+        byte[] report = new byte[DualShock4InputReport.Size];
+        Array.Fill(report, fill);
+        report[0] = InputReportId;
+        return report;
     }
 
     /// <summary>

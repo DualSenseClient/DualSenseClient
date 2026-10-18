@@ -64,6 +64,17 @@ public abstract class VirtualHidDevice : VirtualUsbDevice
     /// <summary>Protocol value served by GET_PROTOCOL: 1, report protocol.</summary>
     private const byte ReportProtocol = 1;
 
+    /// <summary>Serializes the raw-input-report slot against every publisher and pull.</summary>
+    private readonly Lock _rawReportLock = new Lock();
+
+    /// <summary>
+    /// Published raw input report served verbatim by the personas until it is cleared, or
+    /// <see langword="null"/> while synthetic reporting is active. Every published array is a fresh
+    /// copy that is never mutated afterwards, so a reader may copy the snapshot without tearing;
+    /// the reference itself is guarded by <see cref="_rawReportLock"/>.
+    /// </summary>
+    private byte[]? _rawInputReport;
+
     /// <summary>
     /// Initializes a HID device that serves <paramref name="descriptors"/>.
     /// </summary>
@@ -71,6 +82,64 @@ public abstract class VirtualHidDevice : VirtualUsbDevice
     protected VirtualHidDevice(UsbDescriptorSet descriptors)
         : base(descriptors)
     {
+    }
+
+    /// <summary>
+    /// Publishes <paramref name="report"/> as the raw input report up until
+    /// <see cref="ClearRawInputReportCore"/> is called: while set, the personas serve it verbatim
+    /// through their <see cref="VirtualUsbDevice.ProvideInputReport"/> override and freeze their
+    /// synthetic report counters. The payload is copied, so later mutation of the caller's buffer
+    /// never reaches the device. Subclasses validate their persona-specific report length before
+    /// calling this (the raw-passthrough contract, behavior oracle: exactly 64 bytes for the
+    /// DualShock 4 and the DualSense).
+    /// </summary>
+    /// <param name="report">Raw report bytes to serve verbatim while set.</param>
+    protected void SetRawInputReportCore(ReadOnlySpan<byte> report)
+    {
+        byte[] snapshot = report.ToArray();
+        lock (_rawReportLock)
+        {
+            _rawInputReport = snapshot;
+        }
+    }
+
+    /// <summary>
+    /// Drops the published raw input report; the persona's synthetic reporting resumes from its
+    /// current counters. Clearing without a published raw report is a no-op.
+    /// </summary>
+    protected void ClearRawInputReportCore()
+    {
+        lock (_rawReportLock)
+        {
+            _rawInputReport = null;
+        }
+    }
+
+    /// <summary>
+    /// Copies the published raw input report into <paramref name="destination"/>; the snapshot is
+    /// immutable, so a concurrently published replacement cannot tear the copy.
+    /// </summary>
+    /// <param name="destination">Buffer of at least the published report length.</param>
+    /// <param name="length">Number of bytes copied, or zero when no raw report is published.</param>
+    /// <returns>
+    /// <see langword="true"/> when a raw report is published and was copied; <see langword="false"/>
+    /// when synthetic reporting is active or the destination cannot carry the report.
+    /// </returns>
+    protected bool TryCopyRawInputReport(Span<byte> destination, out int length)
+    {
+        lock (_rawReportLock)
+        {
+            byte[]? snapshot = _rawInputReport;
+            if (snapshot is null || destination.Length < snapshot.Length)
+            {
+                length = 0;
+                return false;
+            }
+
+            snapshot.CopyTo(destination);
+            length = snapshot.Length;
+            return true;
+        }
     }
 
     /// <summary>
@@ -183,8 +252,11 @@ public abstract class VirtualHidDevice : VirtualUsbDevice
 
     /// <summary>
     /// Serves SET_REPORT: an output report is pushed to <see cref="VirtualUsbDevice.OnOutputReport"/>
-    /// (the host does not receive a report; the request succeeds), a feature report write is routed
-    /// to <see cref="OnFeatureReport"/> and stalls when the device does not handle the report id.
+    /// with the report id from wValue prepended, so both delivery paths hand the device the
+    /// interrupt-OUT shape; report id 0 means "no report id" and the payload passes through
+    /// unchanged. The host does not receive a report and the request succeeds. A feature report
+    /// write is routed to <see cref="OnFeatureReport"/> and stalls when the device does not handle
+    /// the report id.
     /// </summary>
     /// <param name="reportType">Report type of the request (wValue high byte).</param>
     /// <param name="reportId">Report id of the request (wValue low byte).</param>
@@ -197,7 +269,17 @@ public abstract class VirtualHidDevice : VirtualUsbDevice
         switch (reportType)
         {
             case ReportTypeOutput:
-                OnOutputReport(data);
+                // SET_REPORT carries the id in wValue; device decoders consume the interrupt-OUT shape.
+                if (reportId == 0)
+                {
+                    OnOutputReport(data);
+                    return 0;
+                }
+
+                byte[] prefixed = new byte[data.Length + 1];
+                prefixed[0] = reportId;
+                data.CopyTo(prefixed.AsSpan(1));
+                OnOutputReport(prefixed);
                 return 0;
 
             case ReportTypeFeature:

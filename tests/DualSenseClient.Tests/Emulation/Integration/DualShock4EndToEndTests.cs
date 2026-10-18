@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net;
 using DualSenseClient.Hid;
 using DualSenseClient.Emulation;
@@ -13,7 +12,9 @@ namespace DualSenseClient.Tests.Emulation.Integration;
 /// persona to the host, an interrupt OUT output report flows back, and detach makes the device
 /// disappear again. Gated behind EMULATION_INTEGRATION=1: without the environment variable every test
 /// is ignored (CI and normal runs never attach devices to the machine). An attach failure - e.g. no
-/// usbip-win2 installation - is a failure signal of this test, not a skip.
+/// usbip-win2 installation - is a failure signal of this test, not a skip. The shared plumbing
+/// (enumeration polls and report waits) lives in <see cref="EmulationIntegrationSupport"/>; this
+/// fixture pins only the DS4 facts and payloads.
 /// </summary>
 [TestFixture]
 public sealed class DualShock4EndToEndTests
@@ -72,27 +73,6 @@ public sealed class DualShock4EndToEndTests
     /// <summary>Neutral battery level (100% while discharging) of the pressed-button input state.</summary>
     private const byte NeutralBatteryLevel = 10;
 
-    /// <summary>Timeout of the HID enumeration poll for the attached controller.</summary>
-    private static readonly TimeSpan DeviceEnumerationTimeout = TimeSpan.FromSeconds(10);
-
-    /// <summary>Timeout of the HID enumeration poll after detach.</summary>
-    private static readonly TimeSpan DeviceDisappearanceTimeout = TimeSpan.FromSeconds(10);
-
-    /// <summary>Timeout of the poll for the first 64-byte input report.</summary>
-    private static readonly TimeSpan InputReportTimeout = TimeSpan.FromSeconds(5);
-
-    /// <summary>Timeout of the poll for the Cross-pressed input report.</summary>
-    private static readonly TimeSpan CrossBitTimeout = TimeSpan.FromSeconds(5);
-
-    /// <summary>Timeout of the wait for the output report to travel back from the host.</summary>
-    private static readonly TimeSpan OutputReportTimeout = TimeSpan.FromSeconds(5);
-
-    /// <summary>Timeout of one blocking HID read inside a longer poll.</summary>
-    private const int ReadTimeoutMilliseconds = 250;
-
-    /// <summary>Delay between the enumeration polls.</summary>
-    private const int PollIntervalMilliseconds = 100;
-
     [OneTimeSetUp]
     public void RequireIntegration()
     {
@@ -106,7 +86,7 @@ public sealed class DualShock4EndToEndTests
     public void FullFlow_AttachPressWriteDetach_ControllerEnumeratesReportsAndDisappears()
     {
         using HidDeviceEnumerator enumerator = new HidDeviceEnumerator();
-        HashSet<string> baselinePaths = CollectDevicePaths(enumerator);
+        HashSet<string> baselinePaths = EmulationIntegrationSupport.CollectDevicePaths(enumerator, SonyVendorId, DualShock4V2ProductId);
         TestContext.Out.WriteLine($"HID enumeration before attach: {baselinePaths.Count} DualShock 4 device(s).");
 
         using EmulationServer server = new EmulationServer(new EmulationServerOptions
@@ -129,10 +109,12 @@ public sealed class DualShock4EndToEndTests
         try
         {
             // Fail fast with the attach diagnostics when no new controller appeared within the timeout.
-            IHidDeviceInfo controller = WaitForNewDevice(enumerator, baselinePaths, DeviceEnumerationTimeout)
+            IHidDeviceInfo controller = EmulationIntegrationSupport.WaitForNewDevice(
+                                            enumerator, baselinePaths, SonyVendorId, DualShock4V2ProductId,
+                                            EmulationIntegrationSupport.DeviceEnumerationTimeout)
                                         ?? throw new AssertionException(
                                             $"No new DualShock 4 (VID 0x{SonyVendorId:X4}, PID 0x{DualShock4V2ProductId:X4}) enumerated within "
-                                            + $"{DeviceEnumerationTimeout.TotalSeconds:0} s; attach diagnostics: {attachError}");
+                                            + $"{EmulationIntegrationSupport.DeviceEnumerationTimeout.TotalSeconds:0} s; attach diagnostics: {attachError}");
 
             TestContext.Out.WriteLine($"Controller enumerated at {controller.Path} as \"{controller.ProductName}\".");
             Assert.That(controller.ProductName, Is.EqualTo("Wireless Controller"), "The product string served by the persona did not reach the host.");
@@ -142,15 +124,25 @@ public sealed class DualShock4EndToEndTests
             using (IHidDevice hid = enumerator.OpenDevice(devicePath))
             {
                 byte[] report = new byte[InputReportSize];
-                bool firstReportRead = WaitForInputReport(hid, report, ref lastReportHex, InputReportTimeout);
+                bool firstReportRead = EmulationIntegrationSupport.WaitForInputReport(
+                    hid,
+                    report,
+                    (data, length) => length == InputReportSize && data[0] == InputReportId,
+                    ref lastReportHex,
+                    EmulationIntegrationSupport.InputReportTimeout);
                 Assert.That(firstReportRead, Is.True, "No 64-byte input report 0x01 arrived within "
-                                                      + $"{InputReportTimeout.TotalSeconds:0} s; last report: {lastReportHex}");
+                                                      + $"{EmulationIntegrationSupport.InputReportTimeout.TotalSeconds:0} s; last report: {lastReportHex}");
                 TestContext.Out.WriteLine($"First input report: {lastReportHex}");
 
                 device.SetInput(CreateCrossPressedState());
-                bool crossSeen = WaitForCrossBit(hid, report, ref lastReportHex, CrossBitTimeout);
+                bool crossSeen = EmulationIntegrationSupport.WaitForInputReport(
+                    hid,
+                    report,
+                    (data, length) => length == InputReportSize && data[0] == InputReportId && (data[FaceButtonsOffset] & CrossBit) != 0,
+                    ref lastReportHex,
+                    EmulationIntegrationSupport.InputChangeTimeout);
                 Assert.That(crossSeen, Is.True, $"The Cross bit (0x{CrossBit:X2} at report byte {FaceButtonsOffset}) did not appear within "
-                                                + $"{CrossBitTimeout.TotalSeconds:0} s after SetInput; last report: {lastReportHex}");
+                                                + $"{EmulationIntegrationSupport.InputChangeTimeout.TotalSeconds:0} s after SetInput; last report: {lastReportHex}");
                 TestContext.Out.WriteLine($"Cross-pressed input report: {lastReportHex}");
 
                 WriteOutputReportAndWait(hid, device);
@@ -161,9 +153,10 @@ public sealed class DualShock4EndToEndTests
             Assert.That(detachSucceeded, Is.True, $"Detach failed: {detachError}");
             TestContext.Out.WriteLine($"Detached bus id \"1-1\".");
 
-            bool disappeared = WaitForDeviceDisappearance(enumerator, devicePath, DeviceDisappearanceTimeout);
+            bool disappeared = EmulationIntegrationSupport.WaitForDeviceDisappearance(
+                enumerator, SonyVendorId, DualShock4V2ProductId, devicePath, EmulationIntegrationSupport.DeviceDisappearanceTimeout);
             Assert.That(disappeared, Is.True, $"The controller at {devicePath} was still enumerated "
-                                              + $"{DeviceDisappearanceTimeout.TotalSeconds:0} s after detach.");
+                                              + $"{EmulationIntegrationSupport.DeviceDisappearanceTimeout.TotalSeconds:0} s after detach.");
             TestContext.Out.WriteLine("Controller disappeared from HID enumeration.");
         }
         catch (Exception failure)
@@ -214,51 +207,15 @@ public sealed class DualShock4EndToEndTests
     /// <param name="device">Persona device receiving the decoded report.</param>
     private static void WriteOutputReportAndWait(IHidDevice hid, DualShock4Device device)
     {
-        TaskCompletionSource<DualShock4OutputReport> outputMatched = new TaskCompletionSource<DualShock4OutputReport>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        object outputLock = new object();
-        bool outputSeen = false;
-        DualShock4OutputReport lastOutput = default;
-        Action<DualShock4OutputReport> handler = received =>
-        {
-            lock (outputLock)
-            {
-                lastOutput = received;
-                outputSeen = true;
-            }
-
-            if (MatchesWrittenOutput(received))
-            {
-                outputMatched.TrySetResult(received);
-            }
-        };
-
-        device.OutputReportReceived += handler;
-        try
-        {
-            byte[] outputReport = CreateOutputReport();
-            int written = hid.Write(outputReport, 0, outputReport.Length);
-            TestContext.Out.WriteLine($"Wrote {written} byte(s) of output report 0x{OutputReportId:X2}.");
-
-            bool matched = outputMatched.Task.Wait(OutputReportTimeout);
-            if (!matched)
-            {
-                string observed;
-                lock (outputLock)
-                {
-                    observed = outputSeen ? DescribeOutput(lastOutput) : "(no output report received)";
-                }
-
-                Assert.Fail($"The written output report 0x{OutputReportId:X2} did not come back through the persona within "
-                            + $"{OutputReportTimeout.TotalSeconds:0} s; last report observed on the persona: {observed}");
-            }
-
-            TestContext.Out.WriteLine($"Output report came back from the host: {DescribeOutput(outputMatched.Task.Result)}");
-        }
-        finally
-        {
-            device.OutputReportReceived -= handler;
-        }
+        EmulationIntegrationSupport.WriteOutputReportAndWait<DualShock4OutputReport>(
+            hid,
+            CreateOutputReport(),
+            OutputReportId,
+            handler => device.OutputReportReceived += handler,
+            handler => device.OutputReportReceived -= handler,
+            MatchesWrittenOutput,
+            DescribeOutput,
+            EmulationIntegrationSupport.OutputReportTimeout);
     }
 
     /// <summary>
@@ -311,134 +268,5 @@ public sealed class DualShock4EndToEndTests
         return $"flags rumble={report.RumbleEnabled} lightbar={report.LightbarEnabled} flash={report.FlashEnabled}, "
                + $"motors R=0x{report.RightMotor:X2} L=0x{report.LeftMotor:X2}, "
                + $"RGB=0x{report.Red:X2}{report.Green:X2}{report.Blue:X2}, flash={report.FlashOn}/{report.FlashOff}";
-    }
-
-    /// <summary>Collects the platform paths of every currently enumerated DualShock 4.</summary>
-    /// <param name="enumerator">HID enumerator to poll.</param>
-    /// <returns>The paths present before the attach, so the new device can be identified.</returns>
-    private static HashSet<string> CollectDevicePaths(HidDeviceEnumerator enumerator)
-    {
-        HashSet<string> paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (IHidDeviceInfo info in enumerator.Enumerate(SonyVendorId, DualShock4V2ProductId))
-        {
-            paths.Add(info.Path);
-        }
-
-        return paths;
-    }
-
-    /// <summary>
-    /// Polls the HID enumeration for the first DualShock 4 whose path was not present in
-    /// <paramref name="baselinePaths"/>, i.e. the controller this test just attached.
-    /// </summary>
-    /// <param name="enumerator">HID enumerator to poll.</param>
-    /// <param name="baselinePaths">Paths enumerated before the attach.</param>
-    /// <param name="timeout">How long to poll.</param>
-    /// <returns>The newly enumerated device, or <see langword="null"/> on timeout.</returns>
-    private static IHidDeviceInfo? WaitForNewDevice(HidDeviceEnumerator enumerator, ISet<string> baselinePaths, TimeSpan timeout)
-    {
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        do
-        {
-            foreach (IHidDeviceInfo info in enumerator.Enumerate(SonyVendorId, DualShock4V2ProductId))
-            {
-                if (!baselinePaths.Contains(info.Path))
-                {
-                    return info;
-                }
-            }
-
-            Thread.Sleep(PollIntervalMilliseconds);
-        } while (stopwatch.Elapsed < timeout);
-
-        return null;
-    }
-
-    /// <summary>Polls the HID enumeration until <paramref name="devicePath"/> is gone.</summary>
-    /// <param name="enumerator">HID enumerator to poll.</param>
-    /// <param name="devicePath">Path of the controller to watch.</param>
-    /// <param name="timeout">How long to poll.</param>
-    /// <returns><see langword="true"/> when the device disappeared; <see langword="false"/> on timeout.</returns>
-    private static bool WaitForDeviceDisappearance(HidDeviceEnumerator enumerator, string devicePath, TimeSpan timeout)
-    {
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        do
-        {
-            bool present = false;
-            foreach (IHidDeviceInfo info in enumerator.Enumerate(SonyVendorId, DualShock4V2ProductId))
-            {
-                if (string.Equals(info.Path, devicePath, StringComparison.OrdinalIgnoreCase))
-                {
-                    present = true;
-                    break;
-                }
-            }
-
-            if (!present)
-            {
-                return true;
-            }
-
-            Thread.Sleep(PollIntervalMilliseconds);
-        } while (stopwatch.Elapsed < timeout);
-
-        return false;
-    }
-
-    /// <summary>
-    /// Reads input reports until one is a full 64-byte report with report id 0x01; every received
-    /// report is recorded in <paramref name="lastReportHex"/> for failure diagnostics.
-    /// </summary>
-    /// <param name="hid">Open controller handle.</param>
-    /// <param name="report">64-byte report buffer.</param>
-    /// <param name="lastReportHex">Receives the hex of the last report seen.</param>
-    /// <param name="timeout">How long to poll.</param>
-    /// <returns><see langword="true"/> when a full input report arrived.</returns>
-    private static bool WaitForInputReport(IHidDevice hid, byte[] report, ref string lastReportHex, TimeSpan timeout)
-    {
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        do
-        {
-            int length = hid.Read(report, 0, report.Length, ReadTimeoutMilliseconds);
-            if (length > 0)
-            {
-                lastReportHex = Convert.ToHexString(report.AsSpan(0, length));
-            }
-
-            if (length == InputReportSize && report[0] == InputReportId)
-            {
-                return true;
-            }
-        } while (stopwatch.Elapsed < timeout);
-
-        return false;
-    }
-
-    /// <summary>
-    /// Reads input reports until the Cross bit appears in the face-button byte.
-    /// </summary>
-    /// <param name="hid">Open controller handle.</param>
-    /// <param name="report">64-byte report buffer.</param>
-    /// <param name="lastReportHex">Receives the hex of the last report seen.</param>
-    /// <param name="timeout">How long to poll.</param>
-    /// <returns><see langword="true"/> when a report with the Cross bit arrived.</returns>
-    private static bool WaitForCrossBit(IHidDevice hid, byte[] report, ref string lastReportHex, TimeSpan timeout)
-    {
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        do
-        {
-            int length = hid.Read(report, 0, report.Length, ReadTimeoutMilliseconds);
-            if (length > 0)
-            {
-                lastReportHex = Convert.ToHexString(report.AsSpan(0, length));
-            }
-
-            if (length == InputReportSize && report[0] == InputReportId && (report[FaceButtonsOffset] & CrossBit) != 0)
-            {
-                return true;
-            }
-        } while (stopwatch.Elapsed < timeout);
-
-        return false;
     }
 }

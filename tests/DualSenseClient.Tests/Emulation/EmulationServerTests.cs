@@ -1,7 +1,9 @@
 using System.Net;
 using DualSenseClient.Tests.Emulation.TestSupport;
 using DualSenseClient.Emulation;
+using DualSenseClient.Emulation.Devices.DualSense;
 using DualSenseClient.Emulation.Devices.DualShock4;
+using DualSenseClient.Emulation.Devices.Xbox360;
 using DualSenseClient.Emulation.Windows;
 
 namespace DualSenseClient.Tests.Emulation;
@@ -89,6 +91,153 @@ public sealed class EmulationServerTests
         Assert.That(reference.Descriptors.IdProduct, Is.EqualTo(0x09CC));
         Assert.That(custom.Descriptors.IdVendor, Is.EqualTo(0x0F0F));
         Assert.That(custom.Descriptors.IdProduct, Is.EqualTo(0x1234));
+    }
+
+    [Test]
+    public void AddDualSense_BaseAndEdge_RegistersEachPersonaWithItsProductId()
+    {
+        FakeAttachStrategy strategy = new FakeAttachStrategy();
+        using EmulationServer server = CreateServer(strategy);
+
+        DualSenseDevice baseDevice = server.AddDualSense();
+        DualSenseDevice edgeDevice = server.AddDualSense(true);
+
+        Assert.That(server.BusIds, Is.EqualTo(new[]
+        {
+            "1-1", "2-1"
+        }));
+        Assert.That(baseDevice.Descriptors.IdVendor, Is.EqualTo(0x054C));
+        Assert.That(baseDevice.Descriptors.IdProduct, Is.EqualTo(0x0CE6));
+        Assert.That(edgeDevice.Descriptors.IdVendor, Is.EqualTo(0x054C));
+        Assert.That(edgeDevice.Descriptors.IdProduct, Is.EqualTo(0x0DF2)); // the Edge factory pins the Edge product id
+    }
+
+    [Test]
+    public void AddDualSense_CustomIdentity_ServesIdentityDescriptors()
+    {
+        FakeAttachStrategy strategy = new FakeAttachStrategy();
+        using EmulationServer server = CreateServer(strategy);
+
+        DualSenseDevice device = server.AddDualSense(identity: new DualSenseIdentity
+        {
+            IdVendor = 0x0F0F,
+            IdProduct = 0x1234
+        });
+
+        Assert.That(device.Descriptors.IdVendor, Is.EqualTo(0x0F0F));
+        Assert.That(device.Descriptors.IdProduct, Is.EqualTo(0x1234));
+        Assert.That(server.BusIds, Is.EqualTo(new[]
+        {
+            "1-1"
+        }));
+    }
+
+    [Test]
+    public void AddXbox360_DefaultIdentity_ServesMicrosoftDescriptors()
+    {
+        FakeAttachStrategy strategy = new FakeAttachStrategy();
+        using EmulationServer server = CreateServer(strategy);
+
+        Xbox360Device device = server.AddXbox360();
+
+        Assert.That(server.BusIds, Is.EqualTo(new[]
+        {
+            "1-1"
+        }));
+        Assert.That(device.Descriptors.IdVendor, Is.EqualTo(0x045E));
+        Assert.That(device.Descriptors.IdProduct, Is.EqualTo(0x028E));
+    }
+
+    [Test]
+    public void AddXbox360_CustomIdentity_ServesIdentityDescriptors()
+    {
+        FakeAttachStrategy strategy = new FakeAttachStrategy();
+        using EmulationServer server = CreateServer(strategy);
+
+        Xbox360Device device = server.AddXbox360(new Xbox360Identity
+        {
+            IdVendor = 0x0F0F,
+            IdProduct = 0x1234
+        });
+
+        Assert.That(device.Descriptors.IdVendor, Is.EqualTo(0x0F0F));
+        Assert.That(device.Descriptors.IdProduct, Is.EqualTo(0x1234));
+    }
+
+    [Test]
+    public void AddDualShock4_VariantV1_PinsV1ProductIdAndKeepsIdentityVendorId()
+    {
+        FakeAttachStrategy strategy = new FakeAttachStrategy();
+        using EmulationServer server = CreateServer(strategy);
+
+        DualShock4Device device = server.AddDualShock4(DualShock4Variant.V1, new DualShock4Identity
+        {
+            IdVendor = 0x0F0F
+        });
+
+        Assert.That(device.Descriptors.IdVendor, Is.EqualTo(0x0F0F)); // identity-driven
+        Assert.That(device.Descriptors.IdProduct, Is.EqualTo(0x05C4)); // the V1 variant pins the reference v1 id
+    }
+
+    [Test]
+    public void AddPersonas_AllVariants_AssignBusIdsInRegistrationOrder()
+    {
+        FakeAttachStrategy strategy = new FakeAttachStrategy();
+        using EmulationServer server = CreateServer(strategy);
+
+        server.AddDualShock4();
+        server.AddDualShock4(DualShock4Variant.V1);
+        server.AddDualSense();
+        server.AddDualSense(true);
+        server.AddXbox360();
+
+        Assert.That(server.BusIds, Is.EqualTo(new[]
+        {
+            "1-1", "2-1", "3-1", "4-1", "5-1"
+        }));
+    }
+
+    [Test]
+    public void TryAttach_DifferentPersonas_ForwardsEachBusIdToTheBoundEndPoint()
+    {
+        FakeAttachStrategy strategy = new FakeAttachStrategy();
+        using EmulationServer server = CreateServer(strategy);
+        server.Start();
+        DualShock4Device dualShock4 = server.AddDualShock4();
+        DualSenseDevice dualSense = server.AddDualSense();
+        Xbox360Device xbox360 = server.AddXbox360();
+
+        Assert.That(server.TryAttach(dualShock4, out string? _), Is.True);
+        Assert.That(server.TryAttach(dualSense, out string? _), Is.True);
+        Assert.That(server.TryAttach(xbox360, out string? _), Is.True);
+
+        Assert.That(strategy.AttachCalls, Has.Count.EqualTo(3));
+        Assert.That(strategy.AttachCalls[0].BusId, Is.EqualTo("1-1"));
+        Assert.That(strategy.AttachCalls[1].BusId, Is.EqualTo("2-1"));
+        Assert.That(strategy.AttachCalls[2].BusId, Is.EqualTo("3-1"));
+        foreach (RecordedAttachCall call in strategy.AttachCalls)
+        {
+            Assert.That(call.Port, Is.EqualTo(server.BoundEndPoint.Port)); // every persona attaches through the one bound endpoint
+        }
+    }
+
+    [Test]
+    public void TryDetach_NonDualShock4Persona_ForwardsBusIdAndResetsAttachState()
+    {
+        FakeAttachStrategy strategy = new FakeAttachStrategy();
+        using EmulationServer server = CreateServer(strategy);
+        server.Start();
+        Xbox360Device device = server.AddXbox360();
+        Assert.That(server.TryAttach(device, out string? _), Is.True);
+
+        bool detached = server.TryDetach(device, out string? error);
+
+        Assert.That(detached, Is.True);
+        Assert.That(error, Is.Null);
+        Assert.That(strategy.DetachCalls, Is.EqualTo(new[]
+        {
+            "1-1"
+        }));
     }
 
     [Test]

@@ -13,8 +13,9 @@ namespace DualSenseClient.Emulation.Devices.DualShock4;
 /// <summary>
 /// Decoded host output report of the DualShock 4 (USB report id 0x05): the enable flags and the
 /// rumble, lightbar and flash fields of the 31-byte payload. <see cref="TryParse"/> reads the
-/// id-prefixed shape the interrupt OUT path delivers; the HID class SET_REPORT path delivers the
-/// same payload report-id-exclusive, which carries no report id and is therefore not recognized.
+/// id-prefixed shape both delivery paths produce: the interrupt OUT path carries the id in the
+/// payload and the HID class SET_REPORT path gets it prepended from wValue. A bare payload is only
+/// possible through a direct <c>OnOutputReport</c> call and is therefore not recognized.
 /// </summary>
 public readonly struct DualShock4OutputReport
 {
@@ -94,7 +95,7 @@ public readonly struct DualShock4OutputReport
     /// <summary>
     /// Parses one id-prefixed host payload: <paramref name="data"/> must start with
     /// <see cref="ReportId"/> and carry at least <see cref="MinimumSize"/> bytes. Any other report id
-    /// (or an empty, truncated or report-id-exclusive control-path payload) yields
+    /// (or an empty, truncated or bare control-path payload) yields
     /// <see langword="false"/> with <paramref name="report"/> at its default value.
     /// </summary>
     /// <param name="data">Host payload, report id first (the interrupt OUT shape).</param>

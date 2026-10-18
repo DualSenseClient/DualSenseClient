@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using DualSenseClient.Emulation.UsbIp;
 
 namespace DualSenseClient.Emulation.Core;
 
@@ -112,6 +113,19 @@ public abstract class VirtualUsbDevice
 
     /// <summary>Descriptor set of the device; immutable.</summary>
     public UsbDescriptorSet Descriptors { get; }
+
+    /// <summary>
+    /// Transfer speed the device is exported with in the USB/IP handshake entries; defaults to
+    /// full speed, the speed of the M1 personas. Personas override this property to declare a
+    /// different speed.
+    /// </summary>
+    public virtual UsbIpDeviceSpeed Speed
+    {
+        get
+        {
+            return UsbIpDeviceSpeed.Full;
+        }
+    }
 
     /// <summary>
     /// Handles one control transfer of endpoint 0: standard requests are served from the

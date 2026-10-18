@@ -101,6 +101,22 @@ public sealed class VirtualHidDeviceTests
 
         Assert.That(result.Count, Is.Zero);
         Assert.That(device.OutputReports, Has.Count.EqualTo(1));
+        Assert.That(device.OutputReports[0], Is.EqualTo(new byte[]
+        {
+            0x05
+        }.Concat(payload).ToArray()));
+    }
+
+    [Test]
+    public void HandleControlRequest_SetReportOutputReportIdZero_PassesPayloadUnchanged()
+    {
+        TestHidDevice device = CreateDevice();
+        byte[] payload = CreateOutputPayload(8);
+
+        ControlResult result = Send(device, ClassInterfaceOut, RequestSetReport, 0x0200, length: 8, outData: payload);
+
+        Assert.That(result.Count, Is.Zero);
+        Assert.That(device.OutputReports, Has.Count.EqualTo(1));
         Assert.That(device.OutputReports[0], Is.EqualTo(payload));
     }
 
@@ -126,7 +142,10 @@ public sealed class VirtualHidDeviceTests
 
         Assert.That(result.Count, Is.Zero);
         Assert.That(device.OutputReports, Has.Count.EqualTo(1));
-        Assert.That(device.OutputReports[0], Is.EqualTo(payload[..8]));
+        Assert.That(device.OutputReports[0], Is.EqualTo(new byte[]
+        {
+            0x05
+        }.Concat(payload[..8]).ToArray()));
     }
 
     [Test]

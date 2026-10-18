@@ -43,9 +43,10 @@ public readonly struct DualShock4Identity
     public string SerialNumber { get; init; } = string.Empty;
 
     /// <summary>
-    /// Controller MAC address as six bytes in address order, kept for the feature reports that carry it in later
-    /// milestones (reports 0x12/0x81); defaults to all zero because a virtual controller has no hardware address.
-    /// The descriptor set does not consume this value.
+    /// Controller MAC address as six bytes in address order, consumed by feature reports 0x12
+    /// (pairing info) and 0x81 (controller MAC), which serve it in reverse order; defaults to all
+    /// zero because a virtual controller has no hardware address. The descriptor set does not
+    /// consume this value.
     /// </summary>
     public byte[] MacAddress { get; init; } = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
 }
