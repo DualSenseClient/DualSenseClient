@@ -1,5 +1,12 @@
 [
  {
+  "tag": "v1.0.0-16.5e9c019",
+  "name": "DualSenseClient (v1.0.0-16.5e9c019)",
+  "publishedAt": "2026-10-18T19:48:26Z",
+  "prerelease": true,
+  "body": "### Other\n\n- **library: Updated VIIPER to v1.0.1** ([1ef210f](https://github.com/DualSenseClient/DualSenseClient/commit/1ef210fbc943e233b84f939a39d5f7c104609dcf))\n- **emulation: Prefer verbatim raw input reports** ([5e9c019](https://github.com/DualSenseClient/DualSenseClient/commit/5e9c019b138e15ca85949994d9258f895940b84e))"
+ },
+ {
   "tag": "v1.0.0-15.fff354f",
   "name": "DualSenseClient (v1.0.0-15.fff354f)",
   "publishedAt": "2026-10-11T16:16:14Z",
