@@ -8,7 +8,7 @@ namespace DualSenseClient.Emulation.Windows;
 /// (including its children) and reported as a <see cref="TimeoutException"/>, so callers never
 /// block on a hung tool.
 /// </summary>
-internal sealed class ProcessRunner : IProcessRunner
+public sealed class ProcessRunner : IProcessRunner
 {
     /// <summary>
     /// Runs <paramref name="fileName"/> with <paramref name="arguments"/> and waits for it to exit.

@@ -12,7 +12,8 @@ namespace DualSenseClient.Emulation;
 /// <summary>
 /// Public facade over the Emulation engine: exports persona devices (DualSense, DualShock 4 and
 /// Xbox 360) over the <see cref="UsbIpServer"/> and attaches them to the local Windows host through an
-/// <see cref="IUsbIpAttachStrategy"/> (the installed usbip.exe by default). Devices are registered
+/// <see cref="IUsbIpAttachStrategy"/> (native usbip-win2 VHCI attach with the installed usbip.exe
+/// as fallback by default). Devices are registered
 /// under auto-assigned USB/IP bus ids of the form "&lt;busnum&gt;-1" starting at "1-1", and the
 /// facade tracks the attach state of every device so a repeated attach or a detach of a device that
 /// is not attached is answered without asking the strategy again. The facade is a thin composition:
@@ -43,12 +44,15 @@ public sealed class EmulationServer : IDisposable
 
     /// <summary>
     /// Initializes the facade from <paramref name="options"/>: the USB/IP server is created from a
-    /// snapshot of the relevant options and the attach strategy defaults to the production
-    /// usbip.exe strategy when none is given.
+    /// snapshot of the relevant options and the attach strategy resolves once, in the order
+    /// explicit <see cref="EmulationServerOptions.AttachStrategy"/>, then
+    /// <see cref="EmulationServerOptions.AttachStrategyFactory"/>, then the production default of a
+    /// native usbip-win2 VHCI strategy with the usbip.exe CLI as fallback.
     /// </summary>
     /// <param name="options">Facade configuration; copied at construction.</param>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><see cref="EmulationServerOptions.InterruptInterval"/> is not positive.</exception>
+    /// <exception cref="InvalidOperationException"><see cref="EmulationServerOptions.AttachStrategyFactory"/> returned <see langword="null"/>.</exception>
     public EmulationServer(EmulationServerOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -61,7 +65,7 @@ public sealed class EmulationServer : IDisposable
         };
         _server = new UsbIpServer(serverOptions);
         _logger = options.Logger;
-        _attachStrategy = options.AttachStrategy ?? new UsbIpExeAttachStrategy(new ProcessRunner(), options.Logger);
+        _attachStrategy = ResolveAttachStrategy(options);
     }
 
     /// <summary>Endpoint the USB/IP listener is actually bound to; read <see cref="IPEndPoint.Port"/> to learn the port of a port-0 bind.</summary>
@@ -280,6 +284,39 @@ public sealed class EmulationServer : IDisposable
         }
 
         _server.Dispose();
+    }
+
+    /// <summary>
+    /// Resolves the attach strategy once, at construction: an explicit
+    /// <see cref="EmulationServerOptions.AttachStrategy"/> wins over
+    /// <see cref="EmulationServerOptions.AttachStrategyFactory"/>, which wins over the production
+    /// default composition of the native usbip-win2 VHCI strategy with the usbip.exe CLI as
+    /// fallback. Resolving once keeps any per-bus-id bookkeeping of the chosen strategy (e.g. the
+    /// fallback composition's winner map) steady across attach and detach calls.
+    /// </summary>
+    /// <param name="options">Facade configuration carrying the strategy, the factory and the logger.</param>
+    /// <returns>Strategy every attach and detach call of the facade is forwarded to.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// <see cref="EmulationServerOptions.AttachStrategyFactory"/> was configured but returned <see langword="null"/>.
+    /// </exception>
+    private static IUsbIpAttachStrategy ResolveAttachStrategy(EmulationServerOptions options)
+    {
+        if (options.AttachStrategy != null)
+        {
+            return options.AttachStrategy;
+        }
+
+        if (options.AttachStrategyFactory != null)
+        {
+            return options.AttachStrategyFactory.Invoke()
+                   ?? throw new InvalidOperationException(
+                       "The AttachStrategyFactory configured on the EmulationServerOptions returned null; it must return an attach strategy.");
+        }
+
+        return new FallbackAttachStrategy(
+            new VhciIoctlAttachStrategy(new VhciDriver(), options.Logger),
+            new UsbIpExeAttachStrategy(new ProcessRunner(), options.Logger),
+            options.Logger);
     }
 
     /// <summary>

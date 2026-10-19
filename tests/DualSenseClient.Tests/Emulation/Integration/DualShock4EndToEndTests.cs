@@ -2,12 +2,14 @@ using System.Net;
 using DualSenseClient.Hid;
 using DualSenseClient.Emulation;
 using DualSenseClient.Emulation.Devices.DualShock4;
+using DualSenseClient.Emulation.Windows;
 
 namespace DualSenseClient.Tests.Emulation.Integration;
 
 /// <summary>
 /// End-to-end integration test of the whole Emulation M1 path: the facade serves a DualShock 4
-/// persona over USB/IP, the production usbip.exe attach strategy attaches it to this machine, the
+/// persona over USB/IP, the attach strategy the fixture selects through <c>EMULATION_ATTACH_MODE</c>
+/// (<c>native</c> | <c>cli</c> | <c>auto</c>, the default) attaches it to this machine, the
 /// controller enumerates as a real HID device (VID 0x054C / PID 0x09CC), input reports flow from the
 /// persona to the host, an interrupt OUT output report flows back, and detach makes the device
 /// disappear again. Gated behind EMULATION_INTEGRATION=1: without the environment variable every test
@@ -19,6 +21,9 @@ namespace DualSenseClient.Tests.Emulation.Integration;
 [TestFixture]
 public sealed class DualShock4EndToEndTests
 {
+    /// <summary>Environment variable selecting the attach strategy the fixture forces.</summary>
+    private const string AttachModeVariable = "EMULATION_ATTACH_MODE";
+
     /// <summary>Vendor id of the DualShock 4 persona (Sony).</summary>
     private const ushort SonyVendorId = 0x054C;
 
@@ -85,13 +90,15 @@ public sealed class DualShock4EndToEndTests
     [Test]
     public void FullFlow_AttachPressWriteDetach_ControllerEnumeratesReportsAndDisappears()
     {
+        string attachMode = ResolveAttachMode();
         using HidDeviceEnumerator enumerator = new HidDeviceEnumerator();
         HashSet<string> baselinePaths = EmulationIntegrationSupport.CollectDevicePaths(enumerator, SonyVendorId, DualShock4V2ProductId);
         TestContext.Out.WriteLine($"HID enumeration before attach: {baselinePaths.Count} DualShock 4 device(s).");
 
         using EmulationServer server = new EmulationServer(new EmulationServerOptions
         {
-            ListenEndPoint = new IPEndPoint(IPAddress.Loopback, 0)
+            ListenEndPoint = new IPEndPoint(IPAddress.Loopback, 0),
+            AttachStrategy = CreateAttachStrategy(attachMode)
         });
         server.Start();
         TestContext.Out.WriteLine($"USB/IP server listening on {server.BoundEndPoint}.");
@@ -103,7 +110,7 @@ public sealed class DualShock4EndToEndTests
             Assert.Fail($"The DualShock 4 could not be attached to this machine: {attachError}");
         }
 
-        TestContext.Out.WriteLine($"Attached bus id \"1-1\" through the production usbip.exe strategy.");
+        TestContext.Out.WriteLine($"Attached bus id \"1-1\" with attach mode \"{attachMode}\".");
 
         bool detached = false;
         try
@@ -176,6 +183,55 @@ public sealed class DualShock4EndToEndTests
         // Unreachable while the detach assertion above fails first; kept so a later edit cannot end
         // the test silently attached to the host.
         Assert.That(detached, Is.True, "The test ended without detaching the controller; a vhci port may still be held by bus id \"1-1\".");
+    }
+
+    /// <summary>
+    /// Reads the <c>EMULATION_ATTACH_MODE</c> variable selecting which attach strategy the fixture
+    /// forces: <c>native</c> forces the native VHCI strategy, <c>cli</c> forces the usbip.exe
+    /// strategy and <c>auto</c> (the default when the variable is unset, empty or whitespace; the
+    /// comparison is case-insensitive) leaves the strategy unset so the facade's production
+    /// default composite applies.
+    /// </summary>
+    /// <returns>The normalized attach mode ("auto", "native" or "cli").</returns>
+    /// <exception cref="InvalidOperationException">The variable is set to an unknown mode.</exception>
+    private static string ResolveAttachMode()
+    {
+        string? rawMode = Environment.GetEnvironmentVariable(AttachModeVariable);
+        if (string.IsNullOrWhiteSpace(rawMode))
+        {
+            return "auto";
+        }
+
+        string mode = rawMode.Trim().ToLowerInvariant();
+        if (mode == "auto" || mode == "native" || mode == "cli")
+        {
+            return mode;
+        }
+
+        throw new InvalidOperationException(
+            $"Unsupported {AttachModeVariable} value \"{rawMode}\"; valid values are \"native\", \"cli\" and \"auto\" (default).");
+    }
+
+    /// <summary>
+    /// Maps an attach mode to the explicit strategy the fixture configures on the server options;
+    /// <c>auto</c> yields <see langword="null"/>, which exercises the facade's production default
+    /// (native VHCI first, usbip.exe CLI as fallback).
+    /// </summary>
+    /// <param name="attachMode">Normalized attach mode: "auto", "native" or "cli".</param>
+    /// <returns>The explicit strategy for the mode; <see langword="null"/> for "auto".</returns>
+    private static IUsbIpAttachStrategy? CreateAttachStrategy(string attachMode)
+    {
+        if (attachMode == "native")
+        {
+            return new VhciIoctlAttachStrategy(new VhciDriver());
+        }
+
+        if (attachMode == "cli")
+        {
+            return new UsbIpExeAttachStrategy(new ProcessRunner());
+        }
+
+        return null;
     }
 
     /// <summary>

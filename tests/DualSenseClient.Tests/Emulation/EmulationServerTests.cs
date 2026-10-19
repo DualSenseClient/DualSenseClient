@@ -441,6 +441,79 @@ public sealed class EmulationServerTests
         Assert.Throws<ObjectDisposedException>(() => server.AddDualShock4());
     }
 
+    [Test]
+    public void TryAttach_ExplicitStrategyAndFactory_ExplicitStrategyWinsAndFactoryIsNeverInvoked()
+    {
+        int factoryCalls = 0;
+        FakeAttachStrategy explicitStrategy = new FakeAttachStrategy();
+        FakeAttachStrategy factoryStrategy = new FakeAttachStrategy();
+        using EmulationServer server = new EmulationServer(new EmulationServerOptions
+        {
+            ListenEndPoint = new IPEndPoint(IPAddress.Loopback, 0),
+            TimeProvider = new ManualTimeProvider(),
+            AttachStrategy = explicitStrategy,
+            AttachStrategyFactory = () =>
+            {
+                factoryCalls++;
+                return factoryStrategy;
+            }
+        });
+        server.Start();
+        DualShock4Device device = server.AddDualShock4();
+
+        bool attached = server.TryAttach(device, out string? error);
+
+        Assert.That(attached, Is.True);
+        Assert.That(error, Is.Null);
+        Assert.That(factoryCalls, Is.Zero); // an explicit strategy wins before the factory is consulted
+        Assert.That(explicitStrategy.AttachCalls, Has.Count.EqualTo(1));
+        Assert.That(factoryStrategy.AttachCalls, Is.Empty);
+    }
+
+    [Test]
+    public void TryAttach_FactoryConfigured_AttachesThroughFactoryStrategyAndResolvesItOnce()
+    {
+        int factoryCalls = 0;
+        FakeAttachStrategy factoryStrategy = new FakeAttachStrategy();
+        using EmulationServer server = new EmulationServer(new EmulationServerOptions
+        {
+            ListenEndPoint = new IPEndPoint(IPAddress.Loopback, 0),
+            TimeProvider = new ManualTimeProvider(),
+            AttachStrategyFactory = () =>
+            {
+                factoryCalls++;
+                return factoryStrategy;
+            }
+        });
+        server.Start();
+        DualShock4Device device = server.AddDualShock4();
+
+        bool attached = server.TryAttach(device, out string? error);
+
+        Assert.That(attached, Is.True);
+        Assert.That(error, Is.Null);
+        Assert.That(factoryCalls, Is.EqualTo(1)); // one resolution per server, at construction
+        Assert.That(factoryStrategy.AttachCalls, Has.Count.EqualTo(1));
+        Assert.That(factoryStrategy.AttachCalls[0].Host, Is.EqualTo("127.0.0.1"));
+        Assert.That(factoryStrategy.AttachCalls[0].Port, Is.EqualTo(server.BoundEndPoint.Port));
+        Assert.That(factoryStrategy.AttachCalls[0].BusId, Is.EqualTo("1-1"));
+    }
+
+    [Test]
+    public void Constructor_FactoryReturnsNull_ThrowsInvalidOperationExceptionNamingTheFactory()
+    {
+        EmulationServerOptions options = new EmulationServerOptions
+        {
+            ListenEndPoint = new IPEndPoint(IPAddress.Loopback, 0),
+            TimeProvider = new ManualTimeProvider(),
+            AttachStrategyFactory = () => null!
+        };
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => new EmulationServer(options))!;
+
+        Assert.That(exception.Message, Does.Contain("AttachStrategyFactory"));
+    }
+
     /// <summary>
     /// Creates the facade under test: loopback port 0 (the port is read back from
     /// <see cref="EmulationServer.BoundEndPoint"/>), a manual time provider so no pacer ever ticks,

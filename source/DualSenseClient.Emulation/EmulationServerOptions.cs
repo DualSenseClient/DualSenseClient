@@ -22,10 +22,21 @@ public sealed class EmulationServerOptions
 
     /// <summary>
     /// Strategy that attaches exported devices to the local Windows host; <see langword="null"/>
-    /// selects the production <see cref="UsbIpExeAttachStrategy"/> that drives the installed
-    /// usbip.exe.
+    /// falls back to <see cref="AttachStrategyFactory"/> and then to the production default of a
+    /// native usbip-win2 VHCI strategy with the installed usbip.exe CLI as fallback. An explicitly
+    /// provided strategy always wins over the factory, which wins over the default composite.
     /// </summary>
     public IUsbIpAttachStrategy? AttachStrategy { get; set; }
+
+    /// <summary>
+    /// Factory that creates the attach strategy when <see cref="AttachStrategy"/> is
+    /// <see langword="null"/>; <see langword="null"/> selects the production default (native
+    /// usbip-win2 VHCI attach with the installed usbip.exe CLI as fallback). The factory runs
+    /// exactly once, when the <see cref="EmulationServer"/> is constructed. A factory result of
+    /// <see langword="null"/> is an error: construction fails with an
+    /// <see cref="InvalidOperationException"/>.
+    /// </summary>
+    public Func<IUsbIpAttachStrategy>? AttachStrategyFactory { get; set; }
 
     /// <summary>
     /// Provider that schedules the interrupt IN pacers; <see langword="null"/> selects the system
