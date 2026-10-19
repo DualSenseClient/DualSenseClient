@@ -18,6 +18,11 @@
       <ProjectReference Include="..\DualSenseClient.Hid\DualSenseClient.Hid.csproj" />
       <ProjectReference Include="..\DualSenseClient.Settings\DualSenseClient.Settings.csproj" />
       <ProjectReference Include="..\DualSenseClient.VIIPER\DualSenseClient.VIIPER.csproj" />
+      <ProjectReference Include="..\DualSenseClient.Emulation\DualSenseClient.Emulation.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <InternalsVisibleTo Include="DualSenseClient.Tests"/>
     </ItemGroup>
 
 </Project>

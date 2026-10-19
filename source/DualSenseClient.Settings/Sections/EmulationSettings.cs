@@ -30,6 +30,24 @@ public enum EmulationMode
 }
 
 /// <summary>
+/// The engine that hosts the virtual controllers of a profile.
+/// </summary>
+public enum EmulationEngine
+{
+    /// <summary>
+    /// The libVIIPER engine, which creates virtual controllers through the embedded
+    /// libVIIPER native library (the default).
+    /// </summary>
+    Viiper = 0,
+
+    /// <summary>
+    /// The Emulation engine, which exports virtual controllers over USB/IP and attaches
+    /// them to the local host through the Emulation server.
+    /// </summary>
+    UsbIp = 1
+}
+
+/// <summary>
 /// The DualSense hardware variant presented by a virtual DualSense device.
 /// </summary>
 public enum DualSenseVariant
@@ -275,6 +293,13 @@ public class EmulationSettings
     /// </summary>
     [JsonPropertyName("mode")]
     public EmulationMode Mode { get; set; } = EmulationMode.Off;
+
+    /// <summary>
+    /// Gets or sets the engine that hosts the virtual controller described by
+    /// <see cref="Mode"/> (<see cref="EmulationEngine.Viiper"/> by default).
+    /// </summary>
+    [JsonPropertyName("engine")]
+    public EmulationEngine Engine { get; set; } = EmulationEngine.Viiper;
 
     /// <summary>
     /// Gets or sets the per-mode hardware variants of the virtual device.

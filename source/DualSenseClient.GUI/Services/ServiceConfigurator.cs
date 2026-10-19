@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.Bluetooth;
 using DualSenseClient.Controllers;
@@ -13,6 +14,7 @@ using DualSenseClient.Hid;
 using DualSenseClient.HidHide;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
+using DualSenseClient.Emulation;
 using SoundFlow.Abstracts;
 using SoundFlow.Backends.MiniAudio;
 using SoundFlow.Codecs.FFMpeg;
@@ -71,6 +73,20 @@ public abstract class ServiceConfigurator
         services.AddSingleton<IControllerScanner, ControllerScanner>();
         services.AddSingleton<IControllerTracker, ControllerTracker>();
         services.AddSingleton<IVirtualControllerFactory, VirtualControllerFactory>();
+        services.AddSingleton<IEmulationControllerFactory, EmulationControllerFactory>();
+
+        // Emulation engine: one server per engine lifetime. The factory builds a fresh server
+        // (never a reused one) with the app-logger bridge for the engine's own logs and the
+        // default attach strategy (native usbip-win2 VHCI with the usbip.exe CLI as fallback).
+        // The listener uses port 3242 because libVIIPER owns the default USB/IP port 3241: both
+        // engines must be able to listen side by side (mixed pools and engine-only flips).
+        // TryAttach passes the bound endpoint (address and port) to the attach strategy, so
+        // nothing else assumes the default port.
+        services.AddSingleton<Func<EmulationServer>>(_ => () => new EmulationServer(new EmulationServerOptions
+        {
+            ListenEndPoint = new IPEndPoint(IPAddress.Loopback, 3242),
+            Logger = new EmulationLoggerAdapter()
+        }));
         services.AddSingleton<IEmulationService, EmulationService>();
         services.AddSingleton<SpecialActionEngineRegistry>();
         services.AddSingleton<IControllerHidingService, HidHideService>();

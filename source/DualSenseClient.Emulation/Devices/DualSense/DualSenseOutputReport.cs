@@ -313,7 +313,7 @@ public readonly struct DualSenseOutputReport
     /// (or an empty, truncated or bare control-path payload) yields
     /// <see langword="false"/> with <paramref name="report"/> at its default value.
     /// </summary>
-    /// <param name="data">Host payload, report id first (the interrupt OUT shape).</param>
+    /// <param name="data">Host payload, report id first (the shape both the interrupt OUT and HID SET_REPORT paths produce).</param>
     /// <param name="report">Parsed report when the payload is recognized; otherwise the default value.</param>
     /// <returns><see langword="true"/> when the payload carries output report <see cref="ReportId"/>; otherwise <see langword="false"/>.</returns>
     public static bool TryParse(ReadOnlySpan<byte> data, out DualSenseOutputReport report)

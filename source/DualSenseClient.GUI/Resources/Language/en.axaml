@@ -341,6 +341,10 @@
     <sys:String x:Key="EmulationPage.Emulation.Ds4Variant.Description">The hardware generation of the virtual controller</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.Ds4Variant.V1">V1 (CUH-ZCT1)</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.Ds4Variant.V2">V2 (CUH-ZCT2)</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Engine">Emulation Engine</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Engine.Description">The backend that creates the virtual controller; changes apply immediately.</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Engine.UsbIp">USB/IP</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.Engine.Viiper">VIIPER</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.ForceAudioHaptics">Audio-based haptics</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.ForceAudioHaptics.Description">Derive vibration from the forwarded audio instead of the game's own haptics. The haptic strength slider always applies to audio-based haptics. Only applies to DualSense emulation over Bluetooth.</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.ForwardHaptics">Forwarded Haptic Strength</sys:String>

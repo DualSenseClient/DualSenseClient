@@ -174,9 +174,10 @@ public abstract class VirtualUsbDevice
     public virtual int ProvideInputReport(Span<byte> destination) => 0;
 
     /// <summary>
-    /// Handles one interrupt OUT payload; the base ignores it.
+    /// Handles one id-prefixed output payload; the base ignores it. Interrupt OUT transfers and HID
+    /// SET_REPORT requests both route the same id-prefixed shape through this method.
     /// </summary>
-    /// <param name="data">Payload of the host-to-device transfer.</param>
+    /// <param name="data">Payload of the host-to-device transfer, report id first.</param>
     public virtual void OnOutputReport(ReadOnlySpan<byte> data)
     {
     }

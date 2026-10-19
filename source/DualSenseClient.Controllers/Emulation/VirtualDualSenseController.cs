@@ -352,6 +352,22 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         bytes[46] = output.LedBlue;
 
         SetStateData payload = new SetStateData(bytes, 0);
+        return ApplyRumbleModeSelector(payload, vibrationV2);
+    }
+
+    /// <summary>
+    /// Applies the rumble-mode selector translation to a built output payload. Games select v1
+    /// (flag 0 bit 0) or v2 (flag 2 bit 2) against the virtual device's firmware; the physical pad
+    /// may require the other encoding. When the game did not touch rumble at all, all selector bits
+    /// are cleared so the pad retains its motors — mirroring real hardware. Shared with the Emulation
+    /// virtual controller adapter so both engines expose identical selector semantics to the
+    /// physical controller.
+    /// </summary>
+    /// <param name="payload">Built 47-byte payload to translate; its selector bits are replaced.</param>
+    /// <param name="vibrationV2">True when the physical controller uses the v2 rumble encoding.</param>
+    /// <returns>The payload with the translated selector bits.</returns>
+    public static SetStateData ApplyRumbleModeSelector(SetStateData payload, bool vibrationV2)
+    {
         bool rumbleSelected = (payload.ValidFlag0 & ValidFlags.EnableRumbleEmulation) != 0
                               || (payload.ValidFlag2 & ValidFlags.EnableImprovedRumbleEmu) != 0;
         ValidFlags flag0 = payload.ValidFlag0;

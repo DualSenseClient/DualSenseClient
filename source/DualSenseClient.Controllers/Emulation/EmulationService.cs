@@ -3,11 +3,14 @@ using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.DualSense.Events;
 using DualSenseClient.Controllers.DualSense.Input;
+using DualSenseClient.Controllers.Emulation.UsbIp;
 using DualSenseClient.Controllers.SpecialActions;
 using DualSenseClient.Hid;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
 using DualSenseClient.Settings.Sections;
+using DualSenseClient.Emulation;
+using DualSenseClient.Emulation.Core;
 using DualSenseClient.VIIPER;
 using DualSenseClient.VIIPER.Callbacks;
 using SoundFlow.Abstracts;
@@ -16,12 +19,13 @@ namespace DualSenseClient.Controllers.Emulation;
 
 /// <summary>
 /// Creates a virtual controller for every tracked DualSense whose controller-level
-/// emulation settings enable it. Owns the libVIIPER USB server, the per-controller
-/// virtual device lifecycles, the HID exclusion that keeps the virtual devices out of
-/// the app's own enumeration, and the host-audio forwarders that play host audio
-/// through the physical controllers — either from the virtual controller's endpoint
-/// or, for a direct source (the system output or a single application), from a loopback
-/// capture without any virtual device.
+/// emulation settings enable it. Owns the per-profile engine choice with its shared USB
+/// servers (the libVIIPER server and the lazily created Emulation server), the
+/// per-controller virtual device lifecycles, the HID exclusion that keeps the virtual
+/// devices out of the app's own enumeration, and the host-audio forwarders that play
+/// host audio through the physical controllers — either from the virtual controller's
+/// endpoint or, for a direct source (the system output or a single application), from a
+/// loopback capture without any virtual device.
 /// </summary>
 public interface IEmulationService : IDisposable
 {
@@ -160,6 +164,18 @@ public sealed class EmulationService : IEmulationService
     private readonly IHidDeviceEnumerator _enumerator;
     private readonly ControllerInfoService _controllerInfo;
     private readonly IVirtualControllerFactory _factory;
+
+    /// <summary>
+    /// Creates the Emulation personas and adapters (engine <see cref="EmulationEngine.UsbIp"/>).
+    /// </summary>
+    private readonly IEmulationControllerFactory _emulationFactory;
+
+    /// <summary>
+    /// Creates a fresh Emulation server whenever the first Emulation entry needs one, so a server
+    /// torn down when the last entry left is never reused.
+    /// </summary>
+    private readonly Func<EmulationServer> _emulationServerFactory;
+
     private readonly SpecialActionEngineRegistry _specialActions;
     private readonly AudioEngine _audioEngine;
 
@@ -199,6 +215,29 @@ public sealed class EmulationService : IEmulationService
     private nuint? _serverHandle;
 
     /// <summary>
+    /// VIIPER creations that have captured (or are about to capture) the shared server handle
+    /// and have not finished yet. The server must not close while any of them is in flight,
+    /// because the handle is used across awaits (settle delay, discovery). The owning creation
+    /// decrements the counter in its finally. Guarded by <see cref="_sync"/>.
+    /// </summary>
+    private int _inFlightViiperCreations;
+
+    /// <summary>
+    /// The emulation server shared by all Emulation entries, or <c>null</c> while no entry runs on
+    /// the Emulation engine. Created lazily by <see cref="EnsureEmulationServerLocked"/> and torn
+    /// down by <see cref="MaybeTeardownEmulationServerLocked"/> once the last entry leaves.
+    /// </summary>
+    private EmulationServer? _emulationServer;
+
+    /// <summary>
+    /// Personas attached by a creation that has not committed them to an entry yet, or whose
+    /// entry was removed while the creation was still running. The shared server must not stop
+    /// while any of these is host-attached; the owning creation detaches and removes its persona
+    /// on every exit path. Guarded by <see cref="_sync"/>.
+    /// </summary>
+    private readonly HashSet<VirtualUsbDevice> _inFlightEmulationPersonas = new HashSet<VirtualUsbDevice>();
+
+    /// <summary>
     /// Serializes virtual device creation: only one create+discover cycle runs at a time.
     /// Concurrent creations (two controllers tracked at the same scan, or one connecting
     /// while another is still being created) would each see the other's new device during
@@ -223,7 +262,8 @@ public sealed class EmulationService : IEmulationService
     /// </summary>
     public EmulationService(IControllerTracker tracker, IHidDeviceEnumerator enumerator,
         ControllerInfoService controllerInfo, IVirtualControllerFactory factory,
-        AudioEngine audioEngine, SpecialActionEngineRegistry specialActions, AudioApplicationService audioApplications)
+        AudioEngine audioEngine, SpecialActionEngineRegistry specialActions, AudioApplicationService audioApplications,
+        Func<EmulationServer> emulationServerFactory, IEmulationControllerFactory emulationFactory)
     {
         _tracker = tracker;
         _enumerator = enumerator;
@@ -232,6 +272,8 @@ public sealed class EmulationService : IEmulationService
         _audioEngine = audioEngine;
         _specialActions = specialActions;
         _audioApplications = audioApplications;
+        _emulationServerFactory = emulationServerFactory;
+        _emulationFactory = emulationFactory;
     }
 
     /// <inheritdoc/>
@@ -270,10 +312,20 @@ public sealed class EmulationService : IEmulationService
 
                 _entries.Clear();
                 _temporaryModes.Clear();
+                // Every creation has finished by now (the gate was drained above); never leave
+                // the in-flight persona spotlight behind.
+                _inFlightEmulationPersonas.Clear();
                 if (_serverHandle is { } serverHandle)
                 {
                     LibVIIPER.CloseUSBServer(serverHandle);
                     _serverHandle = null;
+                }
+
+                if (_emulationServer is { } emulationServer)
+                {
+                    emulationServer.Stop();
+                    emulationServer.Dispose();
+                    _emulationServer = null;
                 }
             }
         }
@@ -291,12 +343,9 @@ public sealed class EmulationService : IEmulationService
         {
             foreach (VirtualControllerEntry entry in _entries.Values)
             {
-                // Only rebuild entries whose controller settings actually changed: with
-                // several controllers, recreating every virtual device on every change
-                // would briefly detach the other controllers' virtual devices for no
-                // reason. A running entry that still matches its settings is left
-                // untouched; entries without a virtual device (failed or in-flight
-                // creations) are always rebuilt so a change also retries them.
+                // Only rebuild entries whose recorded creation inputs changed: with several
+                // controllers, recreating every virtual device on every change would briefly
+                // detach the other controllers' virtual devices for no reason.
                 EmulationSettings emulation = GetEmulationSettings(entry.Device);
                 EmulationMode mode = emulation?.Mode ?? EmulationMode.Off;
                 DualSenseVariant? variant = mode == EmulationMode.DualSense
@@ -307,8 +356,9 @@ public sealed class EmulationService : IEmulationService
                     : null;
                 EmulationAudioSource audioSource = emulation?.Forward.AudioSource ?? EmulationAudioSource.ControllerEndpoint;
                 string audioApp = emulation?.Forward.AudioApp ?? string.Empty;
-                if (entry.Virtual is not null && entry.Status.Mode == mode
-                                              && entry.Status.Variant == variant && entry.Status.Ds4Variant == ds4Variant)
+                EmulationEngine engine = emulation?.Engine ?? EmulationEngine.Viiper;
+                if (!ShouldRecreateEntry(entry.Virtual is not null, entry.Status.Mode, entry.Status.Variant, entry.Status.Ds4Variant,
+                        entry.Engine, mode, variant, ds4Variant, engine))
                 {
                     SyncAudioLocked(entry, audioSource, audioApp);
                     continue;
@@ -334,6 +384,33 @@ public sealed class EmulationService : IEmulationService
             _ = CreateVirtualControllerAsync(entry, settle);
         }
     }
+
+    /// <summary>
+    /// Whether <see cref="Refresh"/> must rebuild a tracked entry: an entry without a virtual
+    /// controller (failed or in-flight creations) is always rebuilt so a settings change also
+    /// retries it, and a running entry is rebuilt when any recorded creation input (mode,
+    /// variant, engine) differs from the effective settings. A running entry that still matches
+    /// is left untouched. Audio source changes are applied in place by the audio sync and are
+    /// deliberately not part of this decision.
+    /// </summary>
+    /// <param name="hasVirtualController">Whether the entry currently holds a virtual controller.</param>
+    /// <param name="createdMode">Mode the running virtual controller was created with.</param>
+    /// <param name="createdVariant">DualSense variant the running virtual controller was created with.</param>
+    /// <param name="createdDs4Variant">DualShock 4 variant the running virtual controller was created with.</param>
+    /// <param name="createdEngine">Engine the running virtual controller was created on.</param>
+    /// <param name="mode">Effective mode from the current settings.</param>
+    /// <param name="variant">Effective DualSense variant from the current settings.</param>
+    /// <param name="ds4Variant">Effective DualShock 4 variant from the current settings.</param>
+    /// <param name="engine">Effective engine from the current settings.</param>
+    /// <returns><c>true</c> when the entry must be rebuilt; <c>false</c> when it still matches.</returns>
+    internal static bool ShouldRecreateEntry(bool hasVirtualController,
+        EmulationMode createdMode, DualSenseVariant? createdVariant, DualShock4Variant? createdDs4Variant, EmulationEngine createdEngine,
+        EmulationMode mode, DualSenseVariant? variant, DualShock4Variant? ds4Variant, EmulationEngine engine) =>
+        !hasVirtualController
+        || createdMode != mode
+        || createdVariant != variant
+        || createdDs4Variant != ds4Variant
+        || createdEngine != engine;
 
     /// <inheritdoc/>
     public EmulationStatus GetStatus(DualSenseDevice device)
@@ -562,6 +639,20 @@ public sealed class EmulationService : IEmulationService
         /// The USB bus owned by <see cref="Virtual"/>, removed together with it.
         /// </summary>
         public uint BusId;
+
+        /// <summary>
+        /// The engine the live virtual controller runs on, used to detect an engine switch (which
+        /// rebuilds the entry). Only meaningful while <see cref="Virtual"/> is set.
+        /// </summary>
+        public EmulationEngine Engine;
+
+        /// <summary>
+        /// The Emulation persona of the entry: set the moment a creation attaches it, until the
+        /// entry or the creation detaches and unregisters it again. While a creation is in
+        /// flight the entry has a persona but no <see cref="Virtual"/> yet. <c>null</c> for
+        /// VIIPER entries.
+        /// </summary>
+        public VirtualUsbDevice? Persona;
     }
 
     /// <summary>
@@ -678,19 +769,41 @@ public sealed class EmulationService : IEmulationService
             return;
         }
 
+        bool inFlightViiper = false;
         await _creationGate.WaitAsync();
         try
         {
+            if (GetEmulationSettings(entry.Device).Engine == EmulationEngine.UsbIp)
+            {
+                await CreateEmulationVirtualControllerAsync(entry, generation, mode, settleAfterRemoval);
+                return;
+            }
+
             nuint serverHandle;
             lock (_sync)
             {
-                if (_disposed)
+                if (_disposed || IsStale(entry, generation))
                 {
-                    // The service was disposed while this creation was queued: the
-                    // server is gone, so do not recreate it.
+                    // The service was disposed or the entry was rebuilt while this creation
+                    // was queued: a server started for a creation that is already stale must
+                    // not be left behind.
+                    MaybeTeardownViiperServerLocked();
                     return;
                 }
 
+                if (GetEmulationSettings(entry.Device).Engine != EmulationEngine.Viiper)
+                {
+                    // The settings moved off the VIIPER engine while this creation was
+                    // queued: never start (or keep) a server for a creation that no longer
+                    // wants one.
+                    MaybeTeardownViiperServerLocked();
+                    return;
+                }
+
+                // Publish the in-flight use before the server is touched: the handle is used
+                // across the awaits below, so the teardown check must not close it meanwhile.
+                _inFlightViiperCreations++;
+                inFlightViiper = true;
                 if (!EnsureServerLocked())
                 {
                     SetStatus(entry, new EmulationStatus(mode, false, "Could not start the libVIIPER USB server", null));
@@ -826,6 +939,7 @@ public sealed class EmulationService : IEmulationService
 
                 entry.BusId = busId;
                 entry.Virtual = virtualController;
+                entry.Engine = EmulationEngine.Viiper;
                 if (forwarder?.IsDisposed == true)
                 {
                     // The audio source was switched away and back mid-creation, tearing
@@ -860,8 +974,296 @@ public sealed class EmulationService : IEmulationService
         }
         finally
         {
+            if (inFlightViiper)
+            {
+                lock (_sync)
+                {
+                    _inFlightViiperCreations--;
+                    // This creation no longer uses the handle (it either committed a live
+                    // virtual controller or exited through a stale/failure path): reclaim the
+                    // server when nothing else needs it.
+                    MaybeTeardownViiperServerLocked();
+                }
+            }
+
             _creationGate.Release();
         }
+    }
+
+    /// <summary>
+    /// Runs the Emulation device creation + path discovery, mirroring
+    /// <see cref="CreateVirtualControllerAsync"/>: the whole cycle is serialized through
+    /// <see cref="_creationGate"/>, a fresh persona is registered on the shared Emulation server
+    /// and attached to the local host, and the device then appears in HID enumeration like a
+    /// libVIIPER one, so the same discovery/cleanup flow applies. Creation is retried once after
+    /// <see cref="CreateRetryDelay"/> on failure. Caller must hold <see cref="_creationGate"/>.
+    /// </summary>
+    private async Task CreateEmulationVirtualControllerAsync(VirtualControllerEntry entry, int generation, EmulationMode mode,
+        bool settleAfterRemoval)
+    {
+        EmulationServer server;
+        lock (_sync)
+        {
+            if (_disposed || IsStale(entry, generation))
+            {
+                // The service was disposed or the entry was rebuilt while this creation
+                // was queued: a server started for a creation that is already stale must
+                // not be left behind.
+                MaybeTeardownIdleServersLocked();
+                return;
+            }
+
+            if (GetEmulationSettings(entry.Device).Engine != EmulationEngine.UsbIp)
+            {
+                // The settings moved off the Emulation engine while this creation was
+                // queued: never start (or keep) a server for a creation that no longer
+                // wants one.
+                MaybeTeardownIdleServersLocked();
+                return;
+            }
+
+            if (!EnsureEmulationServerLocked())
+            {
+                SetStatus(entry, new EmulationStatus(mode, false, "Could not start the Emulation server", null));
+                return;
+            }
+
+            server = _emulationServer!;
+        }
+
+        if (settleAfterRemoval)
+        {
+            await Task.Delay(RecreationSettleDelay);
+        }
+
+        EmulationSettings emulation = GetEmulationSettings(entry.Device);
+        bool edge = emulation?.Variant.DualSense == DualSenseVariant.Edge;
+        DualShock4Variant ds4Variant = emulation?.Variant.DualShock4 ?? DualShock4Variant.V2;
+        EmulationAudioSource audioSource = emulation?.Forward.AudioSource ?? EmulationAudioSource.ControllerEndpoint;
+        string audioApp = emulation?.Forward.AudioApp ?? string.Empty;
+        (ushort vid, ushort pid) = GetDeviceIds(mode, edge, ds4Variant);
+        SpecialActionEngine specialActions;
+        DualSenseDeviceOutputs outputs;
+        lock (_sync)
+        {
+            if (IsStale(entry, generation))
+            {
+                MaybeTeardownIdleServersLocked();
+                return;
+            }
+
+            specialActions = _specialActions.GetOrCreate(entry.Device);
+            // One shared outputs lane per entry: the virtual controller and the
+            // audio forwarder must serialize writes to the physical device.
+            entry.Outputs ??= new DualSenseDeviceOutputs(entry.Device, specialActions);
+            outputs = entry.Outputs;
+        }
+
+        // The Emulation Xbox 360 persona is a vendor-class device with no HID interface,
+        // exactly like its libVIIPER counterpart: HID enumeration can never find it.
+        bool canDiscover = mode != EmulationMode.Xbox360;
+        HashSet<string> before = canDiscover
+            ? _enumerator.EnumerateIncludingExcluded(vid, pid).Select(info => info.Path).ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : [];
+
+        EmulationControllerCreation? creation = TryCreateEmulationDevice(entry, server, mode, outputs, entry.Device.UsesVibrationV2, edge, ds4Variant);
+        if (creation is null)
+        {
+            _log.Warning(
+                $"Failed to create the virtual {mode} device for {entry.Device.Info.ProductName}; retrying in {(int)CreateRetryDelay.TotalMilliseconds} ms");
+            await Task.Delay(CreateRetryDelay);
+
+            if (IsStale(entry, generation))
+            {
+                lock (_sync)
+                {
+                    MaybeTeardownIdleServersLocked();
+                }
+
+                return;
+            }
+
+            creation = TryCreateEmulationDevice(entry, server, mode, outputs, entry.Device.UsesVibrationV2, edge, ds4Variant);
+        }
+
+        if (creation is null)
+        {
+            SetStatus(entry,
+                new EmulationStatus(mode, false,
+                    "The emulation server could not create the virtual device. Check the emulation logs; USB/IP must be installed for auto-attachment", null));
+            lock (_sync)
+            {
+                MaybeTeardownIdleServersLocked();
+            }
+
+            return;
+        }
+
+        IVirtualController virtualController = creation.Controller;
+        VirtualUsbDevice persona = creation.Persona;
+
+        // The persona is spotlighted on the entry (and the in-flight set) from the moment it
+        // attaches until this creation commits or cleans it up, so the shared server can never
+        // stop while it is host-attached. personaHandled marks either outcome; the catch below
+        // only cleans up a persona this creation did not hand over to the entry.
+        bool personaHandled = false;
+
+        void CleanupAttachedPersona()
+        {
+            virtualController.Dispose();
+            server.TryDetach(persona, out _);
+            server.RemoveDevice(persona);
+            lock (_sync)
+            {
+                entry.Persona = null;
+                _inFlightEmulationPersonas.Remove(persona);
+                MaybeTeardownIdleServersLocked();
+            }
+
+            personaHandled = true;
+        }
+
+        try
+        {
+            // Candidates discovered for this creation; empty when the mode never appears in HID.
+            HashSet<string> candidates = canDiscover
+                ? await DiscoverVirtualPathCandidatesAsync(vid, pid, entry.Device.Info.Path, before)
+                : [];
+            if (canDiscover && candidates.Count != 1)
+            {
+                // Same ambiguous-discovery handling as the libVIIPER path: the persona is
+                // detached and unregistered again, so no half-attached virtual device is left
+                // behind. All candidates were already excluded on first sighting during
+                // discovery; afterwards, any that survived removal was real hardware and is
+                // unexcluded again.
+                _log.Warning(candidates.Count == 0
+                    ? "Could not discover the virtual device in HID enumeration; removing it again"
+                    : $"Found {candidates.Count} new matching devices; removing them again");
+                CleanupAttachedPersona();
+                await UnexcludeSurvivingCandidatesAsync(vid, pid, candidates);
+                SetStatus(entry,
+                    new EmulationStatus(mode, false,
+                        "The virtual device did not appear in HID enumeration. Check the emulation logs; USB/IP must be installed for auto-attachment", null));
+                return;
+            }
+
+            if (candidates.Count == 1)
+            {
+                virtualController.VirtualDevicePath = candidates.Single();
+            }
+
+            lock (_sync)
+            {
+                if (IsStale(entry, generation))
+                {
+                    // The stale virtual device's path stays excluded: unexcluding before
+                    // the detach completes would let the watcher see it as a phantom.
+                    // Re-created devices reusing the path are still discoverable via
+                    // EnumerateIncludingExcluded during discovery.
+                    // The forwarder stays: it may be feeding direct system audio, which
+                    // lives independently of the virtual device.
+                    CleanupAttachedPersona();
+                    return;
+                }
+
+                personaHandled = true;
+                entry.Persona = persona;
+                entry.Engine = EmulationEngine.UsbIp;
+                entry.Virtual = virtualController;
+                _inFlightEmulationPersonas.Remove(persona);
+                if (entry.Forwarder?.IsDisposed == true)
+                {
+                    // The audio source was switched away and back mid-creation, tearing
+                    // the forwarder down: rebuild from the current settings instead of
+                    // publishing it.
+                    EmulationSettings current = GetEmulationSettings(entry.Device);
+                    audioSource = current.Forward.AudioSource;
+                    audioApp = current.Forward.AudioApp;
+                }
+
+                // No controller-endpoint capture for Emulation (the audio milestone is
+                // parked): the adapter exposes no RealtimeHapticsReceived lane and its
+                // DeviceHandle is null, so there is nothing to tap. A forwarder only ever
+                // exists when a direct audio source feeds it.
+                WireGameCallbacksLocked(entry);
+                ApplyButtonMappingsLocked(virtualController, entry.Device);
+                SyncAudioLocked(entry, audioSource, audioApp);
+            }
+
+            SetStatus(entry, new EmulationStatus(mode, true, null, virtualController.VirtualDevicePath,
+                Variant: mode == EmulationMode.DualSense ? edge ? DualSenseVariant.Edge : DualSenseVariant.Standard : null,
+                Ds4Variant: mode == EmulationMode.DualShock4 ? ds4Variant : null));
+        }
+        catch
+        {
+            if (!personaHandled)
+            {
+                CleanupAttachedPersona();
+            }
+
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Registers a fresh Emulation persona on the shared server (see
+    /// <see cref="IEmulationControllerFactory"/>) and attaches it to the local host, mirroring
+    /// <see cref="TryCreateOnFreshBus"/> on the Emulation engine. On failure the persona is
+    /// unregistered again (detached first when it was attached) and the adapter is disposed, so
+    /// nothing is left behind for the retry. On success the persona is spotlighted on the entry
+    /// and the in-flight set until the calling creation commits or cleans it up.
+    /// </summary>
+    /// <param name="entry">Entry the attached persona is spotlighted on until the owning
+    /// creation commits or cleans it up.</param>
+    /// <param name="server">The running Emulation server hosting the persona.</param>
+    /// <param name="mode">The requested emulation mode.</param>
+    /// <param name="outputs">The physical controller receiving host feedback.</param>
+    /// <param name="vibrationV2">Whether the physical controller uses the V2 report format.</param>
+    /// <param name="edge">Whether the virtual DualSense should be an Edge variant (DualSense mode only).</param>
+    /// <param name="ds4Variant">The DualShock 4 hardware generation to present (DualShock 4 mode only).</param>
+    /// <returns>The created adapter and persona, or <c>null</c> when creation or attachment failed.</returns>
+    private EmulationControllerCreation? TryCreateEmulationDevice(VirtualControllerEntry entry, EmulationServer server, EmulationMode mode,
+        DualSenseDeviceOutputs outputs, bool vibrationV2, bool edge, DualShock4Variant ds4Variant)
+    {
+        EmulationControllerCreation? creation = null;
+        try
+        {
+            creation = _emulationFactory.Create(server, mode, outputs, vibrationV2, edge, ds4Variant);
+            if (creation is null)
+            {
+                return null;
+            }
+
+            if (server.TryAttach(creation.Persona, out string? error))
+            {
+                // Spotlight the attached persona immediately: until the owning creation
+                // commits or cleans it up, a Refresh or a tracker removal may dispose the
+                // entry, and the shared server must not stop while the persona is
+                // host-attached.
+                lock (_sync)
+                {
+                    entry.Persona = creation.Persona;
+                    _inFlightEmulationPersonas.Add(creation.Persona);
+                }
+
+                return creation;
+            }
+
+            _log.Warning($"Failed to attach the virtual {mode} device for the Emulation engine: {error}");
+        }
+        catch (Exception ex)
+        {
+            _log.LogExceptionDetails(ex);
+        }
+
+        if (creation is not null)
+        {
+            creation.Controller.Dispose();
+            server.TryDetach(creation.Persona, out _);
+            server.RemoveDevice(creation.Persona);
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -933,6 +1335,7 @@ public sealed class EmulationService : IEmulationService
                 return new EmulationSettings
                 {
                     Mode = mode,
+                    Engine = stored.Engine,
                     Variant = new VariantSettings
                     {
                         DualSense = dsVariant,
@@ -1209,6 +1612,19 @@ public sealed class EmulationService : IEmulationService
             dualShock4.OutputStateReceived += forwarder.UpdateGameOutputState;
             entry.AudioCallbacksWired = true;
         }
+        else if (entry.Virtual is EmulationDualSenseController emulationDualSense)
+        {
+            // The Emulation adapter exposes no RealtimeHapticsReceived lane (the audio
+            // milestone is parked); the game lightbar/trigger/rumble state still rides
+            // the shared forwarder.
+            emulationDualSense.OutputStateReceived += forwarder.UpdateGameOutputState;
+            entry.AudioCallbacksWired = true;
+        }
+        else if (entry.Virtual is EmulationDualShock4Controller emulationDualShock4)
+        {
+            emulationDualShock4.OutputStateReceived += forwarder.UpdateGameOutputState;
+            entry.AudioCallbacksWired = true;
+        }
     }
 
     /// <summary>
@@ -1231,6 +1647,14 @@ public sealed class EmulationService : IEmulationService
         else if (entry.Virtual is VirtualDualShock4Controller dualShock4)
         {
             dualShock4.OutputStateReceived -= forwarder.UpdateGameOutputState;
+        }
+        else if (entry.Virtual is EmulationDualSenseController emulationDualSense)
+        {
+            emulationDualSense.OutputStateReceived -= forwarder.UpdateGameOutputState;
+        }
+        else if (entry.Virtual is EmulationDualShock4Controller emulationDualShock4)
+        {
+            emulationDualShock4.OutputStateReceived -= forwarder.UpdateGameOutputState;
         }
 
         entry.AudioCallbacksWired = false;
@@ -1364,9 +1788,138 @@ public sealed class EmulationService : IEmulationService
         return true;
     }
 
-    /// Removes the entry's virtual device and its USB bus, keeping direct system
-    /// audio running: its forwarder outlives the virtual device. A forwarder that
-    /// only ever served the virtual controller's capture is disposed with it.
+    /// <summary>
+    /// Ensures the shared Emulation server exists and is listening, creating and starting it on
+    /// first use (buses are per persona and torn down with it, see
+    /// <see cref="CreateEmulationVirtualControllerAsync"/>).
+    /// Caller must hold <see cref="_sync"/>.
+    /// </summary>
+    private bool EnsureEmulationServerLocked()
+    {
+        if (_emulationServer is not null)
+        {
+            return true;
+        }
+
+        EmulationServer? server = null;
+        try
+        {
+            server = _emulationServerFactory();
+            server.Start();
+        }
+        catch (Exception ex)
+        {
+            _log.LogExceptionDetails(ex);
+            server?.Dispose();
+            return false;
+        }
+
+        _emulationServer = server;
+        _log.Info("Emulation server ready");
+        return true;
+    }
+
+    /// <summary>
+    /// Closes and drops the shared libVIIPER server once no tracked entry still needs it: no
+    /// VIIPER creation is in flight (it may still use the captured handle across awaits), no
+    /// entry holds a live virtual controller on the VIIPER engine (its bus must be removed
+    /// first, which requires the server) and no entry's effective settings still ask for the
+    /// VIIPER engine (engine switch away, emulation off, controller removed). A fresh server is
+    /// created by <see cref="EnsureServerLocked"/> if VIIPER is needed again.
+    /// Caller must hold <see cref="_sync"/>.
+    /// </summary>
+    private void MaybeTeardownViiperServerLocked()
+    {
+        if (_serverHandle is null)
+        {
+            return;
+        }
+
+        if (_inFlightViiperCreations > 0)
+        {
+            return;
+        }
+
+        foreach (VirtualControllerEntry entry in _entries.Values)
+        {
+            if (entry.Virtual is not null && entry.Engine == EmulationEngine.Viiper)
+            {
+                return;
+            }
+
+            EmulationSettings settings = GetEmulationSettings(entry.Device);
+            if (settings.Mode != EmulationMode.Off && settings.Engine == EmulationEngine.Viiper)
+            {
+                return;
+            }
+        }
+
+        _log.Info("Stopping the libVIIPER server");
+        LibVIIPER.CloseUSBServer(_serverHandle.Value);
+        _serverHandle = null;
+    }
+
+    /// <summary>
+    /// Stops and drops the shared Emulation server once no tracked entry still needs it: no
+    /// persona is spotlighted by an in-flight creation, no entry holds an attached or live
+    /// Emulation virtual controller (its persona must be detached first, which requires the
+    /// server) and no entry's effective settings still ask for the Emulation engine (engine
+    /// switch away, emulation off, controller removed). A fresh instance is created if Emulation
+    /// is needed again.
+    /// Caller must hold <see cref="_sync"/>.
+    /// </summary>
+    private void MaybeTeardownEmulationServerLocked()
+    {
+        if (_emulationServer is null)
+        {
+            return;
+        }
+
+        // A persona that attached but has not been committed to an entry yet (or whose entry
+        // was removed meanwhile) must be detached by its creation first; that cleanup runs even
+        // when its entry is already gone from the tracked set.
+        if (_inFlightEmulationPersonas.Count > 0)
+        {
+            return;
+        }
+
+        foreach (VirtualControllerEntry entry in _entries.Values)
+        {
+            if (entry.Persona is not null || (entry.Virtual is not null && entry.Engine == EmulationEngine.UsbIp))
+            {
+                return;
+            }
+
+            EmulationSettings settings = GetEmulationSettings(entry.Device);
+            if (settings.Mode != EmulationMode.Off && settings.Engine == EmulationEngine.UsbIp)
+            {
+                return;
+            }
+        }
+
+        _log.Info("Stopping the Emulation server");
+        _emulationServer.Stop();
+        _emulationServer.Dispose();
+        _emulationServer = null;
+    }
+
+    /// <summary>
+    /// Reclaims both shared engine servers when their last user is gone. Called from every
+    /// teardown site so a server started for a doomed, disabled or removed entry cannot be
+    /// orphaned (for example when a queued creation must not resurrect it).
+    /// Caller must hold <see cref="_sync"/>.
+    /// </summary>
+    private void MaybeTeardownIdleServersLocked()
+    {
+        MaybeTeardownViiperServerLocked();
+        MaybeTeardownEmulationServerLocked();
+    }
+
+    /// <summary>
+    /// Removes the entry's virtual device and its USB bus (VIIPER) or detaches and unregisters
+    /// its persona (Emulation), keeping direct system audio running: its forwarder outlives the
+    /// virtual device. A forwarder that only ever served the virtual controller's capture is
+    /// disposed with it.
     /// Caller must hold <see cref="_sync"/>.
     /// </summary>
     /// <returns><c>true</c> when a virtual device was removed.</returns>
@@ -1374,6 +1927,9 @@ public sealed class EmulationService : IEmulationService
     {
         if (entry.Virtual is null)
         {
+            // The entry may still be the reason a shared engine server is running (a failed or
+            // disabled entry whose settings changed): let the teardown checks run.
+            MaybeTeardownIdleServersLocked();
             return false;
         }
 
@@ -1395,12 +1951,29 @@ public sealed class EmulationService : IEmulationService
         // Re-created devices reusing the path are still discoverable via
         // EnumerateIncludingExcluded during discovery.
         virtualController.Dispose();
-        if (_serverHandle is { } serverHandle && entry.BusId != 0)
+        if (entry.Engine == EmulationEngine.UsbIp)
+        {
+            if (entry.Persona is { } persona && _emulationServer is { } emulationServer)
+            {
+                if (!emulationServer.TryDetach(persona, out string? error))
+                {
+                    _log.Warning($"Failed to detach the Emulation virtual device for {entry.Device.Info.ProductName}: {error}");
+                }
+
+                emulationServer.RemoveDevice(persona);
+            }
+
+            entry.Persona = null;
+        }
+        else if (_serverHandle is { } serverHandle && entry.BusId != 0)
         {
             LibVIIPER.RemoveUSBBus(serverHandle, entry.BusId);
             entry.BusId = 0;
         }
 
+        // Reclaim either shared engine server once its last user is gone (the Emulation persona
+        // is detached and unregistered, the VIIPER bus removed).
+        MaybeTeardownIdleServersLocked();
         return true;
     }
 

@@ -212,6 +212,16 @@ public partial class EmulationPageViewModel : ObservableObject
     ];
 
     /// <summary>
+    /// Virtual controller emulation engine options for the dropdown, in
+    /// <see cref="EmulationEngine"/> order (VIIPER, Emulation).
+    /// </summary>
+    public ObservableCollection<string> EmulationEngines { get; } =
+    [
+        LocalizationService.GetText("EmulationPage.Emulation.Engine.Viiper"),
+        LocalizationService.GetText("EmulationPage.Emulation.Engine.UsbIp")
+    ];
+
+    /// <summary>
     /// DualSense hardware variant options for the dropdown, in
     /// <see cref="DualSenseVariant"/> order (standard, Edge).
     /// </summary>
@@ -281,6 +291,44 @@ public partial class EmulationPageViewModel : ObservableObject
             NotifyTargetPickerState();
             RefreshMappingTargets();
             RefreshBindings();
+            _emulation.Refresh();
+        }
+    }
+
+    /// <summary>
+    /// The engine hosting the selected controller's virtual controller
+    /// (<see cref="EmulationEngine"/> value). Setting it persists the change immediately
+    /// and recreates the virtual controller through <see cref="IEmulationService"/>.
+    /// </summary>
+    public int EmulationEngineIndex
+    {
+        get
+        {
+            if (!HasDevice || !EmulationService.IsSupported)
+            {
+                return 0;
+            }
+
+            return (int)GetEmulationSettings().Engine;
+        }
+        set
+        {
+            if (!HasDevice || !EmulationService.IsSupported)
+            {
+                return;
+            }
+
+            EmulationEngine engine = (EmulationEngine)Math.Clamp(value, 0, (int)EmulationEngine.UsbIp);
+            EmulationSettings settings = GetEmulationSettings();
+            if (settings.Engine == engine)
+            {
+                return;
+            }
+
+            _log.Info($"Setting emulation engine of {CurrentMac} to {engine}");
+            settings.Engine = engine;
+            _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+            OnPropertyChanged(nameof(EmulationEngineIndex));
             _emulation.Refresh();
         }
     }
@@ -1318,6 +1366,7 @@ public partial class EmulationPageViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(EmulationModeIndex));
+        OnPropertyChanged(nameof(EmulationEngineIndex));
         OnPropertyChanged(nameof(IsEmulationEnabled));
         OnPropertyChanged(nameof(IsDualSenseEmulation));
         OnPropertyChanged(nameof(IsDualShock4Emulation));
