@@ -51,9 +51,9 @@ public readonly struct UsbEndpointInfo
 
 /// <summary>
 /// Interface descriptor data (USB 2.0 specification, section 9.6.5) with the endpoints that follow it
-/// in the configuration descriptor. Only alternate setting 0 is modelled: descriptors of other
-/// alternate settings and their endpoints are skipped while parsing, so <see cref="Number"/>
-/// identifies exactly one interface.
+/// in the configuration descriptor. One entry is parsed per interface descriptor, so an interface
+/// number that declares several alternate settings appears once per setting; <see cref="Number"/>
+/// and <see cref="AlternateSetting"/> identify one setting.
 /// </summary>
 public readonly struct UsbInterfaceInfo
 {
@@ -65,6 +65,9 @@ public readonly struct UsbInterfaceInfo
     /// <summary>Interface number (bInterfaceNumber).</summary>
     public byte Number { get; init; }
 
+    /// <summary>Alternate setting of the interface (bAlternateSetting).</summary>
+    public byte AlternateSetting { get; init; }
+
     /// <summary>Interface class (bInterfaceClass).</summary>
     public byte Class { get; init; }
 
@@ -74,7 +77,7 @@ public readonly struct UsbInterfaceInfo
     /// <summary>Interface protocol (bInterfaceProtocol).</summary>
     public byte Protocol { get; init; }
 
-    /// <summary>Endpoints of the default (alternate setting 0) interface in descriptor order; empty when it declares none.</summary>
+    /// <summary>Endpoints of this alternate setting in descriptor order; empty when it declares none.</summary>
     public IReadOnlyList<UsbEndpointInfo> Endpoints { get; init; } = [];
 }
 
@@ -150,8 +153,20 @@ public sealed class UsbDescriptorSet
     /// <summary>Configuration value of the configuration descriptor (bConfigurationValue).</summary>
     public byte ConfigurationValue { get; private init; }
 
-    /// <summary>Interfaces of the configuration in descriptor order; one entry per interface number (alternate setting 0).</summary>
+    /// <summary>Interfaces of the configuration in descriptor order; one entry per interface descriptor, including every alternate setting.</summary>
     public IReadOnlyList<UsbInterfaceInfo> Interfaces { get; private init; } = [];
+
+    /// <summary>Distinct interface numbers of the configuration in ascending order.</summary>
+    public IReadOnlyList<byte> InterfaceNumbers { get; private init; } = [];
+
+    /// <summary>Number of distinct interfaces of the configuration (bNumInterfaces).</summary>
+    public int InterfaceCount
+    {
+        get
+        {
+            return InterfaceNumbers.Count;
+        }
+    }
 
     /// <summary>String descriptor values; the list index plus one is the string descriptor index.</summary>
     private string[] Strings { get; init; } = [];
@@ -165,7 +180,7 @@ public sealed class UsbDescriptorSet
     /// <param name="strings">Strings of the device's string descriptors, where the list index plus one is the string descriptor index; index 0 is the language id descriptor served by the request engine and is not part of the list.</param>
     /// <returns>The parsed, immutable descriptor set.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="strings"/> is <see langword="null"/>.</exception>
-    /// <exception cref="InvalidDataException">A blob is malformed: a declared length does not fit its buffer, the descriptor chain does not fill the configuration descriptor's wTotalLength, a descriptor is shorter than its kind requires, or a descriptor header is wrong.</exception>
+    /// <exception cref="InvalidDataException">A blob is malformed: a declared length does not fit its buffer, the descriptor chain does not fill the configuration descriptor's wTotalLength, a descriptor is shorter than its kind requires, a descriptor header is wrong, or a distinct interface number declares no alternate setting 0.</exception>
     public static UsbDescriptorSet Create(
         ReadOnlyMemory<byte> deviceDescriptor,
         ReadOnlyMemory<byte> configDescriptor,
@@ -177,6 +192,16 @@ public sealed class UsbDescriptorSet
         ReadOnlySpan<byte> device = deviceDescriptor.Span;
         ValidateDeviceDescriptor(device);
         List<UsbInterfaceInfo> interfaces = WalkConfiguration(configDescriptor.Span, out int totalLength, out byte configurationValue);
+        List<byte> interfaceNumbers = [];
+        foreach (UsbInterfaceInfo interfaceInfo in interfaces)
+        {
+            if (!interfaceNumbers.Contains(interfaceInfo.Number))
+            {
+                interfaceNumbers.Add(interfaceInfo.Number);
+            }
+        }
+
+        interfaceNumbers.Sort();
 
         return new UsbDescriptorSet
         {
@@ -192,6 +217,7 @@ public sealed class UsbDescriptorSet
             NumConfigurations = device[17],
             ConfigurationValue = configurationValue,
             Interfaces = interfaces.ToArray(),
+            InterfaceNumbers = interfaceNumbers.ToArray(),
             Strings = strings.ToArray()
         };
     }
@@ -213,6 +239,64 @@ public sealed class UsbDescriptorSet
         }
 
         value = string.Empty;
+        return false;
+    }
+
+    /// <summary>Returns whether the configuration declares an interface with <paramref name="number"/>.</summary>
+    /// <param name="number">Interface number (bInterfaceNumber) to look up.</param>
+    /// <returns><see langword="true"/> when the interface number is declared; otherwise <see langword="false"/>.</returns>
+    public bool HasInterface(byte number)
+    {
+        for (int i = 0; i < InterfaceNumbers.Count; i++)
+        {
+            if (InterfaceNumbers[i] == number)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Returns every alternate setting of interface <paramref name="number"/> in descriptor order.
+    /// The returned list is a snapshot; the descriptor set itself keeps no active setting.
+    /// </summary>
+    /// <param name="number">Interface number (bInterfaceNumber) to look up.</param>
+    /// <returns>The alternate settings of the interface; empty when the interface is not declared.</returns>
+    public IReadOnlyList<UsbInterfaceInfo> GetAlternates(byte number)
+    {
+        List<UsbInterfaceInfo> alternates = [];
+        for (int i = 0; i < Interfaces.Count; i++)
+        {
+            UsbInterfaceInfo interfaceInfo = Interfaces[i];
+            if (interfaceInfo.Number == number)
+            {
+                alternates.Add(interfaceInfo);
+            }
+        }
+
+        return alternates.ToArray();
+    }
+
+    /// <summary>Looks up one alternate setting of an interface.</summary>
+    /// <param name="number">Interface number (bInterfaceNumber) to look up.</param>
+    /// <param name="alternateSetting">Alternate setting (bAlternateSetting) to look up.</param>
+    /// <param name="interfaceInfo">Receives the interface entry when found; otherwise the default entry.</param>
+    /// <returns><see langword="true"/> when the interface declares the alternate setting; otherwise <see langword="false"/>.</returns>
+    public bool TryGetInterface(byte number, byte alternateSetting, out UsbInterfaceInfo interfaceInfo)
+    {
+        for (int i = 0; i < Interfaces.Count; i++)
+        {
+            UsbInterfaceInfo candidate = Interfaces[i];
+            if (candidate.Number == number && candidate.AlternateSetting == alternateSetting)
+            {
+                interfaceInfo = candidate;
+                return true;
+            }
+        }
+
+        interfaceInfo = default;
         return false;
     }
 
@@ -240,15 +324,15 @@ public sealed class UsbDescriptorSet
     }
 
     /// <summary>
-    /// Walks the configuration descriptor chain up to wTotalLength and collects the interfaces and
-    /// endpoints of alternate setting 0. Every descriptor must fit the declared total length so the
-    /// chain terminates exactly on it.
+    /// Walks the configuration descriptor chain up to wTotalLength and collects every interface
+    /// descriptor with the endpoints that follow it, including all alternate settings. Every
+    /// descriptor must fit the declared total length so the chain terminates exactly on it.
     /// </summary>
     /// <param name="descriptor">Configuration descriptor blob.</param>
     /// <param name="totalLength">The declared wTotalLength of the blob.</param>
     /// <param name="configurationValue">The bConfigurationValue of the configuration descriptor.</param>
-    /// <returns>The interfaces of the configuration in descriptor order.</returns>
-    /// <exception cref="InvalidDataException">The blob is truncated or a descriptor header is malformed.</exception>
+    /// <returns>The interfaces of the configuration in descriptor order, one entry per interface descriptor.</returns>
+    /// <exception cref="InvalidDataException">The blob is truncated, a descriptor header is malformed, or a distinct interface number declares no alternate setting 0.</exception>
     private static List<UsbInterfaceInfo> WalkConfiguration(ReadOnlySpan<byte> descriptor, out int totalLength, out byte configurationValue)
     {
         if (descriptor.Length < ConfigDescriptorSize)
@@ -277,6 +361,7 @@ public sealed class UsbDescriptorSet
         List<UsbInterfaceInfo> interfaces = [];
         List<UsbEndpointInfo>? currentEndpoints = null;
         byte number = 0;
+        byte alternateSetting = 0;
         byte interfaceClass = 0;
         byte subClass = 0;
         byte protocol = 0;
@@ -307,18 +392,14 @@ public sealed class UsbDescriptorSet
                             $"Interface descriptor at offset {offset} declares bLength {length}; at least {InterfaceDescriptorSize} is required.");
                     }
 
-                    AddCurrentInterface(interfaces, currentEndpoints, number, interfaceClass, subClass, protocol);
-                    currentEndpoints = null;
+                    AddCurrentInterface(interfaces, currentEndpoints, number, alternateSetting, interfaceClass, subClass, protocol);
                     anyInterface = true;
-                    if (body[3] == 0) // bAlternateSetting: only the default setting is modelled
-                    {
-                        number = body[2];
-                        interfaceClass = body[5];
-                        subClass = body[6];
-                        protocol = body[7];
-                        currentEndpoints = [];
-                    }
-
+                    number = body[2];
+                    alternateSetting = body[3];
+                    interfaceClass = body[5];
+                    subClass = body[6];
+                    protocol = body[7];
+                    currentEndpoints = [];
                     break;
 
                 case EndpointDescriptorType:
@@ -350,22 +431,55 @@ public sealed class UsbDescriptorSet
             offset += length;
         }
 
-        AddCurrentInterface(interfaces, currentEndpoints, number, interfaceClass, subClass, protocol);
+        AddCurrentInterface(interfaces, currentEndpoints, number, alternateSetting, interfaceClass, subClass, protocol);
+        ValidateAlternateSettings(interfaces);
         return interfaces;
     }
 
     /// <summary>
+    /// Validates that every distinct interface number declares the mandatory alternate setting 0.
+    /// </summary>
+    /// <param name="interfaces">Interfaces parsed from the configuration descriptor.</param>
+    /// <exception cref="InvalidDataException">A distinct interface number declares only non-zero alternate settings.</exception>
+    private static void ValidateAlternateSettings(List<UsbInterfaceInfo> interfaces)
+    {
+        List<byte> numbers = [];
+        List<byte> numbersWithAltZero = [];
+        foreach (UsbInterfaceInfo interfaceInfo in interfaces)
+        {
+            if (!numbers.Contains(interfaceInfo.Number))
+            {
+                numbers.Add(interfaceInfo.Number);
+            }
+
+            if (interfaceInfo.AlternateSetting == 0 && !numbersWithAltZero.Contains(interfaceInfo.Number))
+            {
+                numbersWithAltZero.Add(interfaceInfo.Number);
+            }
+        }
+
+        foreach (byte number in numbers)
+        {
+            if (!numbersWithAltZero.Contains(number))
+            {
+                throw new InvalidDataException($"Interface {number} declares no alternate setting 0.");
+            }
+        }
+    }
+
+    /// <summary>
     /// Appends the interface collected so far to <paramref name="interfaces"/>; does nothing when no
-    /// alternate setting 0 interface is open.
+    /// interface is open.
     /// </summary>
     /// <param name="interfaces">Interfaces collected so far.</param>
     /// <param name="endpoints">Endpoints of the open interface, or <see langword="null"/> when none is open.</param>
     /// <param name="number">Interface number of the open interface.</param>
+    /// <param name="alternateSetting">Alternate setting of the open interface.</param>
     /// <param name="interfaceClass">Interface class of the open interface.</param>
     /// <param name="subClass">Interface subclass of the open interface.</param>
     /// <param name="protocol">Interface protocol of the open interface.</param>
-    private static void AddCurrentInterface(List<UsbInterfaceInfo> interfaces, List<UsbEndpointInfo>? endpoints, byte number, byte interfaceClass,
-        byte subClass, byte protocol)
+    private static void AddCurrentInterface(List<UsbInterfaceInfo> interfaces, List<UsbEndpointInfo>? endpoints, byte number, byte alternateSetting,
+        byte interfaceClass, byte subClass, byte protocol)
     {
         if (endpoints is null)
         {
@@ -375,6 +489,7 @@ public sealed class UsbDescriptorSet
         interfaces.Add(new UsbInterfaceInfo
         {
             Number = number,
+            AlternateSetting = alternateSetting,
             Class = interfaceClass,
             SubClass = subClass,
             Protocol = protocol,

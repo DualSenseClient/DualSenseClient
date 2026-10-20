@@ -51,6 +51,42 @@ public static class TestDevices
     /// <summary>Serial number string of the simple device (string descriptor index 3).</summary>
     public const string SimpleSerialNumber = "Emulation Test Serial";
 
+    /// <summary>Endpoint address of the alternate-setting device's alternate IN endpoint (IN, endpoint 3).</summary>
+    public const byte AlternateInterruptInAddress = 0x83;
+
+    /// <summary>Interface class of the composite device's vendor-specific interface (bInterfaceClass).</summary>
+    public const byte CompositeVendorInterfaceClass = 0xFF;
+
+    /// <summary>Interface class of the composite device's audio control interface (bInterfaceClass; audio).</summary>
+    public const byte CompositeAudioControlClass = 0x01;
+
+    /// <summary>Interface subclass of the composite device's audio control interface (bInterfaceSubClass; audio control).</summary>
+    public const byte CompositeAudioControlSubClass = 0x01;
+
+    /// <summary>Interface class of the composite device's audio streaming interface (bInterfaceClass; audio).</summary>
+    public const byte CompositeAudioStreamingClass = 0x01;
+
+    /// <summary>Interface subclass of the composite device's audio streaming interface (bInterfaceSubClass; audio streaming).</summary>
+    public const byte CompositeAudioStreamingSubClass = 0x02;
+
+    /// <summary>Interface protocol of the composite device's audio streaming interface (bInterfaceProtocol; IP version 2).</summary>
+    public const byte CompositeAudioStreamingProtocol = 0x20;
+
+    /// <summary>Endpoint address of the composite device's bulk IN endpoint (IN, endpoint 1).</summary>
+    public const byte CompositeBulkInAddress = 0x81;
+
+    /// <summary>Endpoint address of the composite device's isochronous IN endpoint of the active audio alternate setting (IN, endpoint 3).</summary>
+    public const byte CompositeAudioIsoInAddress = 0x83;
+
+    /// <summary>Endpoint address of the composite device's interrupt IN endpoint of the inactive audio alternate setting (IN, endpoint 5).</summary>
+    public const byte CompositeInactiveInterruptInAddress = 0x85;
+
+    /// <summary>Endpoint address of the composite device's HID interrupt IN endpoint (IN, endpoint 4).</summary>
+    public const byte CompositeHidInterruptInAddress = 0x84;
+
+    /// <summary>Endpoint address of the composite device's HID interrupt OUT endpoint (OUT, endpoint 3).</summary>
+    public const byte CompositeHidInterruptOutAddress = 0x03;
+
     /// <summary>Interface class of the bulk device's interface (bInterfaceClass; vendor specific).</summary>
     public const byte BulkInterfaceClass = 0xFF;
 
@@ -90,6 +126,211 @@ public static class TestDevices
             CreateBulkConfigDescriptor(),
             null,
             []);
+    }
+
+    /// <summary>
+    /// Creates the alternate-setting synthetic device: one configuration with interface 0 in
+    /// alternate setting 0 (interrupt IN 0x81 and interrupt OUT 0x02) and alternate setting 1
+    /// (interrupt IN 0x83), with class-specific descriptors between the alternate endpoint
+    /// descriptors that the parser must ignore.
+    /// </summary>
+    /// <returns>The descriptor set of the alternate-setting device.</returns>
+    public static UsbDescriptorSet CreateAlternateSettingDevice()
+    {
+        return UsbDescriptorSet.Create(
+            CreateSimpleDeviceDescriptor(),
+            CreateAlternateSettingConfigDescriptor(),
+            CreateSimpleHidReportDescriptor(),
+            CreateSimpleStrings());
+    }
+
+    /// <summary>
+    /// Creates the configuration descriptor blob of the alternate-setting device (USB 2.0,
+    /// sections 9.6.3 to 9.6.6): interface 0 declares alternate setting 0 with two interrupt
+    /// endpoints and alternate setting 1 with one interrupt endpoint, separated by class-specific
+    /// descriptors of types 0x24 and 0x25.
+    /// </summary>
+    /// <returns>The configuration descriptor bytes.</returns>
+    public static byte[] CreateAlternateSettingConfigDescriptor()
+    {
+        byte[] reportDescriptor = CreateSimpleHidReportDescriptor();
+        int totalLength = 9 + 9 + 9 + 7 + 7 + 9 + 3 + 3 + 7;
+
+        return
+        [
+            0x09, // bLength: 9
+            0x02, // bDescriptorType: CONFIGURATION
+            (byte)totalLength, 0x00, // wTotalLength: 63
+            0x01, // bNumInterfaces: 1
+            SimpleConfigurationValue, // bConfigurationValue: 1
+            0x00, // iConfiguration: none
+            0x80, // bmAttributes: bus powered
+            0x32, // bMaxPower: 100 mA
+            0x09, // bLength: 9
+            0x04, // bDescriptorType: INTERFACE
+            0x00, // bInterfaceNumber: 0
+            0x00, // bAlternateSetting: 0
+            0x02, // bNumEndpoints: 2
+            SimpleInterfaceClass, // bInterfaceClass: HID
+            0x00, // bInterfaceSubClass: none
+            0x00, // bInterfaceProtocol: none
+            0x00, // iInterface: none
+            0x09, // bLength: 9
+            0x21, // bDescriptorType: HID
+            0x11, 0x01, // bcdHID: 1.11
+            0x00, // bCountryCode: not localized
+            0x01, // bNumDescriptors: 1
+            0x22, // bDescriptorType: REPORT
+            (byte)reportDescriptor.Length, (byte)(reportDescriptor.Length >> 8), // wDescriptorLength: 7
+            0x07, // bLength: 7
+            0x05, // bDescriptorType: ENDPOINT
+            SimpleInterruptInAddress, // bEndpointAddress: interrupt IN, endpoint 1
+            0x03, // bmAttributes: interrupt
+            (byte)SimpleInterruptInPacketSize, 0x00, // wMaxPacketSize: 64
+            SimpleInterruptInInterval, // bInterval: 4
+            0x07, // bLength: 7
+            0x05, // bDescriptorType: ENDPOINT
+            SimpleInterruptOutAddress, // bEndpointAddress: interrupt OUT, endpoint 2
+            0x03, // bmAttributes: interrupt
+            (byte)SimpleInterruptOutPacketSize, 0x00, // wMaxPacketSize: 32
+            SimpleInterruptOutInterval, // bInterval: 8
+            0x09, // bLength: 9
+            0x04, // bDescriptorType: INTERFACE
+            0x00, // bInterfaceNumber: 0
+            0x01, // bAlternateSetting: 1
+            0x01, // bNumEndpoints: 1
+            SimpleInterfaceClass, // bInterfaceClass: HID
+            0x00, // bInterfaceSubClass: none
+            0x00, // bInterfaceProtocol: none
+            0x00, // iInterface: none
+            0x03, // bLength: 3
+            0x24, // bDescriptorType: class-specific (audio style)
+            0x01, // class-specific payload
+            0x03, // bLength: 3
+            0x25, // bDescriptorType: class-specific (audio style)
+            0x01, // class-specific payload
+            0x07, // bLength: 7
+            0x05, // bDescriptorType: ENDPOINT
+            AlternateInterruptInAddress, // bEndpointAddress: interrupt IN, endpoint 3
+            0x03, // bmAttributes: interrupt
+            (byte)SimpleInterruptInPacketSize, 0x00, // wMaxPacketSize: 64
+            SimpleInterruptInInterval // bInterval: 4
+        ];
+    }
+
+    /// <summary>
+    /// Creates the composite synthetic device: four distinct interface numbers, one of them an
+    /// audio streaming interface with an inactive alternate setting, plus a HID interface. Used to
+    /// pin the handshake interface record count and the alt-0-only pacer start.
+    /// </summary>
+    /// <returns>The descriptor set of the composite device.</returns>
+    public static UsbDescriptorSet CreateCompositeDevice()
+    {
+        return UsbDescriptorSet.Create(
+            CreateSimpleDeviceDescriptor(),
+            CreateCompositeConfigDescriptor(),
+            CreateSimpleHidReportDescriptor(),
+            CreateSimpleStrings());
+    }
+
+    /// <summary>
+    /// Creates the configuration descriptor blob of the composite device (USB 2.0, sections 9.6.3
+    /// to 9.6.6): a vendor-specific interface 0, an audio control interface 1, an audio streaming
+    /// interface 2 with alternate setting 0 (no endpoints) and alternate setting 1 (isochronous IN
+    /// 0x83 and interrupt IN 0x85), and a HID interface 3 (interrupt IN 0x84 and interrupt OUT
+    /// 0x03). bNumInterfaces counts the four distinct interface numbers.
+    /// </summary>
+    /// <returns>The configuration descriptor bytes.</returns>
+    public static byte[] CreateCompositeConfigDescriptor()
+    {
+        int totalLength = 9 + 9 + 7 + 9 + 9 + 9 + 7 + 7 + 9 + 7 + 7;
+
+        return
+        [
+            0x09, // bLength: 9
+            0x02, // bDescriptorType: CONFIGURATION
+            (byte)totalLength, 0x00, // wTotalLength: 89
+            0x04, // bNumInterfaces: 4 distinct interface numbers
+            SimpleConfigurationValue, // bConfigurationValue: 1
+            0x00, // iConfiguration: none
+            0x80, // bmAttributes: bus powered
+            0x32, // bMaxPower: 100 mA
+            0x09, // bLength: 9
+            0x04, // bDescriptorType: INTERFACE
+            0x00, // bInterfaceNumber: 0
+            0x00, // bAlternateSetting: 0
+            0x01, // bNumEndpoints: 1
+            CompositeVendorInterfaceClass, // bInterfaceClass: vendor specific
+            0x00, // bInterfaceSubClass: none
+            0x00, // bInterfaceProtocol: none
+            0x00, // iInterface: none
+            0x07, // bLength: 7
+            0x05, // bDescriptorType: ENDPOINT
+            CompositeBulkInAddress, // bEndpointAddress: bulk IN, endpoint 1
+            0x02, // bmAttributes: bulk
+            (byte)BulkPacketSize, 0x00, // wMaxPacketSize: 64
+            0x00, // bInterval: ignored for bulk
+            0x09, // bLength: 9
+            0x04, // bDescriptorType: INTERFACE
+            0x01, // bInterfaceNumber: 1
+            0x00, // bAlternateSetting: 0
+            0x00, // bNumEndpoints: 0
+            CompositeAudioControlClass, // bInterfaceClass: audio
+            CompositeAudioControlSubClass, // bInterfaceSubClass: audio control
+            0x00, // bInterfaceProtocol: none
+            0x00, // iInterface: none
+            0x09, // bLength: 9
+            0x04, // bDescriptorType: INTERFACE
+            0x02, // bInterfaceNumber: 2
+            0x00, // bAlternateSetting: 0
+            0x00, // bNumEndpoints: 0
+            CompositeAudioStreamingClass, // bInterfaceClass: audio
+            CompositeAudioStreamingSubClass, // bInterfaceSubClass: audio streaming
+            CompositeAudioStreamingProtocol, // bInterfaceProtocol: IP version 2
+            0x00, // iInterface: none
+            0x09, // bLength: 9
+            0x04, // bDescriptorType: INTERFACE
+            0x02, // bInterfaceNumber: 2
+            0x01, // bAlternateSetting: 1
+            0x02, // bNumEndpoints: 2
+            CompositeAudioStreamingClass, // bInterfaceClass: audio
+            CompositeAudioStreamingSubClass, // bInterfaceSubClass: audio streaming
+            CompositeAudioStreamingProtocol, // bInterfaceProtocol: IP version 2
+            0x00, // iInterface: none
+            0x07, // bLength: 7
+            0x05, // bDescriptorType: ENDPOINT
+            CompositeAudioIsoInAddress, // bEndpointAddress: isochronous IN, endpoint 3
+            0x01, // bmAttributes: isochronous
+            0xC0, 0x00, // wMaxPacketSize: 192
+            0x01, // bInterval: every frame
+            0x07, // bLength: 7
+            0x05, // bDescriptorType: ENDPOINT
+            CompositeInactiveInterruptInAddress, // bEndpointAddress: interrupt IN, endpoint 5
+            0x03, // bmAttributes: interrupt
+            0x10, 0x00, // wMaxPacketSize: 16
+            0x04, // bInterval: 4
+            0x09, // bLength: 9
+            0x04, // bDescriptorType: INTERFACE
+            0x03, // bInterfaceNumber: 3
+            0x00, // bAlternateSetting: 0
+            0x02, // bNumEndpoints: 2
+            SimpleInterfaceClass, // bInterfaceClass: HID
+            0x00, // bInterfaceSubClass: none
+            0x00, // bInterfaceProtocol: none
+            0x00, // iInterface: none
+            0x07, // bLength: 7
+            0x05, // bDescriptorType: ENDPOINT
+            CompositeHidInterruptInAddress, // bEndpointAddress: interrupt IN, endpoint 4
+            0x03, // bmAttributes: interrupt
+            (byte)SimpleInterruptInPacketSize, 0x00, // wMaxPacketSize: 64
+            SimpleInterruptInInterval, // bInterval: 4
+            0x07, // bLength: 7
+            0x05, // bDescriptorType: ENDPOINT
+            CompositeHidInterruptOutAddress, // bEndpointAddress: interrupt OUT, endpoint 3
+            0x03, // bmAttributes: interrupt
+            (byte)SimpleInterruptOutPacketSize, 0x00, // wMaxPacketSize: 32
+            SimpleInterruptOutInterval // bInterval: 8
+        ];
     }
 
     /// <summary>

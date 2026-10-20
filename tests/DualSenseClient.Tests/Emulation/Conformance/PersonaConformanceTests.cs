@@ -16,7 +16,8 @@ namespace DualSenseClient.Tests.Emulation.Conformance;
 /// of any persona's internal helpers and never depends on the per-persona fixtures.
 /// The sweep covers: the device descriptor copy (bLength/type, identity, single configuration), the
 /// configuration blob (a raw descriptor walk that must land exactly on the declared wTotalLength,
-/// the declared interface count, and endpoint address uniqueness across the whole blob), the HID
+/// the declared interface count, alternate setting 0 for every interface number, and endpoint
+/// address uniqueness per interface alternate setting), the HID
 /// report descriptor declaration (<c>wDescriptorLength</c> in the HID class descriptor equals the
 /// served bytes, and GET_DESCRIPTOR(REPORT) serves exactly them; the vendor-class Xbox 360 persona
 /// declares and serves none), the input report size (64/64/64/64/20), the feature surface (the
@@ -64,6 +65,9 @@ public sealed class PersonaConformanceTests
 
     /// <summary>Size in bytes of an endpoint descriptor (USB 2.0 specification, section 9.6.6).</summary>
     private const int EndpointDescriptorSize = 7;
+
+    /// <summary>Size in bytes of an interface descriptor (USB 2.0 specification, section 9.6.5).</summary>
+    private const int InterfaceDescriptorSize = 9;
 
     /// <summary>Size in bytes of a HID class descriptor (USB HID 1.11, section 6.2.1).</summary>
     private const int HidClassDescriptorSize = 9;
@@ -262,34 +266,55 @@ public sealed class PersonaConformanceTests
         List<RawDescriptor> chain = WalkDescriptorChain(config);
         Assert.That(chain, Has.Count.GreaterThanOrEqualTo(3)); // configuration + interface(s) + endpoints
 
-        // Only the default alternate setting is modelled, so the configuration's bNumInterfaces
-        // counts every interface descriptor of the bring-up blob.
-        int interfaceCount = 0;
+        // Every distinct interface number must declare alternate setting 0, and the configuration's
+        // bNumInterfaces counts the distinct interface numbers rather than the interface descriptors
+        // (an interface may declare several alternate settings).
+        HashSet<byte> interfaceNumbers = [];
+        HashSet<byte> numbersWithAltZero = [];
+        int currentNumber = -1;
+        int currentAlternateSetting = -1;
+        List<(byte InterfaceNumber, byte AlternateSetting, byte Address)> endpointAddresses = [];
+        List<byte> altZeroEndpointAddresses = [];
         foreach (RawDescriptor descriptor in chain)
         {
             if (descriptor.Type == DescriptorTypeInterface)
             {
-                interfaceCount++;
-                Assert.That(config[descriptor.Offset + 3], Is.Zero, $"interface at offset {descriptor.Offset} declares a non-default alternate setting");
+                Assert.That(descriptor.Length, Is.GreaterThanOrEqualTo(InterfaceDescriptorSize), $"interface at offset {descriptor.Offset} is too short");
+                currentNumber = config[descriptor.Offset + 2];
+                currentAlternateSetting = config[descriptor.Offset + 3];
+                interfaceNumbers.Add((byte)currentNumber);
+                if (currentAlternateSetting == 0)
+                {
+                    numbersWithAltZero.Add((byte)currentNumber);
+                }
             }
-        }
-
-        Assert.That(config[ConfigNumInterfacesOffset], Is.EqualTo(interfaceCount));
-
-        // Endpoint addresses are unique across the whole blob: two endpoints sharing an address
-        // would make the configuration ambiguous.
-        List<byte> endpointAddresses = [];
-        foreach (RawDescriptor descriptor in chain)
-        {
-            if (descriptor.Type == DescriptorTypeEndpoint)
+            else if (descriptor.Type == DescriptorTypeEndpoint)
             {
                 Assert.That(descriptor.Length, Is.GreaterThanOrEqualTo(EndpointDescriptorSize), $"endpoint at offset {descriptor.Offset} is too short");
-                endpointAddresses.Add(config[descriptor.Offset + 2]);
+                Assert.That(currentNumber, Is.GreaterThanOrEqualTo(0), $"endpoint at offset {descriptor.Offset} appears before any interface");
+                byte address = config[descriptor.Offset + 2];
+                endpointAddresses.Add(((byte)currentNumber, (byte)currentAlternateSetting, address));
+                if (currentAlternateSetting == 0)
+                {
+                    altZeroEndpointAddresses.Add(address);
+                }
             }
         }
 
+        Assert.That(interfaceNumbers, Is.Not.Empty);
+        Assert.That(interfaceNumbers, Is.SubsetOf(numbersWithAltZero), "every interface number must declare alternate setting 0");
+        Assert.That(config[ConfigNumInterfacesOffset], Is.EqualTo((byte)interfaceNumbers.Count));
+
+        // Endpoint addresses are unique per interface number and alternate setting: two endpoints of
+        // the same active setting sharing an address would make the configuration ambiguous.
         Assert.That(endpointAddresses, Is.Not.Empty);
         Assert.That(endpointAddresses, Is.Unique);
+
+        // All alternate setting 0 interfaces are active simultaneously, so an address reused across
+        // interface numbers would make TryResolveEndpoint ambiguous. Only mutually exclusive
+        // alternate settings may reuse an address.
+        Assert.That(altZeroEndpointAddresses, Is.Not.Empty);
+        Assert.That(altZeroEndpointAddresses, Is.Unique);
     }
 
     [TestCaseSource(nameof(AllPersonaCases))]

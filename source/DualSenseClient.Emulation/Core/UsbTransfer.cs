@@ -7,7 +7,8 @@ namespace DualSenseClient.Emulation.Core;
 /// completion state the request engine fills in: <see cref="Status"/> and
 /// <see cref="ActualLength"/> for every transfer, <see cref="Data"/> for the payload of an OUT
 /// transfer (set by the session when the URB is read) and for the response of an IN transfer
-/// (set by the completer).
+/// (set by the completer). Isochronous URBs additionally carry the frame metadata and one
+/// <see cref="IsoPacketDescriptor"/> per packet.
 /// </summary>
 public sealed class UsbTransfer
 {
@@ -37,4 +38,19 @@ public sealed class UsbTransfer
 
     /// <summary>Number of bytes actually transferred (RET_SUBMIT.actual_length).</summary>
     public int ActualLength { get; set; }
+
+    /// <summary>Initial frame of an isochronous transfer (usbip_header.start_frame); zero for non-ISO transfers.</summary>
+    public uint StartFrame { get; set; }
+
+    /// <summary>Number of isochronous packets (usbip_header.number_of_packets); zero for non-ISO transfers.</summary>
+    public uint NumberOfPackets { get; set; }
+
+    /// <summary>Maximum time for the request on the server-side host controller (usbip_header.interval); zero for non-ISO transfers.</summary>
+    public uint Interval { get; set; }
+
+    /// <summary>Number of isochronous packets that completed with an error (RET_SUBMIT.error_count); zero for non-ISO transfers.</summary>
+    public uint ErrorCount { get; set; }
+
+    /// <summary>Per-packet isochronous completion descriptors carried after the URB header; null for non-ISO transfers.</summary>
+    public IsoPacketDescriptor[]? IsoPackets { get; set; }
 }

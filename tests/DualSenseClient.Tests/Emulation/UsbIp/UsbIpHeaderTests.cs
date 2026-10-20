@@ -121,6 +121,34 @@ public sealed class UsbIpHeaderTests
     }
 
     [Test]
+    public void CreateRetSubmitIso_RoundTripsStartFramePacketsErrorCount()
+    {
+        const uint seqNum = 11;
+        const int status = UsbIpStatus.Success;
+        const uint actualLength = 188;
+        const uint startFrame = 0x00001234;
+        const uint numberOfPackets = 2;
+        const uint errorCount = 1;
+
+        UsbIpHeader header = UsbIpHeader.CreateRetSubmit(seqNum, status, actualLength, startFrame, numberOfPackets, errorCount);
+
+        byte[] written = new byte[UsbIpProtocol.HeaderSize];
+        header.WriteRetSubmit(written);
+
+        Assert.That(header.Command, Is.EqualTo(UsbIpProtocol.CommandRetSubmit));
+        Assert.That(header.SeqNum, Is.EqualTo(seqNum));
+        Assert.That(header.Status, Is.EqualTo(status));
+        Assert.That(header.ActualLength, Is.EqualTo(actualLength));
+        Assert.That(header.StartFrame, Is.EqualTo(startFrame));
+        Assert.That(header.NumberOfPackets, Is.EqualTo(numberOfPackets));
+        Assert.That(header.ErrorCount, Is.EqualTo(errorCount));
+        Assert.That(BinaryPrimitives.ReadUInt32BigEndian(written[28..]), Is.EqualTo(startFrame)); // 0x1C
+        Assert.That(BinaryPrimitives.ReadUInt32BigEndian(written[32..]), Is.EqualTo(numberOfPackets)); // 0x20
+        Assert.That(BinaryPrimitives.ReadUInt32BigEndian(written[36..]), Is.EqualTo(errorCount)); // 0x24
+        Assert.That(written[40..], Is.All.Zero); // 0x28: padding
+    }
+
+    [Test]
     public void WriteRetUnlink_AnsweringUnlinkRequest_CarriesRequestSeqNumAndStatus()
     {
         byte[] request =

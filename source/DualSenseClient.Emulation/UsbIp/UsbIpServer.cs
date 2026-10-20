@@ -350,9 +350,9 @@ public sealed class UsbIpServer : IDisposable
     }
 
     /// <summary>
-    /// Builds the handshake entry of one device: the interface triplets come from the parsed
-    /// interfaces, the configuration value from the configuration descriptor and the export speed
-    /// from <see cref="VirtualUsbDevice.Speed"/>.
+    /// Builds the handshake entry of one device: one interface record per distinct interface
+    /// number using its alternate setting 0 class triple, the configuration value from the
+    /// configuration descriptor and the export speed from <see cref="VirtualUsbDevice.Speed"/>.
     /// </summary>
     /// <param name="busId">Bus id of the device.</param>
     /// <param name="busNum">Bus number parsed from the bus id.</param>
@@ -361,10 +361,15 @@ public sealed class UsbIpServer : IDisposable
     private static UsbIpDeviceInfo CreateDeviceInfo(string busId, uint busNum, VirtualUsbDevice device)
     {
         UsbDescriptorSet descriptors = device.Descriptors;
-        UsbIpInterfaceInfo[] interfaces = new UsbIpInterfaceInfo[descriptors.Interfaces.Count];
-        for (int i = 0; i < descriptors.Interfaces.Count; i++)
+        UsbIpInterfaceInfo[] interfaces = new UsbIpInterfaceInfo[descriptors.InterfaceCount];
+        for (int i = 0; i < descriptors.InterfaceNumbers.Count; i++)
         {
-            UsbInterfaceInfo interfaceInfo = descriptors.Interfaces[i];
+            byte interfaceNumber = descriptors.InterfaceNumbers[i];
+            if (!descriptors.TryGetInterface(interfaceNumber, 0, out UsbInterfaceInfo interfaceInfo))
+            {
+                throw new InvalidDataException($"Interface {interfaceNumber} declares no alternate setting 0.");
+            }
+
             interfaces[i] = new UsbIpInterfaceInfo
             {
                 Class = interfaceInfo.Class,
@@ -658,14 +663,19 @@ public sealed class UsbIpServer : IDisposable
         }
 
         /// <summary>
-        /// Creates one pacer per interrupt IN endpoint of the imported device. Each pacer starts
-        /// exactly once and is stopped by the session teardown.
+        /// Creates one pacer per interrupt IN endpoint of the imported device's alternate setting 0.
+        /// Each pacer starts exactly once and is stopped by the session teardown.
         /// </summary>
         private void StartPacers()
         {
             VirtualUsbDevice device = _device!;
             foreach (UsbInterfaceInfo interfaceInfo in device.Descriptors.Interfaces)
             {
+                if (interfaceInfo.AlternateSetting != 0)
+                {
+                    continue;
+                }
+
                 foreach (UsbEndpointInfo endpoint in interfaceInfo.Endpoints)
                 {
                     byte address = endpoint.Address;
@@ -1078,32 +1088,18 @@ public sealed class UsbIpServer : IDisposable
 
         /// <summary>
         /// Looks up the endpoint descriptor matching the wire pair of endpoint number and
-        /// direction: the ep field carries the number and the direction field the direction, so a
-        /// declared <c>bEndpointAddress</c> matches when its number bits and its direction bit
-        /// agree with the URB.
+        /// direction in the device's active alternate settings: the ep field carries the number and
+        /// the direction field the direction, so the full endpoint address is rebuilt and resolved
+        /// through <see cref="VirtualUsbDevice.TryResolveEndpoint"/>.
         /// </summary>
         /// <param name="endpointNumber">Bare endpoint number of the URB (ep field).</param>
         /// <param name="deviceToHost">Whether the URB's direction is IN.</param>
         /// <param name="endpoint">Receives the endpoint descriptor when found.</param>
-        /// <returns><see langword="true"/> when the device declares the endpoint; otherwise <see langword="false"/>.</returns>
+        /// <returns><see langword="true"/> when the device declares the endpoint in an active alternate setting; otherwise <see langword="false"/>.</returns>
         private bool TryFindEndpoint(byte endpointNumber, bool deviceToHost, out UsbEndpointInfo endpoint)
         {
-            VirtualUsbDevice device = _device!;
-            foreach (UsbInterfaceInfo interfaceInfo in device.Descriptors.Interfaces)
-            {
-                foreach (UsbEndpointInfo candidate in interfaceInfo.Endpoints)
-                {
-                    if ((candidate.Address & EndpointNumberMask) == endpointNumber
-                        && (candidate.Address & DirectionInMask) != 0 == deviceToHost)
-                    {
-                        endpoint = candidate;
-                        return true;
-                    }
-                }
-            }
-
-            endpoint = default;
-            return false;
+            byte endpointAddress = (byte)(endpointNumber | (deviceToHost ? DirectionInMask : 0));
+            return _device!.TryResolveEndpoint(endpointAddress, deviceToHost, out endpoint);
         }
     }
 

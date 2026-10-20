@@ -109,6 +109,46 @@ public sealed class UsbIpServerTests
     }
 
     [Test]
+    public void CreateDeviceInfo_Composite_ReportsDistinctInterfaceCount()
+    {
+        TestVirtualUsbDevice device = new TestVirtualUsbDevice(TestDevices.CreateCompositeDevice());
+        using ServerHarness harness = new ServerHarness(device);
+        using UsbIpClient client = harness.Connect();
+
+        client.Send(CreateDevListRequest());
+
+        // The descriptor set carries five interface descriptors (interface 2 declares two
+        // alternate settings), but the handshake reports one record per distinct interface number.
+        Assert.That(device.Descriptors.Interfaces, Has.Count.EqualTo(5));
+        Assert.That(device.Descriptors.InterfaceCount, Is.EqualTo(4));
+        byte[] reply = client.ReadExactly(UsbIpProtocol.OpCommonSize + 4 + UsbIpDeviceInfo.DevListEntrySize(4));
+        Assert.That(BinaryPrimitives.ReadUInt32BigEndian(reply.AsSpan(8)), Is.EqualTo(1u)); // number of exported devices
+        Assert.That(reply[323], Is.EqualTo((byte)4)); // bNumInterfaces counts distinct interface numbers
+        Assert.That(reply[324..340], Is.EqualTo(new byte[]
+        {
+            TestDevices.CompositeVendorInterfaceClass, 0, 0, 0, // interface 0 alternate setting 0
+            TestDevices.CompositeAudioControlClass, TestDevices.CompositeAudioControlSubClass, 0, 0, // interface 1 alternate setting 0
+            TestDevices.CompositeAudioStreamingClass, TestDevices.CompositeAudioStreamingSubClass, TestDevices.CompositeAudioStreamingProtocol, 0,
+            TestDevices.SimpleInterfaceClass, 0, 0, 0 // interface 3 alternate setting 0
+        }));
+    }
+
+    [Test]
+    public void Import_CompositeDevice_PacesOnlyAltZeroInterruptInEndpoints()
+    {
+        TestVirtualUsbDevice device = new TestVirtualUsbDevice(TestDevices.CreateCompositeDevice());
+        using ServerHarness harness = new ServerHarness(device);
+        using UsbIpClient client = harness.Connect();
+
+        ImportDevice(client, TestBusId);
+        SendBarrier(client, 1);
+
+        // Only the active alternate setting's interrupt IN endpoint (0x84) gets a pacer; the
+        // inactive alternate setting's interrupt IN endpoint (0x85) and the bulk IN endpoint do not.
+        Assert.That(harness.TimeProvider.TimerCount, Is.EqualTo(1));
+    }
+
+    [Test]
     public void Import_KnownBusId_RepliesBaseEntryThenServesUrbs()
     {
         TestVirtualUsbDevice device = new TestVirtualUsbDevice();

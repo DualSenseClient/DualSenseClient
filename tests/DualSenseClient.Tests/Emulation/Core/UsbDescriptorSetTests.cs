@@ -85,6 +85,74 @@ public sealed class UsbDescriptorSetTests
     }
 
     [Test]
+    public void WalkConfiguration_TwoAlternates_CollectsBothAndTheirEndpoints()
+    {
+        UsbDescriptorSet descriptors = TestDevices.CreateAlternateSettingDevice();
+
+        Assert.That(descriptors.Interfaces, Has.Count.EqualTo(2));
+
+        UsbInterfaceInfo defaultSetting = descriptors.Interfaces[0];
+        Assert.That(defaultSetting.Number, Is.Zero);
+        Assert.That(defaultSetting.AlternateSetting, Is.Zero);
+        Assert.That(defaultSetting.Endpoints, Has.Count.EqualTo(2));
+        Assert.That(defaultSetting.Endpoints[0].Address, Is.EqualTo(TestDevices.SimpleInterruptInAddress));
+        Assert.That(defaultSetting.Endpoints[1].Address, Is.EqualTo(TestDevices.SimpleInterruptOutAddress));
+
+        UsbInterfaceInfo alternateSetting = descriptors.Interfaces[1];
+        Assert.That(alternateSetting.Number, Is.Zero);
+        Assert.That(alternateSetting.AlternateSetting, Is.EqualTo((byte)1));
+        Assert.That(alternateSetting.Class, Is.EqualTo(TestDevices.SimpleInterfaceClass));
+        Assert.That(alternateSetting.Endpoints, Has.Count.EqualTo(1));
+        Assert.That(alternateSetting.Endpoints[0].Address, Is.EqualTo(TestDevices.AlternateInterruptInAddress));
+
+        Assert.That(descriptors.InterfaceNumbers, Is.EqualTo(new byte[]
+        {
+            0
+        }));
+        Assert.That(descriptors.InterfaceCount, Is.EqualTo(1));
+        Assert.That(descriptors.HasInterface(0), Is.True);
+        Assert.That(descriptors.HasInterface(1), Is.False);
+        Assert.That(descriptors.GetAlternates(0), Has.Count.EqualTo(2));
+    }
+
+    [Test]
+    public void WalkConfiguration_AltInterfaceWithoutAltZero_Throws()
+    {
+        byte[] configDescriptor = TestDevices.CreateAlternateSettingConfigDescriptor();
+
+        // The first interface descriptor (offset 9) declares bAlternateSetting 1 as well, so
+        // interface number 0 never declares the mandatory alternate setting 0.
+        configDescriptor[12] = 0x01;
+
+        Assert.That(
+            () => CreateSimpleDeviceWithConfig(configDescriptor),
+            Throws.TypeOf<InvalidDataException>());
+    }
+
+    [Test]
+    public void GetAlternates_UnknownInterface_ReturnsEmpty()
+    {
+        UsbDescriptorSet descriptors = TestDevices.CreateAlternateSettingDevice();
+
+        Assert.That(descriptors.GetAlternates(5), Is.Empty);
+    }
+
+    [Test]
+    public void TryGetInterface_KnownAlt_ReturnsInterface()
+    {
+        UsbDescriptorSet descriptors = TestDevices.CreateAlternateSettingDevice();
+
+        bool found = descriptors.TryGetInterface(0, 1, out UsbInterfaceInfo interfaceInfo);
+
+        Assert.That(found, Is.True);
+        Assert.That(interfaceInfo.Number, Is.Zero);
+        Assert.That(interfaceInfo.AlternateSetting, Is.EqualTo((byte)1));
+        Assert.That(interfaceInfo.Endpoints, Has.Count.EqualTo(1));
+        Assert.That(interfaceInfo.Endpoints[0].Address, Is.EqualTo(TestDevices.AlternateInterruptInAddress));
+        Assert.That(descriptors.TryGetInterface(0, 2, out _), Is.False);
+    }
+
+    [Test]
     public void TryGetString_KnownIndexes_ReturnsConfiguredStrings()
     {
         UsbDescriptorSet descriptors = TestDevices.CreateSimpleDevice();

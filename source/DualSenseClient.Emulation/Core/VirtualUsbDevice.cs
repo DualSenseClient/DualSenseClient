@@ -7,7 +7,8 @@ namespace DualSenseClient.Emulation.Core;
 /// Base class of the synthetic USB devices exposed over USB/IP. Implements the standard control
 /// requests of USB 2.0 section 9.4 on top of a <see cref="UsbDescriptorSet"/> and routes
 /// non-standard requests, the interrupt IN report path and the interrupt OUT path to overridable
-/// hooks. Only the default alternate setting of each interface is modelled.
+/// hooks. Each interface keeps its active alternate setting: SET_INTERFACE switches it and
+/// SET_CONFIGURATION returns every non-zero setting to its default.
 /// </summary>
 public abstract class VirtualUsbDevice
 {
@@ -22,6 +23,12 @@ public abstract class VirtualUsbDevice
 
     /// <summary>Direction bit of a device-to-host request (bmRequestType bit 7).</summary>
     private const byte DirectionIn = 0x80;
+
+    /// <summary>Direction bit of an IN endpoint address (bEndpointAddress bit 7).</summary>
+    private const byte EndpointDirectionIn = 0x80;
+
+    /// <summary>Mask of the endpoint number bits of an endpoint address (bEndpointAddress bits 3..0).</summary>
+    private const byte EndpointNumberMask = 0x0F;
 
     /// <summary>Mask of the recipient bits of bmRequestType (bits 4..0).</summary>
     private const byte RecipientMask = 0x1F;
@@ -100,6 +107,9 @@ public abstract class VirtualUsbDevice
 
     private byte _configurationValue;
 
+    /// <summary>Active alternate setting per interface number; the zero-initialized entry for an interface means alternate setting 0.</summary>
+    private readonly byte[] _alternateSettings = new byte[byte.MaxValue + 1];
+
     /// <summary>
     /// Initializes a device that serves <paramref name="descriptors"/>.
     /// </summary>
@@ -125,6 +135,50 @@ public abstract class VirtualUsbDevice
         {
             return UsbIpDeviceSpeed.Full;
         }
+    }
+
+    /// <summary>
+    /// Returns the active alternate setting of an interface. Interfaces start at alternate
+    /// setting 0 and SET_CONFIGURATION returns them to it.
+    /// </summary>
+    /// <param name="interfaceNumber">Interface number (bInterfaceNumber) to look up.</param>
+    /// <returns>The active alternate setting; 0 for a declared or undeclared interface number without a switched setting.</returns>
+    public byte GetAlternateSetting(byte interfaceNumber) => _alternateSettings[interfaceNumber];
+
+    /// <summary>
+    /// Resolves an endpoint of the active alternate settings: endpoints of an interface whose
+    /// stored alternate setting differs from the descriptor's setting are ignored, then the
+    /// endpoint number and direction are matched.
+    /// </summary>
+    /// <param name="endpointAddress">Endpoint address carrying the endpoint number and direction (bEndpointAddress).</param>
+    /// <param name="deviceToHost">Whether the transfer direction is IN.</param>
+    /// <param name="endpoint">Receives the endpoint descriptor when found; otherwise the default entry.</param>
+    /// <returns><see langword="true"/> when an active interface declares the endpoint; otherwise <see langword="false"/>.</returns>
+    public bool TryResolveEndpoint(byte endpointAddress, bool deviceToHost, out UsbEndpointInfo endpoint)
+    {
+        byte endpointNumber = (byte)(endpointAddress & EndpointNumberMask);
+        for (int i = 0; i < Descriptors.Interfaces.Count; i++)
+        {
+            UsbInterfaceInfo interfaceInfo = Descriptors.Interfaces[i];
+            if (interfaceInfo.AlternateSetting != GetAlternateSetting(interfaceInfo.Number))
+            {
+                continue;
+            }
+
+            for (int j = 0; j < interfaceInfo.Endpoints.Count; j++)
+            {
+                UsbEndpointInfo candidate = interfaceInfo.Endpoints[j];
+                if ((candidate.Address & EndpointNumberMask) == endpointNumber
+                    && (candidate.Address & EndpointDirectionIn) != 0 == deviceToHost)
+                {
+                    endpoint = candidate;
+                    return true;
+                }
+            }
+        }
+
+        endpoint = default;
+        return false;
     }
 
     /// <summary>
@@ -163,6 +217,17 @@ public abstract class VirtualUsbDevice
     /// </summary>
     /// <param name="configurationValue">The new configuration value (0 selects the unconfigured state).</param>
     protected virtual void OnConfigurationChanged(byte configurationValue)
+    {
+    }
+
+    /// <summary>
+    /// Called after SET_INTERFACE changed the active alternate setting of an interface, and once
+    /// per interface whose non-zero setting SET_CONFIGURATION returns to 0. The base does nothing;
+    /// subclasses use this to start or stop the data paths of the setting.
+    /// </summary>
+    /// <param name="interfaceNumber">Interface number (bInterfaceNumber) that changed.</param>
+    /// <param name="alternateSetting">The new active alternate setting (bAlternateSetting).</param>
+    protected virtual void OnInterfaceChanged(byte interfaceNumber, byte alternateSetting)
     {
     }
 
@@ -245,6 +310,7 @@ public abstract class VirtualUsbDevice
                 }
 
                 _configurationValue = (byte)setup.Value;
+                ResetAlternateSettings();
                 OnConfigurationChanged(_configurationValue);
                 return 0;
 
@@ -259,7 +325,7 @@ public abstract class VirtualUsbDevice
                 return 0;
 
             case RequestGetInterface:
-                if (recipient != RecipientInterface || !deviceToHost || !HasInterface((byte)setup.Index))
+                if (recipient != RecipientInterface || !deviceToHost || !Descriptors.HasInterface((byte)setup.Index))
                 {
                     return Stall;
                 }
@@ -269,16 +335,29 @@ public abstract class VirtualUsbDevice
                     return 0;
                 }
 
-                response[0] = 0; // only the default alternate setting is modelled
+                response[0] = GetAlternateSetting((byte)setup.Index);
                 return 1;
 
             case RequestSetInterface:
-                if (recipient != RecipientInterface || deviceToHost || setup.Value != 0 || !HasInterface((byte)setup.Index))
+                if (recipient != RecipientInterface || deviceToHost)
                 {
                     return Stall;
                 }
 
-                return 0; // only the default alternate setting is modelled
+                byte interfaceNumber = (byte)setup.Index;
+                byte alternateSetting = (byte)setup.Value;
+                if (!Descriptors.TryGetInterface(interfaceNumber, alternateSetting, out _))
+                {
+                    return Stall;
+                }
+
+                if (GetAlternateSetting(interfaceNumber) != alternateSetting)
+                {
+                    _alternateSettings[interfaceNumber] = alternateSetting;
+                    OnInterfaceChanged(interfaceNumber, alternateSetting);
+                }
+
+                return 0;
 
             default:
                 return Stall;
@@ -443,43 +522,37 @@ public abstract class VirtualUsbDevice
     }
 
     /// <summary>
+    /// Returns every non-zero active alternate setting to 0 and raises
+    /// <see cref="OnInterfaceChanged"/> for each effective change, in ascending interface-number
+    /// order. SET_CONFIGURATION calls this before <see cref="OnConfigurationChanged"/>.
+    /// </summary>
+    private void ResetAlternateSettings()
+    {
+        for (int i = 0; i < Descriptors.InterfaceNumbers.Count; i++)
+        {
+            byte number = Descriptors.InterfaceNumbers[i];
+            if (_alternateSettings[number] != 0)
+            {
+                _alternateSettings[number] = 0;
+                OnInterfaceChanged(number, 0);
+            }
+        }
+    }
+
+    /// <summary>
     /// Returns whether the configuration descriptor declares an interface with
-    /// <paramref name="number"/> whose class is HID (0x03); only a HID interface may serve a HID
-    /// report descriptor.
+    /// <paramref name="number"/> whose default alternate setting is HID (0x03); only a HID
+    /// interface may serve a HID report descriptor.
     /// </summary>
     /// <param name="number">Interface number (bInterfaceNumber) to look up.</param>
     /// <returns><see langword="true"/> when the interface is declared as HID; otherwise <see langword="false"/>.</returns>
     private bool IsHidInterface(byte number)
     {
-        IReadOnlyList<UsbInterfaceInfo> interfaces = Descriptors.Interfaces;
-        for (int i = 0; i < interfaces.Count; i++)
+        if (!Descriptors.TryGetInterface(number, 0, out UsbInterfaceInfo interfaceInfo))
         {
-            if (interfaces[i].Number == number)
-            {
-                return interfaces[i].Class == InterfaceClassHid;
-            }
+            return false;
         }
 
-        return false;
-    }
-
-    /// <summary>
-    /// Returns whether the configuration descriptor declares an interface with
-    /// <paramref name="number"/>.
-    /// </summary>
-    /// <param name="number">Interface number (bInterfaceNumber) to look up.</param>
-    /// <returns><see langword="true"/> when the interface is declared; otherwise <see langword="false"/>.</returns>
-    private bool HasInterface(byte number)
-    {
-        IReadOnlyList<UsbInterfaceInfo> interfaces = Descriptors.Interfaces;
-        for (int i = 0; i < interfaces.Count; i++)
-        {
-            if (interfaces[i].Number == number)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return interfaceInfo.Class == InterfaceClassHid;
     }
 }

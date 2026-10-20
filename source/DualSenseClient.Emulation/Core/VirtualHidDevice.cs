@@ -6,7 +6,7 @@ namespace DualSenseClient.Emulation.Core;
 /// Input reports are pulled through <see cref="VirtualUsbDevice.ProvideInputReport"/> (no report
 /// available stalls), output reports are pushed to <see cref="VirtualUsbDevice.OnOutputReport"/>,
 /// and feature reports are served by the overridable feature hooks, which stall by default. The
-/// engine keeps no state, logs nothing and only the default alternate setting is modelled.
+/// engine keeps no state and logs nothing; interfaces serve their active alternate setting.
 /// </summary>
 public abstract class VirtualHidDevice : VirtualUsbDevice
 {
@@ -310,21 +310,17 @@ public abstract class VirtualHidDevice : VirtualUsbDevice
 
     /// <summary>
     /// Returns whether the configuration descriptor declares an interface with
-    /// <paramref name="number"/> whose class is HID.
+    /// <paramref name="number"/> whose default alternate setting is HID.
     /// </summary>
     /// <param name="number">Interface number (bInterfaceNumber) to look up.</param>
     /// <returns><see langword="true"/> when the interface is declared as HID; otherwise <see langword="false"/>.</returns>
     private bool IsHidInterface(byte number)
     {
-        IReadOnlyList<UsbInterfaceInfo> interfaces = Descriptors.Interfaces;
-        for (int i = 0; i < interfaces.Count; i++)
+        if (!Descriptors.TryGetInterface(number, 0, out UsbInterfaceInfo interfaceInfo))
         {
-            if (interfaces[i].Number == number)
-            {
-                return interfaces[i].Class == InterfaceClassHid;
-            }
+            return false;
         }
 
-        return false;
+        return interfaceInfo.Class == InterfaceClassHid;
     }
 }

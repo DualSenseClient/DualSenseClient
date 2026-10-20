@@ -156,11 +156,12 @@ public readonly struct UsbIpHeader
     }
 
     /// <summary>
-    /// Creates a USBIP_RET_SUBMIT header answering a submitted URB. The reply only
+    /// Creates a non-ISO USBIP_RET_SUBMIT header answering a submitted URB. The reply only
     /// carries the sequence number, status and transferred byte count; the remaining
-    /// fields are zero as the protocol requires for server-side replies. The
-    /// <see cref="NumberOfPackets"/> default of 0 is the ISO/unspecified shape: non-ISO RET callers
-    /// (the server) overwrite it with 0xFFFFFFFF per the kernel protocol documentation.
+    /// fields are zero. The <see cref="NumberOfPackets"/> default of 0 is the ISO/unspecified
+    /// shape: non-ISO RET callers (the server) overwrite it with 0xFFFFFFFF per the kernel
+    /// protocol documentation. ISO completions use the overload that takes the start frame,
+    /// packet count and error count.
     /// </summary>
     /// <param name="seqNum">Sequence number of the submitted URB being answered.</param>
     /// <param name="status">Completion status: zero on success, a negative errno otherwise.</param>
@@ -174,6 +175,34 @@ public readonly struct UsbIpHeader
             SeqNum = seqNum,
             Status = status,
             ActualLength = actualLength
+        };
+    }
+
+    /// <summary>
+    /// Creates an isochronous USBIP_RET_SUBMIT header answering a submitted URB. The reply
+    /// carries the sequence number, status, transferred byte count and the ISO completion
+    /// metadata; the per-packet descriptors follow the header separately.
+    /// </summary>
+    /// <param name="seqNum">Sequence number of the submitted URB being answered.</param>
+    /// <param name="status">Completion status: zero on success, a negative errno otherwise.</param>
+    /// <param name="actualLength">Number of bytes actually transferred.</param>
+    /// <param name="startFrame">Initial frame of the isochronous transfer.</param>
+    /// <param name="numberOfPackets">Number of isochronous packets carried by the transfer.</param>
+    /// <param name="errorCount">Number of isochronous packets that completed with an error.</param>
+    /// <returns>The ret submit header.</returns>
+    public static UsbIpHeader CreateRetSubmit(
+        uint seqNum,
+        int status,
+        uint actualLength,
+        uint startFrame,
+        uint numberOfPackets,
+        uint errorCount)
+    {
+        return CreateRetSubmit(seqNum, status, actualLength) with
+        {
+            StartFrame = startFrame,
+            NumberOfPackets = numberOfPackets,
+            ErrorCount = errorCount
         };
     }
 
@@ -218,7 +247,9 @@ public readonly struct UsbIpHeader
     /// Writes a USBIP_RET_SUBMIT header to the first 48 bytes of <paramref name="destination"/>.
     /// The command field is always written as USBIP_RET_SUBMIT and the 8 bytes after
     /// error_count are written as zero padding; the remaining fields are written as stored,
-    /// which keeps them zero for headers created with <see cref="CreateRetSubmit"/>.
+    /// which keeps them zero for headers created with the non-ISO <see cref="CreateRetSubmit(uint, int, uint)"/>
+    /// overload and carries the ISO completion metadata for headers created with the
+    /// six-argument overload.
     /// </summary>
     /// <param name="destination">Buffer holding at least 48 bytes.</param>
     /// <exception cref="ArgumentException"><paramref name="destination"/> is shorter than 48 bytes.</exception>

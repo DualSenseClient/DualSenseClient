@@ -281,6 +281,91 @@ public sealed class VirtualUsbDeviceTests
     }
 
     [Test]
+    public void SetInterface_AltOne_StoresAndRaisesHookOnce()
+    {
+        TestVirtualDevice device = CreateAlternateDevice();
+
+        ControlResult result = Send(device, 0x01, 0x0B, 1, 0);
+
+        Assert.That(result.Count, Is.Zero);
+        Assert.That(device.GetAlternateSetting(0), Is.EqualTo((byte)1));
+        Assert.That(device.InterfaceChanges, Has.Count.EqualTo(1));
+        Assert.That(device.InterfaceChanges[0], Is.EqualTo(((byte)0, (byte)1)));
+    }
+
+    [Test]
+    public void SetInterface_SameAlt_NoHook()
+    {
+        TestVirtualDevice device = CreateAlternateDevice();
+
+        Send(device, 0x01, 0x0B, 1, 0);
+        ControlResult result = Send(device, 0x01, 0x0B, 1, 0);
+
+        Assert.That(result.Count, Is.Zero);
+        Assert.That(device.GetAlternateSetting(0), Is.EqualTo((byte)1));
+        Assert.That(device.InterfaceChanges, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void SetInterface_UnknownAlt_Stalls()
+    {
+        TestVirtualDevice device = CreateAlternateDevice();
+
+        ControlResult result = Send(device, 0x01, 0x0B, 2, 0);
+
+        Assert.That(result.Count, Is.EqualTo(-1));
+        Assert.That(device.GetAlternateSetting(0), Is.Zero);
+        Assert.That(device.InterfaceChanges, Is.Empty);
+    }
+
+    [Test]
+    public void GetInterface_AfterSet_ReturnsOne()
+    {
+        TestVirtualDevice device = CreateAlternateDevice();
+        Send(device, 0x01, 0x0B, 1, 0);
+
+        ControlResult result = Send(device, 0x81, 0x0A, index: 0, length: 1);
+
+        Assert.That(result.Count, Is.EqualTo(1));
+        Assert.That(result.Data[0], Is.EqualTo((byte)1));
+    }
+
+    [Test]
+    public void SetConfiguration_ResetsAlternatesAndRaisesHooks()
+    {
+        TestVirtualDevice device = CreateAlternateDevice();
+        Send(device, 0x01, 0x0B, 1, 0);
+
+        ControlResult result = Send(device, 0x00, 0x09, 1);
+
+        Assert.That(result.Count, Is.Zero);
+        Assert.That(device.GetAlternateSetting(0), Is.Zero);
+        Assert.That(device.ChangeLog, Is.EqualTo(new[]
+        {
+            "interface 0 -> 1", "interface 0 -> 0", "configuration 1"
+        }));
+    }
+
+    [Test]
+    public void TryResolveEndpoint_ActiveAlternateControlsResolution()
+    {
+        TestVirtualDevice device = CreateAlternateDevice();
+
+        Assert.That(device.TryResolveEndpoint(TestDevices.AlternateInterruptInAddress, true, out _), Is.False);
+        Assert.That(device.TryResolveEndpoint(TestDevices.SimpleInterruptInAddress, true, out UsbEndpointInfo defaultIn), Is.True);
+        Assert.That(defaultIn.Address, Is.EqualTo(TestDevices.SimpleInterruptInAddress));
+        Assert.That(device.TryResolveEndpoint(TestDevices.SimpleInterruptOutAddress, false, out UsbEndpointInfo defaultOut), Is.True);
+        Assert.That(defaultOut.Address, Is.EqualTo(TestDevices.SimpleInterruptOutAddress));
+
+        Send(device, 0x01, 0x0B, 1, 0);
+
+        Assert.That(device.TryResolveEndpoint(TestDevices.AlternateInterruptInAddress, true, out UsbEndpointInfo alternateIn), Is.True);
+        Assert.That(alternateIn.Address, Is.EqualTo(TestDevices.AlternateInterruptInAddress));
+        Assert.That(device.TryResolveEndpoint(TestDevices.SimpleInterruptInAddress, true, out _), Is.False);
+        Assert.That(device.TryResolveEndpoint(TestDevices.SimpleInterruptOutAddress, false, out _), Is.False);
+    }
+
+    [Test]
     public void HandleControlRequest_UnknownStandardRequest_ReturnsStall()
     {
         TestVirtualDevice device = CreateDevice();
@@ -367,6 +452,8 @@ public sealed class VirtualUsbDeviceTests
 
     private static TestVirtualDevice CreateDevice() => new TestVirtualDevice(TestDevices.CreateSimpleDevice());
 
+    private static TestVirtualDevice CreateAlternateDevice() => new TestVirtualDevice(TestDevices.CreateAlternateSettingDevice());
+
     /// <summary>Result of one handled control transfer: bytes written (or -1 for STALL) and the response buffer.</summary>
     private readonly record struct ControlResult(int Count, byte[] Data);
 
@@ -383,6 +470,12 @@ public sealed class VirtualUsbDeviceTests
 
         /// <summary>Configuration values reported by SET_CONFIGURATION, in call order.</summary>
         public List<byte> ConfigurationChanges { get; } = [];
+
+        /// <summary>Interface state changes reported by SET_INTERFACE and SET_CONFIGURATION, in call order.</summary>
+        public List<(byte InterfaceNumber, byte AlternateSetting)> InterfaceChanges { get; } = [];
+
+        /// <summary>Every lifecycle callback in call order, pinning that interface resets precede the configuration change.</summary>
+        public List<string> ChangeLog { get; } = [];
 
         /// <summary>Number of control requests routed to the class request handler.</summary>
         public int ClassRequestCount { get; private set; }
@@ -407,6 +500,16 @@ public sealed class VirtualUsbDeviceTests
             return ClassResponse.Length;
         }
 
-        protected override void OnConfigurationChanged(byte configurationValue) => ConfigurationChanges.Add(configurationValue);
+        protected override void OnInterfaceChanged(byte interfaceNumber, byte alternateSetting)
+        {
+            InterfaceChanges.Add((interfaceNumber, alternateSetting));
+            ChangeLog.Add($"interface {interfaceNumber} -> {alternateSetting}");
+        }
+
+        protected override void OnConfigurationChanged(byte configurationValue)
+        {
+            ConfigurationChanges.Add(configurationValue);
+            ChangeLog.Add($"configuration {configurationValue}");
+        }
     }
 }
