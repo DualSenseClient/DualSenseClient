@@ -1171,20 +1171,37 @@ public sealed class EmulationService : IEmulationService
                 entry.Engine = EmulationEngine.UsbIp;
                 entry.Virtual = virtualController;
                 _inFlightEmulationPersonas.Remove(persona);
+
+                // The controller-audio capture taps the Emulation persona's speaker endpoint
+                // and feeds the forwarder; a direct source feeds the forwarder itself (see
+                // SyncAudioLocked) and needs no controller capture.
+                IDisposable? capture = null;
+                if (audioSource == EmulationAudioSource.ControllerEndpoint
+                    && IsSpeakerBearingAdapter(virtualController))
+                {
+                    EnsureForwarderLocked(entry, emulation);
+                    capture = TryCreateControllerCapture(virtualController, entry.Forwarder);
+                }
+
                 if (entry.Forwarder?.IsDisposed == true)
                 {
                     // The audio source was switched away and back mid-creation, tearing
-                    // the forwarder down: rebuild from the current settings instead of
-                    // publishing it.
+                    // the forwarder down: drop the dead capture and rebuild from the
+                    // current settings instead of publishing it.
+                    capture?.Dispose();
+                    capture = null;
                     EmulationSettings current = GetEmulationSettings(entry.Device);
                     audioSource = current.Forward.AudioSource;
                     audioApp = current.Forward.AudioApp;
+                    if (audioSource == EmulationAudioSource.ControllerEndpoint
+                        && IsSpeakerBearingAdapter(virtualController))
+                    {
+                        EnsureForwarderLocked(entry, current);
+                        capture = TryCreateControllerCapture(virtualController, entry.Forwarder);
+                    }
                 }
 
-                // No controller-endpoint capture for Emulation (the audio milestone is
-                // parked): the adapter exposes no RealtimeHapticsReceived lane and its
-                // DeviceHandle is null, so there is nothing to tap. A forwarder only ever
-                // exists when a direct audio source feeds it.
+                entry.Capture = capture;
                 WireGameCallbacksLocked(entry);
                 ApplyButtonMappingsLocked(virtualController, entry.Device);
                 SyncAudioLocked(entry, audioSource, audioApp);
@@ -1373,13 +1390,14 @@ public sealed class EmulationService : IEmulationService
     /// controller over the same outputs lane, and the USB UAC render endpoint for
     /// wired playback (when the pad exposes one). The controller's forwarding
     /// volume, haptic strength, haptics/audio toggles and speaker/headset route are
-    /// applied on creation.
+    /// applied on creation. Without an audio engine (the unit-test fixture) no USB
+    /// render endpoint is constructed; the forwarder simply has no transport.
     /// </summary>
     private ViiperDualSenseAudioForwarder CreateAudioForwarder(DualSenseDeviceOutputs outputs, EmulationSettings? emulation)
     {
-        DualSenseAudioEndpointFinder endpointFinder = new DualSenseAudioEndpointFinder(_audioEngine);
-        DualSenseUsbAudioTarget? usbTarget = ViiperDualSenseAudioForwarder.ShouldUseUsbTarget(outputs.ConnectionType)
-            ? new DualSenseUsbAudioTarget(_audioEngine, endpointFinder)
+        DualSenseUsbAudioTarget? usbTarget = _audioEngine is not null
+                                             && ViiperDualSenseAudioForwarder.ShouldUseUsbTarget(outputs.ConnectionType)
+            ? new DualSenseUsbAudioTarget(_audioEngine, new DualSenseAudioEndpointFinder(_audioEngine))
             : null;
         ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(outputs, usbTarget);
         if (emulation is not null)
@@ -1510,21 +1528,71 @@ public sealed class EmulationService : IEmulationService
     }
 
     /// <summary>
-    /// Stops the direct capture. The forwarder is kept when a virtual controller capture
-    /// can take over feeding it, and disposed otherwise. Caller must hold
-    /// <see cref="_sync"/>.
+    /// Stops the direct capture. The forwarder is kept when the virtual controller's capture
+    /// can take over feeding it: an existing controller capture is resumed, and a missing one
+    /// (a controller endpoint selected after a direct source owned the forwarder) is rebuilt.
+    /// The forwarder is disposed only when no speaker-bearing capture can feed it. Caller must
+    /// hold <see cref="_sync"/>.
     /// </summary>
     private void DeactivateDirectAudioLocked(VirtualControllerEntry entry)
     {
         StopDirectCaptureLocked(entry);
 
-        if (entry.Capture is IViiperAudioCapture controllerCapture)
+        if (ResumeControllerCaptureLocked(entry))
         {
-            controllerCapture.IsSuspended = false;
             return;
         }
 
         TeardownAudioLocked(entry);
+    }
+
+    /// <summary>
+    /// Whether the virtual controller presents a speaker endpoint that can feed the forwarder.
+    /// The Xbox 360 persona has no speaker, so it never gets a controller capture.
+    /// </summary>
+    private static bool IsSpeakerBearingAdapter(IVirtualController? virtualController) =>
+        virtualController is VirtualDualSenseController
+            or VirtualDualShock4Controller
+            or EmulationDualSenseController
+            or EmulationDualShock4Controller;
+
+    /// <summary>
+    /// Resumes the entry's controller capture, or rebuilds it when the controller endpoint was
+    /// selected while a direct source owned the forwarder and no capture existed. Rebuilding
+    /// keeps the live forwarder, so leaving a direct source does not silence the controller
+    /// until it is re-created. Returns <c>false</c> when nothing speaker-bearing can feed the
+    /// forwarder. Caller must hold <see cref="_sync"/>.
+    /// </summary>
+    private bool ResumeControllerCaptureLocked(VirtualControllerEntry entry)
+    {
+        if (entry.Capture is IViiperAudioCapture controllerCapture)
+        {
+            controllerCapture.IsSuspended = false;
+            return true;
+        }
+
+        if (!IsSpeakerBearingAdapter(entry.Virtual))
+        {
+            return false;
+        }
+
+        EnsureForwarderLocked(entry, GetEmulationSettings(entry.Device));
+        if (entry.Forwarder is not { } forwarder)
+        {
+            return false;
+        }
+
+        IDisposable? capture = TryCreateControllerCapture(entry.Virtual!, forwarder);
+        if (capture is not IViiperAudioCapture rebuiltCapture)
+        {
+            capture?.Dispose();
+            return false;
+        }
+
+        entry.Capture = capture;
+        rebuiltCapture.IsSuspended = false;
+        _log.Info($"Host audio forwarding now follows the virtual controller's speaker endpoint for {entry.Device.Info.ProductName}");
+        return true;
     }
 
     /// <summary>
@@ -1541,13 +1609,30 @@ public sealed class EmulationService : IEmulationService
     }
 
     /// <summary>
-    /// Builds the capture tapping the virtual device's audio endpoint, or <c>null</c>
-    /// when following a direct source, when the forwarder is missing or disposed, or
-    /// when the virtual controller exposes no audio endpoint.
+    /// Builds the capture tapping the virtual controller's audio endpoint, or <c>null</c>
+    /// when following a direct source (no sink), when the sink is a disposed forwarder, or
+    /// when the virtual controller exposes no audio endpoint. Emulation captures accept any
+    /// <see cref="IAudioPcmSink"/>; the libVIIPER captures require the concrete forwarder
+    /// that owns the audio ring they feed.
     /// </summary>
-    private static IDisposable? TryCreateControllerCapture(IVirtualController virtualController, ViiperDualSenseAudioForwarder? forwarder)
+    internal static IDisposable? TryCreateControllerCapture(IVirtualController virtualController, IAudioPcmSink? sink)
     {
-        if (forwarder?.IsDisposed != false)
+        if (sink is null || sink is ViiperDualSenseAudioForwarder { IsDisposed: true })
+        {
+            return null;
+        }
+
+        if (virtualController is EmulationDualSenseController emulationDualSense)
+        {
+            return new EmulationDualSenseAudioCapture(emulationDualSense.Persona, sink);
+        }
+
+        if (virtualController is EmulationDualShock4Controller emulationDualShock4)
+        {
+            return new EmulationDualShock4AudioCapture(emulationDualShock4.Persona, sink);
+        }
+
+        if (sink is not ViiperDualSenseAudioForwarder forwarder)
         {
             return null;
         }
@@ -1616,10 +1701,8 @@ public sealed class EmulationService : IEmulationService
         }
         else if (entry.Virtual is EmulationDualSenseController emulationDualSense)
         {
-            // The Emulation adapter exposes no RealtimeHapticsReceived lane (the audio
-            // milestone is parked); the game lightbar/trigger/rumble state still rides
-            // the shared forwarder.
             emulationDualSense.OutputStateReceived += forwarder.UpdateGameOutputState;
+            emulationDualSense.RealtimeHapticsReceived += forwarder.UpdateGameHaptics;
             entry.AudioCallbacksWired = true;
         }
         else if (entry.Virtual is EmulationDualShock4Controller emulationDualShock4)
@@ -1653,6 +1736,7 @@ public sealed class EmulationService : IEmulationService
         else if (entry.Virtual is EmulationDualSenseController emulationDualSense)
         {
             emulationDualSense.OutputStateReceived -= forwarder.UpdateGameOutputState;
+            emulationDualSense.RealtimeHapticsReceived -= forwarder.UpdateGameHaptics;
         }
         else if (entry.Virtual is EmulationDualShock4Controller emulationDualShock4)
         {

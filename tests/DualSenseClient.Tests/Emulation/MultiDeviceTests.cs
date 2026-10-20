@@ -129,8 +129,9 @@ public sealed class MultiDeviceTests
 
         // The queueing barriers prove every session has entered its URB loop and started its pacer.
         // Four sessions add one interrupt pacer each; the DualShock 4, DualSense and Edge personas
-        // also start the microphone isochronous IN scheduler of their audio function.
-        Assert.That(harness.TimeProvider.TimerCount, Is.EqualTo(7));
+        // also start one scheduler for their speaker isochronous OUT endpoint and one for their
+        // microphone isochronous IN endpoint.
+        Assert.That(harness.TimeProvider.TimerCount, Is.EqualTo(10));
 
         harness.TimeProvider.Advance(Interval); // one tick completes the queued URB of every session
 

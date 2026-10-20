@@ -64,6 +64,12 @@ public sealed class UsbIpServerIsoTests
             }
         ];
         client.Send(CreateIsoSubmitFrame(10, UsbIpDirection.Out, EndpointNumberOf(TestDevices.IsoOutAddress), 8, packets, payload));
+        SendBarrier(client, 11); // the OUT URB is queued; the barrier reply proves it was parsed
+
+        Assert.That(device.IsoOutPackets, Is.Empty, "An OUT packet must not be delivered before its USB frame.");
+        harness.TimeProvider.Advance(FrameDuration);
+        Assert.That(device.IsoOutPackets, Has.Count.EqualTo(1), "The first OUT packet must arrive on the first frame.");
+        harness.TimeProvider.Advance(FrameDuration);
 
         RetFrame ret = ReadRetFrame(client);
         Assert.That(ret.Command, Is.EqualTo(UsbIpProtocol.CommandRetSubmit));
@@ -98,7 +104,7 @@ public sealed class UsbIpServerIsoTests
             0x05, 0x06, 0x07, 0x08
         }));
 
-        SendBarrier(client, 11); // the exact framing consumption keeps the next URB parseable
+        SendBarrier(client, 12); // the exact framing consumption keeps the next URB parseable
     }
 
     [Test]
@@ -334,7 +340,7 @@ public sealed class UsbIpServerIsoTests
             Assert.That(descriptors[0].Status, Is.Zero);
         }
 
-        Assert.That(harness.TimeProvider.TimerCount, Is.EqualTo(1));
+        Assert.That(harness.TimeProvider.TimerCount, Is.EqualTo(2)); // one ISO scheduler per direction
         harness.TimeProvider.Advance(5 * FrameDuration);
         Assert.That(client.TryReadExactly(new byte[UsbIpProtocol.HeaderSize], SilenceProbeMilliseconds), Is.False);
         SendBarrier(client, 500);
@@ -349,7 +355,7 @@ public sealed class UsbIpServerIsoTests
         ImportIsoDevice(client);
 
         harness.TimeProvider.Advance(25 * FrameDuration);
-        Assert.That(harness.TimeProvider.TimerCount, Is.EqualTo(1));
+        Assert.That(harness.TimeProvider.TimerCount, Is.EqualTo(2)); // one ISO scheduler per direction
         Assert.That(client.TryReadExactly(new byte[UsbIpProtocol.HeaderSize], SilenceProbeMilliseconds), Is.False); // no URB, no work
 
         device.EnqueueIsoInPacket([0x31, 0x32, 0x33, 0x34]);
@@ -387,7 +393,7 @@ public sealed class UsbIpServerIsoTests
 
         harness.TimeProvider.Advance(10 * FrameDuration);
         Assert.That(client.TryReadExactly(new byte[UsbIpProtocol.HeaderSize], SilenceProbeMilliseconds), Is.False); // no catch-up burst
-        Assert.That(harness.TimeProvider.TimerCount, Is.EqualTo(1));
+        Assert.That(harness.TimeProvider.TimerCount, Is.EqualTo(2)); // one ISO scheduler per direction
         SendBarrier(client, 212);
     }
 
@@ -638,6 +644,9 @@ public sealed class UsbIpServerIsoTests
             }
         ];
         client.Send(CreateIsoSubmitFrame(110, UsbIpDirection.Out, EndpointNumberOf(TestDevices.IsoOutAddress), 4, packets, payload));
+        SendBarrier(client, 111); // the OUT URB is queued; the barrier reply proves it was parsed
+
+        harness.TimeProvider.Advance(FrameDuration);
 
         RetFrame ret = ReadRetFrame(client);
         Assert.That(ret.SeqNum, Is.EqualTo(110u));
@@ -651,7 +660,7 @@ public sealed class UsbIpServerIsoTests
         Assert.That(harness.Logger.ErrorEntries, Has.Count.EqualTo(1));
         Assert.That(harness.Logger.ErrorEntries[0].Message, Does.Contain("persona iso out failure"));
 
-        SendBarrier(client, 111); // the session survives the persona fault
+        SendBarrier(client, 112); // the session survives the persona fault
     }
 
     [Test]
@@ -891,12 +900,12 @@ public sealed class UsbIpServerIsoTests
         ];
         client.Send(CreateIsoSubmitFrame(130, UsbIpDirection.In, EndpointNumberOf(TestDevices.IsoInAddress), 8, packets));
         SendBarrier(client, 131);
-        Assert.That(harness.TimeProvider.TimerCount, Is.EqualTo(1)); // one ISO scheduler for 0x82
+        Assert.That(harness.TimeProvider.TimerCount, Is.EqualTo(2)); // one ISO scheduler for 0x01 and one for 0x82
 
         harness.Server.Stop(); // tears the session down while the ISO transfer is pending
 
         Assert.That(client.WaitForRemoteClose(CommunicationTimeoutMilliseconds), Is.True); // no RET was written before the close
-        Assert.That(harness.TimeProvider.TimerCount, Is.Zero); // the scheduler stopped without leaking its timer
+        Assert.That(harness.TimeProvider.TimerCount, Is.Zero); // both schedulers stopped without leaking a timer
         Assert.That(harness.Logger.ErrorEntries, Is.Empty); // a completion after teardown is not an error
         Assert.That(() => harness.TimeProvider.Advance(3 * FrameDuration), Throws.Nothing); // and no completion fires afterwards
     }

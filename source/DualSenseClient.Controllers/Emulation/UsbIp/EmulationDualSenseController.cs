@@ -27,8 +27,10 @@ namespace DualSenseClient.Controllers.Emulation.UsbIp;
 /// detaches or removes the device.
 /// </para>
 /// <para>
-/// The host's low-latency rear-haptics stream is not forwarded by this adapter: the audio lanes are
-/// parked, and the libVIIPER wrapper exposes <c>RealtimeHapticsReceived</c> for that milestone.
+/// The persona's realtime-haptics lane (channels 2 and 3 of the speaker packet) is surfaced through
+/// <see cref="RealtimeHapticsReceived"/>: the adapter copies the persona's scratch-buffer view before
+/// invoking subscribers, exactly like the libVIIPER wrapper, and never derives haptics from the
+/// front-channel audio lane. The forwarder owns the policy that consumes the lane.
 /// </para>
 /// </remarks>
 public sealed class EmulationDualSenseController : VirtualControllerBase
@@ -84,6 +86,14 @@ public sealed class EmulationDualSenseController : VirtualControllerBase
     public event Action<SetStateData>? OutputStateReceived;
 
     /// <summary>
+    /// Raised with a copy of the persona's realtime haptics: channels 2 and 3 of every whole speaker
+    /// frame (192 bytes for a nominal 384-byte packet), separate from the front-channel audio lane.
+    /// The persona's event memory is only valid during its callback, so the adapter copies it before
+    /// invoking subscribers. Subscribers must not block.
+    /// </summary>
+    public event Action<byte[]>? RealtimeHapticsReceived;
+
+    /// <summary>
     /// Creates an adapter around a ready Emulation DualSense persona. The caller keeps ownership of
     /// the device's creation, identity/ownership MAC, registration, attachment and removal.
     /// </summary>
@@ -98,6 +108,19 @@ public sealed class EmulationDualSenseController : VirtualControllerBase
         _device = device;
         _vibrationV2 = vibrationV2;
         _device.OutputReportReceived += OnOutputReport;
+        _device.RealtimeHapticsReceived += OnRealtimeHaptics;
+    }
+
+    /// <summary>
+    /// The persona this adapter mirrors. The service uses it as the access point for the speaker
+    /// captures; the adapter never detaches or removes it.
+    /// </summary>
+    internal DualSenseDevice Persona
+    {
+        get
+        {
+            return _device;
+        }
     }
 
     /// <inheritdoc/>
@@ -349,6 +372,22 @@ public sealed class EmulationDualSenseController : VirtualControllerBase
     }
 
     /// <summary>
+    /// Copies the persona's realtime-haptics view into an array and raises
+    /// <see cref="RealtimeHapticsReceived"/>. The copy happens only when a subscriber exists, and
+    /// the persona's memory is never retained past the callback.
+    /// </summary>
+    /// <param name="pcm">Persona view over the extracted rear channels; valid only during this callback.</param>
+    private void OnRealtimeHaptics(ReadOnlyMemory<byte> pcm)
+    {
+        if (_disposed || RealtimeHapticsReceived is not { } handlers)
+        {
+            return;
+        }
+
+        handlers(pcm.ToArray());
+    }
+
+    /// <summary>
     /// Rebuilds the physical controller's 47-byte output payload from the persona's decoded host
     /// output report with the same field/offset semantics as
     /// <see cref="VirtualDualSenseController.BuildOutputPayload(DSOutputState, bool)"/>, then applies
@@ -534,5 +573,6 @@ public sealed class EmulationDualSenseController : VirtualControllerBase
         _disposed = true;
         _muteLightMode = 0;
         _device.OutputReportReceived -= OnOutputReport;
+        _device.RealtimeHapticsReceived -= OnRealtimeHaptics;
     }
 }

@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using NUnit.Framework;
 
 namespace DualSenseClient.Tests.Emulation.Integration;
 
@@ -24,6 +25,12 @@ public static class WasapiAudioEndpoint
 
     /// <summary>Delay between two endpoint enumeration polls.</summary>
     private const int PollIntervalMilliseconds = 50;
+
+    /// <summary><c>AUDCLNT_E_DEVICE_INVALIDATED</c>: the endpoint was invalidated while it was opening.</summary>
+    private const int AudioClientDeviceInvalidatedHResult = unchecked((int)0x88890004);
+
+    /// <summary><c>AUDCLNT_E_RESOURCES_INVALIDATED</c>: the audio service retired the endpoint instance.</summary>
+    private const int AudioClientResourcesInvalidatedHResult = unchecked((int)0x88890026);
 
     /// <summary><c>EDataFlow.eRender</c>.</summary>
     private const int DataFlowRender = 0;
@@ -173,9 +180,14 @@ public static class WasapiAudioEndpoint
     /// </summary>
     /// <param name="endpointId">Device id of the render endpoint.</param>
     /// <param name="exactFormat">Format the persona's speaker endpoint serves (e.g. 4 ch S16LE 48 kHz).</param>
+    /// <param name="preferShared">
+    /// When <see langword="true"/>, open the shared mix-format stream even if the exclusive exact
+    /// format is available. The Windows default-playback path is shared, so the clock probes must
+    /// exercise that path explicitly.
+    /// </param>
     /// <returns>The initialized render stream.</returns>
     /// <exception cref="WasapiException">Neither the exact exclusive format nor the shared mix format could be opened.</exception>
-    public static WasapiRenderEndpoint OpenRenderEndpoint(string endpointId, WasapiAudioFormat exactFormat)
+    public static WasapiRenderEndpoint OpenRenderEndpoint(string endpointId, WasapiAudioFormat exactFormat, bool preferShared = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(endpointId);
         RequireWindows();
@@ -185,6 +197,7 @@ public static class WasapiAudioEndpoint
             client = CreateInitializedAudioClient(
                 endpointId,
                 exactFormat,
+                preferShared,
                 out WasapiShareMode shareMode,
                 out WasapiAudioFormat negotiatedFormat,
                 out string negotiationNote);
@@ -238,6 +251,7 @@ public static class WasapiAudioEndpoint
             client = CreateInitializedAudioClient(
                 endpointId,
                 exactFormat,
+                false,
                 out WasapiShareMode shareMode,
                 out WasapiAudioFormat negotiatedFormat,
                 out string negotiationNote);
@@ -261,6 +275,45 @@ public static class WasapiAudioEndpoint
         finally
         {
             ReleaseComObject(client);
+        }
+    }
+
+    /// <summary>
+    /// Opens the capture endpoint with one bounded retry when Windows invalidates the freshly reused
+    /// MMDevice id while the audio service is still retiring the previous attach. The gated suite
+    /// reuses the same ids across attach cycles, so <c>AUDCLNT_E_DEVICE_INVALIDATED</c> and
+    /// <c>AUDCLNT_E_RESOURCES_INVALIDATED</c> during the open are transient; the retry is disclosed.
+    /// </summary>
+    /// <param name="endpointId">Device id of the capture endpoint.</param>
+    /// <param name="exactFormat">Exact persona microphone format to try exclusively first.</param>
+    /// <param name="attempts">Maximum attempts, including the first open.</param>
+    /// <returns>The initialized capture stream.</returns>
+    /// <exception cref="WasapiException">Every attempt failed, or the failure is not a transient invalidation.</exception>
+    public static WasapiCaptureEndpoint OpenCaptureEndpointWithRetry(
+        string endpointId,
+        WasapiAudioFormat exactFormat,
+        int attempts = 2)
+    {
+        if (attempts < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(attempts), attempts, "At least one attempt is required.");
+        }
+
+        for (int attempt = 1;; attempt++)
+        {
+            try
+            {
+                return OpenCaptureEndpoint(endpointId, exactFormat);
+            }
+            catch (WasapiException exception) when (
+                attempt < attempts
+                && exception.HResult is AudioClientDeviceInvalidatedHResult or AudioClientResourcesInvalidatedHResult)
+            {
+                TestContext.Out.WriteLine(
+                    $"Capture endpoint open failed with 0x{exception.HResult:X8}; "
+                    + $"retrying after the audio service settles (attempt {attempt + 1}/{attempts}).");
+                Thread.Sleep(500);
+            }
         }
     }
 
@@ -393,6 +446,7 @@ public static class WasapiAudioEndpoint
     private static IAudioClient CreateInitializedAudioClient(
         string endpointId,
         WasapiAudioFormat exactFormat,
+        bool preferShared,
         out WasapiShareMode shareMode,
         out WasapiAudioFormat negotiatedFormat,
         out string negotiationNote)
@@ -407,6 +461,35 @@ public static class WasapiAudioEndpoint
             if (hr < 0 || device is null)
             {
                 throw new WasapiException($"IMMDeviceEnumerator.GetDevice(\"{endpointId}\") failed", hr);
+            }
+
+            if (preferShared)
+            {
+                client = TryCreateSharedClient(device, out WasapiAudioFormat preferredMixFormat, out string preferredSharedFailure);
+                if (client is not null)
+                {
+                    shareMode = WasapiShareMode.Shared;
+                    negotiatedFormat = preferredMixFormat;
+                    negotiationNote = $"shared mix format {preferredMixFormat} (requested by the caller)";
+                    IAudioClient preferredSharedResult = client;
+                    client = null;
+                    return preferredSharedResult;
+                }
+
+                client = TryCreateExclusiveClient(device, exactFormat, out string preferredExclusiveFailure);
+                if (client is not null)
+                {
+                    shareMode = WasapiShareMode.Exclusive;
+                    negotiatedFormat = exactFormat;
+                    negotiationNote = $"exclusive exact format {exactFormat}; the shared mix format was unavailable ({preferredSharedFailure})";
+                    IAudioClient preferredExclusiveResult = client;
+                    client = null;
+                    return preferredExclusiveResult;
+                }
+
+                throw new WasapiException(
+                    $"Neither the shared mix format nor the exclusive exact format could be opened for endpoint \"{endpointId}\"; "
+                    + $"shared: {preferredSharedFailure}; exclusive: {preferredExclusiveFailure}");
             }
 
             client = TryCreateExclusiveClient(device, exactFormat, out string exclusiveFailure);

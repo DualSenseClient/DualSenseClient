@@ -50,7 +50,7 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 /// <see cref="ForceAudioHaptics"/> ignores the game payload entirely.
 /// </para>
 /// </remarks>
-public sealed class ViiperDualSenseAudioForwarder : IDisposable
+public sealed class ViiperDualSenseAudioForwarder : IAudioPcmSink, IDisposable
 {
     /// <summary>
     /// Interleaved float samples in one 512-frame stereo block.
@@ -518,12 +518,13 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
     }
 
     /// <summary>
-    /// Stores the game's actual haptics payload from libVIIPER's realtime-haptics
-    /// callback (rear voice-coil pair, 2ch S16LE @48kHz), so the pump can embed it
-    /// into the Bluetooth audio-lane reports instead of the audio-derived haptics.
-    /// The S16LE stereo frames are decimated to the 32-frame s8 payload; malformed
-    /// buffers are rejected so the forwarder keeps the audio-derived fallback.
-    /// Called from the libVIIPER callback thread; safe to call while stopped.
+    /// Stores the game's actual haptics payload from the virtual controller's realtime-haptics
+    /// lane (rear voice-coil pair, 2ch S16LE @48kHz), so the pump can embed it into the Bluetooth
+    /// audio-lane reports instead of the audio-derived haptics. The same lane exists on the
+    /// libVIIPER wrapper and the Emulation DualSense adapter. The S16LE stereo frames are
+    /// decimated to the 32-frame s8 payload; malformed buffers are rejected so the forwarder
+    /// keeps the audio-derived fallback. Called from the engine's callback thread; safe to call
+    /// while stopped.
     /// </summary>
     public void UpdateGameHaptics(byte[] pcm)
     {

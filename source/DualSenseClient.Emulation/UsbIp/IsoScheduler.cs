@@ -3,14 +3,16 @@ using DualSenseClient.Emulation.Core;
 namespace DualSenseClient.Emulation.UsbIp;
 
 /// <summary>
-/// Schedules isochronous IN transfers of one endpoint on the USB frame cadence. The head transfer
-/// completes exactly one packet per frame, in packet order; when its last packet completes the
-/// transfer is raised through <see cref="TransferCompleted"/> once and the next queued transfer
-/// starts on the following frame, so there is no catch-up burst. Enqueue, cancellation and clearing
-/// may run on the session thread while the frame clock advances on a timer thread: one lock guards
-/// the queue and the current transfer, and <see cref="TransferCompleted"/> is raised outside it.
-/// A cancelled or cleared transfer never completes; <see cref="Stop"/> drops all pending work
-/// without raising events. One scheduler drives one ISO IN endpoint.
+/// Schedules isochronous transfers of one endpoint on the USB frame cadence. The head transfer
+/// completes one packet per frame, in packet order; when its last packet completes the transfer is
+/// raised through <see cref="TransferCompleted"/> once and the next queued transfer starts on the
+/// following frame. With catch-up enabled (the OUT path), a late timer catches up on the missed
+/// frames so the long-run packet rate stays on the USB cadence instead of drifting with the host
+/// timer resolution; the IN path keeps its original one-packet-per-callback cadence. Enqueue, cancellation
+/// and clearing may run on the session thread while the frame clock advances on a timer thread:
+/// one lock guards the queue and the current transfer, and <see cref="TransferCompleted"/> is
+/// raised outside it. A cancelled or cleared transfer never completes; <see cref="Stop"/> drops all
+/// pending work without raising events. One scheduler drives one ISO endpoint.
 /// </summary>
 /// <remarks>
 /// The packet status of a failed packet is <see cref="UsbIpStatus.Stall"/> while the transfer-level
@@ -21,7 +23,10 @@ namespace DualSenseClient.Emulation.UsbIp;
 /// <para>
 /// Under-submission schedules nothing: a frame with no current or queued transfer is idle, and the
 /// next enqueued transfer starts on its arrival frame - the first frame after
-/// <see cref="Enqueue"/> - with no catch-up burst for the idle frames. Over-submission is bounded by
+/// <see cref="Enqueue"/> - with no catch-up burst for the idle frames. With catch-up enabled,
+/// frames missed while a timer callback was late are processed on the next callback, so a 1 ms
+/// cadence remains 1 ms on average even when the host timer fires at 1.25 ms or 15.6 ms
+/// granularity. Over-submission is bounded by
 /// the host's own URB flow control: the queue is FIFO and has no artificial depth cap, so every
 /// accepted transfer that is not cancelled or cleared completes exactly once, in order, one packet
 /// per frame.
@@ -37,7 +42,13 @@ public sealed class IsoScheduler : IDisposable
 {
     private readonly UsbFrameClock _clock;
 
+    private readonly TimeProvider _timeProvider;
+
+    private readonly TimeSpan _frameDuration;
+
     private readonly Func<UsbTransfer, int, int> _producePacket;
+
+    private readonly bool _catchUp;
 
     private readonly object _gate = new object();
 
@@ -46,6 +57,12 @@ public sealed class IsoScheduler : IDisposable
     private UsbTransfer? _current;
 
     private int _packetIndex;
+
+    private long _frameOriginTimestamp;
+
+    private long _framesProcessed;
+
+    private bool _frameOriginSet;
 
     private bool _isStopped;
 
@@ -56,17 +73,30 @@ public sealed class IsoScheduler : IDisposable
     /// <param name="timeProvider">Provider that schedules the frames: system time in production, a manual provider in tests.</param>
     /// <param name="frameDuration">Duration of one USB frame; must be positive.</param>
     /// <param name="producePacket">
-    /// Producer that fills the buffer of one packet of a transfer and returns the number of bytes
-    /// actually produced; a negative return marks the packet as stalled. It is invoked once per
-    /// frame on the timer thread while the scheduler lock is held, with the transfer and the
+    /// Callback for one packet of a transfer; the transfer direction decides what it does. It
+    /// returns the number of bytes completed; a negative return marks the packet as stalled. It is
+    /// invoked on the timer thread while the scheduler lock is held, with the transfer and the
     /// zero-based packet index.
+    /// </param>
+    /// <param name="catchUp">
+    /// When <see langword="true"/>, a late timer callback processes every frame whose deadline has
+    /// elapsed, keeping the long-run cadence on the USB frame instead of drifting with the host
+    /// timer resolution. When <see langword="false"/>, exactly one packet is processed per callback,
+    /// preserving the original isochronous IN cadence.
     /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="timeProvider"/> or <paramref name="producePacket"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="frameDuration"/> is not positive.</exception>
-    public IsoScheduler(TimeProvider timeProvider, TimeSpan frameDuration, Func<UsbTransfer, int, int> producePacket)
+    public IsoScheduler(
+        TimeProvider timeProvider,
+        TimeSpan frameDuration,
+        Func<UsbTransfer, int, int> producePacket,
+        bool catchUp = false)
     {
         ArgumentNullException.ThrowIfNull(producePacket);
+        _timeProvider = timeProvider;
+        _frameDuration = frameDuration;
         _producePacket = producePacket;
+        _catchUp = catchUp;
         _clock = new UsbFrameClock(timeProvider, frameDuration);
     }
 
@@ -103,6 +133,12 @@ public sealed class IsoScheduler : IDisposable
             }
 
             _clock.Start(HandleFrame);
+            if (_catchUp)
+            {
+                _frameOriginTimestamp = _timeProvider.GetTimestamp();
+                _framesProcessed = 0;
+                _frameOriginSet = true;
+            }
         }
     }
 
@@ -129,7 +165,7 @@ public sealed class IsoScheduler : IDisposable
     /// <see cref="Start"/> is allowed and waits for the first frame. Idle frames before the enqueue
     /// are not replayed and produce no catch-up burst.
     /// </summary>
-    /// <param name="transfer">Isochronous IN transfer with one descriptor per packet.</param>
+    /// <param name="transfer">Isochronous transfer with one descriptor per packet.</param>
     /// <exception cref="ArgumentNullException"><paramref name="transfer"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">
     /// <paramref name="transfer"/> has no <see cref="UsbTransfer.IsoPackets"/>, declares zero
@@ -165,7 +201,16 @@ public sealed class IsoScheduler : IDisposable
             }
 
             PrepareTransfer(transfer, packets);
+            bool wasIdle = _current is null && _pending.Count == 0;
             _pending.Add(transfer);
+            if (_catchUp && wasIdle)
+            {
+                // Idle frames are not replayed: the new transfer starts on the first frame
+                // after its arrival, even when the timer has been idle for a while.
+                _frameOriginTimestamp = _timeProvider.GetTimestamp();
+                _framesProcessed = 0;
+                _frameOriginSet = true;
+            }
         }
     }
 
@@ -222,13 +267,36 @@ public sealed class IsoScheduler : IDisposable
     public void Dispose() => Stop();
 
     /// <summary>
-    /// Frame callback: produces one packet of the current transfer, or promotes the next queued
-    /// transfer on a frame where none is current. The completion event is raised after the lock is
+    /// Frame callback: processes the packet whose frame deadline has elapsed. Without catch-up
+    /// exactly one packet is processed per callback (the original IN cadence); with catch-up every
+    /// missed frame is processed so a late timer does not permanently slow the endpoint. Idle frames
+    /// consume their deadline and are never replayed. Completion events are raised after the lock is
     /// released so subscribers can call back into the scheduler.
     /// </summary>
     private void HandleFrame()
     {
-        UsbTransfer? completed = null;
+        if (!_catchUp)
+        {
+            UsbTransfer? singleCompleted;
+            lock (_gate)
+            {
+                if (_isStopped)
+                {
+                    return;
+                }
+
+                singleCompleted = ProcessOneFrameLocked();
+            }
+
+            if (singleCompleted is not null)
+            {
+                TransferCompleted?.Invoke(singleCompleted);
+            }
+
+            return;
+        }
+
+        List<UsbTransfer>? completed = null;
         lock (_gate)
         {
             if (_isStopped)
@@ -236,66 +304,115 @@ public sealed class IsoScheduler : IDisposable
                 return;
             }
 
-            if (_current is null)
+            if (!_frameOriginSet)
             {
-                if (_pending.Count == 0)
+                _frameOriginTimestamp = _timeProvider.GetTimestamp();
+                _framesProcessed = 0;
+                _frameOriginSet = true;
+                return;
+            }
+
+            long now = _timeProvider.GetTimestamp();
+            long dueFrames = (long)Math.Floor(
+                _timeProvider.GetElapsedTime(_frameOriginTimestamp, now).Ticks / (double)_frameDuration.Ticks);
+            long framesToProcess = dueFrames - _framesProcessed;
+            if (framesToProcess <= 0)
+            {
+                return;
+            }
+
+            _framesProcessed = dueFrames;
+            while (framesToProcess > 0)
+            {
+                UsbTransfer? completedTransfer = ProcessOneFrameLocked();
+                if (completedTransfer is null && _current is null && _pending.Count == 0)
                 {
-                    return;
+                    // No work remains: consume the remaining idle deadlines without replaying them.
+                    break;
                 }
 
-                _current = _pending[0];
-                _pending.RemoveAt(0);
-                _packetIndex = 0;
-            }
-
-            UsbTransfer transfer = _current!;
-            IsoPacketDescriptor[] packets = transfer.IsoPackets!;
-            IsoPacketDescriptor descriptor = packets[_packetIndex];
-            int actualLength;
-            try
-            {
-                actualLength = _producePacket(transfer, _packetIndex);
-            }
-            catch (Exception)
-            {
-                actualLength = -1;
-            }
-
-            if (actualLength < 0)
-            {
-                descriptor = descriptor with
+                if (completedTransfer is not null)
                 {
-                    ActualLength = 0,
-                    Status = UsbIpStatus.Stall
-                };
-                transfer.ErrorCount++;
-            }
-            else
-            {
-                int packetLength = (int)descriptor.Length;
-                int acceptedLength = Math.Min(actualLength, packetLength);
-                descriptor = descriptor with
-                {
-                    ActualLength = (uint)acceptedLength,
-                    Status = UsbIpStatus.Success
-                };
-                transfer.ActualLength += acceptedLength;
-            }
+                    (completed ??= new List<UsbTransfer>()).Add(completedTransfer);
+                }
 
-            packets[_packetIndex] = descriptor;
-            _packetIndex++;
-            if (_packetIndex >= packets.Length)
-            {
-                completed = transfer;
-                _current = null;
-                _packetIndex = 0;
+                framesToProcess--;
             }
         }
 
         if (completed is not null)
         {
-            TransferCompleted?.Invoke(completed);
+            foreach (UsbTransfer transfer in completed)
+            {
+                TransferCompleted?.Invoke(transfer);
+            }
         }
+    }
+
+    /// <summary>
+    /// Processes exactly one packet of the current transfer, promoting the next queued transfer
+    /// when needed, and returns the transfer when its last packet completed. The caller holds
+    /// <see cref="_gate"/>.
+    /// </summary>
+    /// <returns>The completed transfer, or <see langword="null"/> when the transfer continues or no work is pending.</returns>
+    private UsbTransfer? ProcessOneFrameLocked()
+    {
+        if (_current is null)
+        {
+            if (_pending.Count == 0)
+            {
+                return null;
+            }
+
+            _current = _pending[0];
+            _pending.RemoveAt(0);
+            _packetIndex = 0;
+        }
+
+        UsbTransfer transfer = _current!;
+        IsoPacketDescriptor[] packets = transfer.IsoPackets!;
+        IsoPacketDescriptor descriptor = packets[_packetIndex];
+        int actualLength;
+        try
+        {
+            actualLength = _producePacket(transfer, _packetIndex);
+        }
+        catch (Exception)
+        {
+            actualLength = -1;
+        }
+
+        if (actualLength < 0)
+        {
+            descriptor = descriptor with
+            {
+                ActualLength = 0,
+                Status = UsbIpStatus.Stall
+            };
+            transfer.ErrorCount++;
+        }
+        else
+        {
+            int packetLength = (int)descriptor.Length;
+            int acceptedLength = Math.Min(actualLength, packetLength);
+            descriptor = descriptor with
+            {
+                ActualLength = (uint)acceptedLength,
+                Status = UsbIpStatus.Success
+            };
+            transfer.ActualLength += acceptedLength;
+        }
+
+        packets[_packetIndex] = descriptor;
+        _packetIndex++;
+        if (_packetIndex < packets.Length)
+        {
+            return null;
+        }
+
+        _current = null;
+        _packetIndex = 0;
+        return transfer;
     }
 
     /// <summary>

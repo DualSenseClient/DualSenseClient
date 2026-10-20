@@ -44,13 +44,14 @@ public sealed class UsbIpServerOptions
 /// OP_REQ_DEVLIST / OP_REQ_IMPORT handshake followed by the URB loop (control, interrupt and bulk
 /// transfers plus unlink). Interrupt IN transfers are queued per endpoint and completed by a pacer
 /// with a fresh <see cref="VirtualUsbDevice.ProvideInputReport"/> payload per tick; isochronous OUT
-/// transfers are delivered to <see cref="VirtualUsbDevice.OnIsoPacketReceived"/> and answered
-/// immediately, while isochronous IN transfers are completed one packet per frame by a scheduler
-/// per endpoint; every outbound frame of a session goes through one serialized writer. Isochronous
-/// IN scheduling starts on the URB's arrival frame: the header's <see cref="UsbIpHeader.StartFrame"/>
-/// is not interpreted (the sentinel 0xFFFFFFFF, past and future values all mean arrival, a ruled
-/// deviation pending live observation) and is echoed only in RET_SUBMIT. Devices can be added and
-/// removed while the server runs, and a failing session never stops the listener.
+/// packets are delivered to <see cref="VirtualUsbDevice.OnIsoPacketReceived"/> one packet per frame
+/// and the URB is answered after its last packet, while isochronous IN transfers are completed one
+/// packet per frame, both by a scheduler per endpoint; every outbound frame of a session goes
+/// through one serialized writer. Isochronous scheduling starts on the URB's arrival frame: the
+/// header's <see cref="UsbIpHeader.StartFrame"/> is not interpreted (the sentinel 0xFFFFFFFF, past
+/// and future values all mean arrival, a ruled deviation pending live observation) and is echoed
+/// only in RET_SUBMIT. Devices can be added and removed while the server runs, and a failing
+/// session never stops the listener.
 /// </summary>
 public sealed class UsbIpServer : IDisposable
 {
@@ -518,8 +519,8 @@ public sealed class UsbIpServer : IDisposable
 
     /// <summary>
     /// One client connection: the handshake, the URB loop and the per-session state (queued
-    /// interrupt IN transfers with their pacers and the isochronous IN schedulers). Every outbound
-    /// frame goes through <see cref="Send"/>, which serializes the writers with a semaphore.
+    /// interrupt IN transfers with their pacers and the isochronous IN/OUT schedulers). Every
+    /// outbound frame goes through <see cref="Send"/>, which serializes the writers with a semaphore.
     /// </summary>
     private sealed class Session
     {
@@ -542,6 +543,9 @@ public sealed class UsbIpServer : IDisposable
 
         /// <summary>One scheduler per isochronous IN endpoint address of the imported device, across all alternate settings; written once on import, only read afterwards.</summary>
         private readonly Dictionary<byte, IsoScheduler> _isoInSchedulers = new Dictionary<byte, IsoScheduler>();
+
+        /// <summary>One scheduler per isochronous OUT endpoint address of the imported device, across all alternate settings; written once on import, only read afterwards.</summary>
+        private readonly Dictionary<byte, IsoScheduler> _isoOutSchedulers = new Dictionary<byte, IsoScheduler>();
 
         private readonly List<EndpointPacer> _pacers = new List<EndpointPacer>();
 
@@ -721,10 +725,12 @@ public sealed class UsbIpServer : IDisposable
         }
 
         /// <summary>
-        /// Creates one isochronous scheduler per distinct isochronous IN endpoint address of the
+        /// Creates one isochronous scheduler per distinct isochronous endpoint address of the
         /// imported device, across all alternate settings: an endpoint address that several
-        /// alternate settings declare shares one scheduler. Each scheduler starts immediately on
-        /// the session's time provider and is stopped by the session teardown.
+        /// alternate settings declare shares one scheduler. IN schedulers produce one packet per
+        /// frame; OUT schedulers deliver one packet per frame and answer the URB after its last
+        /// packet. Each scheduler starts immediately on the session's time provider and is stopped
+        /// by the session teardown.
         /// </summary>
         private void StartIsoSchedulers()
         {
@@ -734,7 +740,14 @@ public sealed class UsbIpServer : IDisposable
                 foreach (UsbEndpointInfo endpoint in interfaceInfo.Endpoints)
                 {
                     byte address = endpoint.Address;
-                    if (endpoint.Type != UsbEndpointType.Isochronous || (address & DirectionInMask) == 0 || _isoInSchedulers.ContainsKey(address))
+                    if (endpoint.Type != UsbEndpointType.Isochronous)
+                    {
+                        continue;
+                    }
+
+                    bool isIn = (address & DirectionInMask) != 0;
+                    Dictionary<byte, IsoScheduler> schedulers = isIn ? _isoInSchedulers : _isoOutSchedulers;
+                    if (schedulers.ContainsKey(address))
                     {
                         continue;
                     }
@@ -743,14 +756,19 @@ public sealed class UsbIpServer : IDisposable
                     IsoScheduler scheduler = new IsoScheduler(
                         _server._timeProvider,
                         IsoFrameDuration,
-                        (transfer, packetIndex) => ProduceIsoPacket(schedulerAddress, transfer, packetIndex));
-                    scheduler.TransferCompleted += OnIsoTransferCompleted;
-                    _isoInSchedulers.Add(address, scheduler);
+                        isIn
+                            ? (transfer, packetIndex) => ProduceIsoPacket(schedulerAddress, transfer, packetIndex)
+                            : (transfer, packetIndex) => DeliverIsoOutPacket(schedulerAddress, transfer, packetIndex),
+                        !isIn);
+                    scheduler.TransferCompleted += isIn ? OnIsoTransferCompleted : OnIsoOutTransferCompleted;
+                    schedulers.Add(address, scheduler);
                     scheduler.Start();
                 }
             }
 
-            _server._logger?.Log(EmulationLogLevel.Debug, $"Scheduling {_isoInSchedulers.Count} isochronous IN endpoint(s).");
+            _server._logger?.Log(
+                EmulationLogLevel.Debug,
+                $"Scheduling {_isoInSchedulers.Count} isochronous IN and {_isoOutSchedulers.Count} isochronous OUT endpoint(s).");
         }
 
         /// <summary>
@@ -1013,22 +1031,7 @@ public sealed class UsbIpServer : IDisposable
                 return true;
             }
 
-            if (!TryDeliverIsoOutPackets(endpoint.Address, outData, packets))
-            {
-                RejectIsoUrb(header, packets, UsbIpStatus.InvalidArgument);
-                return true;
-            }
-
-            for (int i = 0; i < packets.Length; i++)
-            {
-                packets[i] = packets[i] with
-                {
-                    ActualLength = packets[i].Length,
-                    Status = UsbIpStatus.Success
-                };
-            }
-
-            SendIsoRetSubmit(header.SeqNum, UsbIpStatus.Success, (uint)transferLength, header.StartFrame, 0, packets, ReadOnlyMemory<byte>.Empty);
+            QueueIsoOut(header, transferLength, endpoint, packets, outData);
             return true;
         }
 
@@ -1070,31 +1073,72 @@ public sealed class UsbIpServer : IDisposable
         }
 
         /// <summary>
-        /// Delivers every isochronous OUT packet of <paramref name="packets"/> to the device, in
-        /// packet order, as the transfer buffer slice at the packet's offset and length.
+        /// Queues one isochronous OUT URB on the scheduler of the resolved endpoint address. Its
+        /// packets are delivered to the persona one per frame from the URB's arrival frame; the
+        /// scheduler answers the URB after the last packet, so the host's audio engine is paced by
+        /// the USB frame instead of by packet-completion round trips. The submitted start frame is
+        /// preserved only for the RET_SUBMIT echo, matching the IN policy.
         /// </summary>
-        /// <param name="endpointAddress">Endpoint address the packets belong to (bEndpointAddress).</param>
-        /// <param name="outData">Complete host-to-device transfer buffer of the URB.</param>
+        /// <param name="header">Parsed submit header.</param>
+        /// <param name="transferLength">Declared transfer buffer length.</param>
+        /// <param name="endpoint">Resolved isochronous OUT endpoint descriptor.</param>
         /// <param name="packets">Parsed packet descriptors of the URB.</param>
-        /// <returns><see langword="true"/> when every packet was delivered; <see langword="false"/> when the device threw.</returns>
-        private bool TryDeliverIsoOutPackets(byte endpointAddress, byte[] outData, IsoPacketDescriptor[] packets)
+        /// <param name="outData">Complete host-to-device transfer buffer of the URB.</param>
+        private void QueueIsoOut(
+            UsbIpHeader header,
+            int transferLength,
+            UsbEndpointInfo endpoint,
+            IsoPacketDescriptor[] packets,
+            byte[] outData)
         {
-            VirtualUsbDevice device = _device!;
+            if (!_isoOutSchedulers.TryGetValue(endpoint.Address, out IsoScheduler? scheduler))
+            {
+                _server._logger?.Log(
+                    EmulationLogLevel.Warning,
+                    $"ISO URB {header.SeqNum} targets endpoint 0x{endpoint.Address:X2} without an isochronous scheduler.");
+                RejectIsoUrb(header, packets, UsbIpStatus.NoEntry);
+                return;
+            }
+
+            scheduler.Enqueue(new UsbTransfer
+            {
+                SeqNum = header.SeqNum,
+                Direction = UsbIpDirection.Out,
+                EndpointAddress = endpoint.Address,
+                MaxTransferLength = transferLength,
+                Data = outData,
+                NumberOfPackets = header.NumberOfPackets,
+                StartFrame = header.StartFrame,
+                Interval = header.Interval,
+                IsoPackets = packets
+            });
+        }
+
+        /// <summary>
+        /// Delivers one isochronous OUT packet of a scheduled transfer to the device as the
+        /// transfer-buffer slice at the packet's offset and length. A throwing persona is contained
+        /// and logged here; the negative return makes the scheduler mark that packet stalled, and
+        /// the transfer completion rejects the URB with -EINVAL as before.
+        /// </summary>
+        /// <param name="endpointAddress">Endpoint address the packet belongs to (bEndpointAddress).</param>
+        /// <param name="transfer">Transfer carrying the host-to-device buffer.</param>
+        /// <param name="packetIndex">Zero-based packet index within the transfer.</param>
+        /// <returns>The packet's declared length on success; -1 when the device threw.</returns>
+        private int DeliverIsoOutPacket(byte endpointAddress, UsbTransfer transfer, int packetIndex)
+        {
+            IsoPacketDescriptor packet = transfer.IsoPackets![packetIndex];
             try
             {
-                for (int i = 0; i < packets.Length; i++)
-                {
-                    IsoPacketDescriptor packet = packets[i];
-                    device.OnIsoPacketReceived(endpointAddress, outData.AsSpan((int)packet.Offset, (int)packet.Length));
-                }
-
-                return true;
+                _device!.OnIsoPacketReceived(
+                    endpointAddress,
+                    transfer.Data.AsSpan((int)packet.Offset, (int)packet.Length));
+                return (int)packet.Length;
             }
             catch (Exception exception)
             {
                 // A persona bug must not leave the URB unanswered: reply -EINVAL and keep the session.
                 _server._logger?.Log(EmulationLogLevel.Error, $"Isochronous OUT packet failed: {exception}");
-                return false;
+                return -1;
             }
         }
 
@@ -1176,6 +1220,71 @@ public sealed class UsbIpServer : IDisposable
             catch (Exception exception) when (exception is IOException or SocketException or ObjectDisposedException)
             {
                 _server._logger?.Log(EmulationLogLevel.Debug, $"Isochronous IN completion dropped: {exception.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Completion of an isochronous OUT transfer, raised on the frame-clock thread after its
+        /// last packet was delivered: answers with a RET_SUBMIT that echoes the packet descriptors,
+        /// reports the declared transfer length as actual length, and carries no payload. A packet
+        /// that failed in the persona rejects the URB with -EINVAL and marks every descriptor as
+        /// failed, preserving the previous containment contract. A completion after the session
+        /// teardown is dropped, and one that races a closed socket is logged at debug level.
+        /// </summary>
+        /// <param name="transfer">Completed transfer with its final packet state.</param>
+        private void OnIsoOutTransferCompleted(UsbTransfer transfer)
+        {
+            if (Volatile.Read(ref _isTornDown))
+            {
+                return;
+            }
+
+            try
+            {
+                IsoPacketDescriptor[] packets = transfer.IsoPackets ?? [];
+                if (transfer.ErrorCount > 0)
+                {
+                    for (int i = 0; i < packets.Length; i++)
+                    {
+                        packets[i] = packets[i] with
+                        {
+                            ActualLength = 0,
+                            Status = UsbIpStatus.InvalidArgument
+                        };
+                    }
+
+                    SendIsoRetSubmit(
+                        transfer.SeqNum,
+                        UsbIpStatus.InvalidArgument,
+                        0,
+                        transfer.StartFrame,
+                        0,
+                        packets,
+                        ReadOnlyMemory<byte>.Empty);
+                    return;
+                }
+
+                for (int i = 0; i < packets.Length; i++)
+                {
+                    packets[i] = packets[i] with
+                    {
+                        ActualLength = packets[i].Length,
+                        Status = UsbIpStatus.Success
+                    };
+                }
+
+                SendIsoRetSubmit(
+                    transfer.SeqNum,
+                    UsbIpStatus.Success,
+                    (uint)transfer.MaxTransferLength,
+                    transfer.StartFrame,
+                    0,
+                    packets,
+                    ReadOnlyMemory<byte>.Empty);
+            }
+            catch (Exception exception) when (exception is IOException or SocketException or ObjectDisposedException)
+            {
+                _server._logger?.Log(EmulationLogLevel.Debug, $"Isochronous OUT completion dropped: {exception.Message}");
             }
         }
 
@@ -1427,6 +1536,15 @@ public sealed class UsbIpServer : IDisposable
                 }
             }
 
+            foreach (KeyValuePair<byte, IsoScheduler> entry in _isoOutSchedulers)
+            {
+                if (entry.Value.TryCancel(header.UnlinkSeqNum, out _))
+                {
+                    SendRetUnlink(header.SeqNum, EconnResetStatus);
+                    return;
+                }
+            }
+
             SendRetUnlink(header.SeqNum, UsbIpStatus.Success);
         }
 
@@ -1586,6 +1704,12 @@ public sealed class UsbIpServer : IDisposable
             }
 
             _isoInSchedulers.Clear();
+            foreach (IsoScheduler scheduler in _isoOutSchedulers.Values)
+            {
+                scheduler.Stop();
+            }
+
+            _isoOutSchedulers.Clear();
             foreach (EndpointPacer pacer in _pacers)
             {
                 pacer.Stop();

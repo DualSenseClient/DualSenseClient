@@ -383,9 +383,10 @@ public static class EmulationAudioEndpointSupport
     /// Opens the capture endpoint, enqueues the paced microphone tone and returns the captured PCM.
     /// Windows occasionally invalidates a freshly opened exclusive capture stream with
     /// <c>AUDCLNT_E_RESOURCES_INVALIDATED</c> while the audio service is still retiring the previous
-    /// endpoint instance (the tests reuse the same MMDevice ids across attach cycles); in that case
-    /// the endpoint is reopened and the whole paced capture is retried exactly once, and the retry is
-    /// disclosed through <see cref="WasapiMicrophoneCapture.Attempt"/>. Every other failure propagates.
+    /// endpoint instance (the tests reuse the same MMDevice ids across attach cycles); the capture
+    /// endpoint open and the whole paced capture are each retried exactly once, and the capture retry
+    /// is disclosed through <see cref="WasapiMicrophoneCapture.Attempt"/>. Every other failure
+    /// propagates.
     /// </summary>
     /// <param name="endpointId">Device id of the capture endpoint.</param>
     /// <param name="exactFormat">Exact persona microphone format to try exclusively first.</param>
@@ -404,7 +405,7 @@ public static class EmulationAudioEndpointSupport
     {
         for (int attempt = 1; attempt <= 2; attempt++)
         {
-            using (WasapiCaptureEndpoint capture = WasapiAudioEndpoint.OpenCaptureEndpoint(endpointId, exactFormat))
+            using (WasapiCaptureEndpoint capture = WasapiAudioEndpoint.OpenCaptureEndpointWithRetry(endpointId, exactFormat))
             {
                 TestContext.Out.WriteLine($"Capture endpoint opened (attempt {attempt}): {DescribeStream(capture)}.");
                 try

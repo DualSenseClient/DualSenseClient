@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.DualSense.Input;
@@ -81,9 +82,10 @@ public sealed class EmulationServiceUsbIpTests
         _servers = new List<EmulationServer>();
         _emulationFactory = new RecordingEmulationControllerFactory();
 
-        // The audio engine is only touched by the controller-endpoint capture and the direct
-        // capture paths, neither of which any test here exercises (the Emulation path has no
-        // controller-endpoint audio), so no SoundFlow engine is created.
+        // The service fixture injects a null audio engine: no SoundFlow device is ever created.
+        // The Emulation controller-endpoint path still creates its forwarder and capture, but
+        // CreateAudioForwarder leaves the USB render target disabled, so the forwarder starts
+        // without a transport; no test here drives the direct loopback captures.
         _service = CreateService(CreateEmulationServer);
 
         // The fake enumerator presents the virtual device exactly while the fake attach strategy
@@ -160,7 +162,8 @@ public sealed class EmulationServiceUsbIpTests
     }
 
     private void SetStoredSettings(PhysicalDualSense device, EmulationMode mode, EmulationEngine engine,
-        DualSenseVariant dsVariant = DualSenseVariant.Standard, DualShock4Variant ds4Variant = DualShock4Variant.V2)
+        DualSenseVariant dsVariant = DualSenseVariant.Standard, DualShock4Variant ds4Variant = DualShock4Variant.V2,
+        EmulationAudioSource audioSource = EmulationAudioSource.ControllerEndpoint)
     {
         _controllerInfo.SaveEmulationSettings(null, device.Info.Path, new EmulationSettings
         {
@@ -170,6 +173,10 @@ public sealed class EmulationServiceUsbIpTests
             {
                 DualSense = dsVariant,
                 DualShock4 = ds4Variant
+            },
+            Forward = new ForwardSettings
+            {
+                AudioSource = audioSource
             }
         });
     }
@@ -198,6 +205,59 @@ public sealed class EmulationServiceUsbIpTests
 
             Thread.Sleep(5);
         }
+    }
+
+    /// <summary>
+    /// Returns the private per-device <c>VirtualControllerEntry</c> the service holds for
+    /// <paramref name="device"/>. The entry type is a private nested class, so its audio state is
+    /// read and driven through reflection exactly like the service's own code would.
+    /// </summary>
+    private object GetEntry(PhysicalDualSense device)
+    {
+        FieldInfo entriesField = typeof(EmulationService).GetField("_entries", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        System.Collections.IDictionary entries = (System.Collections.IDictionary)entriesField.GetValue(_service)!;
+        object? entry = entries[device];
+        Assert.That(entry, Is.Not.Null, "the service tracks an entry for the device");
+        return entry!;
+    }
+
+    /// <summary>Reads one instance field of the private entry, forwarder or capture.</summary>
+    private static T ReadField<T>(object target, string fieldName)
+    {
+        FieldInfo field = target.GetType()
+            .GetField(fieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!;
+        return (T)field.GetValue(target)!;
+    }
+
+    /// <summary>Writes one instance field of the private entry.</summary>
+    private static void WriteField(object target, string fieldName, object value)
+    {
+        FieldInfo field = target.GetType()
+            .GetField(fieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!;
+        field.SetValue(target, value);
+    }
+
+    /// <summary>Invokes one private instance method of the service with the private entry.</summary>
+    private static void InvokeService(object service, string methodName, params object?[] args)
+    {
+        MethodInfo method = service.GetType()
+            .GetMethod(methodName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(service, args);
+    }
+
+    /// <summary>
+    /// Builds one nominal 384-byte Emulation DualSense speaker packet: 48 whole 8-byte frames, so
+    /// both the front audio lane and the rear realtime-haptics lane see complete frames.
+    /// </summary>
+    private static byte[] CreateSpeakerPacket()
+    {
+        byte[] packet = new byte[384];
+        for (int i = 0; i < packet.Length; i++)
+        {
+            packet[i] = (byte)(i * 7);
+        }
+
+        return packet;
     }
 
     [TestCase(EmulationMode.DualSense, DualSenseVariant.Standard, DualShock4Variant.V2, (ushort)0x054C, (ushort)0x0CE6)]
@@ -657,6 +717,110 @@ public sealed class EmulationServiceUsbIpTests
         WaitUntil(() => _emulationLogger.Entries.Select(entry => entry.Message).Contains("USB/IP server stopped."),
             "the server to stop once the in-flight persona was detached");
         Assert.That(() => server.AddDualSense(), Throws.TypeOf<ObjectDisposedException>());
+    }
+
+    [TestCase(EmulationMode.DualSense, DualSenseVariant.Standard, (ushort)0x0CE6, typeof(EmulationDualSenseAudioCapture))]
+    [TestCase(EmulationMode.DualShock4, DualSenseVariant.Standard, (ushort)0x09CC, typeof(EmulationDualShock4AudioCapture))]
+    public void Creation_ControllerEndpoint_StoresThePersonaCaptureAndKeepsTheForwarder(
+        EmulationMode mode, DualSenseVariant dsVariant, ushort productId, Type expectedCapture)
+    {
+        PhysicalDualSense device = CreateDevice($"audio-{mode}");
+        SetStoredSettings(device, mode, EmulationEngine.UsbIp, dsVariant);
+        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, productId));
+        _tracker.TrackController(device);
+
+        _service.Start();
+        WaitForRunning(device);
+
+        object entry = GetEntry(device);
+        IDisposable? capture = ReadField<IDisposable?>(entry, "Capture");
+        ViiperDualSenseAudioForwarder? forwarder = ReadField<ViiperDualSenseAudioForwarder?>(entry, "Forwarder");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(capture, Is.Not.Null, "the controller endpoint has a capture");
+            Assert.That(capture, Is.TypeOf(expectedCapture));
+            Assert.That(capture, Is.AssignableTo<IViiperAudioCapture>(), "the capture takes part in source cutover");
+            Assert.That(forwarder, Is.Not.Null, "the capture has a sink to feed");
+            Assert.That(forwarder?.IsDisposed, Is.False);
+            Assert.That(ReadField<bool>(entry, "AudioCallbacksWired"), Is.True,
+                "the game-output/haptics callbacks are wired on the forwarder");
+        });
+    }
+
+    [Test]
+    public void Creation_ControllerEndpoint_RoutesSpeakerHapticsIntoTheForwarderUntilUnwired()
+    {
+        PhysicalDualSense device = CreateDevice("audio-haptics");
+        SetStoredSettings(device, EmulationMode.DualSense, EmulationEngine.UsbIp);
+        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
+        _tracker.TrackController(device);
+
+        _service.Start();
+        WaitForRunning(device);
+
+        object entry = GetEntry(device);
+        ViiperDualSenseAudioForwarder forwarder = ReadField<ViiperDualSenseAudioForwarder>(entry, "Forwarder");
+        PersonaDualSense persona = (PersonaDualSense)_emulationFactory.Creations[0].Creation!.Persona;
+        Assert.That(ReadField<long>(forwarder, "_lastGameHapticsTimestamp"), Is.Zero,
+            "a freshly created forwarder has not seen game haptics yet");
+
+        // A 384-byte speaker packet carries 48 whole frames: the persona extracts their rear pair
+        // (192 bytes) into RealtimeHapticsReceived, which the adapter forwards to UpdateGameHaptics.
+        persona.OnIsoPacketReceived(0x01, CreateSpeakerPacket());
+        long seenHaptics = ReadField<long>(forwarder, "_lastGameHapticsTimestamp");
+        Assert.That(seenHaptics, Is.Not.Zero, "the haptics lane reached the forwarder");
+
+        InvokeService(_service, "UnwireGameCallbacksLocked", entry);
+        persona.OnIsoPacketReceived(0x01, CreateSpeakerPacket());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadField<long>(forwarder, "_lastGameHapticsTimestamp"), Is.EqualTo(seenHaptics),
+                "an unwired lane no longer updates the forwarder");
+            Assert.That(ReadField<bool>(entry, "AudioCallbacksWired"), Is.False);
+        });
+    }
+
+    [Test]
+    public void DeactivateDirectAudioLocked_RebuildsTheControllerCaptureAndKeepsTheLiveForwarder()
+    {
+        PhysicalDualSense device = CreateDevice("audio-direct");
+        SetStoredSettings(device, EmulationMode.DualSense, EmulationEngine.UsbIp,
+            audioSource: EmulationAudioSource.SystemOutput);
+        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
+        _tracker.TrackController(device);
+
+        _service.Start();
+        WaitForRunning(device);
+
+        object entry = GetEntry(device);
+        ViiperDualSenseAudioForwarder? forwarder = ReadField<ViiperDualSenseAudioForwarder?>(entry, "Forwarder");
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadField<IDisposable?>(entry, "Capture"), Is.Null,
+                "a direct source forwards straight to the physical controller");
+            Assert.That(forwarder, Is.Not.Null, "the direct source created a forwarder");
+            Assert.That(forwarder?.IsDisposed, Is.False);
+        });
+
+        // Simulate a successfully started direct capture: the OS loopback itself is not faked, only
+        // the state the service would own after Start succeeded.
+        WriteField(entry, "DirectAudioActive", true);
+        InvokeService(_service, "DeactivateDirectAudioLocked", entry);
+
+        IDisposable? capture = ReadField<IDisposable?>(entry, "Capture");
+        ViiperDualSenseAudioForwarder? rebuiltForwarder = ReadField<ViiperDualSenseAudioForwarder?>(entry, "Forwarder");
+        Assert.Multiple(() =>
+        {
+            Assert.That(capture, Is.TypeOf<EmulationDualSenseAudioCapture>(),
+                "the missing controller capture is rebuilt on the switch back");
+            Assert.That((capture as IViiperAudioCapture)?.IsSuspended, Is.False, "the rebuilt capture feeds again");
+            Assert.That(rebuiltForwarder, Is.SameAs(forwarder),
+                "the live forwarder is reused instead of being torn down");
+            Assert.That(rebuiltForwarder?.IsDisposed, Is.False);
+            Assert.That(ReadField<bool>(entry, "AudioCallbacksWired"), Is.True);
+        });
     }
 
     /// <summary>

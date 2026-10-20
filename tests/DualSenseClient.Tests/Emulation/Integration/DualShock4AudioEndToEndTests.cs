@@ -123,7 +123,7 @@ public sealed class DualShock4AudioEndToEndTests
                 TestContext.Out.WriteLine($"Render endpoint opened: {EmulationAudioEndpointSupport.DescribeStream(render)}.");
             }
 
-            using (WasapiCaptureEndpoint capture = WasapiAudioEndpoint.OpenCaptureEndpoint(
+            using (WasapiCaptureEndpoint capture = WasapiAudioEndpoint.OpenCaptureEndpointWithRetry(
                        endpoints.CaptureEndpoint.Id,
                        EmulationAudioEndpointSupport.DualShock4CaptureFormat))
             {
@@ -311,7 +311,7 @@ public sealed class DualShock4AudioEndToEndTests
                     EmulationAudioEndpointSupport.ToneAmplitude);
             }
 
-            using (WasapiCaptureEndpoint capture = WasapiAudioEndpoint.OpenCaptureEndpoint(
+            using (WasapiCaptureEndpoint capture = WasapiAudioEndpoint.OpenCaptureEndpointWithRetry(
                        endpoints.CaptureEndpoint.Id,
                        EmulationAudioEndpointSupport.DualShock4CaptureFormat))
             {

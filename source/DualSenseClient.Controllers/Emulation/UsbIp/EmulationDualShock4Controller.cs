@@ -105,6 +105,18 @@ public sealed class EmulationDualShock4Controller : VirtualControllerBase
         _device.OutputReportReceived += OnOutputReport;
     }
 
+    /// <summary>
+    /// The persona this adapter mirrors. The service uses it as the access point for the speaker
+    /// capture; the adapter never detaches or removes it.
+    /// </summary>
+    internal DualShock4Device Persona
+    {
+        get
+        {
+            return _device;
+        }
+    }
+
     /// <inheritdoc/>
     public override EmulationMode Mode
     {
