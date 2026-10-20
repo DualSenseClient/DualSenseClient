@@ -1,36 +1,37 @@
 using DualSenseClient.Emulation.Core;
 
-// Descriptor data derived from DS4Dongle (MIT), Copyright (c) 2026 awalol
-// (src/usb_descriptors.cpp: desc_device, the HID block of descriptor_configuration and desc_hid_report_ds4).
-// The DualShock 4 v1 variant is derived from ViGEmBus (BSD-3), Copyright (c) ViGEm project:
-// sys/Ds4Pdo.hpp EmulationTargetDS4 constructor defaults (idVendor 0x054C, idProduct 0x05C4),
-// sys/Ds4Pdo.cpp UsbGetDeviceDescriptorType (bcdUSB 0x0200, interface-defined class, bMaxPacketSize0 0x40,
-// bcdDevice 0x0100, string indexes 1/2/0), GetConfigurationDescriptorType (the 41-byte audio-less
-// configuration blob: interface 0, wDescriptorLength 0x01D3) and UsbGetDescriptorFromInterface (the
-// 467-byte report descriptor) plus UsbGetStringDescriptorType (index 1 "Sony Computer Entertainment",
-// index 2 "Wireless Controller").
+// Descriptor data: the v2 reference serves the device descriptor, the UAC1 audio block and the HID
+// block of the composite configuration, plus the 507-byte HID report descriptor.
+// The v1 variant is derived from the v1 reference: its constructor defaults (idVendor 0x054C,
+// idProduct 0x05C4), device descriptor (bcdUSB 0x0200, interface-defined class, bMaxPacketSize0 0x40,
+// bcdDevice 0x0100, string indexes 1/2/0), the 467-byte report descriptor and the string values
+// (index 1 "Sony Computer Entertainment", index 2 "Wireless Controller").
+// The v1 reference has no audio configuration blob of its own, so the v1 persona reuses the v2 UAC1
+// audio block and combines it with the v1 variant facts.
 
 namespace DualSenseClient.Emulation.Devices.DualShock4;
 
 /// <summary>
-/// Descriptor set of a DualShock 4 variant in its bring-up configuration: one HID interface (interface 0)
-/// with an interrupt IN and an interrupt OUT endpoint plus the variant's reference HID report descriptor
-/// (507 bytes for <see cref="DualShock4Variant.V2"/>, Sony 054C:09CC, transcribed from DS4Dongle (MIT);
-/// 467 bytes for <see cref="DualShock4Variant.V1"/>, Sony 054C:05C4, transcribed from ViGEmBus (BSD-3)).
-/// The audio interfaces of the full persona are added in a later milestone.
+/// Descriptor set of a DualShock 4 variant: the composite configuration with the UAC1 audio function
+/// (audio control interface 0, speaker streaming interface 1, microphone streaming interface 2) and one
+/// HID interface (interface 3) with an interrupt IN and an interrupt OUT endpoint plus the variant's
+/// reference HID report descriptor (507 bytes for <see cref="DualShock4Variant.V2"/>, Sony 054C:09CC,
+/// transcribed from the v2 reference; 467 bytes for <see cref="DualShock4Variant.V1"/>, Sony
+/// 054C:05C4, transcribed from the v1 reference). Both variants serve the same 184-byte audio block from
+/// <see cref="UsbAudioClass.CreateDualShock4AudioBlock"/>; the v1 reference has no audio blob of its own.
 /// </summary>
 public static class DualShock4DescriptorSet
 {
     /// <summary>
-    /// Product id of the reference DualShock 4 v1 persona (the ViGEmBus target constructor default,
-    /// sys/Ds4Pdo.hpp): the v1 variant pins it because the identity's default carries the v2 id.
+    /// Product id of the reference DualShock 4 v1 persona (the v1 reference constructor default):
+    /// the v1 variant pins it because the identity's default carries the v2 id.
     /// </summary>
     private const ushort V1ProductId = 0x05C4;
 
     /// <summary>
     /// Manufacturer string of the reference DualShock 4 v1 persona (string descriptor index 1, the
-    /// ViGEmBus UsbGetStringDescriptorType value): the value differs from the v2 reference's string, so
-    /// the v1 variant pins it.
+    /// v1 reference string): the value differs from the v2 reference's string, so the v1 variant
+    /// pins it.
     /// </summary>
     private const string V1ManufacturerName = "Sony Computer Entertainment";
 
@@ -53,9 +54,16 @@ public static class DualShock4DescriptorSet
     /// the identity's product id and manufacturer string with the v1 reference values 0x05C4 and
     /// "Sony Computer Entertainment" - the identity's defaults would otherwise serve v2 facts. Every
     /// other fact (vendor id, release number, product string, serial number and the layout of the
-    /// bring-up configuration) is identity-driven for both variants, and both variants serve the same
+    /// composite configuration) is identity-driven for both variants, and both variants serve the same
     /// 64-byte input report 0x01 through <see cref="DualShock4Device"/>.
     /// </summary>
+    /// <remarks>
+    /// The v1 reference describes only the audio-less 41-byte configuration blob, so the v1
+    /// variant has no reference audio descriptor bytes of its own. Its composite configuration is
+    /// therefore derived: the same 184-byte UAC1 audio block as v2 (<see cref="UsbAudioClass.CreateDualShock4AudioBlock"/>)
+    /// followed by the v1-fact HID block (interface 3, 467-byte report descriptor declaration, endpoints
+    /// 0x84/0x03 with interval 5).
+    /// </remarks>
     /// <param name="identity">Identity of the persona; use <c>new DualShock4Identity()</c> for the reference defaults.</param>
     /// <param name="variant">Descriptor variant of the persona, which pins the variant-distinguishing reference facts.</param>
     /// <returns>The parsed descriptor set served for the device's control and HID requests.</returns>
@@ -149,33 +157,41 @@ public static class DualShock4DescriptorSet
     }
 
     /// <summary>
-    /// Creates the 41-byte configuration descriptor blob of the bring-up configuration: the configuration
-    /// descriptor, the HID interface (interface 0 because the audio function is omitted), the HID class
-    /// descriptor and the interrupt IN and interrupt OUT endpoint descriptors (USB 2.0, sections 9.6.3 to
-    /// 9.6.6). The two reference blobs agree on every byte except the HID class descriptor's report length,
-    /// so both variants serve the same 41 bytes up to it: the DS4Dongle v2 blob is renumbered (interface 3
-    /// to 0) and carries its runtime interval override 5, while the ViGEmBus v1 blob already declares
-    /// interface 0 and the interval bytes 5.
+    /// Creates the 225-byte composite configuration descriptor blob of the persona: the configuration
+    /// header declaring four interfaces, the 184-byte UAC1 audio block (audio control interface 0,
+    /// speaker streaming interface 1 and microphone streaming interface 2) and the 32-byte HID function
+    /// block (interface 3 with the HID class descriptor and the interrupt IN and interrupt OUT endpoint
+    /// descriptors; USB 2.0, sections 9.6.3 to 9.6.6). The composite header and the concatenation come
+    /// from <see cref="UsbAudioClass.CreateCompositeConfiguration"/>; sizes, addresses, attributes,
+    /// power and the report length follow the reference. The HID block keeps the P3 bytes with the
+    /// reference's interface number 3 beside the audio function; both endpoint intervals carry the
+    /// reference's runtime override 5.
     /// </summary>
     /// <param name="hidReportDescriptorLength">Length in bytes of the served HID report descriptor (wDescriptorLength).</param>
-    /// <returns>The configuration descriptor bytes.</returns>
+    /// <returns>The composite configuration descriptor bytes.</returns>
     private static byte[] CreateConfigurationDescriptor(int hidReportDescriptorLength)
     {
-        int totalLength = 9 + 9 + 9 + 7 + 7; // 41: header + HID interface + HID class + interrupt IN + interrupt OUT
+        return UsbAudioClass.CreateCompositeConfiguration(
+            UsbAudioClass.CreateDualShock4AudioBlock(),
+            CreateHidConfigurationBlock(hidReportDescriptorLength));
+    }
 
+    /// <summary>
+    /// Creates the 32-byte HID function block of the composite configuration: the HID interface
+    /// (interface 3, the reference's number beside the audio function), the HID class descriptor and
+    /// the interrupt IN and interrupt OUT endpoint descriptors. Every byte matches the P3 HID block,
+    /// including the runtime interval override (5) in place of the array bytes, except that the
+    /// interface number is the reference's 3 rather than the audio-less bring-up's 0.
+    /// </summary>
+    /// <param name="hidReportDescriptorLength">Length in bytes of the served HID report descriptor (wDescriptorLength).</param>
+    /// <returns>The HID block bytes.</returns>
+    private static byte[] CreateHidConfigurationBlock(int hidReportDescriptorLength)
+    {
         return
         [
             0x09, // bLength: 9
-            0x02, // bDescriptorType: CONFIGURATION
-            (byte)totalLength, (byte)(totalLength >> 8), // wTotalLength: 41
-            0x01, // bNumInterfaces: 1
-            0x01, // bConfigurationValue: 1
-            0x00, // iConfiguration: none
-            0xC0, // bmAttributes: self-powered, no remote wakeup
-            0xFA, // bMaxPower: 500 mA (250 * 2 mA)
-            0x09, // bLength: 9
             0x04, // bDescriptorType: INTERFACE
-            0x00, // bInterfaceNumber: 0 (the v2 reference serves the HID interface as 3 alongside the audio function)
+            0x03, // bInterfaceNumber: 3 (the reference serves the HID interface as 3 alongside the audio function)
             0x00, // bAlternateSetting: 0
             0x02, // bNumEndpoints: 2 (IN + OUT)
             0x03, // bInterfaceClass: HID

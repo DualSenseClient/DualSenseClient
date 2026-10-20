@@ -39,7 +39,13 @@ public sealed class UsbTransfer
     /// <summary>Number of bytes actually transferred (RET_SUBMIT.actual_length).</summary>
     public int ActualLength { get; set; }
 
-    /// <summary>Initial frame of an isochronous transfer (usbip_header.start_frame); zero for non-ISO transfers.</summary>
+    /// <summary>
+    /// Initial frame of an isochronous transfer (usbip_header.start_frame); zero for non-ISO
+    /// transfers. The scheduler does not interpret this field: every value, including
+    /// <c>0xFFFFFFFF</c> and a future frame, schedules from the URB's arrival frame (a ruled
+    /// deviation pending live observation). The server preserves and echoes the submitted value in
+    /// RET_SUBMIT.
+    /// </summary>
     public uint StartFrame { get; set; }
 
     /// <summary>Number of isochronous packets (usbip_header.number_of_packets); zero for non-ISO transfers.</summary>

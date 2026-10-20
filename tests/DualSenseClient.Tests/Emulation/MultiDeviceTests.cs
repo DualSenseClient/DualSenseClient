@@ -53,23 +53,39 @@ public sealed class MultiDeviceTests
     public void DevList_AllPersonaVariants_ListsBusIdsVendorsAndProductIds()
     {
         using FacadeHarness harness = new FacadeHarness();
-        harness.Server.AddDualShock4();
-        harness.Server.AddDualShock4(DualShock4Variant.V1);
-        harness.Server.AddDualSense();
-        harness.Server.AddDualSense(true);
-        harness.Server.AddXbox360();
+        DualShock4Device dualShock4 = harness.Server.AddDualShock4();
+        DualShock4Device dualShock4V1 = harness.Server.AddDualShock4(DualShock4Variant.V1);
+        DualSenseDevice dualSense = harness.Server.AddDualSense();
+        DualSenseDevice dualSenseEdge = harness.Server.AddDualSense(true);
+        Xbox360Device xbox360 = harness.Server.AddXbox360();
+
+        // Every exported device list entry carries one 4-byte record per distinct interface, so the
+        // audio personas (audio 0-2 + HID 3) have larger entries than the single-interface one.
+        int[] entrySizes =
+        [
+            UsbIpDeviceInfo.DevListEntrySize(dualShock4.Descriptors.InterfaceCount),
+            UsbIpDeviceInfo.DevListEntrySize(dualShock4V1.Descriptors.InterfaceCount),
+            UsbIpDeviceInfo.DevListEntrySize(dualSense.Descriptors.InterfaceCount),
+            UsbIpDeviceInfo.DevListEntrySize(dualSenseEdge.Descriptors.InterfaceCount),
+            UsbIpDeviceInfo.DevListEntrySize(xbox360.Descriptors.InterfaceCount)
+        ];
+        int replySize = UsbIpProtocol.OpCommonSize + 4 + entrySizes.Sum();
 
         using LoopbackClient client = harness.Connect();
         client.Send(CreateDevListRequest());
-        int entrySize = UsbIpDeviceInfo.DevListEntrySize(1);
-        byte[] reply = client.ReadExactly(UsbIpProtocol.OpCommonSize + 4 + 5 * entrySize);
+        byte[] reply = client.ReadExactly(replySize);
 
         Assert.That(BinaryPrimitives.ReadUInt32BigEndian(reply.AsSpan(8)), Is.EqualTo(5u)); // number of exported devices
-        AssertDevListEntry(reply, 0, entrySize, "1-1", 0x054C, 0x09CC); // DualShock 4 v2
-        AssertDevListEntry(reply, 1, entrySize, "2-1", 0x054C, 0x05C4); // DualShock 4 v1
-        AssertDevListEntry(reply, 2, entrySize, "3-1", 0x054C, 0x0CE6); // DualSense
-        AssertDevListEntry(reply, 3, entrySize, "4-1", 0x054C, 0x0DF2); // DualSense Edge
-        AssertDevListEntry(reply, 4, entrySize, "5-1", 0x045E, 0x028E); // Xbox 360 wired controller
+        int entryOffset = UsbIpProtocol.OpCommonSize + 4;
+        AssertDevListEntry(reply, entryOffset, "1-1", 0x054C, 0x09CC); // DualShock 4 v2
+        entryOffset += entrySizes[0];
+        AssertDevListEntry(reply, entryOffset, "2-1", 0x054C, 0x05C4); // DualShock 4 v1
+        entryOffset += entrySizes[1];
+        AssertDevListEntry(reply, entryOffset, "3-1", 0x054C, 0x0CE6); // DualSense
+        entryOffset += entrySizes[2];
+        AssertDevListEntry(reply, entryOffset, "4-1", 0x054C, 0x0DF2); // DualSense Edge
+        entryOffset += entrySizes[3];
+        AssertDevListEntry(reply, entryOffset, "5-1", 0x045E, 0x028E); // Xbox 360 wired controller
     }
 
     [Test]
@@ -112,7 +128,9 @@ public sealed class MultiDeviceTests
         QueueInterruptIn(xbox360Client, 40, Xbox360InterruptInEndpoint);
 
         // The queueing barriers prove every session has entered its URB loop and started its pacer.
-        Assert.That(harness.TimeProvider.TimerCount, Is.EqualTo(4)); // one pacer per session
+        // Four sessions add one interrupt pacer each; the DualShock 4, DualSense and Edge personas
+        // also start the microphone isochronous IN scheduler of their audio function.
+        Assert.That(harness.TimeProvider.TimerCount, Is.EqualTo(7));
 
         harness.TimeProvider.Advance(Interval); // one tick completes the queued URB of every session
 
@@ -223,14 +241,12 @@ public sealed class MultiDeviceTests
 
     /// <summary>Asserts the bus id and ids of one OP_REP_DEVLIST device entry.</summary>
     /// <param name="reply">Complete device list reply.</param>
-    /// <param name="index">Index of the entry in registration order.</param>
-    /// <param name="entrySize">Size of one entry (base entry plus its interface records).</param>
+    /// <param name="entryOffset">Offset of the entry in the reply.</param>
     /// <param name="busId">Expected bus id.</param>
     /// <param name="vendorId">Expected idVendor.</param>
     /// <param name="productId">Expected idProduct.</param>
-    private static void AssertDevListEntry(byte[] reply, int index, int entrySize, string busId, ushort vendorId, ushort productId)
+    private static void AssertDevListEntry(byte[] reply, int entryOffset, string busId, ushort vendorId, ushort productId)
     {
-        int entryOffset = UsbIpProtocol.OpCommonSize + 4 + index * entrySize;
         int busIdOffset = entryOffset + UsbIpHandshake.PathSize; // 0x100: busid
         int vendorIdOffset = busIdOffset + UsbIpHandshake.BusIdSize + 12; // 0x12C: idVendor after busnum, devnum and speed
         int productIdOffset = vendorIdOffset + 2; // 0x12E: idProduct

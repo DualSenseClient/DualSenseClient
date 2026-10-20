@@ -429,6 +429,252 @@ public sealed class IsoSchedulerTests
     }
 
     [Test]
+    public void Scheduler_NoQueuedTransfer_DoesNothingAndNextTransferStartsOnArrivalFrame()
+    {
+        ManualTimeProvider timeProvider = new ManualTimeProvider();
+        List<(uint SeqNum, int PacketIndex)> calls = new List<(uint SeqNum, int PacketIndex)>();
+        IsoScheduler scheduler = new IsoScheduler(timeProvider, FrameDuration, (transfer, packetIndex) =>
+        {
+            calls.Add((transfer.SeqNum, packetIndex));
+            return (int)transfer.IsoPackets![packetIndex].Length;
+        });
+        using (scheduler)
+        {
+            List<uint> completions = new List<uint>();
+            scheduler.TransferCompleted += completedTransfer => completions.Add(completedTransfer.SeqNum);
+            scheduler.Start();
+            timeProvider.Advance(25 * FrameDuration);
+
+            Assert.That(calls, Is.Empty);
+            Assert.That(scheduler.PendingCount, Is.Zero);
+            Assert.That(timeProvider.TimerCount, Is.EqualTo(1));
+
+            UsbTransfer transfer = CreateTransfer(7, 4, 4);
+            scheduler.Enqueue(transfer);
+
+            Assert.That(calls, Is.Empty); // arrival alone schedules nothing until the next frame
+            Assert.That(timeProvider.TimerCount, Is.EqualTo(1));
+
+            timeProvider.Advance(FrameDuration);
+
+            Assert.That(calls, Is.EqualTo(new[]
+            {
+                (7u, 0)
+            }));
+            Assert.That(completions, Is.Empty);
+            Assert.That(scheduler.PendingCount, Is.EqualTo(1));
+
+            timeProvider.Advance(FrameDuration);
+
+            Assert.That(calls, Is.EqualTo(new[]
+            {
+                (7u, 0), (7u, 1)
+            }));
+            Assert.That(completions, Is.EqualTo(new uint[]
+            {
+                7
+            }));
+            Assert.That(scheduler.PendingCount, Is.Zero);
+
+            timeProvider.Advance(10 * FrameDuration);
+
+            Assert.That(calls, Has.Count.EqualTo(2)); // idle frames after the transfer schedule no catch-up work
+            Assert.That(completions, Is.EqualTo(new uint[]
+            {
+                7
+            }));
+            Assert.That(timeProvider.TimerCount, Is.EqualTo(1));
+        }
+    }
+
+    [TestCase(0u)]
+    [TestCase(1u)]
+    [TestCase(0x00FFFFFFu)]
+    [TestCase(uint.MaxValue)]
+    public void Scheduler_StartFrameAnyValue_SchedulesFromArrivalFrame(uint startFrame)
+    {
+        ManualTimeProvider timeProvider = new ManualTimeProvider();
+        IsoScheduler scheduler = new IsoScheduler(timeProvider, FrameDuration, (transfer, packetIndex) =>
+            (int)transfer.IsoPackets![packetIndex].Length);
+        using (scheduler)
+        {
+            UsbTransfer transfer = CreateTransfer(1, 4, 4);
+            transfer.StartFrame = startFrame;
+            int completions = 0;
+            scheduler.TransferCompleted += _ => completions++;
+            scheduler.Start();
+            scheduler.Enqueue(transfer);
+
+            timeProvider.Advance(FrameDuration);
+
+            Assert.That(completions, Is.Zero); // every value is clamped to arrival, including a future one
+            Assert.That(transfer.IsoPackets![0].ActualLength, Is.EqualTo(4u));
+
+            timeProvider.Advance(FrameDuration);
+
+            Assert.That(completions, Is.EqualTo(1));
+            Assert.That(transfer.StartFrame, Is.EqualTo(startFrame)); // the submitted value is preserved for the RET echo
+        }
+    }
+
+    [Test]
+    public void Scheduler_ManyQueuedTransfers_CompletesInFifoOrderWithoutCap()
+    {
+        const int TransferCount = 512;
+        ManualTimeProvider timeProvider = new ManualTimeProvider();
+        List<uint> produced = new List<uint>();
+        IsoScheduler scheduler = new IsoScheduler(timeProvider, FrameDuration, (transfer, packetIndex) =>
+        {
+            produced.Add(transfer.SeqNum);
+            return (int)transfer.IsoPackets![packetIndex].Length;
+        });
+        using (scheduler)
+        {
+            List<uint> completions = new List<uint>();
+            scheduler.TransferCompleted += completedTransfer => completions.Add(completedTransfer.SeqNum);
+            scheduler.Start();
+            for (int i = 1; i <= TransferCount; i++)
+            {
+                scheduler.Enqueue(CreateTransfer((uint)i, 4));
+            }
+
+            Assert.That(scheduler.PendingCount, Is.EqualTo(TransferCount));
+            Assert.That(produced, Is.Empty);
+
+            timeProvider.Advance(TransferCount * FrameDuration);
+
+            List<uint> expected = new List<uint>();
+            for (int i = 1; i <= TransferCount; i++)
+            {
+                expected.Add((uint)i);
+            }
+
+            Assert.That(produced, Is.EqualTo(expected));
+            Assert.That(completions, Is.EqualTo(expected));
+            Assert.That(scheduler.PendingCount, Is.Zero);
+            Assert.That(timeProvider.TimerCount, Is.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public void Scheduler_LongRun_AlternatingProducerStates_StaysBoundedWithoutDuplicateTimersOrPostStopCompletions()
+    {
+        const int FrameCount = 10_000;
+        const int QueueDepth = 2;
+        ManualTimeProvider timeProvider = new ManualTimeProvider();
+        int fullPackets = 0;
+        int zeroPackets = 0;
+        int partialPackets = 0;
+        int failedPackets = 0;
+        int producerCalls = 0;
+        List<CompletionRecord> completions = new List<CompletionRecord>();
+        IsoScheduler scheduler = new IsoScheduler(timeProvider, FrameDuration, (transfer, packetIndex) =>
+        {
+            producerCalls++;
+            IsoPacketDescriptor descriptor = transfer.IsoPackets![packetIndex];
+            int packetLength = (int)descriptor.Length;
+            int mode = (int)((transfer.SeqNum + (uint)packetIndex) % 4);
+            switch (mode)
+            {
+                case 0:
+                    fullPackets++;
+                    transfer.Data!.AsSpan((int)descriptor.Offset, packetLength).Fill(0x5A);
+                    return packetLength;
+                case 1:
+                    zeroPackets++;
+                    transfer.Data!.AsSpan((int)descriptor.Offset, packetLength).Clear();
+                    return 0;
+                case 2:
+                    partialPackets++;
+                    transfer.Data!.AsSpan((int)descriptor.Offset, packetLength / 2).Fill(0x3C);
+                    return packetLength / 2;
+                default:
+                    failedPackets++;
+                    throw new InvalidOperationException("Synthetic long-run packet failure");
+            }
+        });
+        using (scheduler)
+        {
+            scheduler.TransferCompleted += transfer =>
+            {
+                int stallCount = 0;
+                int actualLength = 0;
+                for (int i = 0; i < transfer.IsoPackets!.Length; i++)
+                {
+                    IsoPacketDescriptor packet = transfer.IsoPackets[i];
+                    actualLength += (int)packet.ActualLength;
+                    if (packet.Status == UsbIpStatus.Stall)
+                    {
+                        stallCount++;
+                    }
+                }
+
+                completions.Add(new CompletionRecord(transfer.SeqNum, transfer.Status, transfer.ErrorCount, actualLength, stallCount));
+            };
+            scheduler.Start();
+            uint nextSeqNum = 1;
+            int enqueued = 0;
+            System.Diagnostics.Stopwatch stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            for (int frame = 0; frame < FrameCount; frame++)
+            {
+                if (scheduler.PendingCount < QueueDepth)
+                {
+                    scheduler.Enqueue(CreateTransfer(nextSeqNum, 4, 4));
+                    nextSeqNum++;
+                    enqueued++;
+                }
+
+                int completionsBefore = completions.Count;
+                timeProvider.Advance(FrameDuration);
+
+                Assert.That(completions.Count - completionsBefore, Is.LessThanOrEqualTo(1));
+                Assert.That(timeProvider.TimerCount, Is.EqualTo(1), "The scheduler must own exactly one timer for the whole run.");
+                Assert.That(scheduler.PendingCount, Is.LessThanOrEqualTo(QueueDepth), "Pending work must stay bounded by the host queue depth.");
+                if (completions.Count > completionsBefore)
+                {
+                    CompletionRecord completion = completions[^1];
+                    int expectedActualLength = 0;
+                    int expectedStalls = 0;
+                    for (int packetIndex = 0; packetIndex < 2; packetIndex++)
+                    {
+                        int mode = (int)((completion.SeqNum + (uint)packetIndex) % 4);
+                        expectedActualLength += mode == 0 ? 4 : mode == 2 ? 2 : 0;
+                        expectedStalls += mode == 3 ? 1 : 0;
+                    }
+
+                    Assert.That(completion.Status, Is.Zero);
+                    Assert.That(completion.ErrorCount, Is.EqualTo((uint)expectedStalls));
+                    Assert.That(completion.StallCount, Is.EqualTo(expectedStalls));
+                    Assert.That(completion.ActualLength, Is.EqualTo(expectedActualLength));
+                }
+            }
+
+            stopwatch.Stop();
+            Assert.That(producerCalls, Is.EqualTo(FrameCount)); // one packet produced per simulated frame
+            int completionsBeforeStop = completions.Count;
+            int producerCallsBeforeStop = producerCalls;
+            int pendingAtStop = scheduler.PendingCount;
+            Assert.That(completions, Has.Count.EqualTo(enqueued - pendingAtStop));
+
+            scheduler.Stop();
+
+            Assert.That(scheduler.PendingCount, Is.Zero);
+            Assert.That(timeProvider.TimerCount, Is.Zero);
+            timeProvider.Advance(100 * FrameDuration);
+
+            Assert.That(completions, Has.Count.EqualTo(completionsBeforeStop));
+            Assert.That(producerCalls, Is.EqualTo(producerCallsBeforeStop));
+            Assert.That(fullPackets, Is.GreaterThan(1000));
+            Assert.That(zeroPackets, Is.GreaterThan(1000));
+            Assert.That(partialPackets, Is.GreaterThan(1000));
+            Assert.That(failedPackets, Is.GreaterThan(1000));
+            TestContext.Out.WriteLine(
+                $"Long-run: {FrameCount} frames, {enqueued} URBs, {completionsBeforeStop} completions, " +
+                $"{producerCalls} packets in {stopwatch.ElapsedMilliseconds} ms.");
+        }
+    }
+
+    [Test]
     public void Scheduler_StartTwice_ThrowsInvalidOperationException()
     {
         ManualTimeProvider timeProvider = new ManualTimeProvider();
@@ -523,6 +769,40 @@ public sealed class IsoSchedulerTests
 
             Assert.That(() => scheduler.Enqueue(transfer), Throws.TypeOf<ArgumentException>());
         }
+    }
+
+    /// <summary>One completion observed by the long-run test: the state of the whole transfer and its failed packets.</summary>
+    private readonly struct CompletionRecord
+    {
+        /// <summary>Records the completion state of one long-run transfer.</summary>
+        /// <param name="seqNum">Sequence number of the completed transfer.</param>
+        /// <param name="status">Transfer-level status.</param>
+        /// <param name="errorCount">Number of failed packets reported by the scheduler.</param>
+        /// <param name="actualLength">Sum of the packet actual lengths.</param>
+        /// <param name="stallCount">Number of packet descriptors marked as stalled.</param>
+        public CompletionRecord(uint seqNum, int status, uint errorCount, int actualLength, int stallCount)
+        {
+            SeqNum = seqNum;
+            Status = status;
+            ErrorCount = errorCount;
+            ActualLength = actualLength;
+            StallCount = stallCount;
+        }
+
+        /// <summary>Sequence number of the completed transfer.</summary>
+        public uint SeqNum { get; }
+
+        /// <summary>Transfer-level status.</summary>
+        public int Status { get; }
+
+        /// <summary>Number of failed packets reported by the scheduler.</summary>
+        public uint ErrorCount { get; }
+
+        /// <summary>Sum of the packet actual lengths.</summary>
+        public int ActualLength { get; }
+
+        /// <summary>Number of packet descriptors marked as stalled.</summary>
+        public int StallCount { get; }
     }
 
     private static UsbTransfer CreateTransfer(uint seqNum, params uint[] packetLengths)

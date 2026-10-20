@@ -78,6 +78,9 @@ public static class UsbIpStatus
     /// <summary>No entry found (ENOENT); used for unknown bus ids and unknown unlink targets.</summary>
     public const int NoEntry = -2;
 
+    /// <summary>Invalid argument (EINVAL); used for malformed isochronous URBs.</summary>
+    public const int InvalidArgument = -22;
+
     /// <summary>Device or session shut down (ESHUTDOWN).</summary>
     public const int Shutdown = -108;
 }

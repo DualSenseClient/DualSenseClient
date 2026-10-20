@@ -145,7 +145,9 @@ public sealed class UsbIpServerTests
 
         // Only the active alternate setting's interrupt IN endpoint (0x84) gets a pacer; the
         // inactive alternate setting's interrupt IN endpoint (0x85) and the bulk IN endpoint do not.
-        Assert.That(harness.TimeProvider.TimerCount, Is.EqualTo(1));
+        // The isochronous IN endpoint (0x83) gets an ISO scheduler at import regardless of the
+        // active setting, so the manual clock tracks one pacer and one scheduler.
+        Assert.That(harness.TimeProvider.TimerCount, Is.EqualTo(2));
     }
 
     [Test]

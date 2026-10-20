@@ -1378,7 +1378,9 @@ public sealed class EmulationService : IEmulationService
     private ViiperDualSenseAudioForwarder CreateAudioForwarder(DualSenseDeviceOutputs outputs, EmulationSettings? emulation)
     {
         DualSenseAudioEndpointFinder endpointFinder = new DualSenseAudioEndpointFinder(_audioEngine);
-        DualSenseUsbAudioTarget usbTarget = new DualSenseUsbAudioTarget(_audioEngine, endpointFinder);
+        DualSenseUsbAudioTarget? usbTarget = ViiperDualSenseAudioForwarder.ShouldUseUsbTarget(outputs.ConnectionType)
+            ? new DualSenseUsbAudioTarget(_audioEngine, endpointFinder)
+            : null;
         ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(outputs, usbTarget);
         if (emulation is not null)
         {

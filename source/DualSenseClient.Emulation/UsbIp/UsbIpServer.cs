@@ -43,9 +43,14 @@ public sealed class UsbIpServerOptions
 /// instances over a loopback TCP listener. One session serves one client connection: the
 /// OP_REQ_DEVLIST / OP_REQ_IMPORT handshake followed by the URB loop (control, interrupt and bulk
 /// transfers plus unlink). Interrupt IN transfers are queued per endpoint and completed by a pacer
-/// with a fresh <see cref="VirtualUsbDevice.ProvideInputReport"/> payload per tick; every outbound
-/// frame of a session goes through one serialized writer. Devices can be added and removed while
-/// the server runs, and a failing session never stops the listener.
+/// with a fresh <see cref="VirtualUsbDevice.ProvideInputReport"/> payload per tick; isochronous OUT
+/// transfers are delivered to <see cref="VirtualUsbDevice.OnIsoPacketReceived"/> and answered
+/// immediately, while isochronous IN transfers are completed one packet per frame by a scheduler
+/// per endpoint; every outbound frame of a session goes through one serialized writer. Isochronous
+/// IN scheduling starts on the URB's arrival frame: the header's <see cref="UsbIpHeader.StartFrame"/>
+/// is not interpreted (the sentinel 0xFFFFFFFF, past and future values all mean arrival, a ruled
+/// deviation pending live observation) and is echoed only in RET_SUBMIT. Devices can be added and
+/// removed while the server runs, and a failing session never stops the listener.
 /// </summary>
 public sealed class UsbIpServer : IDisposable
 {
@@ -57,6 +62,20 @@ public sealed class UsbIpServer : IDisposable
 
     /// <summary>number_of_packets field of a RET_SUBMIT answering a non-isochronous transfer (0xFFFFFFFF).</summary>
     private const uint NonIsoNumberOfPackets = uint.MaxValue;
+
+    /// <summary>
+    /// Largest number of isochronous packets one URB may carry. A larger count is rejected with
+    /// -EINVAL after its declared tail was consumed; a count so large that the tail does not fit
+    /// <see cref="MaxTransferBufferLength"/> closes the session instead. This is the only per-URB
+    /// cap: the scheduler's FIFO queue itself has no depth limit beyond the host's own URB flow
+    /// control.
+    /// </summary>
+    public const int MaxIsoPacketsPerUrb = 128;
+
+    /// <summary>
+    /// Duration of one full-speed USB frame, the cadence every isochronous IN scheduler ticks at.
+    /// </summary>
+    private static readonly TimeSpan IsoFrameDuration = TimeSpan.FromMilliseconds(1);
 
     /// <summary>
     /// Largest transfer buffer length a client may declare. A USB/IP session has no legitimate
@@ -499,8 +518,8 @@ public sealed class UsbIpServer : IDisposable
 
     /// <summary>
     /// One client connection: the handshake, the URB loop and the per-session state (queued
-    /// interrupt IN transfers with their pacers). Every outbound frame goes through
-    /// <see cref="Send"/>, which serializes the writers with a semaphore.
+    /// interrupt IN transfers with their pacers and the isochronous IN schedulers). Every outbound
+    /// frame goes through <see cref="Send"/>, which serializes the writers with a semaphore.
     /// </summary>
     private sealed class Session
     {
@@ -521,9 +540,14 @@ public sealed class UsbIpServer : IDisposable
         /// <summary>One pacer and queue per interrupt IN endpoint of the imported device; written once on import, only read afterwards.</summary>
         private readonly Dictionary<byte, InterruptEndpoint> _interruptInEndpoints = new Dictionary<byte, InterruptEndpoint>();
 
+        /// <summary>One scheduler per isochronous IN endpoint address of the imported device, across all alternate settings; written once on import, only read afterwards.</summary>
+        private readonly Dictionary<byte, IsoScheduler> _isoInSchedulers = new Dictionary<byte, IsoScheduler>();
+
         private readonly List<EndpointPacer> _pacers = new List<EndpointPacer>();
 
         private VirtualUsbDevice? _device;
+
+        private bool _isTornDown;
 
         /// <summary>Creates the session of one accepted client.</summary>
         /// <param name="server">Owning server.</param>
@@ -658,6 +682,7 @@ public sealed class UsbIpServer : IDisposable
             // on the wire; every later frame is written behind it by the session loop's ordering.
             _device = registration.Device;
             StartPacers();
+            StartIsoSchedulers();
             _server._logger?.Log(EmulationLogLevel.Information, $"Device \"{busId}\" imported.");
             return true;
         }
@@ -693,6 +718,39 @@ public sealed class UsbIpServer : IDisposable
             }
 
             _server._logger?.Log(EmulationLogLevel.Debug, $"Pacing {_pacers.Count} interrupt IN endpoint(s).");
+        }
+
+        /// <summary>
+        /// Creates one isochronous scheduler per distinct isochronous IN endpoint address of the
+        /// imported device, across all alternate settings: an endpoint address that several
+        /// alternate settings declare shares one scheduler. Each scheduler starts immediately on
+        /// the session's time provider and is stopped by the session teardown.
+        /// </summary>
+        private void StartIsoSchedulers()
+        {
+            VirtualUsbDevice device = _device!;
+            foreach (UsbInterfaceInfo interfaceInfo in device.Descriptors.Interfaces)
+            {
+                foreach (UsbEndpointInfo endpoint in interfaceInfo.Endpoints)
+                {
+                    byte address = endpoint.Address;
+                    if (endpoint.Type != UsbEndpointType.Isochronous || (address & DirectionInMask) == 0 || _isoInSchedulers.ContainsKey(address))
+                    {
+                        continue;
+                    }
+
+                    byte schedulerAddress = address;
+                    IsoScheduler scheduler = new IsoScheduler(
+                        _server._timeProvider,
+                        IsoFrameDuration,
+                        (transfer, packetIndex) => ProduceIsoPacket(schedulerAddress, transfer, packetIndex));
+                    scheduler.TransferCompleted += OnIsoTransferCompleted;
+                    _isoInSchedulers.Add(address, scheduler);
+                    scheduler.Start();
+                }
+            }
+
+            _server._logger?.Log(EmulationLogLevel.Debug, $"Scheduling {_isoInSchedulers.Count} isochronous IN endpoint(s).");
         }
 
         /// <summary>
@@ -733,12 +791,13 @@ public sealed class UsbIpServer : IDisposable
 
         /// <summary>
         /// Dispatches one submitted URB: control transfers to the device's control engine,
-        /// interrupt IN transfers into the endpoint queue, and every other non-control transfer
-        /// (interrupt OUT, bulk) to the immediate completion path. The wire ep field carries the
-        /// bare endpoint number and the direction travels in the separate direction field (kernel
-        /// doc CmdIntrIN capture: direction = 1, ep = 1), so an endpoint is resolved by number plus
-        /// direction; the non-ISO start_frame and number_of_packets fields are deliberately never
-        /// read.
+        /// isochronous transfers (a number_of_packets outside 0 and 0xFFFFFFFF) to the ISO framing
+        /// path, interrupt IN transfers into the endpoint queue, and every other non-control
+        /// transfer (interrupt OUT, bulk) to the immediate completion path. The wire ep field
+        /// carries the bare endpoint number and the direction travels in the separate direction
+        /// field (kernel doc CmdIntrIN capture: direction = 1, ep = 1), so an endpoint is resolved
+        /// by number plus direction; the non-ISO start_frame and number_of_packets fields are
+        /// deliberately never read.
         /// </summary>
         /// <param name="header">Parsed submit header.</param>
         /// <returns><see langword="true"/> to continue the session; <see langword="false"/> to close it.</returns>
@@ -758,6 +817,15 @@ public sealed class UsbIpServer : IDisposable
             if (endpointNumber == 0)
             {
                 return await HandleControlAsync(header, transferLength).ConfigureAwait(false);
+            }
+
+            // number_of_packets is only meaningful for isochronous URBs: 0xFFFFFFFF is the non-ISO
+            // sentinel and 0 is the unreliable value of non-ISO URBs, so both stay on the
+            // non-ISO paths. The ISO framing is consumed before the endpoint is resolved so a
+            // rejected URB can never desync the stream.
+            if (header.NumberOfPackets > 0 && header.NumberOfPackets != NonIsoNumberOfPackets)
+            {
+                return await HandleIsoSubmitAsync(header, transferLength, endpointNumber, deviceToHost).ConfigureAwait(false);
             }
 
             if (!TryFindEndpoint(endpointNumber, deviceToHost, out UsbEndpointInfo endpoint))
@@ -861,6 +929,404 @@ public sealed class UsbIpServer : IDisposable
         }
 
         /// <summary>
+        /// Handles one isochronous submit after the session recognized a real packet count: reads
+        /// the ISO framing (the OUT payload first, then the packet-descriptor tail of
+        /// <c>number_of_packets * 16</c> bytes), parses the descriptors and either delivers the OUT
+        /// packets to the device, queues one IN transfer on the endpoint's scheduler, or rejects
+        /// the URB with a RET_SUBMIT that echoes the parsed descriptors so the stream stays in
+        /// sync. A packet count whose tail does not fit the transfer-buffer bound closes the
+        /// session because the stream cannot be resynchronized.
+        /// </summary>
+        /// <param name="header">Parsed submit header.</param>
+        /// <param name="transferLength">Declared transfer buffer length.</param>
+        /// <param name="endpointNumber">Bare endpoint number of the URB (ep field).</param>
+        /// <param name="deviceToHost">Whether the URB's direction is IN.</param>
+        /// <returns><see langword="true"/> to continue the session; <see langword="false"/> when the connection ends or the tail is too large.</returns>
+        private async Task<bool> HandleIsoSubmitAsync(UsbIpHeader header, int transferLength, byte endpointNumber, bool deviceToHost)
+        {
+            uint packetCount = header.NumberOfPackets;
+            long tailLength = (long)packetCount * IsoPacketDescriptor.WireSize;
+            if (tailLength > MaxTransferBufferLength)
+            {
+                _server._logger?.Log(
+                    EmulationLogLevel.Warning,
+                    $"Session dropped: ISO URB {header.SeqNum} declares {packetCount} isochronous packets.");
+                return false;
+            }
+
+            byte[] outData = Array.Empty<byte>();
+            if (!deviceToHost && transferLength > 0)
+            {
+                outData = new byte[transferLength];
+                if (!await ReadExactlyAsync(outData).ConfigureAwait(false))
+                {
+                    return false;
+                }
+            }
+
+            byte[] tail = new byte[(int)tailLength];
+            if (tail.Length > 0 && !await ReadExactlyAsync(tail).ConfigureAwait(false))
+            {
+                return false;
+            }
+
+            IsoPacketDescriptor[] packets = ReadIsoPackets(tail);
+            if (packetCount > MaxIsoPacketsPerUrb)
+            {
+                _server._logger?.Log(
+                    EmulationLogLevel.Warning,
+                    $"ISO URB {header.SeqNum} declares {packetCount} packets; at most {MaxIsoPacketsPerUrb} are accepted.");
+                RejectIsoUrb(header, packets, UsbIpStatus.InvalidArgument);
+                return true;
+            }
+
+            if (!TryFindEndpoint(endpointNumber, deviceToHost, out UsbEndpointInfo endpoint))
+            {
+                _server._logger?.Log(
+                    EmulationLogLevel.Information,
+                    $"ISO URB {header.SeqNum} targets no {header.Direction} endpoint with number {endpointNumber}.");
+                RejectIsoUrb(header, packets, UsbIpStatus.NoEntry);
+                return true;
+            }
+
+            if (endpoint.Type != UsbEndpointType.Isochronous)
+            {
+                _server._logger?.Log(
+                    EmulationLogLevel.Information,
+                    $"ISO URB {header.SeqNum} targets non-isochronous endpoint 0x{endpoint.Address:X2}.");
+                RejectIsoUrb(header, packets, UsbIpStatus.InvalidArgument);
+                return true;
+            }
+
+            if (!IsIsoPacketGeometryValid(packets, transferLength, endpoint.MaxPacketSize))
+            {
+                _server._logger?.Log(
+                    EmulationLogLevel.Information,
+                    $"ISO URB {header.SeqNum} carries a packet outside the transfer buffer or the endpoint packet size.");
+                RejectIsoUrb(header, packets, UsbIpStatus.InvalidArgument);
+                return true;
+            }
+
+            if (deviceToHost)
+            {
+                QueueIsoIn(header, transferLength, endpoint, packets);
+                return true;
+            }
+
+            if (!TryDeliverIsoOutPackets(endpoint.Address, outData, packets))
+            {
+                RejectIsoUrb(header, packets, UsbIpStatus.InvalidArgument);
+                return true;
+            }
+
+            for (int i = 0; i < packets.Length; i++)
+            {
+                packets[i] = packets[i] with
+                {
+                    ActualLength = packets[i].Length,
+                    Status = UsbIpStatus.Success
+                };
+            }
+
+            SendIsoRetSubmit(header.SeqNum, UsbIpStatus.Success, (uint)transferLength, header.StartFrame, 0, packets, ReadOnlyMemory<byte>.Empty);
+            return true;
+        }
+
+        /// <summary>
+        /// Queues one isochronous IN URB on the scheduler of the resolved endpoint address; the
+        /// scheduler completes one packet per frame and sends the RET_SUBMIT itself, so an
+        /// accepted URB is never answered here. The scheduler starts the URB on its arrival frame
+        /// and ignores <see cref="UsbIpHeader.StartFrame"/> (all values, including the sentinel
+        /// 0xFFFFFFFF and a future frame, mean arrival); the submitted value is carried only for
+        /// the RET_SUBMIT echo.
+        /// </summary>
+        /// <param name="header">Parsed submit header.</param>
+        /// <param name="transferLength">Declared transfer buffer length.</param>
+        /// <param name="endpoint">Resolved isochronous IN endpoint descriptor.</param>
+        /// <param name="packets">Parsed packet descriptors of the URB.</param>
+        private void QueueIsoIn(UsbIpHeader header, int transferLength, UsbEndpointInfo endpoint, IsoPacketDescriptor[] packets)
+        {
+            if (!_isoInSchedulers.TryGetValue(endpoint.Address, out IsoScheduler? scheduler))
+            {
+                _server._logger?.Log(
+                    EmulationLogLevel.Warning,
+                    $"ISO URB {header.SeqNum} targets endpoint 0x{endpoint.Address:X2} without an isochronous scheduler.");
+                RejectIsoUrb(header, packets, UsbIpStatus.NoEntry);
+                return;
+            }
+
+            scheduler.Enqueue(new UsbTransfer
+            {
+                SeqNum = header.SeqNum,
+                Direction = UsbIpDirection.In,
+                EndpointAddress = endpoint.Address,
+                MaxTransferLength = transferLength,
+                Data = new byte[transferLength],
+                NumberOfPackets = header.NumberOfPackets,
+                StartFrame = header.StartFrame,
+                Interval = header.Interval,
+                IsoPackets = packets
+            });
+        }
+
+        /// <summary>
+        /// Delivers every isochronous OUT packet of <paramref name="packets"/> to the device, in
+        /// packet order, as the transfer buffer slice at the packet's offset and length.
+        /// </summary>
+        /// <param name="endpointAddress">Endpoint address the packets belong to (bEndpointAddress).</param>
+        /// <param name="outData">Complete host-to-device transfer buffer of the URB.</param>
+        /// <param name="packets">Parsed packet descriptors of the URB.</param>
+        /// <returns><see langword="true"/> when every packet was delivered; <see langword="false"/> when the device threw.</returns>
+        private bool TryDeliverIsoOutPackets(byte endpointAddress, byte[] outData, IsoPacketDescriptor[] packets)
+        {
+            VirtualUsbDevice device = _device!;
+            try
+            {
+                for (int i = 0; i < packets.Length; i++)
+                {
+                    IsoPacketDescriptor packet = packets[i];
+                    device.OnIsoPacketReceived(endpointAddress, outData.AsSpan((int)packet.Offset, (int)packet.Length));
+                }
+
+                return true;
+            }
+            catch (Exception exception)
+            {
+                // A persona bug must not leave the URB unanswered: reply -EINVAL and keep the session.
+                _server._logger?.Log(EmulationLogLevel.Error, $"Isochronous OUT packet failed: {exception}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Producer of one isochronous IN packet, invoked by the scheduler on the frame-clock
+        /// thread: calls <see cref="VirtualUsbDevice.ProvideIsoPacket"/> for the packet region of
+        /// the transfer buffer, clamps the returned count to the packet length and zero-fills the
+        /// unused tail. A throwing device is contained here; the negative return makes the
+        /// scheduler mark the packet stalled.
+        /// </summary>
+        /// <param name="endpointAddress">Endpoint address the packet belongs to (bEndpointAddress).</param>
+        /// <param name="transfer">Transfer whose packet is produced.</param>
+        /// <param name="packetIndex">Zero-based index of the packet within <paramref name="transfer"/>.</param>
+        /// <returns>The number of bytes produced, or a negative value when the packet is stalled.</returns>
+        private int ProduceIsoPacket(byte endpointAddress, UsbTransfer transfer, int packetIndex)
+        {
+            IsoPacketDescriptor packet = transfer.IsoPackets![packetIndex];
+            int packetLength = (int)packet.Length;
+            Span<byte> destination = transfer.Data!.AsSpan((int)packet.Offset, packetLength);
+            int count;
+            try
+            {
+                count = _device!.ProvideIsoPacket(endpointAddress, destination);
+            }
+            catch (Exception exception)
+            {
+                _server._logger?.Log(EmulationLogLevel.Error, $"Isochronous IN packet failed: {exception}");
+                return -1;
+            }
+
+            if (count < 0)
+            {
+                return count;
+            }
+
+            int actualLength = Math.Min(count, packetLength);
+            destination[actualLength..].Clear();
+            return actualLength;
+        }
+
+        /// <summary>
+        /// Completion of an isochronous IN transfer, raised on the frame-clock thread after its
+        /// last packet: answers with a RET_SUBMIT whose payload spans the transfer buffer through
+        /// the end of the last packet that produced bytes (the highest
+        /// <c>Offset + ActualLength</c>, clamped to the buffer), so every packet's data stays at
+        /// its echoed descriptor offset and zero gaps before a later packet are preserved. The
+        /// header's actual length is that payload length; it equals the sum of the packet actual
+        /// lengths for contiguous packets. A short packet whose zero-filled tail lies before a
+        /// later packet has its echo extended over that tail so the descriptor sum stays equal to
+        /// the header (usbip-win2 rejects a mismatch); see
+        /// <see cref="PrepareIsoInPayload"/>. The error count is the number of failed packets
+        /// (successful and zero-filled packets count zero), while
+        /// <see cref="UsbTransfer.Status"/> remains the URB-level status. A completion after the
+        /// session teardown is dropped, and one that races a closed socket is logged at debug level.
+        /// </summary>
+        /// <param name="transfer">Completed transfer with its final packet state.</param>
+        private void OnIsoTransferCompleted(UsbTransfer transfer)
+        {
+            if (Volatile.Read(ref _isTornDown))
+            {
+                return;
+            }
+
+            try
+            {
+                int payloadLength = PrepareIsoInPayload(transfer);
+                ReadOnlyMemory<byte> payload = transfer.Data is null
+                    ? ReadOnlyMemory<byte>.Empty
+                    : transfer.Data.AsMemory(0, payloadLength);
+                SendIsoRetSubmit(
+                    transfer.SeqNum,
+                    transfer.Status,
+                    (uint)payloadLength,
+                    transfer.StartFrame,
+                    transfer.ErrorCount,
+                    transfer.IsoPackets ?? [],
+                    payload);
+            }
+            catch (Exception exception) when (exception is IOException or SocketException or ObjectDisposedException)
+            {
+                _server._logger?.Log(EmulationLogLevel.Debug, $"Isochronous IN completion dropped: {exception.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Computes the RET payload length of a completed isochronous IN transfer and keeps the
+        /// echoed packet descriptors consistent with it. The payload spans the transfer buffer
+        /// through the highest <c>Offset + ActualLength</c> among the packets that produced bytes
+        /// (clamped to the buffer, zero when none produced bytes), so every packet's data stays at
+        /// its declared offset instead of being compacted across a short packet.
+        /// <para>
+        /// usbip-win2 rejects an IN completion whose header actual length differs from the sum of
+        /// the descriptor actual lengths. When a short packet precedes a later packet, the payload
+        /// extends over the short packet's zero-filled unused tail, so this method raises that
+        /// packet's echo (up to its declared length) until the descriptor sum equals the payload
+        /// length. The last producing packet keeps its real length: only interior zero-filled
+        /// tails are counted, never invented data beyond the provider's last byte. For contiguous
+        /// full-length packets the two lengths are identical and nothing is adjusted.
+        /// </para>
+        /// </summary>
+        /// <param name="transfer">Completed transfer with its final packet state.</param>
+        /// <returns>Number of payload bytes to send after the RET header.</returns>
+        private static int PrepareIsoInPayload(UsbTransfer transfer)
+        {
+            int dataLength = transfer.Data?.Length ?? 0;
+            IsoPacketDescriptor[]? packets = transfer.IsoPackets;
+            if (dataLength == 0 || packets is null)
+            {
+                return 0;
+            }
+
+            long payloadLength = 0;
+            long actualSum = 0;
+            for (int i = 0; i < packets.Length; i++)
+            {
+                if (packets[i].ActualLength == 0)
+                {
+                    continue;
+                }
+
+                long packetEnd = Math.Min((long)packets[i].Offset + packets[i].ActualLength, dataLength);
+                if (packetEnd > payloadLength)
+                {
+                    payloadLength = packetEnd;
+                }
+
+                actualSum += packetEnd - packets[i].Offset;
+            }
+
+            if (payloadLength <= actualSum)
+            {
+                return (int)payloadLength;
+            }
+
+            for (int i = 0; i < packets.Length; i++)
+            {
+                IsoPacketDescriptor packet = packets[i];
+                if (packet.ActualLength == 0)
+                {
+                    continue;
+                }
+
+                long packetEnd = Math.Min((long)packet.Offset + packet.Length, dataLength);
+                long extendTo = Math.Min(packetEnd, payloadLength);
+                long extendedActual = extendTo - packet.Offset;
+                if (extendedActual > packet.ActualLength)
+                {
+                    actualSum += extendedActual - packet.ActualLength;
+                    packets[i] = packet with
+                    {
+                        ActualLength = (uint)extendedActual
+                    };
+                }
+
+                if (actualSum >= payloadLength)
+                {
+                    break;
+                }
+            }
+
+            // Uncovered gaps between declared packet regions cannot be counted in any packet
+            // actual length; fall back to the covered prefix so the header stays equal to the sum.
+            return (int)Math.Min(payloadLength, actualSum);
+        }
+
+        /// <summary>
+        /// Parses the isochronous packet descriptors of a submit tail, one 16-byte descriptor per
+        /// packet in wire order.
+        /// </summary>
+        /// <param name="tail">Descriptor tail that directly follows the URB payload.</param>
+        /// <returns>The parsed packet descriptors.</returns>
+        private static IsoPacketDescriptor[] ReadIsoPackets(ReadOnlySpan<byte> tail)
+        {
+            IsoPacketDescriptor[] packets = new IsoPacketDescriptor[tail.Length / IsoPacketDescriptor.WireSize];
+            for (int i = 0; i < packets.Length; i++)
+            {
+                packets[i] = IsoPacketDescriptor.Read(tail.Slice(i * IsoPacketDescriptor.WireSize, IsoPacketDescriptor.WireSize));
+            }
+
+            return packets;
+        }
+
+        /// <summary>
+        /// Validates the packet geometry of an isochronous URB against its declared transfer buffer
+        /// length and the resolved endpoint's maximum packet size.
+        /// </summary>
+        /// <param name="packets">Parsed packet descriptors of the URB.</param>
+        /// <param name="transferLength">Declared transfer buffer length.</param>
+        /// <param name="maxPacketSize">Maximum packet size of the resolved endpoint (wMaxPacketSize).</param>
+        /// <returns><see langword="true"/> when every packet fits; otherwise <see langword="false"/>.</returns>
+        private static bool IsIsoPacketGeometryValid(IsoPacketDescriptor[] packets, int transferLength, ushort maxPacketSize)
+        {
+            for (int i = 0; i < packets.Length; i++)
+            {
+                IsoPacketDescriptor packet = packets[i];
+                if ((ulong)packet.Offset + packet.Length > (ulong)transferLength)
+                {
+                    return false;
+                }
+
+                if (packet.Length > maxPacketSize)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Answers an isochronous URB with <paramref name="status"/>: every echoed descriptor
+        /// carries status <paramref name="status"/> and a zero actual length, and the reply has no
+        /// payload and a zero error count.
+        /// </summary>
+        /// <param name="header">Submit header of the rejected URB.</param>
+        /// <param name="packets">Parsed packet descriptors of the URB, rejected in place.</param>
+        /// <param name="status">Rejection status copied into the header and every descriptor.</param>
+        private void RejectIsoUrb(UsbIpHeader header, IsoPacketDescriptor[] packets, int status)
+        {
+            for (int i = 0; i < packets.Length; i++)
+            {
+                packets[i] = packets[i] with
+                {
+                    ActualLength = 0,
+                    Status = status
+                };
+            }
+
+            SendIsoRetSubmit(header.SeqNum, status, 0, header.StartFrame, 0, packets, ReadOnlyMemory<byte>.Empty);
+        }
+
+        /// <summary>
         /// Queues one interrupt IN URB for completion by the pacer of the resolved endpoint
         /// address (bEndpointAddress, the pacer dictionary's key).
         /// </summary>
@@ -936,7 +1402,7 @@ public sealed class UsbIpServer : IDisposable
         }
 
         /// <summary>
-        /// Handles one USBIP_CMD_UNLINK: a seqnum found in an endpoint queue is cancelled and
+        /// Answers a USBIP_CMD_UNLINK: a seqnum found in an endpoint queue is cancelled and
         /// answered with status -104 (-ECONNRESET) and never completes; a seqnum that is not
         /// pending (already completed or never queued) is answered with status 0.
         /// </summary>
@@ -944,6 +1410,15 @@ public sealed class UsbIpServer : IDisposable
         private void HandleUnlink(UsbIpHeader header)
         {
             foreach (KeyValuePair<byte, InterruptEndpoint> entry in _interruptInEndpoints)
+            {
+                if (entry.Value.TryCancel(header.UnlinkSeqNum, out _))
+                {
+                    SendRetUnlink(header.SeqNum, EconnResetStatus);
+                    return;
+                }
+            }
+
+            foreach (KeyValuePair<byte, IsoScheduler> entry in _isoInSchedulers)
             {
                 if (entry.Value.TryCancel(header.UnlinkSeqNum, out _))
                 {
@@ -983,6 +1458,40 @@ public sealed class UsbIpServer : IDisposable
             };
             ret.WriteRetSubmit(frame);
             payload.CopyTo(frame.AsMemory(UsbIpProtocol.HeaderSize));
+            Send(frame);
+        }
+
+        /// <summary>
+        /// Answers an isochronous URB with a RET_SUBMIT carrying the ISO completion metadata and
+        /// the per-packet descriptors: the header repeats the parsed packet count, echoes the
+        /// start frame and carries the transfer status, actual length and error count; the payload
+        /// of a device-to-host transfer follows the header and the descriptors follow the payload.
+        /// </summary>
+        /// <param name="seqNum">Sequence number of the answered URB.</param>
+        /// <param name="status">Completion status.</param>
+        /// <param name="actualLength">
+        /// Number of bytes actually transferred: for an IN transfer the payload length, which spans
+        /// the highest packet end and matches the descriptor actual-length sum (see
+        /// <see cref="PrepareIsoInPayload"/>).
+        /// </param>
+        /// <param name="startFrame">Start frame echoed from the submit header.</param>
+        /// <param name="errorCount">Number of packets that completed with an error.</param>
+        /// <param name="packets">Per-packet completion descriptors; their count is the reply's number_of_packets.</param>
+        /// <param name="payload">Device-to-host payload appended to the header; empty for OUT and rejected transfers.</param>
+        private void SendIsoRetSubmit(uint seqNum, int status, uint actualLength, uint startFrame, uint errorCount,
+            IsoPacketDescriptor[] packets, ReadOnlyMemory<byte> payload)
+        {
+            byte[] frame = new byte[UsbIpProtocol.HeaderSize + payload.Length + packets.Length * IsoPacketDescriptor.WireSize];
+            UsbIpHeader ret = UsbIpHeader.CreateRetSubmit(seqNum, status, actualLength, startFrame, (uint)packets.Length, errorCount);
+            ret.WriteRetSubmit(frame);
+            payload.CopyTo(frame.AsMemory(UsbIpProtocol.HeaderSize));
+            int offset = UsbIpProtocol.HeaderSize + payload.Length;
+            for (int i = 0; i < packets.Length; i++)
+            {
+                packets[i].Write(frame.AsSpan(offset, IsoPacketDescriptor.WireSize));
+                offset += IsoPacketDescriptor.WireSize;
+            }
+
             Send(frame);
         }
 
@@ -1062,11 +1571,21 @@ public sealed class UsbIpServer : IDisposable
         }
 
         /// <summary>
-        /// Stops the pacers, cancels every pending queued transfer and releases the socket; runs
-        /// once, after the session loop returns, whatever ended the session.
+        /// Marks the session torn down, stops the isochronous schedulers (dropping their pending
+        /// transfers without completions), stops the pacers, cancels every pending queued transfer
+        /// and releases the socket; runs once, after the session loop returns, whatever ended the
+        /// session. The torn-down flag is raised before the schedulers stop, so a completion that
+        /// races the teardown never sends.
         /// </summary>
         private void Teardown()
         {
+            Volatile.Write(ref _isTornDown, true);
+            foreach (IsoScheduler scheduler in _isoInSchedulers.Values)
+            {
+                scheduler.Stop();
+            }
+
+            _isoInSchedulers.Clear();
             foreach (EndpointPacer pacer in _pacers)
             {
                 pacer.Stop();

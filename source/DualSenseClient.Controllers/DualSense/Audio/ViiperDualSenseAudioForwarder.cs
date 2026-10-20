@@ -369,8 +369,17 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
     }
 
     /// <summary>
-    /// Starts the pump and opens the USB render endpoint (when available). The
-    /// Bluetooth audio lane is intentionally left closed until the first audio block
+    /// Whether the physical controller's connection uses the USB UAC render endpoint.
+    /// Only a wired pad exposes that endpoint; a Bluetooth pad uses the HID audio lane.
+    /// The virtual controller also presents a render endpoint with the same friendly
+    /// name, so opening it in place of the physical pad would feed the forwarded audio
+    /// back into the capture when that endpoint is the default output.
+    /// </summary>
+    internal static bool ShouldUseUsbTarget(ConnectionType? connectionType) => connectionType == ConnectionType.Usb;
+
+    /// <summary>
+    /// Starts the pump and opens the USB render endpoint when the physical pad is wired.
+    /// The Bluetooth audio lane is intentionally left closed until the first audio block
     /// is actually fed, so an idle forwarder never occupies the lane â€” which would
     /// make the controller ignore the virtual controller's output-state reports.
     /// Returns <c>false</c> when no transport is available.
@@ -385,7 +394,9 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
             }
 
             bool bluetooth = _outputs is not null && _outputs.ConnectionType == ConnectionType.Bluetooth;
-            bool usb = _usbTarget is not null && _usbTarget.Start();
+            bool usb = ShouldUseUsbTarget(_outputs?.ConnectionType)
+                       && _usbTarget is not null
+                       && _usbTarget.Start();
             if (!bluetooth && !usb)
             {
                 _log.Info("No forwarding transport available (neither Bluetooth audio lane nor USB render endpoint)");

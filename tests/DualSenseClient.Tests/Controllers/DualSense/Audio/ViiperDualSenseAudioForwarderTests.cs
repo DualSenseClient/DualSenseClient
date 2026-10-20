@@ -192,6 +192,29 @@ public class ViiperDualSenseAudioForwarderTests
     }
 
     [Test]
+    public void Start_BluetoothOutputWithUsbTarget_DoesNotStartUsbTarget()
+    {
+        // The USB target is deliberately unusable: Start must short-circuit on the
+        // Bluetooth connection before touching it. A wired USB pad is the only case
+        // that may open a render endpoint, and opening the virtual controller's
+        // endpoint here would feed the forwarded audio back into the capture.
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        DualSenseUsbAudioTarget usbTarget = new DualSenseUsbAudioTarget(null!, null!);
+        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, usbTarget);
+
+        Assert.That(forwarder.Start(), Is.True);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(forwarder.IsActive, Is.True);
+            Assert.That(fake.ResetCount, Is.Zero, "the Bluetooth lane stays closed until audio is fed");
+        });
+    }
+
+    [Test]
     public void FeedPcm_SendsCombinedAudioAndHapticsReports()
     {
         FakeAudioOutputs fake = new FakeAudioOutputs

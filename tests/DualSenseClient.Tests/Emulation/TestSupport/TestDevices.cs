@@ -99,6 +99,30 @@ public static class TestDevices
     /// <summary>Maximum packet size of the bulk device's endpoints (wMaxPacketSize).</summary>
     public const ushort BulkPacketSize = 64;
 
+    /// <summary>Interface class of the isochronous device's interface (bInterfaceClass; vendor specific).</summary>
+    public const byte IsoInterfaceClass = 0xFF;
+
+    /// <summary>Interface number of the isochronous device's interface (bInterfaceNumber).</summary>
+    public const byte IsoInterfaceNumber = 0;
+
+    /// <summary>Alternate setting that declares the isochronous device's endpoints (bAlternateSetting).</summary>
+    public const byte IsoAlternateSetting = 1;
+
+    /// <summary>Endpoint address of the isochronous device's isochronous OUT endpoint (OUT, endpoint 1).</summary>
+    public const byte IsoOutAddress = 0x01;
+
+    /// <summary>Endpoint address of the isochronous device's isochronous IN endpoint (IN, endpoint 2).</summary>
+    public const byte IsoInAddress = 0x82;
+
+    /// <summary>Maximum packet size of the isochronous device's OUT endpoint (wMaxPacketSize).</summary>
+    public const ushort IsoOutPacketSize = 16;
+
+    /// <summary>Maximum packet size of the isochronous device's IN endpoint (wMaxPacketSize).</summary>
+    public const ushort IsoInPacketSize = 8;
+
+    /// <summary>Packet interval of the isochronous device's endpoints (bInterval; one packet per frame).</summary>
+    public const byte IsoInterval = 1;
+
     /// <summary>
     /// Creates the simple synthetic device: one configuration with HID interface 0 (interrupt IN
     /// endpoint 0x81, interrupt OUT endpoint 0x02) and the manufacturer, product and serial strings.
@@ -142,6 +166,75 @@ public static class TestDevices
             CreateAlternateSettingConfigDescriptor(),
             CreateSimpleHidReportDescriptor(),
             CreateSimpleStrings());
+    }
+
+    /// <summary>
+    /// Creates the isochronous synthetic device: one configuration with interface 0 declaring no
+    /// endpoints in alternate setting 0 and one isochronous OUT endpoint (0x01, 16 bytes) plus one
+    /// isochronous IN endpoint (0x82, 8 bytes) in alternate setting 1, without a HID report
+    /// descriptor. Used to exercise the server's isochronous dispatch.
+    /// </summary>
+    /// <returns>The descriptor set of the isochronous device.</returns>
+    public static UsbDescriptorSet CreateIsoDevice()
+    {
+        return UsbDescriptorSet.Create(
+            CreateSimpleDeviceDescriptor(),
+            CreateIsoConfigDescriptor(),
+            null,
+            []);
+    }
+
+    /// <summary>
+    /// Creates the 41-byte configuration descriptor blob of the isochronous device (USB 2.0,
+    /// sections 9.6.3 to 9.6.6): interface 0 declares alternate setting 0 with no endpoints and
+    /// alternate setting 1 with an isochronous OUT and an isochronous IN endpoint.
+    /// </summary>
+    /// <returns>The configuration descriptor bytes.</returns>
+    public static byte[] CreateIsoConfigDescriptor()
+    {
+        int totalLength = 9 + 9 + 9 + 7 + 7;
+
+        return
+        [
+            0x09, // bLength: 9
+            0x02, // bDescriptorType: CONFIGURATION
+            (byte)totalLength, 0x00, // wTotalLength: 41
+            0x01, // bNumInterfaces: 1
+            SimpleConfigurationValue, // bConfigurationValue: 1
+            0x00, // iConfiguration: none
+            0x80, // bmAttributes: bus powered
+            0x32, // bMaxPower: 100 mA
+            0x09, // bLength: 9
+            0x04, // bDescriptorType: INTERFACE
+            IsoInterfaceNumber, // bInterfaceNumber: 0
+            0x00, // bAlternateSetting: 0
+            0x00, // bNumEndpoints: 0
+            IsoInterfaceClass, // bInterfaceClass: vendor specific
+            0x00, // bInterfaceSubClass: none
+            0x00, // bInterfaceProtocol: none
+            0x00, // iInterface: none
+            0x09, // bLength: 9
+            0x04, // bDescriptorType: INTERFACE
+            IsoInterfaceNumber, // bInterfaceNumber: 0
+            IsoAlternateSetting, // bAlternateSetting: 1
+            0x02, // bNumEndpoints: 2
+            IsoInterfaceClass, // bInterfaceClass: vendor specific
+            0x00, // bInterfaceSubClass: none
+            0x00, // bInterfaceProtocol: none
+            0x00, // iInterface: none
+            0x07, // bLength: 7
+            0x05, // bDescriptorType: ENDPOINT
+            IsoOutAddress, // bEndpointAddress: isochronous OUT, endpoint 1
+            0x01, // bmAttributes: isochronous
+            (byte)IsoOutPacketSize, 0x00, // wMaxPacketSize: 16
+            IsoInterval, // bInterval: every frame
+            0x07, // bLength: 7
+            0x05, // bDescriptorType: ENDPOINT
+            IsoInAddress, // bEndpointAddress: isochronous IN, endpoint 2
+            0x01, // bmAttributes: isochronous
+            (byte)IsoInPacketSize, 0x00, // wMaxPacketSize: 8
+            IsoInterval // bInterval: every frame
+        ];
     }
 
     /// <summary>

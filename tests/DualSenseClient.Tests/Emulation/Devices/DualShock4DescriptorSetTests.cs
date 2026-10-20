@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using DualSenseClient.Emulation.Core;
 using DualSenseClient.Emulation.Devices.DualShock4;
 
@@ -21,21 +22,57 @@ public sealed class DualShock4DescriptorSetTests
     /// <summary>Length of the reference HID report descriptor (wDescriptorLength 507, pinned by the reference's static_assert).</summary>
     private const int HidReportDescriptorLength = 507;
 
+    /// <summary>Length of the composite configuration descriptor: header + 184-byte audio block + 32-byte HID block.</summary>
+    private const int ConfigurationDescriptorLength = 225;
+
+    /// <summary>Size in bytes of the configuration descriptor header (USB 2.0 specification, section 9.6.3).</summary>
+    private const int ConfigurationHeaderSize = 9;
+
+    /// <summary>Size in bytes of an interface descriptor (USB 2.0 specification, section 9.6.5).</summary>
+    private const int InterfaceDescriptorSize = 9;
+
+    /// <summary>Length of the UAC1 audio function block of the DualShock 4 persona.</summary>
+    private const int AudioBlockLength = 184;
+
+    /// <summary>Interface number of the persona's HID function in the composite configuration.</summary>
+    private const byte HidInterfaceNumber = 3;
+
+    /// <summary>Interface number of the audio control interface (UAC1 AC).</summary>
+    private const byte AudioControlInterfaceNumber = 0;
+
+    /// <summary>Interface number of the speaker audio streaming interface (UAC1 AS OUT).</summary>
+    private const byte SpeakerInterfaceNumber = 1;
+
+    /// <summary>Interface number of the microphone audio streaming interface (UAC1 AS IN).</summary>
+    private const byte MicrophoneInterfaceNumber = 2;
+
+    /// <summary>Endpoint address of the speaker isochronous OUT endpoint (EP1 OUT).</summary>
+    private const byte SpeakerEndpointAddress = 0x01;
+
+    /// <summary>Endpoint address of the microphone isochronous IN endpoint (EP2 IN).</summary>
+    private const byte MicrophoneEndpointAddress = 0x82;
+
+    /// <summary>wMaxPacketSize of the speaker endpoint: 32 frames of two 16-bit channels plus four spare bytes.</summary>
+    private const int SpeakerMaxPacketSize = 132;
+
+    /// <summary>wMaxPacketSize of the microphone endpoint: 16 frames of one 16-bit channel plus two spare bytes.</summary>
+    private const int MicrophoneMaxPacketSize = 34;
+
     /// <summary>
-    /// Product id of the reference DualShock 4 v1 persona (the ViGEmBus target constructor default,
-    /// sys/Ds4Pdo.hpp); the variant pins it because the identity's default is the v2 id.
+    /// Product id of the reference DualShock 4 v1 persona (the v1 reference's constructor default);
+    /// the variant pins it because the identity's default is the v2 id.
     /// </summary>
     private const ushort V1ProductId = 0x05C4;
 
     /// <summary>
-    /// Manufacturer string the ViGEmBus reference serves for the v1 persona (string descriptor index 1,
-    /// sys/Ds4Pdo.cpp UsbGetStringDescriptorType); the value differs between the two references.
+    /// Manufacturer string the v1 reference serves for the v1 persona (string descriptor index 1);
+    /// the value differs between the two references.
     /// </summary>
     private const string V1ManufacturerName = "Sony Computer Entertainment";
 
     /// <summary>
-    /// Length of the v1 HID report descriptor: the ViGEmBus configuration blob declares it as
-    /// wDescriptorLength 0x01D3 (sys/Ds4Pdo.cpp GetConfigurationDescriptorType).
+    /// Length of the v1 HID report descriptor: the v1 reference's configuration blob declares it as
+    /// wDescriptorLength 0x01D3.
     /// </summary>
     private const int V1HidReportDescriptorLength = 467;
 
@@ -68,26 +105,93 @@ public sealed class DualShock4DescriptorSetTests
     }
 
     [Test]
-    public void Create_DefaultIdentity_ParsesSingleHidInterface()
+    public void Create_DefaultIdentity_ParsesCompositeConfiguration()
     {
         UsbDescriptorSet descriptors = DualShock4DescriptorSet.Create(new DualShock4Identity());
 
-        // The bring-up configuration omits the audio function, so the HID interface is interface 0.
-        Assert.That(descriptors.ConfigDescriptor.Length, Is.EqualTo(41)); // wTotalLength: header + HID block
-        Assert.That(descriptors.Interfaces, Has.Count.EqualTo(1));
-        UsbInterfaceInfo interfaceInfo = descriptors.Interfaces[0];
-        Assert.That(interfaceInfo.Number, Is.Zero);
+        // The composite configuration declares four interfaces: audio control 0, speaker streaming 1,
+        // microphone streaming 2 and the HID function 3. The parser records one entry per alternate
+        // setting, so the streaming interfaces contribute two entries each.
+        Assert.That(descriptors.ConfigDescriptor.Length, Is.EqualTo(ConfigurationDescriptorLength));
+        Assert.That(descriptors.ConfigDescriptor.Span[4], Is.EqualTo((byte)0x04)); // bNumInterfaces
+        Assert.That(descriptors.Interfaces, Has.Count.EqualTo(6)); // AC 0.0, AS OUT 1.0/1.1, AS IN 2.0/2.1, HID 3.0
+        Assert.That(descriptors.InterfaceNumbers, Is.EqualTo(new byte[]
+        {
+            0, 1, 2, 3
+        }));
+    }
+
+    [Test]
+    public void Create_HidInterfaceIsNumberThree()
+    {
+        UsbDescriptorSet descriptors = DualShock4DescriptorSet.Create(new DualShock4Identity());
+
+        // The audio function occupies interfaces 0-2, so the HID block keeps the reference's interface 3
+        // (the composite builder does not renumber it).
+        Assert.That(descriptors.HasInterface(HidInterfaceNumber), Is.True);
+        UsbInterfaceInfo interfaceInfo = GetHidInterface(descriptors);
+        Assert.That(interfaceInfo.Number, Is.EqualTo(HidInterfaceNumber));
+        Assert.That(interfaceInfo.AlternateSetting, Is.Zero);
         Assert.That(interfaceInfo.Class, Is.EqualTo((byte)0x03));
         Assert.That(interfaceInfo.SubClass, Is.Zero);
         Assert.That(interfaceInfo.Protocol, Is.Zero);
         Assert.That(interfaceInfo.Endpoints, Has.Count.EqualTo(2));
+        Assert.That(interfaceInfo.Endpoints[0].Address, Is.EqualTo((byte)0x84)); // IN EP4
+        Assert.That(interfaceInfo.Endpoints[0].Type, Is.EqualTo(UsbEndpointType.Interrupt));
+        Assert.That(interfaceInfo.Endpoints[0].MaxPacketSize, Is.EqualTo(64));
+        Assert.That(interfaceInfo.Endpoints[0].Interval, Is.EqualTo(HidInterruptInterval));
+        Assert.That(interfaceInfo.Endpoints[1].Address, Is.EqualTo((byte)0x03)); // OUT EP3
+        Assert.That(interfaceInfo.Endpoints[1].Type, Is.EqualTo(UsbEndpointType.Interrupt));
+        Assert.That(interfaceInfo.Endpoints[1].MaxPacketSize, Is.EqualTo(64));
+        Assert.That(interfaceInfo.Endpoints[1].Interval, Is.EqualTo(HidInterruptInterval));
+    }
+
+    [Test]
+    public void Create_AudioEndpointsAndAltSettingsMatchReference()
+    {
+        UsbDescriptorSet descriptors = DualShock4DescriptorSet.Create(new DualShock4Identity());
+
+        Assert.That(descriptors.TryGetInterface(AudioControlInterfaceNumber, 0, out UsbInterfaceInfo audioControl), Is.True);
+        Assert.That(audioControl.Class, Is.EqualTo((byte)0x01)); // Audio
+        Assert.That(audioControl.SubClass, Is.EqualTo((byte)0x01)); // Audio Control
+        Assert.That(audioControl.Endpoints, Is.Empty);
+
+        Assert.That(descriptors.GetAlternates(SpeakerInterfaceNumber), Has.Count.EqualTo(2));
+        Assert.That(descriptors.TryGetInterface(SpeakerInterfaceNumber, 0, out UsbInterfaceInfo speakerIdle), Is.True);
+        Assert.That(speakerIdle.Class, Is.EqualTo((byte)0x01));
+        Assert.That(speakerIdle.SubClass, Is.EqualTo((byte)0x02)); // Audio Streaming
+        Assert.That(speakerIdle.Endpoints, Is.Empty);
+
+        Assert.That(descriptors.TryGetInterface(SpeakerInterfaceNumber, 1, out UsbInterfaceInfo speakerActive), Is.True);
+        Assert.That(speakerActive.Class, Is.EqualTo((byte)0x01));
+        Assert.That(speakerActive.SubClass, Is.EqualTo((byte)0x02));
+        Assert.That(speakerActive.Endpoints, Has.Count.EqualTo(1));
+        Assert.That(speakerActive.Endpoints[0].Address, Is.EqualTo(SpeakerEndpointAddress));
+        Assert.That(speakerActive.Endpoints[0].Type, Is.EqualTo(UsbEndpointType.Isochronous));
+        Assert.That(speakerActive.Endpoints[0].MaxPacketSize, Is.EqualTo(SpeakerMaxPacketSize));
+        Assert.That(speakerActive.Endpoints[0].Interval, Is.EqualTo((byte)1));
+
+        Assert.That(descriptors.GetAlternates(MicrophoneInterfaceNumber), Has.Count.EqualTo(2));
+        Assert.That(descriptors.TryGetInterface(MicrophoneInterfaceNumber, 0, out UsbInterfaceInfo microphoneIdle), Is.True);
+        Assert.That(microphoneIdle.Class, Is.EqualTo((byte)0x01));
+        Assert.That(microphoneIdle.SubClass, Is.EqualTo((byte)0x02));
+        Assert.That(microphoneIdle.Endpoints, Is.Empty);
+
+        Assert.That(descriptors.TryGetInterface(MicrophoneInterfaceNumber, 1, out UsbInterfaceInfo microphoneActive), Is.True);
+        Assert.That(microphoneActive.Class, Is.EqualTo((byte)0x01));
+        Assert.That(microphoneActive.SubClass, Is.EqualTo((byte)0x02));
+        Assert.That(microphoneActive.Endpoints, Has.Count.EqualTo(1));
+        Assert.That(microphoneActive.Endpoints[0].Address, Is.EqualTo(MicrophoneEndpointAddress));
+        Assert.That(microphoneActive.Endpoints[0].Type, Is.EqualTo(UsbEndpointType.Isochronous));
+        Assert.That(microphoneActive.Endpoints[0].MaxPacketSize, Is.EqualTo(MicrophoneMaxPacketSize));
+        Assert.That(microphoneActive.Endpoints[0].Interval, Is.EqualTo((byte)1));
     }
 
     [Test]
     public void Create_DefaultIdentity_ParsesInterruptInEndpoint()
     {
         UsbDescriptorSet descriptors = DualShock4DescriptorSet.Create(new DualShock4Identity());
-        UsbEndpointInfo endpoint = descriptors.Interfaces[0].Endpoints[0];
+        UsbEndpointInfo endpoint = GetHidInterface(descriptors).Endpoints[0];
 
         Assert.That(endpoint.Address, Is.EqualTo((byte)0x84)); // IN, endpoint 4 (reference)
         Assert.That(endpoint.Type, Is.EqualTo(UsbEndpointType.Interrupt));
@@ -99,7 +203,7 @@ public sealed class DualShock4DescriptorSetTests
     public void Create_DefaultIdentity_ParsesInterruptOutEndpoint()
     {
         UsbDescriptorSet descriptors = DualShock4DescriptorSet.Create(new DualShock4Identity());
-        UsbEndpointInfo endpoint = descriptors.Interfaces[0].Endpoints[1];
+        UsbEndpointInfo endpoint = GetHidInterface(descriptors).Endpoints[1];
 
         Assert.That(endpoint.Address, Is.EqualTo((byte)0x03)); // OUT, endpoint 3 (reference)
         Assert.That(endpoint.Type, Is.EqualTo(UsbEndpointType.Interrupt));
@@ -119,12 +223,13 @@ public sealed class DualShock4DescriptorSetTests
         Assert.That(report.Span[1], Is.EqualTo(0x01)); // Usage Page (Generic Desktop)
         Assert.That(report.Span[^1], Is.EqualTo(0xC0)); // End Collection
 
-        // The HID class descriptor (after the 9-byte configuration header and the 9-byte interface
-        // descriptor) must declare exactly the served report descriptor length.
+        // The HID class descriptor (after the configuration header, the audio block and the HID
+        // interface descriptor) must declare exactly the served report descriptor length.
         ReadOnlySpan<byte> config = descriptors.ConfigDescriptor.Span;
-        Assert.That(config[18], Is.EqualTo((byte)0x09));
-        Assert.That(config[19], Is.EqualTo((byte)0x21));
-        Assert.That(config[25] | (config[26] << 8), Is.EqualTo(HidReportDescriptorLength));
+        int hidClassOffset = ConfigurationHeaderSize + AudioBlockLength + InterfaceDescriptorSize;
+        Assert.That(config[hidClassOffset], Is.EqualTo((byte)0x09));
+        Assert.That(config[hidClassOffset + 1], Is.EqualTo((byte)0x21));
+        Assert.That(BinaryPrimitives.ReadUInt16LittleEndian(config[(hidClassOffset + 7)..]), Is.EqualTo((ushort)HidReportDescriptorLength));
     }
 
     [Test]
@@ -218,53 +323,60 @@ public sealed class DualShock4DescriptorSetTests
     }
 
     [Test]
-    public void Create_V1DefaultIdentity_ConfigDescriptorMatchesReferenceBytes()
+    public void CreateV2_Configuration_Matches225ByteGolden()
+    {
+        UsbDescriptorSet descriptors = DualShock4DescriptorSet.Create(new DualShock4Identity());
+
+        // The composite configuration is the 9-byte header (four interfaces), the 184-byte UAC1 audio
+        // block and the 32-byte HID function block (interface 3 with the reference's 507-byte report
+        // descriptor declaration, endpoints 0x84/0x03 and the runtime interval 5). The expected blob is
+        // composed independently from the audio builder's block and a transcribed HID block.
+        byte[] expected = CreateExpectedConfiguration(HidReportDescriptorLength);
+
+        Assert.That(expected, Has.Length.EqualTo(ConfigurationDescriptorLength));
+        Assert.That(descriptors.ConfigDescriptor.Length, Is.EqualTo(ConfigurationDescriptorLength));
+        Assert.That(BinaryPrimitives.ReadUInt16LittleEndian(descriptors.ConfigDescriptor.Span[2..]),
+            Is.EqualTo((ushort)ConfigurationDescriptorLength));
+        Assert.That(descriptors.ConfigDescriptor.Span[4], Is.EqualTo((byte)0x04));
+        Assert.That(descriptors.ConfigDescriptor.ToArray(), Is.EqualTo(expected));
+        Assert.That(descriptors.HidReportDescriptor!.Value.Length, Is.EqualTo(HidReportDescriptorLength));
+    }
+
+    [Test]
+    public void CreateV1_Configuration_Matches225ByteGoldenWithV1PidAndIntervalFive()
     {
         UsbDescriptorSet descriptors = DualShock4DescriptorSet.Create(new DualShock4Identity(), DualShock4Variant.V1);
 
-        // The ViGEmBus v1 configuration blob (sys/Ds4Pdo.cpp GetConfigurationDescriptorType) is already
-        // the audio-less bring-up shape: interface 0, one HID interface and the interrupt IN (EP4) and
-        // OUT (EP3) pair with interval 5. It equals the v2 set byte for byte except the HID class
-        // descriptor's report length: 0x01D3 = 467 for v1, 0x01FB = 507 for v2.
-        Assert.That(descriptors.ConfigDescriptor.ToArray(), Is.EqualTo(new byte[]
-        {
-            0x09, // bLength: 9
-            0x02, // bDescriptorType: CONFIGURATION
-            0x29, 0x00, // wTotalLength: 41
-            0x01, // bNumInterfaces: 1
-            0x01, // bConfigurationValue: 1
-            0x00, // iConfiguration: none
-            0xC0, // bmAttributes: self-powered, no remote wakeup
-            0xFA, // bMaxPower: 500 mA (250 * 2 mA)
-            0x09, // bLength: 9
-            0x04, // bDescriptorType: INTERFACE
-            0x00, // bInterfaceNumber: 0 (the v1 reference serves interface 0 directly)
-            0x00, // bAlternateSetting: 0
-            0x02, // bNumEndpoints: 2 (IN + OUT)
-            0x03, // bInterfaceClass: HID
-            0x00, // bInterfaceSubClass: none
-            0x00, // bInterfaceProtocol: none
-            0x00, // iInterface: none
-            0x09, // bLength: 9
-            0x21, // bDescriptorType: HID
-            0x11, 0x01, // bcdHID: 1.11
-            0x00, // bCountryCode: not localized
-            0x01, // bNumDescriptors: 1 report descriptor
-            0x22, // bDescriptorType: REPORT
-            0xD3, 0x01, // wDescriptorLength: 467 (the v1 value; the v2 persona declares 0x01FB)
-            0x07, // bLength: 7
-            0x05, // bDescriptorType: ENDPOINT
-            0x84, // bEndpointAddress: IN EP4
-            0x03, // bmAttributes: interrupt
-            0x40, 0x00, // wMaxPacketSize: 64
-            0x05, // bInterval: 5 (the v1 array's own byte)
-            0x07, // bLength: 7
-            0x05, // bDescriptorType: ENDPOINT
-            0x03, // bEndpointAddress: OUT EP3
-            0x03, // bmAttributes: interrupt
-            0x40, 0x00, // wMaxPacketSize: 64
-            0x05 // bInterval: 5 (the v1 array's own byte)
-        }));
+        // The v1 persona has no audio reference blob of its own: it reuses the same 184-byte audio block
+        // as v2 and keeps the v1 reference device facts (product id 0x05C4, manufacturer string) and the
+        // 467-byte report descriptor. The HID block keeps the reference's runtime interval 5.
+        byte[] expected = CreateExpectedConfiguration(V1HidReportDescriptorLength);
+
+        Assert.That(expected, Has.Length.EqualTo(ConfigurationDescriptorLength));
+        Assert.That(descriptors.ConfigDescriptor.Length, Is.EqualTo(ConfigurationDescriptorLength));
+        Assert.That(descriptors.ConfigDescriptor.ToArray(), Is.EqualTo(expected));
+        Assert.That(descriptors.IdProduct, Is.EqualTo(V1ProductId));
+        Assert.That(descriptors.TryGetString(1, out string manufacturer), Is.True);
+        Assert.That(manufacturer, Is.EqualTo(V1ManufacturerName));
+        Assert.That(descriptors.HidReportDescriptor!.Value.Length, Is.EqualTo(V1HidReportDescriptorLength));
+
+        UsbInterfaceInfo hidInterface = GetHidInterface(descriptors);
+        Assert.That(hidInterface.Endpoints[0].Interval, Is.EqualTo(HidInterruptInterval));
+        Assert.That(hidInterface.Endpoints[1].Interval, Is.EqualTo(HidInterruptInterval));
+    }
+
+    [Test]
+    public void CreateV1_UsesSameAudioBlockAsV2()
+    {
+        byte[] audio = UsbAudioClass.CreateDualShock4AudioBlock();
+        byte[] v1Config = DualShock4DescriptorSet.Create(new DualShock4Identity(), DualShock4Variant.V1).ConfigDescriptor.ToArray();
+        byte[] v2Config = DualShock4DescriptorSet.Create(new DualShock4Identity()).ConfigDescriptor.ToArray();
+
+        Assert.That(audio, Has.Length.EqualTo(AudioBlockLength));
+        Assert.That(v1Config.AsSpan(ConfigurationHeaderSize, AudioBlockLength).ToArray(), Is.EqualTo(audio));
+        Assert.That(v2Config.AsSpan(ConfigurationHeaderSize, AudioBlockLength).ToArray(), Is.EqualTo(audio));
+        Assert.That(v1Config.AsSpan(ConfigurationHeaderSize, AudioBlockLength).ToArray(),
+            Is.EqualTo(v2Config.AsSpan(ConfigurationHeaderSize, AudioBlockLength).ToArray()));
     }
 
     [Test]
@@ -281,12 +393,14 @@ public sealed class DualShock4DescriptorSetTests
         Assert.That(report.Span[7], Is.EqualTo(0x01)); // Report ID (1): the input report both variants serve
         Assert.That(report.Span[^1], Is.EqualTo(0xC0)); // End Collection
 
-        // The HID class descriptor (after the 9-byte configuration header and the 9-byte interface
-        // descriptor) must declare exactly the served report descriptor length.
+        // The HID class descriptor (after the configuration header, the audio block and the HID
+        // interface descriptor) must declare exactly the served report descriptor length.
         ReadOnlySpan<byte> config = descriptors.ConfigDescriptor.Span;
-        Assert.That(config[18], Is.EqualTo((byte)0x09));
-        Assert.That(config[19], Is.EqualTo((byte)0x21));
-        Assert.That(config[25] | (config[26] << 8), Is.EqualTo(V1HidReportDescriptorLength));
+        int hidClassOffset = ConfigurationHeaderSize + AudioBlockLength + InterfaceDescriptorSize;
+        Assert.That(config[hidClassOffset], Is.EqualTo((byte)0x09));
+        Assert.That(config[hidClassOffset + 1], Is.EqualTo((byte)0x21));
+        Assert.That(BinaryPrimitives.ReadUInt16LittleEndian(config[(hidClassOffset + 7)..]),
+            Is.EqualTo((ushort)V1HidReportDescriptorLength));
     }
 
     [Test]
@@ -407,6 +521,8 @@ public sealed class DualShock4DescriptorSetTests
 
         Assert.That(device.Descriptors.IdProduct, Is.EqualTo(0x09CC));
         Assert.That(device.Descriptors.HidReportDescriptor!.Value.Length, Is.EqualTo(HidReportDescriptorLength));
+        Assert.That(device.Descriptors.ConfigDescriptor.Length, Is.EqualTo(ConfigurationDescriptorLength));
+        Assert.That(device.Descriptors.HasInterface(HidInterfaceNumber), Is.True);
     }
 
     [Test]
@@ -416,11 +532,90 @@ public sealed class DualShock4DescriptorSetTests
 
         Assert.That(device.Descriptors.IdProduct, Is.EqualTo(V1ProductId));
         Assert.That(device.Descriptors.HidReportDescriptor!.Value.Length, Is.EqualTo(V1HidReportDescriptorLength));
+        Assert.That(device.Descriptors.ConfigDescriptor.Length, Is.EqualTo(ConfigurationDescriptorLength));
+        Assert.That(device.Descriptors.HasInterface(HidInterfaceNumber), Is.True);
 
         // The report shape is variant-independent for this milestone: the device serves report id 0x01
         // in the same 64-byte layout for both variants.
         byte[] report = new byte[DualShock4InputReport.Size];
         Assert.That(device.ProvideInputReport(report), Is.EqualTo(DualShock4InputReport.Size));
         Assert.That(report[0], Is.EqualTo(0x01));
+    }
+
+    /// <summary>
+    /// Composes the expected 225-byte composite configuration independently of the production
+    /// configuration builder: the 9-byte header, the audio builder's 184-byte block and the transcribed
+    /// 32-byte HID block with the given report descriptor length.
+    /// </summary>
+    /// <param name="reportLength">Report descriptor length the HID class descriptor declares.</param>
+    /// <returns>The expected configuration descriptor bytes.</returns>
+    private static byte[] CreateExpectedConfiguration(ushort reportLength)
+    {
+        byte[] audio = UsbAudioClass.CreateDualShock4AudioBlock();
+        byte[] hid = CreateExpectedHidBlock(reportLength);
+        byte[] expected = new byte[ConfigurationDescriptorLength];
+        expected[0] = 0x09; // bLength
+        expected[1] = 0x02; // bDescriptorType: CONFIGURATION
+        BinaryPrimitives.WriteUInt16LittleEndian(expected.AsSpan(2), ConfigurationDescriptorLength);
+        expected[4] = 0x04; // bNumInterfaces: audio control, audio OUT, audio IN, HID
+        expected[5] = 0x01; // bConfigurationValue: 1
+        expected[6] = 0x00; // iConfiguration: none
+        expected[7] = 0xC0; // bmAttributes: self-powered, no remote wakeup
+        expected[8] = 0xFA; // bMaxPower: 500 mA (250 * 2 mA)
+        audio.CopyTo(expected, ConfigurationHeaderSize);
+        hid.CopyTo(expected, ConfigurationHeaderSize + audio.Length);
+        return expected;
+    }
+
+    /// <summary>
+    /// Creates the transcribed 32-byte HID function block of the composite configuration: HID interface
+    /// 3 (as the reference serves it alongside the audio function), its class descriptor with the served
+    /// report length, and the interrupt IN 0x84 / OUT 0x03 endpoints with the runtime interval 5.
+    /// </summary>
+    /// <param name="reportLength">Report descriptor length the HID class descriptor declares.</param>
+    /// <returns>The HID block bytes.</returns>
+    private static byte[] CreateExpectedHidBlock(ushort reportLength)
+    {
+        return
+        [
+            0x09, // bLength: 9
+            0x04, // bDescriptorType: INTERFACE
+            HidInterfaceNumber, // bInterfaceNumber: 3
+            0x00, // bAlternateSetting: 0
+            0x02, // bNumEndpoints: 2 (IN + OUT)
+            0x03, // bInterfaceClass: HID
+            0x00, // bInterfaceSubClass: none
+            0x00, // bInterfaceProtocol: none
+            0x00, // iInterface: none
+            0x09, // bLength: 9
+            0x21, // bDescriptorType: HID
+            0x11, 0x01, // bcdHID: 1.11
+            0x00, // bCountryCode: not localized
+            0x01, // bNumDescriptors: 1 report descriptor
+            0x22, // bDescriptorType: REPORT
+            (byte)reportLength, (byte)(reportLength >> 8), // wDescriptorLength
+            0x07, // bLength: 7
+            0x05, // bDescriptorType: ENDPOINT
+            0x84, // bEndpointAddress: IN EP4
+            0x03, // bmAttributes: interrupt
+            0x40, 0x00, // wMaxPacketSize: 64
+            HidInterruptInterval, // bInterval: 5 -- the reference's runtime override
+            0x07, // bLength: 7
+            0x05, // bDescriptorType: ENDPOINT
+            0x03, // bEndpointAddress: OUT EP3
+            0x03, // bmAttributes: interrupt
+            0x40, 0x00, // wMaxPacketSize: 64
+            HidInterruptInterval // bInterval: 5 -- the reference's runtime override
+        ];
+    }
+
+    /// <summary>Returns the alternate setting 0 interface entry of the HID function.</summary>
+    /// <param name="descriptors">Descriptor set to look up.</param>
+    /// <returns>The HID interface entry.</returns>
+    private static UsbInterfaceInfo GetHidInterface(UsbDescriptorSet descriptors)
+    {
+        bool found = descriptors.TryGetInterface(HidInterfaceNumber, 0, out UsbInterfaceInfo interfaceInfo);
+        Assert.That(found, Is.True);
+        return interfaceInfo;
     }
 }

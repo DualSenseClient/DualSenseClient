@@ -25,6 +25,9 @@ public sealed class DualSenseFeatureReportTests
     /// <summary>HID class request code of SET_REPORT (HID 1.11, section 7.2.2).</summary>
     private const byte RequestSetReport = 0x09;
 
+    /// <summary>Interface number of the persona's HID function (the audio function occupies interfaces 0-2).</summary>
+    private const byte HidInterfaceNumber = 3;
+
     /// <summary>Device-to-host class interface request (direction IN, type class, recipient interface).</summary>
     private const byte ClassInterfaceIn = 0xA1;
 
@@ -966,7 +969,7 @@ public sealed class DualSenseFeatureReportTests
             RequestType = requestType,
             Request = request,
             Value = value,
-            Index = 0,
+            Index = HidInterfaceNumber,
             Length = length
         };
 

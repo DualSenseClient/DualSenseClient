@@ -16,7 +16,22 @@ namespace DualSenseClient.Emulation.UsbIp;
 /// The packet status of a failed packet is <see cref="UsbIpStatus.Stall"/> while the transfer-level
 /// status stays <see cref="UsbIpStatus.Success"/>; failed packets are counted in
 /// <see cref="UsbTransfer.ErrorCount"/> and contribute nothing to
-/// <see cref="UsbTransfer.ActualLength"/>.
+/// <see cref="UsbTransfer.ActualLength"/>. Successful and zero-length (zero-filled) packets never
+/// increment the error count.
+/// <para>
+/// Under-submission schedules nothing: a frame with no current or queued transfer is idle, and the
+/// next enqueued transfer starts on its arrival frame - the first frame after
+/// <see cref="Enqueue"/> - with no catch-up burst for the idle frames. Over-submission is bounded by
+/// the host's own URB flow control: the queue is FIFO and has no artificial depth cap, so every
+/// accepted transfer that is not cancelled or cleared completes exactly once, in order, one packet
+/// per frame.
+/// </para>
+/// <para>
+/// <see cref="UsbTransfer.StartFrame"/> is not interpreted for scheduling: the sentinel
+/// <c>0xFFFFFFFF</c>, past values and future values all schedule from the arrival frame (a future
+/// value is clamped to arrival). This is a ruled deviation pending live observation; the submitted
+/// value is preserved only so the server can echo it in RET_SUBMIT.
+/// </para>
 /// </remarks>
 public sealed class IsoScheduler : IDisposable
 {
@@ -110,7 +125,9 @@ public sealed class IsoScheduler : IDisposable
 
     /// <summary>
     /// Appends <paramref name="transfer"/> to the FIFO queue; it starts when it becomes the current
-    /// transfer. Enqueueing before <see cref="Start"/> is allowed and waits for the first frame.
+    /// transfer, on the first frame after it was enqueued (its arrival frame). Enqueueing before
+    /// <see cref="Start"/> is allowed and waits for the first frame. Idle frames before the enqueue
+    /// are not replayed and produce no catch-up burst.
     /// </summary>
     /// <param name="transfer">Isochronous IN transfer with one descriptor per packet.</param>
     /// <exception cref="ArgumentNullException"><paramref name="transfer"/> is <see langword="null"/>.</exception>

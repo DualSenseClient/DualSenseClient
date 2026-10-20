@@ -4,11 +4,19 @@ namespace DualSenseClient.Emulation.Devices.DualSense;
 
 /// <summary>
 /// Persona device of the DualSense (Sony 054C:0CE6, or Sony 054C:0DF2 when constructed as the Edge):
-/// serves the persona's descriptor set and the 64-byte input report 0x01 built by
+/// serves the persona's composite descriptor set, the 64-byte input report 0x01 built by
 /// <see cref="DualSenseInputReport"/> from the stored input state, decodes the host's output reports
 /// 0x02 (rumble, volumes, adaptive-trigger effect blocks, lightbar and LEDs) into
 /// <see cref="OutputReportReceived"/>, and answers the feature-report surface of
 /// <see cref="DualSenseFeatureReports"/> from the metadata state <see cref="SetMetaState"/> updates.
+/// The composite configuration carries a UAC1 audio function (audio control interface 0, speaker
+/// streaming interface 1 with isochronous OUT endpoint 0x01, microphone streaming interface 2 with
+/// isochronous IN endpoint 0x82) beside the HID interface 3. The device forwards speaker packets to
+/// <see cref="AudioOutReceived"/>, extracts their channels 2/3 into
+/// <see cref="RealtimeHapticsReceived"/>, accepts capture PCM through <see cref="SetMicrophonePcm"/> and
+/// drains its ring on the ISO IN endpoint, raises <see cref="SpeakerResetReceived"/> when the speaker
+/// alternate setting changes, and routes class requests of the audio interfaces to its
+/// <see cref="UsbAudioFunction"/>.
 /// The device owns the report counters: every provided input report increments the packet counter,
 /// the first touch counter advances once per report in which the first point is active, and the
 /// second touch counter advances once per report in which only the second point is active (the
@@ -28,6 +36,42 @@ public sealed class DualSenseDevice : VirtualHidDevice
     /// <summary>Neutral stick value (center) written to an untouched device's input state.</summary>
     private const byte NeutralStick = 128;
 
+    /// <summary>Interface number of the speaker audio streaming interface (UAC1 AS OUT).</summary>
+    private const byte SpeakerInterfaceNumber = 1;
+
+    /// <summary>Interface number of the microphone audio streaming interface (UAC1 AS IN).</summary>
+    private const byte MicrophoneInterfaceNumber = 2;
+
+    /// <summary>Interface class value of every UAC1 audio interface (bInterfaceClass 0x01).</summary>
+    private const byte AudioInterfaceClass = 0x01;
+
+    /// <summary>Endpoint address of the speaker isochronous OUT endpoint (EP1 OUT).</summary>
+    private const byte AudioOutEndpointAddress = 0x01;
+
+    /// <summary>Endpoint address of the microphone isochronous IN endpoint (EP2 IN).</summary>
+    private const byte AudioInEndpointAddress = 0x82;
+
+    /// <summary>
+    /// Capacity of the speaker packet scratch buffer: the wMaxPacketSize of the AS OUT endpoint
+    /// (392 bytes; the nominal four-channel packet is 384 bytes and carries eight spare bytes).
+    /// </summary>
+    private const int AudioOutPacketCapacity = 392;
+
+    /// <summary>
+    /// Capacity of the haptics packet scratch buffer: the four haptics bytes of every whole 8-byte
+    /// speaker frame of a maximum-size (392-byte) packet, so 49 frames times two channels.
+    /// </summary>
+    private const int HapticsPacketCapacity = 196;
+
+    /// <summary>Bytes of one speaker sample frame: four interleaved 16-bit channels.</summary>
+    private const int SpeakerFrameBytes = 8;
+
+    /// <summary>Bytes of one extracted haptics sample frame: channels 2 and 3.</summary>
+    private const int HapticsFrameBytes = 4;
+
+    /// <summary>Offset of the first haptics byte inside one speaker frame (channels 2 and 3).</summary>
+    private const int HapticsOffsetInSpeakerFrame = 4;
+
     /// <summary>
     /// Serializes the stored state, the metadata and the report counters against every caller of
     /// <see cref="SetInput"/>, <see cref="SetMetaState"/> and the report providers.
@@ -36,6 +80,29 @@ public sealed class DualSenseDevice : VirtualHidDevice
 
     /// <summary>Logging seam for subscriber faults; <see langword="null"/> disables logging.</summary>
     private readonly IEmulationLogger? _logger;
+
+    /// <summary>UAC1 audio function of the persona: feature-unit state and the microphone PCM ring.</summary>
+    private readonly UsbAudioFunction _audioFunction;
+
+    /// <summary>
+    /// Reusable speaker packet buffer of the audio OUT lane; <see cref="AudioOutReceived"/> handlers
+    /// receive a view over it. Guarded against concurrent ISO packet delivery by the session's packet
+    /// order, so no lock is needed.
+    /// </summary>
+    private readonly byte[] _audioOutScratch = new byte[AudioOutPacketCapacity];
+
+    /// <summary>
+    /// Reusable haptics packet buffer of the audio OUT lane; <see cref="RealtimeHapticsReceived"/>
+    /// handlers receive a view over it.
+    /// </summary>
+    private readonly byte[] _hapticsScratch = new byte[HapticsPacketCapacity];
+
+    /// <summary>
+    /// Active alternate setting of the speaker streaming interface as last observed through
+    /// <see cref="OnInterfaceChanged"/>; reset by <see cref="OnConfigurationChanged"/> without
+    /// raising a duplicate <see cref="SpeakerResetReceived"/> for the same transition.
+    /// </summary>
+    private byte _speakerAlternateSetting;
 
     /// <summary>
     /// Whether the device serves the Edge persona: the Edge descriptor set and the firmware report's
@@ -95,7 +162,7 @@ public sealed class DualSenseDevice : VirtualHidDevice
     /// zero and D-pad up).
     /// </summary>
     /// <param name="identity">Identity of the persona; use <c>new DualSenseIdentity()</c> for the reference defaults.</param>
-    /// <param name="logger">Logging seam for faults raised by <see cref="OutputReportReceived"/> subscribers; <see langword="null"/> disables logging.</param>
+    /// <param name="logger">Logging seam for faults raised by report and audio subscribers; <see langword="null"/> disables logging.</param>
     public DualSenseDevice(DualSenseIdentity identity, IEmulationLogger? logger = null)
         : this(identity, false, logger)
     {
@@ -109,7 +176,7 @@ public sealed class DualSenseDevice : VirtualHidDevice
     /// </summary>
     /// <param name="identity">Identity of the persona; every value is served except the Edge product id and product string.</param>
     /// <param name="edge"><see langword="true"/> for the DualSense Edge persona; <see langword="false"/> for the base DualSense.</param>
-    /// <param name="logger">Logging seam for faults raised by <see cref="OutputReportReceived"/> subscribers; <see langword="null"/> disables logging.</param>
+    /// <param name="logger">Logging seam for faults raised by report and audio subscribers; <see langword="null"/> disables logging.</param>
     public DualSenseDevice(DualSenseIdentity identity, bool edge, IEmulationLogger? logger = null)
         : base(edge ? DualSenseEdgeDescriptorSet.Create(identity) : DualSenseDescriptorSet.Create(identity))
     {
@@ -118,6 +185,7 @@ public sealed class DualSenseDevice : VirtualHidDevice
         _serialNumber = identity.SerialNumber;
         _edge = edge;
         _logger = logger;
+        _audioFunction = new UsbAudioFunction(AudioFunctionFormat.DualSense, logger);
     }
 
     /// <summary>
@@ -130,6 +198,43 @@ public sealed class DualSenseDevice : VirtualHidDevice
     /// direct <c>OnOutputReport</c> call and is not recognized.
     /// </summary>
     public event Action<DualSenseOutputReport>? OutputReportReceived;
+
+    /// <summary>
+    /// Raised for every isochronous OUT packet of the speaker endpoint (0x01) with the packet bytes
+    /// verbatim (up to the endpoint's 392-byte maximum packet size): four interleaved 16-bit
+    /// little-endian channels at 48 kHz (8 bytes per sample frame, 384 bytes in a nominal
+    /// one-millisecond packet). This is the P5 audio-forwarding surface: the persona applies no
+    /// feature-unit volume or mute scaling to the stream, and haptics are taken from
+    /// <see cref="RealtimeHapticsReceived"/> rather than derived from the front channels here.
+    /// The memory is a view over a per-device reusable
+    /// scratch buffer and is valid only for the duration of the callback; a subscriber that keeps the
+    /// data must copy it. A subscriber that throws is logged through the device's logger and skipped:
+    /// the remaining subscribers still receive the packet and the delivering session is not torn down.
+    /// </summary>
+    public event Action<ReadOnlyMemory<byte>>? AudioOutReceived;
+
+    /// <summary>
+    /// Raised for every speaker packet that carries at least one whole sample frame, with channels 2
+    /// and 3 of every whole 8-byte frame extracted as two interleaved 16-bit little-endian channels at
+    /// 48 kHz (4 bytes per extracted frame, 192 bytes in a nominal packet). A partial trailing frame
+    /// is ignored, and a packet shorter than one whole frame raises nothing. P5 forwards this lane
+    /// separately from <see cref="AudioOutReceived"/>; do not derive haptics from the front channels
+    /// as well. The memory is a view over
+    /// a per-device reusable scratch buffer and is valid only for the duration of the callback; a
+    /// subscriber that keeps the data must copy it. A subscriber that throws is logged through the
+    /// device's logger and skipped: the remaining subscribers still receive the packet and the
+    /// delivering session is not torn down.
+    /// </summary>
+    public event Action<ReadOnlyMemory<byte>>? RealtimeHapticsReceived;
+
+    /// <summary>
+    /// Raised exactly once per effective alternate-setting change of the speaker streaming interface 1
+    /// between 0 and 1, including the return to 0 that SET_CONFIGURATION performs through the base
+    /// class's interface hook; a write of the already active setting raises nothing. P5 should drop
+    /// and rebuild its speaker pipeline on this signal. A subscriber that
+    /// throws is logged through the device's logger and skipped, so it cannot tear down the session.
+    /// </summary>
+    public event Action? SpeakerResetReceived;
 
     /// <summary>
     /// Stores the input state the following input reports carry; may be called from any thread. A
@@ -218,6 +323,30 @@ public sealed class DualSenseDevice : VirtualHidDevice
     /// froze. Clearing without a raw report set is a no-op. May be called from any thread.
     /// </summary>
     public void ClearRawInputReport() => ClearRawInputReportCore();
+
+    /// <summary>
+    /// Enqueues one whole microphone PCM frame for the ISO IN endpoint 0x82: two interleaved 16-bit
+    /// little-endian channels at 48 kHz, exactly 192 bytes (48 one-millisecond sample frames). The
+    /// frame is copied into the persona's bounded microphone ring; when the ring is full its oldest
+    /// frame is dropped so the newest audio survives. A P5 microphone producer calls this once per
+    /// millisecond with an exact frame; with no producer the empty ring yields nominal zero-filled
+    /// packets, so the lane stays silent without rate drift. Queued audio is dropped on an effective
+    /// microphone alternate-setting change and on SET_CONFIGURATION 0, so a producer restarts on a
+    /// frame boundary. May be called from any thread; a concurrent
+    /// endpoint read yields either the old or the new ring state, never a torn frame.
+    /// </summary>
+    /// <param name="frame">Exactly 192 bytes of interleaved 2-channel 16-bit PCM.</param>
+    /// <exception cref="ArgumentException"><paramref name="frame"/> is not exactly one microphone frame.</exception>
+    public void SetMicrophonePcm(ReadOnlySpan<byte> frame)
+    {
+        int frameBytes = _audioFunction.Format.MicrophoneFrameBytes;
+        if (frame.Length != frameBytes)
+        {
+            throw new ArgumentException($"A DualSense microphone frame requires exactly {frameBytes} bytes; got {frame.Length}.", nameof(frame));
+        }
+
+        _audioFunction.EnqueueMicrophonePcm(frame);
+    }
 
     /// <summary>
     /// Builds the next 64-byte input report 0x01 from the stored state and advances the device's
@@ -363,6 +492,209 @@ public sealed class DualSenseDevice : VirtualHidDevice
             catch (Exception exception)
             {
                 _logger?.Log(EmulationLogLevel.Error, $"An OutputReportReceived handler failed: {exception}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Handles one isochronous OUT packet of the speaker endpoint: the packet bytes (up to the
+    /// endpoint's 392-byte maximum) are copied into the device's reusable audio scratch buffer and
+    /// raised through <see cref="AudioOutReceived"/>, then the four haptics bytes of every whole
+    /// 8-byte sample frame are extracted into the haptics scratch buffer and raised through
+    /// <see cref="RealtimeHapticsReceived"/>. A partial trailing frame contributes no haptics, and a
+    /// packet shorter than one whole frame raises no haptics event. Packets of every other endpoint
+    /// are ignored.
+    /// </summary>
+    /// <param name="endpointAddress">Endpoint address the packet belongs to (bEndpointAddress).</param>
+    /// <param name="packet">Packet bytes: the transfer buffer slice at the packet's offset and length.</param>
+    public override void OnIsoPacketReceived(byte endpointAddress, ReadOnlySpan<byte> packet)
+    {
+        if (endpointAddress != AudioOutEndpointAddress)
+        {
+            return;
+        }
+
+        int audioLength = Math.Min(packet.Length, _audioOutScratch.Length);
+        packet[..audioLength].CopyTo(_audioOutScratch);
+        RaiseAudioOutReceived(audioLength);
+        RaiseRealtimeHapticsReceived(audioLength);
+    }
+
+    /// <summary>
+    /// Produces the next isochronous IN packet of the microphone endpoint from the persona's audio
+    /// function: queued PCM is copied up to the packet length, and an empty ring yields the nominal
+    /// 192-byte zero packet (or the whole destination when it is shorter). Every other endpoint
+    /// produces nothing.
+    /// </summary>
+    /// <param name="endpointAddress">Endpoint address the packet belongs to (bEndpointAddress).</param>
+    /// <param name="destination">Packet buffer the data is written to.</param>
+    /// <returns>The number of bytes written, or zero for an endpoint without an audio lane.</returns>
+    public override int ProvideIsoPacket(byte endpointAddress, Span<byte> destination)
+    {
+        if (endpointAddress != AudioInEndpointAddress)
+        {
+            return 0;
+        }
+
+        return _audioFunction.ReadMicrophonePcm(destination);
+    }
+
+    /// <summary>
+    /// Tracks the effective alternate-setting changes of the audio streaming interfaces: a speaker
+    /// change (interface 1) raises <see cref="SpeakerResetReceived"/> once when the setting really
+    /// changed, and a microphone change (interface 2) drops every queued capture byte. The base class
+    /// calls this only for an effective change and for the return to 0 that SET_CONFIGURATION issues.
+    /// </summary>
+    /// <param name="interfaceNumber">Interface number (bInterfaceNumber) that changed.</param>
+    /// <param name="alternateSetting">The new active alternate setting (bAlternateSetting).</param>
+    protected override void OnInterfaceChanged(byte interfaceNumber, byte alternateSetting)
+    {
+        if (interfaceNumber == SpeakerInterfaceNumber)
+        {
+            if (_speakerAlternateSetting == alternateSetting)
+            {
+                return;
+            }
+
+            _speakerAlternateSetting = alternateSetting;
+            RaiseSpeakerResetReceived();
+        }
+        else if (interfaceNumber == MicrophoneInterfaceNumber)
+        {
+            _audioFunction.ClearMicrophonePcm();
+        }
+    }
+
+    /// <summary>
+    /// Handles SET_CONFIGURATION: selecting the unconfigured state (value 0) drops queued microphone
+    /// audio and resets the tracked speaker setting. The base class already returned the interfaces to
+    /// alternate setting 0 and raised their interface hooks before this call, so no second
+    /// <see cref="SpeakerResetReceived"/> is raised for the same transition.
+    /// </summary>
+    /// <param name="configurationValue">The new configuration value (0 selects the unconfigured state).</param>
+    protected override void OnConfigurationChanged(byte configurationValue)
+    {
+        if (configurationValue != 0)
+        {
+            return;
+        }
+
+        _speakerAlternateSetting = 0;
+        _audioFunction.ClearMicrophonePcm();
+    }
+
+    /// <summary>
+    /// Routes class requests by interface class: requests addressed to an audio interface (class 0x01)
+    /// are handled by the persona's <see cref="UsbAudioFunction"/> (feature-unit mute and volume state),
+    /// and every other interface - including the HID interface 3 - keeps the base class's HID handling
+    /// unchanged. A request the audio function does not serve stalls.
+    /// </summary>
+    /// <param name="setup">Setup packet of the transfer.</param>
+    /// <param name="outData">Payload of a host-to-device transfer; empty for device-to-host requests.</param>
+    /// <param name="response">Buffer for the response of a device-to-host transfer.</param>
+    /// <returns>The number of bytes written, or -1 for STALL.</returns>
+    protected override int OnClassRequest(in UsbSetupPacket setup, ReadOnlySpan<byte> outData, Span<byte> response)
+    {
+        if (Descriptors.TryGetInterface((byte)setup.Index, 0, out UsbInterfaceInfo interfaceInfo)
+            && interfaceInfo.Class == AudioInterfaceClass)
+        {
+            return _audioFunction.HandleClassRequest(setup, outData, response);
+        }
+
+        return base.OnClassRequest(setup, outData, response);
+    }
+
+    /// <summary>
+    /// Raises <see cref="AudioOutReceived"/> with a view over the first
+    /// <paramref name="length"/> bytes of the audio scratch buffer, invoking every subscriber in
+    /// isolation; a throwing subscriber is logged at <see cref="EmulationLogLevel.Error"/> and skipped.
+    /// </summary>
+    /// <param name="length">Number of valid packet bytes in the scratch buffer.</param>
+    private void RaiseAudioOutReceived(int length)
+    {
+        Action<ReadOnlyMemory<byte>>? handlers = AudioOutReceived;
+        if (handlers is null)
+        {
+            return;
+        }
+
+        ReadOnlyMemory<byte> packet = _audioOutScratch.AsMemory(0, length);
+        foreach (Delegate handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                ((Action<ReadOnlyMemory<byte>>)handler)(packet);
+            }
+            catch (Exception exception)
+            {
+                _logger?.Log(EmulationLogLevel.Error, $"An AudioOutReceived handler failed: {exception}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Extracts channels 2 and 3 of every whole speaker frame into the haptics scratch buffer and
+    /// raises <see cref="RealtimeHapticsReceived"/> with a view over the extracted bytes; a packet
+    /// without a whole frame raises nothing. Every subscriber is invoked in isolation and a throwing
+    /// subscriber is logged at <see cref="EmulationLogLevel.Error"/> and skipped.
+    /// </summary>
+    /// <param name="audioLength">Number of valid speaker packet bytes in the audio scratch buffer.</param>
+    private void RaiseRealtimeHapticsReceived(int audioLength)
+    {
+        int hapticsLength = 0;
+        for (int offset = 0; offset + SpeakerFrameBytes <= audioLength; offset += SpeakerFrameBytes)
+        {
+            _audioOutScratch.AsSpan(offset + HapticsOffsetInSpeakerFrame, HapticsFrameBytes)
+                .CopyTo(_hapticsScratch.AsSpan(hapticsLength));
+            hapticsLength += HapticsFrameBytes;
+        }
+
+        if (hapticsLength == 0)
+        {
+            return;
+        }
+
+        Action<ReadOnlyMemory<byte>>? handlers = RealtimeHapticsReceived;
+        if (handlers is null)
+        {
+            return;
+        }
+
+        ReadOnlyMemory<byte> haptics = _hapticsScratch.AsMemory(0, hapticsLength);
+        foreach (Delegate handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                ((Action<ReadOnlyMemory<byte>>)handler)(haptics);
+            }
+            catch (Exception exception)
+            {
+                _logger?.Log(EmulationLogLevel.Error, $"A RealtimeHapticsReceived handler failed: {exception}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Raises <see cref="SpeakerResetReceived"/>, invoking every subscriber in isolation; a throwing
+    /// subscriber is logged at <see cref="EmulationLogLevel.Error"/> and skipped.
+    /// </summary>
+    private void RaiseSpeakerResetReceived()
+    {
+        Action? handlers = SpeakerResetReceived;
+        if (handlers is null)
+        {
+            return;
+        }
+
+        foreach (Delegate handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                ((Action)handler)();
+            }
+            catch (Exception exception)
+            {
+                _logger?.Log(EmulationLogLevel.Error, $"A SpeakerResetReceived handler failed: {exception}");
             }
         }
     }

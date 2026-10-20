@@ -6,10 +6,13 @@ using DualSenseClient.Emulation.Core;
 namespace DualSenseClient.Emulation.Devices.DualSense;
 
 /// <summary>
-/// Descriptor set of the DualSense persona (Sony 054C:0CE6) in its bring-up configuration: one HID
-/// interface (interface 0) with an interrupt IN and an interrupt OUT endpoint plus the reference 321-byte
-/// HID report descriptor. The audio function of the full persona is added in a later milestone.
-/// The descriptor bytes are transcribed from the DS5Dongle reference (MIT, Copyright (c) 2026 awalol).
+/// Descriptor set of the DualSense persona (Sony 054C:0CE6): the composite configuration with the
+/// UAC1 audio function (audio control interface 0, speaker streaming interface 1, microphone streaming
+/// interface 2) and one HID interface (interface 3) with an interrupt IN and an interrupt OUT endpoint
+/// plus the reference 321-byte HID report descriptor. The 186-byte audio block is the reference block
+/// of <see cref="UsbAudioClass"/>; the HID block keeps the P3 bytes and the reference's interface
+/// number 3 (the composite builder does not renumber it).
+/// The descriptor bytes are transcribed from the reference.
 /// </summary>
 public static class DualSenseDescriptorSet
 {
@@ -86,33 +89,41 @@ public static class DualSenseDescriptorSet
     }
 
     /// <summary>
-    /// Creates the 41-byte configuration descriptor blob of the bring-up configuration: the configuration
-    /// descriptor, the HID interface (interface 0 because the audio function is omitted), the HID class
-    /// descriptor and the interrupt IN and interrupt OUT endpoint descriptors (USB 2.0, sections 9.6.3 to
-    /// 9.6.6). Sizes, addresses, attributes, power and the report length follow the reference. The HID block
-    /// deviates from the reference array in exactly two documented ways: the interface number is renumbered
-    /// (3 to 0) for the audio-less bring-up configuration, and both endpoint intervals carry the dongle's
-    /// runtime override instead of the array bytes.
+    /// Creates the 227-byte composite configuration descriptor blob of the persona: the configuration
+    /// header declaring four interfaces, the 186-byte UAC1 audio block (audio control interface 0,
+    /// speaker streaming interface 1 and microphone streaming interface 2) and the 32-byte HID function
+    /// block (interface 3 with the HID class descriptor and the interrupt IN and interrupt OUT endpoint
+    /// descriptors; USB 2.0, sections 9.6.3 to 9.6.6). The composite header and the concatenation come
+    /// from <see cref="UsbAudioClass.CreateCompositeConfiguration"/>; sizes, addresses, attributes,
+    /// power and the report length follow the reference. The HID block keeps the P3 bytes with the
+    /// reference's interface number 3 beside the audio function; both endpoint intervals carry the
+    /// reference's runtime override instead of the array bytes.
     /// </summary>
     /// <param name="hidReportDescriptorLength">Length in bytes of the served HID report descriptor (wDescriptorLength).</param>
-    /// <returns>The configuration descriptor bytes.</returns>
+    /// <returns>The composite configuration descriptor bytes.</returns>
     private static byte[] CreateConfigurationDescriptor(int hidReportDescriptorLength)
     {
-        int totalLength = 9 + 9 + 9 + 7 + 7; // 41: header + HID interface + HID class + interrupt IN + interrupt OUT
+        return UsbAudioClass.CreateCompositeConfiguration(
+            UsbAudioClass.CreateDualSenseAudioBlock(),
+            CreateHidConfigurationBlock(hidReportDescriptorLength));
+    }
 
+    /// <summary>
+    /// Creates the 32-byte HID function block of the composite configuration: the HID interface
+    /// (interface 3, the reference's number beside the audio function), the HID class descriptor and
+    /// the interrupt IN and interrupt OUT endpoint descriptors. Every byte matches the P3 HID block,
+    /// including the runtime interval override (2) in place of the array bytes (1), except that the
+    /// interface number is the reference's 3 rather than the audio-less bring-up's 0.
+    /// </summary>
+    /// <param name="hidReportDescriptorLength">Length in bytes of the served HID report descriptor (wDescriptorLength).</param>
+    /// <returns>The HID block bytes.</returns>
+    private static byte[] CreateHidConfigurationBlock(int hidReportDescriptorLength)
+    {
         return
         [
             0x09, // bLength: 9
-            0x02, // bDescriptorType: CONFIGURATION
-            (byte)totalLength, (byte)(totalLength >> 8), // wTotalLength: 41 (the reference's base blob covers the audio function too)
-            0x01, // bNumInterfaces: 1 (the reference serves 4: the audio function and the HID interface)
-            0x01, // bConfigurationValue: 1
-            0x00, // iConfiguration: none
-            0xC0, // bmAttributes: self-powered, no remote wakeup (the reference's runtime value with wake off)
-            0xFA, // bMaxPower: 500 mA (250 * 2 mA)
-            0x09, // bLength: 9
             0x04, // bDescriptorType: INTERFACE
-            0x00, // bInterfaceNumber: 0 (the reference serves the HID interface as 3 alongside the audio function)
+            0x03, // bInterfaceNumber: 3 (the reference serves the HID interface as 3 alongside the audio function)
             0x00, // bAlternateSetting: 0
             0x02, // bNumEndpoints: 2 (IN + OUT)
             0x03, // bInterfaceClass: HID

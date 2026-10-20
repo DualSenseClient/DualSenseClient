@@ -248,6 +248,26 @@ public abstract class VirtualUsbDevice
     }
 
     /// <summary>
+    /// Handles one isochronous OUT packet of an active isochronous endpoint; the base ignores it.
+    /// The server calls this once per packet of an isochronous OUT URB, in packet order.
+    /// </summary>
+    /// <param name="endpointAddress">Endpoint address the packet belongs to (bEndpointAddress).</param>
+    /// <param name="packet">Packet bytes: the transfer buffer slice at the packet's offset and length.</param>
+    public virtual void OnIsoPacketReceived(byte endpointAddress, ReadOnlySpan<byte> packet)
+    {
+    }
+
+    /// <summary>
+    /// Fills <paramref name="destination"/> with the next isochronous IN packet of an active
+    /// isochronous endpoint; the base provides nothing. The server calls this once per frame and
+    /// packet of an isochronous IN URB, on the frame-clock thread.
+    /// </summary>
+    /// <param name="endpointAddress">Endpoint address the packet belongs to (bEndpointAddress).</param>
+    /// <param name="destination">Packet buffer the data is written to; its length is the packet's declared length.</param>
+    /// <returns>The number of bytes written, or 0 when the device has no packet to provide.</returns>
+    public virtual int ProvideIsoPacket(byte endpointAddress, Span<byte> destination) => 0;
+
+    /// <summary>
     /// Handles a standard request of USB 2.0 section 9.4 for the recipient it is addressed to.
     /// </summary>
     /// <param name="setup">Setup packet of the transfer.</param>

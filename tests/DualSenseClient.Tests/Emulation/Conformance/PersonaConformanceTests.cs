@@ -105,6 +105,9 @@ public sealed class PersonaConformanceTests
     /// <summary>Descriptor type value of a HID class descriptor (HID).</summary>
     private const byte DescriptorTypeHid = 0x21;
 
+    /// <summary>Interface class value of a HID interface (bInterfaceClass; USB HID 1.11).</summary>
+    private const byte InterfaceClassHid = 0x03;
+
     /// <summary>HID item type of a Main item (prefix bits 3..2 = 0b00).</summary>
     private const int HidMainItemType = 0;
 
@@ -342,8 +345,15 @@ public sealed class PersonaConformanceTests
             BinaryPrimitives.ReadUInt16LittleEndian(descriptors.ConfigDescriptor.Span[(hidClassDescriptor.Offset + HidClassReportLengthOffset)..]);
         Assert.That(declaredLength, Is.EqualTo(hidReportDescriptor.Value.Length));
 
-        // ... and the engine serves exactly those bytes for GET_DESCRIPTOR(REPORT, interface 0).
-        ControlResult served = Send(device, StandardInterfaceIn, RequestGetDescriptor, HidReportDescriptorValue, (ushort)declaredLength);
+        // ... and the engine serves exactly those bytes for GET_DESCRIPTOR(REPORT) on the HID interface
+        // (interface 3 on every audio persona; the Xbox 360 persona declares no HID interface).
+        ControlResult served = Send(
+            device,
+            StandardInterfaceIn,
+            RequestGetDescriptor,
+            HidReportDescriptorValue,
+            (ushort)declaredLength,
+            index: GetHidInterfaceNumber(descriptors));
         Assert.That(served.Count, Is.EqualTo(declaredLength));
         Assert.That(served.Data, Is.EqualTo(hidReportDescriptor.Value.ToArray()));
     }
@@ -591,7 +601,8 @@ public sealed class PersonaConformanceTests
     /// <param name="length">wLength of the setup packet.</param>
     /// <param name="outData">Data stage of a host-to-device transfer; none for device-to-host requests.</param>
     /// <returns>The result count and the response buffer.</returns>
-    private static ControlResult Send(VirtualUsbDevice device, byte requestType, byte request, ushort value, ushort length, byte[]? outData = null)
+    private static ControlResult Send(VirtualUsbDevice device, byte requestType, byte request, ushort value, ushort length, byte[]? outData = null,
+        byte index = 0)
     {
         byte[] buffer = new byte[length];
         UsbSetupPacket setup = new UsbSetupPacket
@@ -599,7 +610,7 @@ public sealed class PersonaConformanceTests
             RequestType = requestType,
             Request = request,
             Value = value,
-            Index = 0,
+            Index = index,
             Length = length
         };
 
@@ -607,13 +618,41 @@ public sealed class PersonaConformanceTests
         return new ControlResult(count, buffer);
     }
 
-    /// <summary>Reads one feature report of <paramref name="reportId"/> through a HID class GET_REPORT control transfer.</summary>
+    /// <summary>
+    /// Reads one feature report of <paramref name="reportId"/> through a HID class GET_REPORT control
+    /// transfer on the persona's HID interface.
+    /// </summary>
     /// <param name="device">Device the report is read from.</param>
     /// <param name="reportId">Report id of the requested feature report.</param>
     /// <param name="length">Requested transfer length (wLength).</param>
     /// <returns>The result count and the response buffer.</returns>
     private static ControlResult GetFeature(VirtualUsbDevice device, byte reportId, int length) =>
-        Send(device, ClassInterfaceIn, RequestGetReport, (ushort)((ReportTypeFeature << 8) | reportId), (ushort)length);
+        Send(
+            device,
+            ClassInterfaceIn,
+            RequestGetReport,
+            (ushort)((ReportTypeFeature << 8) | reportId),
+            (ushort)length,
+            index: GetHidInterfaceNumber(device.Descriptors));
+
+    /// <summary>
+    /// Returns the interface number of the persona's HID function (alternate setting 0), or zero when the
+    /// persona is vendor-class and declares no HID interface; the class requests then stall either way.
+    /// </summary>
+    /// <param name="descriptors">Descriptor set of the persona.</param>
+    /// <returns>The HID interface number, or zero when none exists.</returns>
+    private static byte GetHidInterfaceNumber(UsbDescriptorSet descriptors)
+    {
+        foreach (UsbInterfaceInfo interfaceInfo in descriptors.Interfaces)
+        {
+            if (interfaceInfo.AlternateSetting == 0 && interfaceInfo.Class == InterfaceClassHid)
+            {
+                return interfaceInfo.Number;
+            }
+        }
+
+        return 0;
+    }
 
     /// <summary>
     /// Subscribes a counting probe to the persona's own output-report event, whatever its report

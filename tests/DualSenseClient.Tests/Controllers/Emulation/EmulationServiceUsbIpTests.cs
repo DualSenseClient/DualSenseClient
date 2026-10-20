@@ -671,7 +671,7 @@ public sealed class EmulationServiceUsbIpTests
             RequestType = 0xA1,
             Request = 0x01,
             Value = (ushort)(0x0300 | reportId),
-            Index = 0,
+            Index = 3, // the audio function occupies interfaces 0-2; HID is interface 3
             Length = (ushort)length
         };
         int count = device.HandleControlRequest(setup, [], buffer);
