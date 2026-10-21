@@ -1,4 +1,4 @@
-﻿### DotnetCore ###
+### DotnetCore ###
 # .NET Core build folders
 bin/
 obj/
@@ -275,6 +275,9 @@ DocProject/Help/html
 
 # Click-Once directory
 publish/
+*.zip
+*.zip.sha256
+
 
 # Publish Web Output
 *.[Pp]ublish.xml
