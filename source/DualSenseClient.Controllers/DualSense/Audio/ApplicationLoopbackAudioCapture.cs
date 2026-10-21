@@ -119,7 +119,7 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
     /// <inheritdoc/>
     public bool Start()
     {
-        ManualResetEventSlim ready = new ManualResetEventSlim(false);
+        using ManualResetEventSlim ready = new ManualResetEventSlim(false);
         lock (_sync)
         {
             if (_running)
@@ -218,12 +218,25 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
         _initialized = initialized;
         if (!initialized)
         {
-            ready.Set();
+            try
+            {
+                ready.Set();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
             return;
         }
 
         _running = true;
-        ready.Set();
+        try
+        {
+            ready.Set();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
         try
         {
             PumpLoop();
@@ -244,20 +257,23 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
     /// </summary>
     private bool Initialize()
     {
-        ActivationHandler handler = new ActivationHandler();
-        int hr = WasapiAudioInterop.ActivateProcessLoopback(_processId, handler, out IActivateAudioInterfaceAsyncOperation _);
-        if (hr < 0)
+        using ActivationHandler handler = new ActivationHandler();
+        IActivateAudioInterfaceAsyncOperation? asyncOp = null;
+        try
         {
-            _log.Warning($"ActivateAudioInterfaceAsync failed (HRESULT 0x{hr:X8})");
-            return false;
-        }
+            int hr = WasapiAudioInterop.ActivateProcessLoopback(_processId, handler, out asyncOp);
+            if (hr < 0)
+            {
+                _log.Warning($"ActivateAudioInterfaceAsync failed (HRESULT 0x{hr:X8})");
+                return false;
+            }
 
-        if (!handler.Completed.Wait(ActivationTimeoutMs) || handler.AudioClient is not { } audioClient)
-        {
-            _log.Warning(
-                $"The application audio interface could not be activated (HRESULT 0x{handler.ActivateResult:X8})");
-            return false;
-        }
+            if (!handler.Completed.Wait(ActivationTimeoutMs) || handler.AudioClient is not { } audioClient)
+            {
+                _log.Warning(
+                    $"The application audio interface could not be activated (HRESULT 0x{handler.ActivateResult:X8})");
+                return false;
+            }
 
         WaveFormatEx format = WasapiAudioInterop.CreateStereoFloatFormat(DualSenseBtAudioPipeline.SampleRate);
         hr = audioClient.Initialize(WasapiAudioInterop.ShareModeShared, WasapiAudioInterop.StreamFlags,
@@ -300,12 +316,17 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
             return false;
         }
 
-        _audioClient = audioClient;
-        _captureClient = captureClient;
-        _sampleReady = sampleReady;
-        _log.Info(
-            $"Application audio capture started for '{_applicationPath}' (PID {_processId}, buffer {bufferFrames} frames)");
-        return true;
+            _audioClient = audioClient;
+            _captureClient = captureClient;
+            _sampleReady = sampleReady;
+            _log.Info(
+                $"Application audio capture started for '{_applicationPath}' (PID {_processId}, buffer {bufferFrames} frames)");
+            return true;
+        }
+        finally
+        {
+            ReleaseComObject(asyncOp);
+        }
     }
 
     /// <summary>
@@ -467,7 +488,7 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
     /// The <c>IActivateAudioInterfaceCompletionHandler</c> implementation that captures
     /// the activated audio client and signals the waiting start.
     /// </summary>
-    private sealed class ActivationHandler : IActivateAudioInterfaceCompletionHandler
+    private sealed class ActivationHandler : IActivateAudioInterfaceCompletionHandler, IDisposable
     {
         /// <summary>
         /// Signaled once the activation callback ran.
@@ -502,8 +523,20 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
             }
             finally
             {
-                Completed.Set();
+                try
+                {
+                    Completed.Set();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
             }
+        }
+
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+            Completed.Dispose();
         }
     }
 }

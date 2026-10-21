@@ -79,6 +79,11 @@ public class DualSenseDevice : ControllerDevice
     /// </summary>
     private int _disposed;
 
+    /// <summary>
+    /// Whether this controller has been disposed.
+    /// </summary>
+    public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+
     /// <inheritdoc/>
     public override ControllerType ControllerType
     {

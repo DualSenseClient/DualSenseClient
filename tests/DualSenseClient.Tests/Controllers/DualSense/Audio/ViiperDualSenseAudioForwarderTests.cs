@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.DualSense.Triggers;
@@ -586,7 +586,7 @@ public class ViiperDualSenseAudioForwarderTests
     }
 
     [Test]
-    public void UpdateGameHaptics_SilentPayloadFallsBackToAudioDerived()
+    public void UpdateGameHaptics_SilentPayloadReproducesSilence()
     {
         FakeAudioOutputs fake = new FakeAudioOutputs
         {
@@ -595,16 +595,63 @@ public class ViiperDualSenseAudioForwarderTests
         using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
+        for (int i = 0; i < 8; i++)
+        {
+            forwarder.FeedPcm(MakeAudioBlock(0f));
+        }
+
+        WaitUntil(() => fake.ReportCount >= 8 && fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
+
         forwarder.UpdateGameHaptics(MakeRearPcm(0x00));
-        forwarder.FeedPcm(AudioBlock);
-        WaitUntil(() => fake.ReportCount >= 12, TimeSpan.FromSeconds(3));
+        for (int i = 0; i < 4; i++)
+        {
+            forwarder.FeedPcm(AudioBlock);
+        }
+
+        WaitUntil(() => fake.ReportCount >= 16, TimeSpan.FromSeconds(3));
 
         byte[] frame = fake.LastHapticsFrame;
-        Assert.Multiple(() =>
+        Assert.That(frame.All(b => b == 0), Is.True,
+            "a silent game payload must produce silence and not fall back to audio-derived haptics");
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void UpdateGameOutputState_UngatedRumbleBytesAreIgnored()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
         {
-            Assert.That(frame.Distinct().Count(), Is.EqualTo(1), "a silent game payload must not suppress the audio-derived haptics");
-            Assert.That(frame.Max(b => (sbyte)b), Is.GreaterThan(0), "the audio-derived haptics must still drive the voice coils");
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        // Stale motor bytes while rumble selector flags are clear (e.g. trigger-only write)
+        forwarder.UpdateGameOutputState(new SetStateData
+        {
+            ValidFlag0 = ValidFlags.AllowRightTriggerFfb,
+            RumbleLeft = 0x7F,
+            RumbleRight = 0x7F
         });
+
+        for (int i = 0; i < 8; i++)
+        {
+            forwarder.FeedPcm(MakeAudioBlock(0f));
+        }
+
+        WaitUntil(() => fake.ReportCount >= 8 && fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
+
+        for (int i = 0; i < 4; i++)
+        {
+            forwarder.FeedPcm(MakeAudioBlock(0f));
+        }
+
+        WaitUntil(() => fake.ReportCount >= 16, TimeSpan.FromSeconds(3));
+
+        byte[] frame = fake.LastHapticsFrame;
+        Assert.That(frame.All(b => b == 0), Is.True,
+            "stale motor bytes when rumble is not selected must not be synthesized into haptics");
 
         forwarder.Stop();
     }

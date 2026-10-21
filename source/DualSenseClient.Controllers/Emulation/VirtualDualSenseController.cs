@@ -106,6 +106,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         DeviceHandle = handle;
         LibVIIPER.SetDualSenseOutputCallback(handle, _outputStateCallback);
         LibVIIPER.SetDualSenseRealtimeHapticsCallback(handle, _realtimeHapticsCallback);
+        Outputs.SetVibration(0, 0);
         _log.Info($"Virtual DualSense{(edge ? " Edge" : "")} created (handle=0x{handle:X})");
     }
 
@@ -409,6 +410,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         }
 
         _log.Info("Removing virtual DualSense device");
+        Outputs.SetVibration(0, 0);
         LibVIIPER.SetDualSenseOutputCallback(handle, null);
         LibVIIPER.SetDualSenseRealtimeHapticsCallback(handle, null);
         if (!LibVIIPER.RemoveDualSenseDevice(handle))

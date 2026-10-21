@@ -26,7 +26,7 @@ namespace DualSenseClient.GUI.Services;
 /// used by the reusable <see cref="DualSenseClient.GUI.Controls.DualSenseControllerView"/>.
 /// </para>
 /// </remarks>
-public sealed class ControllerIllustrationService
+public sealed class ControllerIllustrationService : IDisposable
 {
     /// <summary>
     /// The skin used when no per-controller skin is stored.
@@ -78,11 +78,38 @@ public sealed class ControllerIllustrationService
     private readonly Dictionary<string, Bitmap> _monitorBaseCache = new Dictionary<string, Bitmap>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Lightbar-tinted monitor base bitmaps, cached by file name, lightbar color, and
-    /// player LED layout.
+    /// Maximum number of lightbar-tinted monitor base bitmaps retained in memory.
+    /// At ~5.8 MB unmanaged Skia surface per bitmap (1467x1000 BGRA), 16 bitmaps
+    /// cap the tint cache to ~93 MB while leaving enough headroom for rapid
+    /// alternating colors (e.g. police flashers, charging pulse, multiple pads).
     /// </summary>
-    private readonly Dictionary<(string File, byte R, byte G, byte B, byte Leds), Bitmap> _monitorBaseTintCache =
-        new Dictionary<(string File, byte R, byte G, byte B, byte Leds), Bitmap>();
+    private const int MaxMonitorBaseTintCacheSize = 16;
+
+    /// <summary>
+    /// Lightbar-tinted monitor base bitmaps, cached by file name, lightbar color, and
+    /// player LED layout. Bounded by <see cref="MaxMonitorBaseTintCacheSize"/> using LRU eviction.
+    /// </summary>
+    private readonly Dictionary<(string File, byte R, byte G, byte B, byte Leds), LinkedListNode<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)>> _monitorBaseTintCache =
+        new Dictionary<(string File, byte R, byte G, byte B, byte Leds), LinkedListNode<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)>>();
+
+    /// <summary>
+    /// LRU tracking list for <see cref="_monitorBaseTintCache"/>. The most recently used
+    /// entry is at the head; the oldest is at the tail.
+    /// </summary>
+    private readonly LinkedList<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)> _monitorBaseTintLru =
+        new LinkedList<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)>();
+
+    /// <summary>
+    /// Synchronizes access to <see cref="_monitorBaseTintCache"/> and <see cref="_monitorBaseTintLru"/>.
+    /// </summary>
+    private readonly object _monitorBaseTintLock = new object();
+
+    /// <summary>
+    /// Cached un-tinted BGRA raw pixel buffers per monitor base file, avoiding repeated
+    /// pixel readback from Skia surfaces on cache misses.
+    /// </summary>
+    private readonly Dictionary<string, byte[]> _basePixelBuffers =
+        new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Loaded overlay sprite bitmaps, cached by sprite key (skin variant prefixed).
@@ -313,17 +340,43 @@ public sealed class ControllerIllustrationService
         string file = GetBaseFile(skin);
 
         (string file, byte red, byte green, byte blue, byte playerLeds) key = (file, red, green, blue, playerLeds);
-        if (_monitorBaseTintCache.TryGetValue(key, out Bitmap? cached))
+        lock (_monitorBaseTintLock)
         {
-            return cached;
+            if (_monitorBaseTintCache.TryGetValue(key, out LinkedListNode<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)>? node))
+            {
+                _monitorBaseTintLru.Remove(node);
+                _monitorBaseTintLru.AddFirst(node);
+                return node.Value.Value;
+            }
         }
 
         Bitmap? original = GetMonitorBase(skin ?? string.Empty);
         bool dev = string.Equals(skin, DevModeSkin, StringComparison.OrdinalIgnoreCase);
-        Bitmap? tinted = original is null ? null : TintLightbar(original, red, green, blue, playerLeds, dev);
+        Bitmap? tinted = original is null ? null : TintLightbar(file, original, red, green, blue, playerLeds, dev);
         if (tinted is not null)
         {
-            _monitorBaseTintCache[key] = tinted;
+            lock (_monitorBaseTintLock)
+            {
+                if (_monitorBaseTintCache.TryGetValue(key, out LinkedListNode<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)>? existingNode))
+                {
+                    tinted.Dispose();
+                    _monitorBaseTintLru.Remove(existingNode);
+                    _monitorBaseTintLru.AddFirst(existingNode);
+                    return existingNode.Value.Value;
+                }
+
+                while (_monitorBaseTintCache.Count >= MaxMonitorBaseTintCacheSize && _monitorBaseTintLru.Last is { } oldest)
+                {
+                    _monitorBaseTintCache.Remove(oldest.Value.Key);
+                    _monitorBaseTintLru.RemoveLast();
+                    oldest.Value.Value.Dispose();
+                }
+
+                LinkedListNode<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)> newNode =
+                    new LinkedListNode<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)>((key, tinted));
+                _monitorBaseTintLru.AddFirst(newNode);
+                _monitorBaseTintCache[key] = newNode;
+            }
         }
 
         return tinted ?? original;
@@ -336,7 +389,7 @@ public sealed class ControllerIllustrationService
     /// mask or the pixel format are unavailable. Dev Mode bases render the lightbar in
     /// black, so they are recolored from the default render's luminance instead.
     /// </summary>
-    private static Bitmap? TintLightbar(Bitmap source, byte red, byte green, byte blue, byte playerLeds, bool useSharedLuminance)
+    private Bitmap? TintLightbar(string file, Bitmap source, byte red, byte green, byte blue, byte playerLeds, bool useSharedLuminance)
     {
         List<(int X, int Y, byte Luminance)> mask = GetLightbarMask();
         if (mask.Count == 0 || source.Format != PixelFormat.Bgra8888)
@@ -347,7 +400,21 @@ public sealed class ControllerIllustrationService
         int width = source.PixelSize.Width;
         int height = source.PixelSize.Height;
         int rowBytes = width * 4;
-        byte[] buffer = ReadPixels(source, width, height, rowBytes);
+
+        byte[] template;
+        lock (_basePixelBuffers)
+        {
+            if (!_basePixelBuffers.TryGetValue(file, out byte[]? cachedTemplate))
+            {
+                cachedTemplate = ReadPixels(source, width, height, rowBytes);
+                _basePixelBuffers[file] = cachedTemplate;
+            }
+
+            template = cachedTemplate;
+        }
+
+        byte[] buffer = new byte[template.Length];
+        Buffer.BlockCopy(template, 0, buffer, 0, template.Length);
 
         for (int i = 0; i < mask.Count; i++)
         {
@@ -793,6 +860,66 @@ public sealed class ControllerIllustrationService
             }
 
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Clears and disposes all tinted monitor base bitmaps in the LRU cache.
+    /// </summary>
+    public void ClearMonitorBaseTintCache()
+    {
+        lock (_monitorBaseTintLock)
+        {
+            foreach (((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value) item in _monitorBaseTintLru)
+            {
+                item.Value.Dispose();
+            }
+
+            _monitorBaseTintCache.Clear();
+            _monitorBaseTintLru.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Disposes all cached bitmaps and frees unmanaged Skia surface allocations.
+    /// </summary>
+    public void Dispose()
+    {
+        ClearMonitorBaseTintCache();
+
+        lock (_basePixelBuffers)
+        {
+            _basePixelBuffers.Clear();
+        }
+
+        foreach (Bitmap bitmap in _monitorBaseCache.Values)
+        {
+            bitmap.Dispose();
+        }
+
+        _monitorBaseCache.Clear();
+
+        foreach (Bitmap bitmap in _bitmapCache.Values)
+        {
+            bitmap.Dispose();
+        }
+
+        _bitmapCache.Clear();
+
+        foreach (Bitmap bitmap in _spriteCache.Values)
+        {
+            bitmap.Dispose();
+        }
+
+        _spriteCache.Clear();
+
+        lock (_micLedSpriteLock)
+        {
+            if (_micLedSprite is { } micSprite)
+            {
+                micSprite.Dispose();
+                _micLedSprite = null;
+            }
         }
     }
 }

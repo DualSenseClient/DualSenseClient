@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Core.Utilities;
@@ -255,6 +255,16 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
     private SetStateData? _gameState;
 
     /// <summary>
+    /// Target rumble motor strengths (0-255) derived from <see cref="_gameState"/> only
+    /// when the game's output state explicitly selected rumble emulation. When rumble
+    /// is not gated on, targets stay zero so stale motor bytes do not vibrate. Guarded by
+    /// <see cref="_sync"/>.
+    /// </summary>
+    private byte _rumbleLeftTarget;
+
+    private byte _rumbleRightTarget;
+
+    /// <summary>
     /// Phase (in cycles) of the rumble-emulation haptics oscillators, advanced once per
     /// 3 kHz haptics sample so the waveform stays continuous across report boundaries.
     /// </summary>
@@ -503,6 +513,15 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
         lock (_sync)
         {
             _gameState = state;
+            bool rumbleSelected = (state.ValidFlag0 & (ValidFlags.EnableRumbleEmulation | ValidFlags.UseRumbleNotHaptics)) != 0
+                                  || (state.ValidFlag2 & ValidFlags.EnableImprovedRumbleEmu) != 0;
+            if (!rumbleSelected && state.ValidFlag0 == ValidFlags.None && state.ValidFlag1 == ValidFlags.None && state.ValidFlag2 == ValidFlags.None)
+            {
+                rumbleSelected = state.RumbleLeft > 0 || state.RumbleRight > 0;
+            }
+
+            _rumbleLeftTarget = rumbleSelected ? state.RumbleLeft : (byte)0;
+            _rumbleRightTarget = rumbleSelected ? state.RumbleRight : (byte)0;
         }
     }
 
@@ -564,6 +583,10 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
             _audioRing.Clear();
             _btStreamPrimed = false;
             _lastGameHapticsTimestamp = 0;
+            _rumbleLeftTarget = 0;
+            _rumbleRightTarget = 0;
+            _rumbleLeftMagnitude = 0;
+            _rumbleRightMagnitude = 0;
         }
     }
 
@@ -748,9 +771,9 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
     /// <summary>
     /// Copies the freshest realtime-haptics payload into <paramref name="destination"/>
     /// if one was delivered recently. A payload is fresh while its timestamp is within
-    /// <see cref="GameHapticsFreshWindowTicks"/> and silent (all zero) payloads are
-    /// ignored, so the derived haptics remain the fallback the moment the game stops
-    /// driving the haptics channels. Caller must hold <see cref="_sync"/>.
+    /// <see cref="GameHapticsFreshWindowTicks"/>. Silent (all zero) payloads are
+    /// preserved so the game's intentional silence is respected rather than falling back
+    /// to audio haptics. Caller must hold <see cref="_sync"/>.
     /// </summary>
     private bool TryGetFreshGameHaptics(Span<byte> destination)
     {
@@ -761,7 +784,7 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
         }
 
         _gameHapticsPcm.CopyTo(destination);
-        return destination.ContainsAnyExcept((byte)0);
+        return true;
     }
 
     /// <summary>
@@ -837,10 +860,16 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
     /// </summary>
     private SetStateData CreateAudioState()
     {
-        SetStateData game = _gameState ?? new SetStateData();
+        byte[] raw = new byte[SetStateData.PayloadSize];
+        if (_gameState is { } g)
+        {
+            g.CopyTo(raw, 0);
+        }
+
+        SetStateData game = new SetStateData(raw, 0);
 
         // Recompute the flags from the game's bytes every tick: the `with` expression
-        // below writes through the shared raw buffer, so the merge must be idempotent.
+        // below writes through the cloned raw buffer, so the merge is safe and idempotent.
         ValidFlags flag0 = (game.ValidFlag0 & ~(ValidFlags.EnableRumbleEmulation | ValidFlags.UseRumbleNotHaptics))
                            | ValidFlags.AllowSpeakerVolume | ValidFlags.AllowHeadphoneVolume
                            | ValidFlags.AllowAudioControl;
@@ -866,18 +895,20 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
     /// summed into both haptics channels, clamped to the s8 range. The magnitudes are
     /// exponentially smoothed (about 50 ms) so strength changes ramp instead of
     /// clicking. While the audio lane is open the pad ignores the state block's motor
-    /// bytes, so this is the only rumble path during streaming. Caller must hold
-    /// <see cref="_sync"/>.
+    /// bytes, so this is the only rumble path during streaming. Stale motor bytes are
+    /// ignored when rumble is not selected. Caller must hold <see cref="_sync"/>.
     /// </summary>
     private void MixRumbleIntoHaptics()
     {
-        if (_gameState is not { } game)
+        byte leftTarget = _rumbleLeftTarget;
+        byte rightTarget = _rumbleRightTarget;
+
+        if (leftTarget == 0 && rightTarget == 0 && _rumbleLeftMagnitude < 0.001f && _rumbleRightMagnitude < 0.001f)
         {
+            _rumbleLeftMagnitude = 0f;
+            _rumbleRightMagnitude = 0f;
             return;
         }
-
-        byte leftTarget = game.RumbleLeft;
-        byte rightTarget = game.RumbleRight;
 
         // Haptics sample rate: 32 frames per 512/48000 s tick = 3 kHz.
         const double rate = DualSenseBtAudioPipeline.HapticsFrames
@@ -909,12 +940,14 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
 
     /// <summary>
     /// Expands a stereo PCM block into the quad S16 USB representation: channels 1/2
-    /// carry the audio, channels 3/4 carry the audio scaled by the haptic strength â€”
-    /// or silence when haptics are disabled.
+    /// carry the audio, channels 3/4 carry the audio scaled by the haptic strength
+    /// when audio-based haptics are enabled — or silence otherwise so speaker audio
+    /// does not leak into the physical voice coils.
     /// </summary>
     private void ToUsbQuadS16(ReadOnlySpan<short> stereo, Span<short> quad)
     {
         float strength = _hapticsEnabled ? _hapticStrength : 0f;
+        bool audioHaptics = _hapticsEnabled && _forceAudioHaptics;
         for (int f = 0; f < DualSenseBtAudioPipeline.FramesPerBlock; f++)
         {
             int o = f * 4;
@@ -922,8 +955,8 @@ public sealed class ViiperDualSenseAudioForwarder : IDisposable
             short right = stereo[f * 2 + 1];
             quad[o] = left;
             quad[o + 1] = right;
-            quad[o + 2] = (short)Math.Clamp(left * strength, short.MinValue, short.MaxValue);
-            quad[o + 3] = (short)Math.Clamp(right * strength, short.MinValue, short.MaxValue);
+            quad[o + 2] = audioHaptics ? (short)Math.Clamp(left * strength, short.MinValue, short.MaxValue) : (short)0;
+            quad[o + 3] = audioHaptics ? (short)Math.Clamp(right * strength, short.MinValue, short.MaxValue) : (short)0;
         }
     }
 

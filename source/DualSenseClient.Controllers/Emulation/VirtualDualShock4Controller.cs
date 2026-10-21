@@ -193,6 +193,7 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
         // the haptics PCM) instead.
         SetStateData payload = new SetStateData
         {
+            ValidFlag0 = (rumbleLarge > 0 || rumbleSmall > 0) ? ValidFlags.EnableRumbleEmulation : ValidFlags.None,
             RumbleLeft = rumbleLarge,
             RumbleRight = rumbleSmall,
             ValidFlag1 = ValidFlags.AllowLedColor | ValidFlags.AllowPlayerIndicators,
@@ -215,6 +216,7 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
         }
 
         _log.Info("Removing virtual DualShock 4 device");
+        Outputs.SetVibration(0, 0);
         LibVIIPER.SetDS4OutputCallback(handle, null);
         if (!LibVIIPER.RemoveDS4Device(handle))
         {
