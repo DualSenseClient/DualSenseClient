@@ -49,19 +49,29 @@ public partial class InputMonitorPage : UserControl
         InitializeComponent();
         _viewModel = App.Services.GetRequiredService<InputMonitorPageViewModel>();
         DataContext = _viewModel;
+    }
 
+    /// <summary>
+    /// Subscribes to the ViewModel and item notifications when the page is loaded into the visual tree.
+    /// </summary>
+    protected override void OnLoaded(RoutedEventArgs e)
+    {
+        base.OnLoaded(e);
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
         SubscribeItem(_viewModel.CurrentDevice);
         UpdateGraphs();
     }
 
     /// <summary>
-    /// Turns off any active output-test effects (vibration / adaptive triggers) when the
-    /// page is unloaded so the controller is not left buzzing or with trigger force applied.
+    /// Turns off any active output-test effects (vibration / adaptive triggers) and releases
+    /// event subscriptions when the page is unloaded so the controller is not left buzzing
+    /// and the page is freed from memory.
     /// </summary>
     protected override void OnUnloaded(RoutedEventArgs e)
     {
         _item?.ResetTestOutputs();
+        _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        SubscribeItem(null);
         base.OnUnloaded(e);
     }
 

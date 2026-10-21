@@ -598,6 +598,15 @@ public sealed class DualSenseControllerView : Canvas
     public event EventHandler<ButtonType>? ButtonClicked;
 
     /// <summary>
+    /// Re-subscribes to the state when the view enters the visual tree.
+    /// </summary>
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        Rebuild();
+    }
+
+    /// <summary>
     /// Releases the state subscription when the view leaves the visual tree.
     /// </summary>
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)

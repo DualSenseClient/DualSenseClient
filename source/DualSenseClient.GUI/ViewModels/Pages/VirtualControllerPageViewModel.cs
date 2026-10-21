@@ -36,7 +36,7 @@ namespace DualSenseClient.GUI.ViewModels.Pages;
 /// controller in the emulation settings section and applied live through
 /// <see cref="IEmulationService.ApplyButtonMappings"/> without recreating the device.
 /// </remarks>
-public partial class VirtualControllerPageViewModel : ObservableObject
+public partial class VirtualControllerPageViewModel : ObservableObject, IDisposable
 {
     /// <summary>
     /// Logger instance.
@@ -82,6 +82,11 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// save happens only after changes stop.
     /// </summary>
     private readonly DispatcherTimer _emulationSaveTimer;
+
+    /// <summary>
+    /// Tracks the previous device item so its event subscriptions are released on replacement.
+    /// </summary>
+    private DeviceInfoItem? _previousItem;
 
     /// <summary>
     /// Tracks the previous monitor state so its event subscriptions are released on replacement.
@@ -1821,10 +1826,12 @@ public partial class VirtualControllerPageViewModel : ObservableObject
     /// </summary>
     private void UpdateDevice()
     {
+        _previousItem?.Dispose();
         _previousMonitorState?.Dispose();
 
         ControllerItem? selected = _mainViewModel.SelectedItem;
         CurrentDevice = selected is not null ? new DeviceInfoItem(selected) : null;
+        _previousItem = CurrentDevice;
         MonitorState = selected is not null ? new InputMonitorItem(selected) : null;
         _previousMonitorState = MonitorState;
 
@@ -1903,5 +1910,22 @@ public partial class VirtualControllerPageViewModel : ObservableObject
         }
 
         _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, GetEmulationSettings());
+    }
+
+    /// <summary>
+    /// Disposes the ViewModel, releasing event subscriptions and cached device items.
+    /// </summary>
+    public void Dispose()
+    {
+        _emulation.StateChanged -= OnEmulationStateChanged;
+        _mainViewModel.PropertyChanged -= OnMainViewModelPropertyChanged;
+        _emulationSaveTimer.Stop();
+        _previousItem?.Dispose();
+        _previousItem = null;
+        _previousMonitorState?.Dispose();
+        _previousMonitorState = null;
+        CurrentDevice = null;
+        MonitorState = null;
+        GC.SuppressFinalize(this);
     }
 }
