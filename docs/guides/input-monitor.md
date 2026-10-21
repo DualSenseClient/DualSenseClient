@@ -1,47 +1,35 @@
-﻿# Input Monitor
+﻿# Input Monitoring
 
-The Input Monitor page shows a live view of everything your controller reports, updated in real time.
+Live input is shown on the **Device Info** page. The controller illustration updates in real time, and the **Input Data** expander lists the current values for the sticks, triggers, touchpad, and motion sensors.
 
-## What Is Monitored
+![Input Data section on the Device Info page](../assets/images/input-monitor.png)
 
-- **Buttons** — every button on the controller
-- **Sticks** — both analog stick positions
-- **Triggers** — L2/R2 analog values
-- **Motion sensors** — live gyro and accelerometer graphs
-- **Touchpad** — touch positions and clicks
+## Live Controller View
 
-![Input monitor with motion graphs](../assets/images/input-monitor.png)
+- **Buttons** — every button on the controller lights up on the illustration as it is pressed.
+- **Sticks** — the stick positions are drawn on the illustration.
+- **Triggers** — L2/R2 travel is reflected on the illustration.
+- **Touchpad** — touch positions and clicks are shown on the touchpad.
+- **Edge controls** — on a DualSense Edge, the FnL, FnR, L4, and R4 indicators light when pressed.
 
-## Live Status & Connection
+With several controllers connected at once, use the **controller picker** in the title bar to switch which device is being monitored.
 
-A status strip at the top of the page shows the controller name and type, the current **polling rate** (Hz), and a pulsing **Live** badge when reports are arriving (or **Waiting** otherwise). The current **connection type** (USB or Bluetooth) is detected automatically.
+## Input Data
 
-With several controllers connected at once, use the **controller picker** in the title bar to switch which device you are monitoring.
+Expand **Input Data** to see the live numeric values:
 
-## Visualization
+- L2 and R2 trigger positions
+- Left and right stick X/Y axes
+- Touch 1 and Touch 2 positions
+- Gyroscope X/Y/Z
+- Accelerometer X/Y/Z
 
-- A skin-tinted controller view reflects the live input.
-- **Edge paddles and Fn buttons** — on a DualSense Edge, indicators for FnL, FnR, L4, and R4 light when pressed.
-- Toggles let you show/hide the **lightbar LEDs** and the **statistics/motion graphs**.
-
-## Motion
-
-When statistics are shown, two live graphs display:
-
-- **Gyroscope** — X, Y, Z
-- **Accelerometer** — X, Y, Z
-
-## Output Test
-
-Below the visualization, an **Output Test** section lets you exercise the motors without launching a game:
-
-- **Vibration** — independent enable toggles and 0 – 255 strength sliders for the left and right motors.
-- **Adaptive triggers** — per-trigger (L2/R2) effect modes and parameters; see [Rumble & Triggers](rumble-and-triggers.md) for the mode table and slider ranges (Force 0 – 255, Frequency 0 – 15, Start/End).
-
-## Audio Player
-
-The **Audio Player** at the bottom is the same player documented in [Audio Playback](audio.md): open a file, use the transport bar, and choose desktop speakers vs. controller outputs. Note that speaker and headset cannot run at the same time as controller outputs — the output selector enforces this.
+The controller's current **polling rate** is shown in its own row on the Device Info page.
 
 !!! tip
-    The input monitor is handy for diagnosing stick drift, verifying trigger travel, or just confirming button prompts map correctly in games.
+    Input monitoring is handy for diagnosing stick drift, verifying trigger travel, or confirming that button prompts map correctly in games.
 
+## Related Controls
+
+- **Rumble and adaptive trigger output tests** are on the [Customization page](rumble-and-triggers.md).
+- **Audio playback** is on the [Emulation page](audio.md#audio-player).

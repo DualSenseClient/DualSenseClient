@@ -17,7 +17,7 @@ The PlayStation 5 **DualSense** and **DualSense Edge** controllers, over USB and
 
 ### Can I use multiple controllers at once?
 
-Yes. The app supports multiple connected controllers, with an in-window controller picker for switching between them. Profiles can be bound to specific controllers by MAC address so each one gets its own settings automatically.
+Yes. The app supports multiple connected controllers, with an in-window controller picker for switching between them. Profiles can be assigned to specific controllers by MAC address on the Device Info page so each one gets its own settings automatically.
 
 ### Is it safe for my controller?
 
@@ -59,7 +59,7 @@ No. The app can _display_ firmware versions on the [Device Information](guides/d
 
 ### How does virtual controller emulation help in games?
 
-Games that only recognize certain controller types (or that handle rumble/trigger feedback better for one type) can be given an emulated Xbox 360, DualShock 4, or DualSense device that mirrors your physical controller. See the [Virtual Controller guide](guides/virtual-controller.md).
+Games that only recognize certain controller types (or that handle rumble/trigger feedback better for one type) can be given an emulated Xbox 360, DualShock 4, or DualSense device that mirrors your physical controller. See the [Emulation guide](guides/virtual-controller.md).
 
 ### My game sees two controllers / inputs are doubled
 
@@ -67,11 +67,15 @@ Enable [controller hiding](guides/controller-hiding.md) so games only see the vi
 
 ### What are Special Actions?
 
-Button combinations (exact match) or single-finger touchpad swipes that trigger effects: disconnect over Bluetooth, set the lightbar/LEDs, play a sound (speaker or headset, with optional haptics), or show the battery level as 10 lightbar colors. Each action is enabled per controller and has its own hold time, duration, and apply-while-held behavior. See the [Special Actions guide](guides/special-actions.md).
+Button combinations (exact match) or single-finger touchpad swipes that trigger effects: disconnect over Bluetooth, set the lightbar/LEDs, play a sound (speaker or headset, with optional haptics), or show the battery level on the lightbar, player LEDs, and/or a desktop notification. Each action is enabled per controller and has its own hold time, duration, and apply-while-held behavior. See the [Special Actions guide](guides/special-actions.md).
 
 ### What themes are available?
 
-System (follows the OS), Light, Dark, Amoled (true black for OLED), and Playstation (deep blue PS5-style accent). They are listed on the [Settings](guides/settings.md) page.
+System (follows the OS), Light, Dark, AMOLED (true black for OLED), and PlayStation (deep blue PS5-style accent). They are listed on the [Settings](guides/settings.md) page.
+
+### Does the app update itself?
+
+It can check for updates. Open **Settings → Updates** to choose the stable or nightly channel and enable automatic daily checks. When an update is available, the **Update** button in the Settings header downloads and installs it. See [Settings](guides/settings.md#updates).
 
 ### Can I control the app without opening the window?
 
@@ -83,13 +87,13 @@ Yes — both are on the [Device Information](guides/device-info.md) page. The na
 
 ### How does button remapping work?
 
-On the [Virtual Controller](guides/virtual-controller.md) page, select source buttons on the illustrated controller (including Edge paddles on a DualSense Edge), pick one or more virtual targets, optionally choose the trigger output mode for single L2/R2, and assign. Multiple targets can be pressed together; use **None** to suppress a source button.
+On the [Emulation](guides/virtual-controller.md) page, select source buttons on the illustrated controller (including Edge paddles on a DualSense Edge), pick one or more virtual targets, optionally choose the trigger output mode for single L2/R2, and assign. Multiple targets can be pressed together; use **None** to suppress a source button.
 
 ---
 
 ## Troubleshooting
 
-My problem isn't listed here — where do I start?
+### My problem isn't listed here — where do I start?
 
 Head to the [Troubleshooting](troubleshooting.md) page. If nothing helps, please [open an issue](https://github.com/DualSenseClient/DualSenseClient/issues) and attach your log file (see [Logs](troubleshooting.md#logs)).
 

@@ -1,26 +1,25 @@
 ﻿# Light Control
 
-DualSense Client gives you full control over the controller's lighting: the RGB lightbar, the five player LEDs, and the microphone LED.
+DualSense Client gives you full control over the controller's lighting: the RGB lightbar, the five player LEDs, and the microphone LED. The controls live in the profile editor under **Customization → Profiles**.
 
 ## Lightbar
 
 The lightbar supports full RGB color control:
 
-- **Color picker** — pick any color visually
-- **Sliders** — fine-tune individual color channels
-- **Presets** — quick one-click colors
-- **Reset** — restore the controller's default lighting
+- **Color picker** — pick a color visually, with a spectrum and a palette of standard colors
+- **Sliders** — fine-tune the red, green, and blue channels
+- **Profile color swatch** — the selected profile's color is shown in the profile list and dropdown
 
-![Light control with color picker](../assets/images/light-control.png)
+![Lightbar controls in the profile editor](../assets/images/light-control.png)
 
 !!! tip
-    Once you have a look you like, save it as a [profile](profiles.md) so it is applied automatically whenever that controller connects.
+    Put the look you want in a [profile](profiles.md) and assign it to the controller on the Device Info page, so it is applied automatically whenever that controller connects.
 
 ## Player LEDs
 
-Toggle each of the five player indicator LEDs individually. This is the same set of lights used on the PS5 to show player slots (1–4 plus the extra LED).
+Toggle each of the five player indicator LEDs individually, or use the **Player 1 – 5** presets. This is the same set of lights used on the PS5 to show player slots (1–4 plus the extra LED).
 
-![Player LED toggles](../assets/images/player-leds.png)
+![Player LED toggles in the profile editor](../assets/images/player-leds.png)
 
 !!! note "Depends on controller generation"
     The available controls depend on the connected controller's hardware generation (see [Firmware & Hardware](device-info.md#firmware-hardware)):
@@ -41,5 +40,4 @@ Configure how the microphone LED behaves:
 
 ---
 
-Changes are applied to the controller immediately. To keep them between sessions, bind them to a [profile](profiles.md).
-
+Edits to the profile assigned to the selected controller are applied immediately. Profiles are saved automatically — assign one on the [Device Info](device-info.md) page to apply it on connection.

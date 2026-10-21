@@ -1,28 +1,31 @@
 ﻿# Profiles
 
-Profiles store your controller's settings and can be bound to specific controllers, so your setup is applied automatically every time a controller connects.
+Profiles store a controller's lighting settings: the lightbar color, microphone LED mode, and player LEDs. They are global, and each controller can be assigned one profile that is applied automatically every time it connects.
 
-## Creating a Profile
+## Creating and Editing a Profile
 
-Create profiles from the Profiles page. You can:
+Open **Customization → Profiles**. You can:
 
-- **Create** a new profile from scratch
-- **Duplicate** an existing profile to use as a starting point
-- **Rename** and **delete** profiles at any time
-- **Save the selected controller's current light state** as a profile — set up your [lighting](light-control.md) exactly how you want it, then capture it
+- **Create** a new profile with the **+** button
+- **Duplicate** the selected profile to use as a starting point
+- **Rename** it in the name field
+- **Delete** it with the delete button
 
-![Profiles page](../assets/images/profiles.png)
+The profile editor contains the [lightbar and player LED controls](light-control.md). Select a profile from the dropdown to edit it.
+
+![Profile editor on the Customization page](../assets/images/profiles.png)
+
+Edits to the profile currently assigned to the selected controller are applied immediately. Profiles are saved automatically.
 
 ## Binding Profiles to Controllers
 
-Each profile can be bound to a specific controller by **MAC address** (with a device path fallback if the MAC is unavailable).
+Assign a profile on the **Device Info** page under **Assigned Profile**. Each controller is identified by **MAC address**, with a device path fallback when the MAC is unavailable.
 
-When a bound controller connects, its profile is **applied automatically**. You can also reapply the active profile manually at any time.
+When an assigned controller connects, its profile is **applied automatically**. Use **Re-apply profile** on the Device Info page to push the assigned profile to the controller again.
 
 !!! tip
-    Binding by MAC address means you can own multiple controllers with different lighting setups — for example one per player — and each gets its own look the moment it connects.
+    Assigning by MAC address means you can own multiple controllers with different lighting setups — for example one per player — and each gets its own look the moment it connects.
 
 ## Switching Profiles Automatically
 
 To change profiles based on the focused program instead of the connected controller, use [Auto Profiles](auto-profiles.md) — for example a different profile (and virtual controller mode) per game.
-

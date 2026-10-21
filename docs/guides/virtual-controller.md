@@ -1,6 +1,9 @@
-﻿# Virtual Controller
+﻿# Emulation
 
-DualSense Client can create a **virtual controller** that mirrors your physical DualSense, letting games see whichever controller type they handle best.
+The **Emulation** page creates a **virtual controller** that mirrors your physical DualSense, letting games see whichever controller type they handle best.
+
+!!! note
+    Virtual controller emulation is currently **Windows-only**. The Emulation page is still visible on Linux, but the controls are disabled and no virtual device is created.
 
 ## Emulated Controller Types
 
@@ -10,7 +13,7 @@ DualSense Client can create a **virtual controller** that mirrors your physical 
 | DualShock 4                  | Native PlayStation-style prompts in supporting games |
 | DualSense (Standard or Edge) | Exposes haptics and adaptive triggers to the host    |
 
-The virtual device **mirrors the physical controller's input**, while rumble, lightbar, and trigger feedback from the host is **forwarded back** to your physical controller.
+The virtual device **mirrors the physical controller's input**, while rumble, lightbar, and trigger feedback from the host is **forwarded back** to your physical controller. DualShock 4 emulation also offers a V1/V2 hardware variant; DualSense emulation offers Standard/Edge.
 
 ## Requirements
 
@@ -22,25 +25,18 @@ libVIIPER — the emulation backend — is bundled with the app. You only need t
 
 === "Linux"
 
-    Install `usbip`:
-
-    ```bash
-    # Arch
-    sudo pacman -S usbip
-
-    # Ubuntu/Debian
-    sudo apt install linux-tools-generic
-    ```
+    Virtual controller emulation is not yet supported on Linux. The `usbip` package will be needed once support is enabled.
 
 If no virtual device appears after enabling emulation, see [Virtual Controller Does Not Appear](../troubleshooting.md#virtual-controller-does-not-appear).
 
 ## Enabling & Configuring
 
 1. Connect your physical controller
-2. Open its device page (or the tray menu) and enable emulation with your preferred controller type
-3. Settings are applied per controller automatically on connection
+2. Open the **Emulation** page
+3. Turn on **Virtual Controller** and choose an emulation mode
+4. Choose the hardware variant when the mode offers one
 
-To switch the emulation mode automatically per program, use [Auto Profiles](auto-profiles.md).
+Settings are stored per controller and applied automatically on connection. To switch the emulation mode automatically per program, use [Auto Profiles](auto-profiles.md).
 
 ![Virtual controller emulation options](../assets/images/virtual-controller.png)
 
@@ -75,26 +71,35 @@ Other mapping actions:
 
 If no mapping is desired, leave the editor empty — the default one-to-one mapping applies.
 
-## Host Audio Forwarding
+## Audio Forwarding
 
-When emulating a DualSense or DualShock 4, the virtual device exposes audio interfaces to the host: game audio can be forwarded to your **physical controller's speaker or headset**, with volume and haptic-strength controls.
+Host audio can be forwarded to your **physical controller's speaker or headset**, with volume and haptic-strength controls. These settings live under **Customization → Audio Forwarding**, not in the emulation section.
 
-Available under the emulation options as **Forwarded Audio Output** (Speaker vs. Headset), **Audio Volume** (0 – 255), and **Forward Haptics** (0 – 200).
+![Audio Forwarding settings on the Customization page](../assets/images/audio-forwarding-customization.png)
 
-!!! note
-    Forwarded-audio sliders apply to desktop sounds routed through the app.
+- **Forwarded Audio Output** — `Speaker` or `Headset`.
+- **Forwarded Audio Volume** — 0 – 255.
+- **Forwarded Haptic Strength** — 0 – 200.
+- **Audio-based haptics** — derive vibration from the forwarded audio instead of the game's own haptics. The haptic-strength slider always applies to audio-based haptics. Only applies to DualSense emulation over Bluetooth.
 
-### Capture System Audio
+### Audio Sources
 
-By default, only audio a game plays through the **virtual controller** is forwarded. Enable **Capture system audio** to instead forward whatever plays on your **system's default output device** — the game never needs to select the virtual controller, and desktop sound, music, or voice chat reaches the pad as well.
+Choose what feeds the forwarding from the **Audio source** dropdown:
 
-- Works **without a virtual controller**: system audio is routed directly to the physical controller, in any emulation mode including off (also overridable per program in [Auto Profiles](auto-profiles.md))
-- Switchable at any time, including while a game is running — the two sources are exclusive, so the virtual controller's own capture is paused while system capture is active
-- What reaches the pad is unchanged: the **Forwarded Audio Output**, **Audio Volume**, and **Forward Haptics** settings still control speaker/headset, loudness, and haptic strength
+- **Virtual controller audio** — audio a game plays through the virtual controller. The game must select the virtual controller's audio output.
+- **System output (loopback)** — whatever plays on your system's default output device. Works without a virtual controller.
+- **Specific application** (Windows 11) — capture only one application's audio, including its child processes. Works without a virtual controller.
+
+For the specific-application source, choose the application from the list of programs currently playing audio or browse for its executable file. The sources are mutually exclusive, and you can switch between them while a game is running.
+
+Audio forwarding works in any emulation mode, including off, for the system-output and specific-application sources. It can also be overridden per program in [Auto Profiles](auto-profiles.md).
+
+## Audio Player
+
+The **Audio Player** on this page plays audio files to your desktop, the controller speaker, headset, or haptics. See [Audio Playback](audio.md#audio-player).
 
 ## Status & Combining With Games
 
-The **Emulation status** text shows the lifecycle: `Idle`, `Creating…`, or `Virtual controller active: {mode}` (with the Edge variant noted when applicable). The enable toggle is disabled while a virtual device is being created or when emulation is unsupported on the platform.
+The **Emulation status** text shows the lifecycle: *No virtual controller is active.*, *Creating virtual controller…*, or *Virtual controller active: {mode}* (with the Edge variant noted when applicable). The enable toggle is disabled while a virtual device is being created or when emulation is unsupported on the platform.
 
 Games that would otherwise react to _both_ the physical and virtual controllers can be fixed by hiding the physical device — see [Controller Hiding](controller-hiding.md).
-

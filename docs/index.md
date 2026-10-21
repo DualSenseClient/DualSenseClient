@@ -2,7 +2,7 @@
 
 **DualSense Client** is an open-source management tool for the **PlayStation 5 DualSense Controller** on Windows and Linux. It provides lightbar and LED control, profile management, real-time input monitoring, rumble and adaptive trigger output, and audio playback to the controller's speaker and haptics.
 
-It can also create virtual controllers (Xbox 360, DualShock 4, or DualSense) through the embedded libVIIPER backend, and hide physical controllers from other applications via HidHide.
+It can also create virtual controllers (Xbox 360, DualShock 4, or DualSense; Windows only for now) through the embedded libVIIPER backend, and hide physical controllers from other applications via HidHide (Windows only).
 
 Built with .NET and Avalonia, it connects over USB or Bluetooth through HIDAPI with no drivers required.
 
@@ -30,23 +30,23 @@ Built with .NET and Avalonia, it connects over USB or Bluetooth through HIDAPI w
 
     ***
 
-    Battery level, firmware versions, and connection status at a glance.
+    Battery level, firmware versions, connection status, and live input data at a glance.
 
     [:material-arrow-right: Device Information](guides/device-info.md)
 
-- :material-gamepad-variant:{ .lg .middle } **Input Monitor**
+- :material-gamepad-variant:{ .lg .middle } **Input Monitoring**
 
     ***
 
-    Live view of every button, stick, trigger, motion sensor, and touchpad input.
+    Live controller view and numeric input data on the Device Info page.
 
-    [:material-arrow-right: Input Monitor](guides/input-monitor.md)
+    [:material-arrow-right: Input Monitoring](guides/input-monitor.md)
 
 - :material-vibrate:{ .lg .middle } **Rumble & Triggers**
 
     ***
 
-    Test motors and configure adaptive trigger effects for L2/R2.
+    Test motors and tune adaptive trigger effects from the Customization page.
 
     [:material-arrow-right: Rumble & Triggers](guides/rumble-and-triggers.md)
 
@@ -62,7 +62,7 @@ Built with .NET and Avalonia, it connects over USB or Bluetooth through HIDAPI w
 
     ***
 
-    Full RGB lightbar control, player LEDs, and microphone LED modes.
+    Full RGB lightbar control, player LEDs, and microphone LED modes in each profile.
 
     [:material-arrow-right: Light Control](guides/light-control.md)
 
@@ -70,7 +70,7 @@ Built with .NET and Avalonia, it connects over USB or Bluetooth through HIDAPI w
 
     ***
 
-    Create, bind, and automatically apply lighting profiles per controller.
+    Create lighting profiles and assign them to controllers from the Device Info page.
 
     [:material-arrow-right: Profiles](guides/profiles.md)
 
@@ -82,13 +82,13 @@ Built with .NET and Avalonia, it connects over USB or Bluetooth through HIDAPI w
 
     [:material-arrow-right: Special Actions](guides/special-actions.md)
 
-- :material-controller-classic:{ .lg .middle } **Virtual Controller**
+- :material-controller-classic:{ .lg .middle } **Emulation**
 
     ***
 
     Emulate an Xbox 360, DualShock 4, or DualSense controller for games.
 
-    [:material-arrow-right: Virtual Controller](guides/virtual-controller.md)
+    [:material-arrow-right: Emulation](guides/virtual-controller.md)
 
 - :material-eye-off:{ .lg .middle } **Controller Hiding**
 
@@ -102,7 +102,7 @@ Built with .NET and Avalonia, it connects over USB or Bluetooth through HIDAPI w
 
     ***
 
-    Themes, language, tray icon, and diagnostics in one place.
+    Themes, notifications, updates, tray behavior, and diagnostics in one place.
 
     [:material-arrow-right: Settings](guides/settings.md)
 
@@ -113,7 +113,7 @@ Built with .NET and Avalonia, it connects over USB or Bluetooth through HIDAPI w
 ## Quick Links
 
 - New here? Start with the [Installation guide](installation.md).
-- Looking for a specific setting? Browse the [Guides](guides/light-control.md).
+- Looking for a specific setting? Browse the [Guides](guides/device-info.md).
 - Something not working? Check [Troubleshooting](troubleshooting.md) and the [FAQ](faq.md).
 
 ---

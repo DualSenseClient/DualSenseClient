@@ -34,8 +34,6 @@ This is almost always a permissions issue: without a udev rule, only root can op
 - Restart the Bluetooth service, or remove ("forget") the controller in your system's Bluetooth settings and pair it again
 - Hold the PS button + Create button simultaneously until the lightbar rapidly flashes double blinks to put the controller into pairing mode, then pair from your system settings
 
-<!-- REVIEW NOTE: Verify the exact pairing-mode instructions against actual behavior. -->
-
 ## Runtime Errors
 
 ### Missing .NET Runtime on Windows
@@ -58,12 +56,9 @@ libVIIPER is bundled with the app, but attaching a virtual device requires the *
 
 === "Linux"
 
-    1. Install `usbip`:
-        - Arch: `sudo pacman -S usbip`
-        - Ubuntu/Debian: `sudo apt install linux-tools-generic`
-    2. Restart the application
+    Virtual controller emulation is not yet supported on Linux. The USB/IP package will be required once support is enabled.
 
-If the driver is installed but no device appears, check the VIIPER logs — USB/IP must be available for auto-attachment. See also the [Virtual Controller guide](guides/virtual-controller.md).
+If the driver is installed but no device appears, check the VIIPER logs — USB/IP must be available for auto-attachment. See also the [Emulation guide](guides/virtual-controller.md).
 
 ## Games & Double Input
 
@@ -72,7 +67,7 @@ If the driver is installed but no device appears, check the VIIPER logs — USB/
 This happens when both the physical controller and an emulated virtual controller are visible to the same game.
 
 1. Install the [HidHide](https://github.com/nefarius/HidHide) driver (Windows only)
-2. Open the physical controller's device page and enable the hide toggle
+2. Open the physical controller's Device Info page and enable the hide toggle
 
 The app whitelists itself automatically, so it keeps seeing the hidden controller while games no longer do. See the [Controller Hiding guide](guides/controller-hiding.md).
 

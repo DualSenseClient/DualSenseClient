@@ -30,7 +30,7 @@ DualSense Client
 
 ## Overview
 
-**DualSense Client** is an open-source management tool for the **PlayStation 5 DualSense Controller** on Windows and Linux. It provides lightbar and LED control, profile management, real-time input monitoring, rumble and adaptive trigger output, and audio playback to the controller's speaker and haptics. It can also create virtual controllers (Xbox 360, DualShock 4, or DualSense) through the embedded libVIIPER backend, and hide physical controllers from other applications via HidHide. Built with .NET 10 and Avalonia, it connects over USB or Bluetooth through HIDAPI with no drivers required.
+**DualSense Client** is an open-source management tool for the **PlayStation 5 DualSense Controller** on Windows and Linux. It provides lightbar and LED control, profile management, real-time input monitoring, rumble and adaptive trigger output, and audio playback to the controller's speaker and haptics. It can also create virtual controllers (Xbox 360, DualShock 4, or DualSense; Windows only for now) through the embedded libVIIPER backend, and hide physical controllers from other applications via HidHide (Windows only). Built with .NET 10 and Avalonia, it connects over USB or Bluetooth through HIDAPI with no drivers required.
 
 ## Supported Controllers
 
@@ -46,22 +46,22 @@ DualSense Client
 
 ### Light Control
 
-- Full RGB lightbar control with color picker, sliders, presets, and reset
-- Player LED control (individual toggles for all five LEDs)
+- Full RGB lightbar control with a color picker and RGB channel sliders
+- Player LED presets, plus individual toggles for all five LEDs on Generation 2/3 hardware
 - Microphone LED configuration (off / on / pulse)
 
 ### Profile Management
 
-- Create, rename, duplicate, and delete controller profiles
-- Bind profiles to specific controllers by MAC address (with device path fallback)
-- Profiles are applied automatically on connection, with a manual reapply option
-- Save the selected controller's current light state as a profile
+- Create, rename, duplicate, and delete controller lighting profiles
+- Assign profiles to specific controllers by MAC address from the Device Info page (with device path fallback)
+- Profiles are applied automatically on connection, with a manual re-apply option
+- Edit the lightbar, microphone LED, and player LEDs per profile
 
 ### Real-time Monitoring
 
-- Live input monitoring: all buttons, sticks, triggers, motion sensors (gyro/accelerometer graphs), and touchpad
+- Live controller illustration for buttons, sticks, triggers, and touchpad, plus numeric trigger, stick, touch, gyro, and accelerometer data
 - Connection type detection (USB / Bluetooth)
-- Support for multiple controllers with an in-window controller picker
+- Polling-rate display and support for multiple controllers with an in-window controller picker
 
 ### Output Control
 
@@ -70,9 +70,9 @@ DualSense Client
 
 ### Audio
 
-- Play audio files to the desktop speakers, the DualSense speaker, or the controller haptics, each independently
+- Play a loaded audio file through the desktop speakers, the controller's speaker or headset jack, and the controller haptics, in any combination
 - Opus-encoded haptics over Bluetooth, USB audio over the controller's audio endpoint
-- Speaker volume and haptic strength sliders with transport controls
+- Playback volume and haptic strength sliders with transport controls
 
 ### Device Information
 
@@ -82,15 +82,18 @@ DualSense Client
 
 ### Settings
 
-- Theme selection (System / Light / Dark)
+- Theme selection (System / Light / Dark / AMOLED / PlayStation) with an optional Mica backdrop on Windows 11
 - Language selection (English currently; additional languages supported by the localization framework)
+- Desktop notification preferences for connection, low battery, and charge events
+- Stable or nightly update channel with optional automatic daily checks
 - Configurable logging level with console and date-rotated file logging
 
 ### Virtual Controller Emulation
 
 - Create a virtual **Xbox 360**, **DualShock 4**, or **DualSense** (Standard or Edge) controller that mirrors the physical controller's input, with rumble, lightbar, and trigger feedback forwarded back
-- Per-controller emulation settings applied on connection, adjustable from the device page or the tray menu
+- Per-controller emulation settings applied on connection, adjustable from the **Emulation** page or the tray menu (currently Windows-only)
 - DualSense output exposes haptics, adaptive triggers, and audio interfaces to the host; host audio can be forwarded to the physical controller's speaker or headset with volume and haptic-strength controls
+- Choose the forwarded audio source: virtual controller audio, system-output loopback, or a specific application (Windows 11)
 - Powered by the bundled **libVIIPER** backend, which only requires the USBIP driver on the host system
 
 ### Controller Hiding
@@ -107,9 +110,9 @@ DualSense Client
 - **Linux** — no .NET installation required (self-contained build)
 - **PlayStation 5 DualSense controller** (wired USB or Bluetooth connection)
 - **HidHide** (optional, Windows only) — driver for hiding physical controllers from other applications; see [nefarius/HidHide](https://github.com/nefarius/HidHide)
-- **USB/IP** (optional, virtual controller emulation only) — libVIIPER is bundled with the app; it only needs the USB/IP driver to attach virtual devices:
+- **USB/IP** (optional, virtual controller emulation only; currently Windows-only) — libVIIPER is bundled with the app; it only needs the USB/IP driver to attach virtual devices:
     - Windows: [usbip-win2](https://github.com/vadimgrn/usbip-win2)
-    - Linux: install `usbip` (Arch: `sudo pacman -S usbip`; Ubuntu/Debian: `sudo apt install linux-tools-generic`)
+    - Linux: support is not enabled yet; install `usbip` once it is (Arch: `sudo pacman -S usbip`; Ubuntu/Debian: `sudo apt install linux-tools-generic`)
 
 ### Installation
 
@@ -155,8 +158,8 @@ Requires the .NET 10 SDK. Releases are produced automatically by CI for Windows 
 - **Controller not detected on Linux**: Check that the udev rule is installed (see the [hidapi udev rules](https://github.com/libusb/hidapi/blob/master/udev/69-hid.rules) reference above), or run the application with elevated privileges
 - **Bluetooth connection issues**: Restart the Bluetooth service or pair the controller again through your system settings
 - **Missing .NET runtime on Windows**: Install the required .NET 10 Desktop Runtime from Microsoft's website
-- **Virtual controller does not appear**: Install the USB/IP driver (Windows: [usbip-win2](https://github.com/vadimgrn/usbip-win2); Linux: `sudo pacman -S usbip` or `sudo apt install linux-tools-generic`) and restart the app
-- **A game receives double input**: Install the HidHide driver and enable the hide toggle for the physical controller on its device page
+- **Virtual controller does not appear**: Install the USB/IP driver (Windows: [usbip-win2](https://github.com/vadimgrn/usbip-win2)) and restart the app. Virtual controller emulation is currently Windows-only
+- **A game receives double input**: Install the HidHide driver and enable the hide toggle for the physical controller on its Device Info page
 
 ## Credits
 

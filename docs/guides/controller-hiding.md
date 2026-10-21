@@ -9,17 +9,17 @@ When you use [virtual controller emulation](virtual-controller.md), games may se
 
 ## How It Works
 
-- Each controller has its own **hide toggle** on its device page
+- Each controller has its own **Hide this controller** toggle on the **Device Info** page (Windows only)
 - When hidden, games and other applications no longer receive input from the physical controller
 - The app **whitelists itself** automatically, so monitoring, lighting, profiles, and everything else keep working against the hidden controller
 
-![Controller hiding toggle](../assets/images/controller-hiding.png)
+![Hide this controller row on the Device Info page](../assets/images/controller-hiding.png)
 
 ## Typical Setup for Games
 
 1. Install [HidHide](https://github.com/nefarius/HidHide) (once)
 2. Enable [virtual controller emulation](virtual-controller.md) with your preferred controller type
-3. Enable the hide toggle for the physical controller
+3. Enable the hide toggle for the physical controller on its **Device Info** page
 4. Launch your game — it now sees only the virtual controller, with rumble and trigger feedback still reaching your hands
 
 !!! tip
@@ -27,4 +27,3 @@ When you use [virtual controller emulation](virtual-controller.md), games may se
 
 !!! tip
     Hiding can be automated per program with an [auto profile rule](auto-profiles.md#creating-a-rule) — for example, hide the physical controller only while your game is focused and show it again on the desktop. The rule's hiding option appears once HidHide is installed.
-

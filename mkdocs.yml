@@ -62,14 +62,14 @@ nav:
   - Installation: installation.md
   - Guides:
       - Device Information: guides/device-info.md
-      - Input Monitor: guides/input-monitor.md
-      - Rumble & Triggers: guides/rumble-and-triggers.md
-      - Audio Playback: guides/audio.md
-      - Light Control: guides/light-control.md
+      - Input Monitoring: guides/input-monitor.md
       - Profiles: guides/profiles.md
-      - Auto Profiles: guides/auto-profiles.md
+      - Light Control: guides/light-control.md
+      - Rumble & Triggers: guides/rumble-and-triggers.md
       - Special Actions: guides/special-actions.md
-      - Virtual Controller: guides/virtual-controller.md
+      - Emulation: guides/virtual-controller.md
+      - Audio Playback: guides/audio.md
+      - Auto Profiles: guides/auto-profiles.md
       - Controller Hiding: guides/controller-hiding.md
       - Settings: guides/settings.md
   - FAQ: faq.md

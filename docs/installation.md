@@ -15,11 +15,11 @@
 Optional components:
 
 - **HidHide** (optional, Windows only) — driver for hiding physical controllers from other applications; see [nefarius/HidHide](https://github.com/nefarius/HidHide). See the [Controller Hiding guide](guides/controller-hiding.md)
-- **USB/IP** (optional, virtual controller emulation only) — libVIIPER is bundled with the app; it only needs the USB/IP driver to attach virtual devices:
+- **USB/IP** (optional, virtual controller emulation only; currently Windows-only) — libVIIPER is bundled with the app; it only needs the USB/IP driver to attach virtual devices:
     - Windows: [usbip-win2](https://github.com/vadimgrn/usbip-win2)
-    - Linux: install `usbip` (Arch: `sudo pacman -S usbip`; Ubuntu/Debian: `sudo apt install linux-tools-generic`)
+    - Linux: install `usbip` (Arch: `sudo pacman -S usbip`; Ubuntu/Debian: `sudo apt install linux-tools-generic`) — required once virtual controller support is enabled on Linux
 
-See the [Virtual Controller guide](guides/virtual-controller.md) for a full walkthrough.
+See the [Emulation guide](guides/virtual-controller.md) for a full walkthrough.
 
 You will also need a **PlayStation 5 DualSense controller**, connected via wired USB or Bluetooth.
 
