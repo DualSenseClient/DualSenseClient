@@ -1,4 +1,3 @@
-using DualSenseClient.Controllers.Emulation.UsbIp;
 using DualSenseClient.Settings.Sections;
 using DualSenseClient.Emulation;
 using DualSenseClient.Emulation.Core;
@@ -14,7 +13,7 @@ namespace DualSenseClient.Controllers.Emulation;
 /// adapter. The caller keeps the persona's lifecycle (attachment, discovery, detachment and
 /// removal) and the adapter's disposal.
 /// </summary>
-public interface IEmulationControllerFactory
+public interface IVirtualControllerFactory
 {
     /// <summary>
     /// Creates the persona device of the given mode on the given server and wraps it in the
@@ -27,7 +26,7 @@ public interface IEmulationControllerFactory
     /// <param name="vibrationV2">True when the physical controller uses the v2 rumble encoding.</param>
     /// <param name="edge">True to create a DualSense Edge persona instead of the standard DualSense (DualSense mode only).</param>
     /// <param name="ds4Variant">The DualShock 4 hardware generation to present (DualShock 4 mode only).</param>
-    EmulationControllerCreation? Create(EmulationServer server, EmulationMode mode, IDualSenseOutputs outputs, bool vibrationV2,
+    VirtualControllerCreation? Create(EmulationServer server, EmulationMode mode, IDualSenseOutputs outputs, bool vibrationV2,
         bool edge = false, DualShock4Variant ds4Variant = DualShock4Variant.V2);
 }
 
@@ -35,14 +34,14 @@ public interface IEmulationControllerFactory
 /// One created Emulation virtual controller: the adapter mirroring the physical controller and the
 /// persona device it pushes to, so the caller can tear both down together.
 /// </summary>
-public sealed class EmulationControllerCreation
+public sealed class VirtualControllerCreation
 {
     /// <summary>
     /// Initializes a creation result.
     /// </summary>
     /// <param name="controller">The adapter presenting the persona.</param>
     /// <param name="persona">The registered persona device backing the adapter.</param>
-    public EmulationControllerCreation(IVirtualController controller, VirtualUsbDevice persona)
+    public VirtualControllerCreation(IVirtualController controller, VirtualUsbDevice persona)
     {
         Controller = controller;
         Persona = persona;
@@ -60,12 +59,12 @@ public sealed class EmulationControllerCreation
 }
 
 /// <summary>
-/// Default <see cref="IEmulationControllerFactory"/> implementation.
+/// Default <see cref="IVirtualControllerFactory"/> implementation.
 /// </summary>
-public sealed class EmulationControllerFactory : IEmulationControllerFactory
+public sealed class VirtualControllerFactory : IVirtualControllerFactory
 {
     /// <inheritdoc/>
-    public EmulationControllerCreation? Create(EmulationServer server, EmulationMode mode, IDualSenseOutputs outputs, bool vibrationV2,
+    public VirtualControllerCreation? Create(EmulationServer server, EmulationMode mode, IDualSenseOutputs outputs, bool vibrationV2,
         bool edge = false, DualShock4Variant ds4Variant = DualShock4Variant.V2)
     {
         switch (mode)
@@ -76,7 +75,7 @@ public sealed class EmulationControllerFactory : IEmulationControllerFactory
                 {
                     MacAddress = CreateOwnershipMacBytes()
                 });
-                return CreateChecked(server, device, () => new EmulationDualSenseController(device, outputs, vibrationV2));
+                return CreateChecked(server, device, () => new VirtualDualSenseController(device, outputs, vibrationV2));
             }
 
             case EmulationMode.DualShock4:
@@ -88,13 +87,13 @@ public sealed class EmulationControllerFactory : IEmulationControllerFactory
                 {
                     MacAddress = CreateOwnershipMacBytes()
                 });
-                return CreateChecked(server, device, () => new EmulationDualShock4Controller(device, outputs));
+                return CreateChecked(server, device, () => new VirtualDualShock4Controller(device, outputs));
             }
 
             case EmulationMode.Xbox360:
             {
                 Xbox360Device device = server.AddXbox360();
-                return CreateChecked(server, device, () => new EmulationXbox360Controller(device, outputs));
+                return CreateChecked(server, device, () => new VirtualXbox360Controller(device, outputs));
             }
 
             default:
@@ -112,12 +111,12 @@ public sealed class EmulationControllerFactory : IEmulationControllerFactory
     /// <param name="device">The registered persona device.</param>
     /// <param name="adapterFactory">Creates the adapter presenting the persona.</param>
     /// <returns>The creation result pairing the new adapter with the persona.</returns>
-    private static EmulationControllerCreation CreateChecked(EmulationServer server, VirtualUsbDevice device,
+    private static VirtualControllerCreation CreateChecked(EmulationServer server, VirtualUsbDevice device,
         Func<IVirtualController> adapterFactory)
     {
         try
         {
-            return new EmulationControllerCreation(adapterFactory(), device);
+            return new VirtualControllerCreation(adapterFactory(), device);
         }
         catch
         {

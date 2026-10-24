@@ -1,17 +1,17 @@
-using DualSenseClient.Controllers.Emulation.UsbIp;
+using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Emulation.Devices.Xbox360;
 
-namespace DualSenseClient.Tests.Controllers.Emulation.UsbIp;
+namespace DualSenseClient.Tests.Controllers.Emulation;
 
 /// <summary>
-/// Output-side tests of <see cref="EmulationXbox360Controller"/>: a synthetic 8-byte rumble packet
+/// Output-side tests of <see cref="VirtualXbox360Controller"/>: a synthetic 8-byte rumble packet
 /// (id 0x00, size 0x08) is delivered to the persona device and must reach
 /// <see cref="IDualSenseOutputs.SetVibration"/> with the physical pad's orientation — the large
 /// (low-frequency) motor as the left value and the small (high-frequency) motor as the right value.
 /// The controller's LED packet is not a rumble command and is ignored.
 /// </summary>
 [TestFixture]
-public sealed class EmulationXbox360ControllerOutputTests
+public sealed class VirtualXbox360ControllerOutputTests
 {
     private static byte[] RumblePacket(byte left, byte right) => new byte[]
     {
@@ -23,7 +23,7 @@ public sealed class EmulationXbox360ControllerOutputTests
     {
         Xbox360Device device = new Xbox360Device(new Xbox360Identity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        _ = new EmulationXbox360Controller(device, outputs);
+        _ = new VirtualXbox360Controller(device, outputs);
 
         device.OnOutputReport(RumblePacket(0x11, 0x22));
 
@@ -40,7 +40,7 @@ public sealed class EmulationXbox360ControllerOutputTests
     {
         Xbox360Device device = new Xbox360Device(new Xbox360Identity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        _ = new EmulationXbox360Controller(device, outputs);
+        _ = new VirtualXbox360Controller(device, outputs);
 
         device.OnOutputReport(new byte[]
         {
@@ -55,7 +55,7 @@ public sealed class EmulationXbox360ControllerOutputTests
     {
         Xbox360Device device = new Xbox360Device(new Xbox360Identity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        _ = new EmulationXbox360Controller(device, outputs);
+        _ = new VirtualXbox360Controller(device, outputs);
 
         device.OnOutputReport(RumblePacket(0x11, 0x22).AsSpan(0, 7));
 

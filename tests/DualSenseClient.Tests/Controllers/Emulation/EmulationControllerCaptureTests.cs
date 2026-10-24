@@ -1,7 +1,5 @@
 using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.Emulation;
-using DualSenseClient.Controllers.Emulation.UsbIp;
-using DualSenseClient.Tests.Controllers.Emulation.UsbIp;
 using DualSenseClient.Emulation.Devices.DualSense;
 using DualSenseClient.Emulation.Devices.DualShock4;
 using DualSenseClient.Emulation.Devices.Xbox360;
@@ -23,10 +21,10 @@ namespace DualSenseClient.Tests.Controllers.Emulation;
 public sealed class EmulationControllerCaptureTests
 {
     [Test]
-    public void TryCreateControllerCapture_EmulationDualSense_ReturnsDualSenseCapture()
+    public void TryCreateControllerCapture_VirtualDualSense_ReturnsDualSenseCapture()
     {
-        using EmulationDualSenseController controller =
-            new EmulationDualSenseController(new PersonaDualSense(new DualSenseIdentity()), new RecordingDualSenseOutputs(), false);
+        using VirtualDualSenseController controller =
+            new VirtualDualSenseController(new PersonaDualSense(new DualSenseIdentity()), new RecordingDualSenseOutputs(), false);
         RecordingSink sink = new RecordingSink();
 
         IDisposable? capture = EmulationService.TryCreateControllerCapture(controller, sink);
@@ -36,10 +34,10 @@ public sealed class EmulationControllerCaptureTests
     }
 
     [Test]
-    public void TryCreateControllerCapture_EmulationDualShock4_ReturnsDualShock4Capture()
+    public void TryCreateControllerCapture_VirtualDualShock4_ReturnsDualShock4Capture()
     {
-        using EmulationDualShock4Controller controller =
-            new EmulationDualShock4Controller(new PersonaDualShock4(new DualShock4Identity()), new RecordingDualSenseOutputs());
+        using VirtualDualShock4Controller controller =
+            new VirtualDualShock4Controller(new PersonaDualShock4(new DualShock4Identity()), new RecordingDualSenseOutputs());
         RecordingSink sink = new RecordingSink();
 
         IDisposable? capture = EmulationService.TryCreateControllerCapture(controller, sink);
@@ -49,10 +47,10 @@ public sealed class EmulationControllerCaptureTests
     }
 
     [Test]
-    public void TryCreateControllerCapture_EmulationXbox360_ReturnsNull()
+    public void TryCreateControllerCapture_VirtualXbox360_ReturnsNull()
     {
-        using EmulationXbox360Controller controller =
-            new EmulationXbox360Controller(new PersonaXbox360(new Xbox360Identity()), new RecordingDualSenseOutputs());
+        using VirtualXbox360Controller controller =
+            new VirtualXbox360Controller(new PersonaXbox360(new Xbox360Identity()), new RecordingDualSenseOutputs());
         RecordingSink sink = new RecordingSink();
 
         IDisposable? capture = EmulationService.TryCreateControllerCapture(controller, sink);
@@ -63,8 +61,8 @@ public sealed class EmulationControllerCaptureTests
     [Test]
     public void TryCreateControllerCapture_NullSink_ReturnsNull()
     {
-        using EmulationDualSenseController controller =
-            new EmulationDualSenseController(new PersonaDualSense(new DualSenseIdentity()), new RecordingDualSenseOutputs(), false);
+        using VirtualDualSenseController controller =
+            new VirtualDualSenseController(new PersonaDualSense(new DualSenseIdentity()), new RecordingDualSenseOutputs(), false);
 
         IDisposable? capture = EmulationService.TryCreateControllerCapture(controller, null);
 

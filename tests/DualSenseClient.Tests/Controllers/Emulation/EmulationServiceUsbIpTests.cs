@@ -5,12 +5,10 @@ using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.Emulation;
-using DualSenseClient.Controllers.Emulation.UsbIp;
 using DualSenseClient.Controllers.SpecialActions;
 using DualSenseClient.Hid;
 using DualSenseClient.Settings;
 using DualSenseClient.Settings.Sections;
-using DualSenseClient.Tests.Controllers.Emulation.UsbIp;
 using DualSenseClient.Tests.Emulation.TestSupport;
 using DualSenseClient.Emulation;
 using DualSenseClient.Emulation.Core;
@@ -56,7 +54,7 @@ public sealed class EmulationServiceUsbIpTests
     private FakeAttachStrategy _attachStrategy = null!;
     private RecordingLogger _emulationLogger = null!;
     private List<EmulationServer> _servers = null!;
-    private RecordingEmulationControllerFactory _emulationFactory = null!;
+    private RecordingVirtualControllerFactory _virtualFactory = null!;
     private EmulationService _service = null!;
     private readonly List<PhysicalDualSense> _devices = new List<PhysicalDualSense>();
 
@@ -76,7 +74,7 @@ public sealed class EmulationServiceUsbIpTests
         };
         _emulationLogger = new RecordingLogger();
         _servers = new List<EmulationServer>();
-        _emulationFactory = new RecordingEmulationControllerFactory();
+        _virtualFactory = new RecordingVirtualControllerFactory();
 
         // The service fixture injects a null audio engine: no SoundFlow device is ever created.
         // The Emulation controller-endpoint path still creates its forwarder and capture, but
@@ -126,7 +124,7 @@ public sealed class EmulationServiceUsbIpTests
     /// <summary>Builds the service under test around the given Emulation server factory.</summary>
     private EmulationService CreateService(Func<EmulationServer> emulationServerFactory) =>
         new EmulationService(_tracker, _enumerator, _controllerInfo,
-            null!, _specialActions, new AudioApplicationService(), emulationServerFactory, _emulationFactory);
+            null!, _specialActions, new AudioApplicationService(), emulationServerFactory, _virtualFactory);
 
     /// <summary>
     /// Creates a fresh server per call on a free loopback port: the service must never reuse a
@@ -279,20 +277,20 @@ public sealed class EmulationServiceUsbIpTests
         };
         Type expectedAdapter = mode switch
         {
-            EmulationMode.DualSense => typeof(EmulationDualSenseController),
-            EmulationMode.DualShock4 => typeof(EmulationDualShock4Controller),
-            _ => typeof(EmulationXbox360Controller)
+            EmulationMode.DualSense => typeof(VirtualDualSenseController),
+            EmulationMode.DualShock4 => typeof(VirtualDualShock4Controller),
+            _ => typeof(VirtualXbox360Controller)
         };
         EmulationStatus status = _service.GetStatus(device);
 
         Assert.Multiple(() =>
         {
-            Assert.That(_emulationFactory.Creations, Has.Count.EqualTo(1));
-            Assert.That(_emulationFactory.Creations[0].Mode, Is.EqualTo(mode));
-            Assert.That(_emulationFactory.Creations[0].Edge, Is.EqualTo(dsVariant == DualSenseVariant.Edge));
-            Assert.That(_emulationFactory.Creations[0].Creation, Is.Not.Null);
-            Assert.That(_emulationFactory.Creations[0].Creation!.Persona, Is.TypeOf(expectedPersona));
-            Assert.That(_emulationFactory.Creations[0].Creation!.Controller, Is.TypeOf(expectedAdapter));
+            Assert.That(_virtualFactory.Creations, Has.Count.EqualTo(1));
+            Assert.That(_virtualFactory.Creations[0].Mode, Is.EqualTo(mode));
+            Assert.That(_virtualFactory.Creations[0].Edge, Is.EqualTo(dsVariant == DualSenseVariant.Edge));
+            Assert.That(_virtualFactory.Creations[0].Creation, Is.Not.Null);
+            Assert.That(_virtualFactory.Creations[0].Creation!.Persona, Is.TypeOf(expectedPersona));
+            Assert.That(_virtualFactory.Creations[0].Creation!.Controller, Is.TypeOf(expectedAdapter));
             Assert.That(_attachStrategy.AttachCallCount, Is.EqualTo(1), "the fake attach strategy saw the attach");
             Assert.That(_attachStrategy.AttachCalls[0].BusId, Is.EqualTo("1-1"));
             Assert.That(status.Running, Is.True);
@@ -319,7 +317,7 @@ public sealed class EmulationServiceUsbIpTests
         _service.Start();
         WaitForRunning(device);
 
-        PersonaDualSense persona = (PersonaDualSense)_emulationFactory.Creations[0].Creation!.Persona;
+        PersonaDualSense persona = (PersonaDualSense)_virtualFactory.Creations[0].Creation!.Persona;
         byte[] pairing = GetFeatureReport(persona, PairingReportId, PairingReportSize);
 
         // The pairing report serves the MAC in reverse address order (reference behaviour), so
@@ -354,7 +352,7 @@ public sealed class EmulationServiceUsbIpTests
             Assert.That(_attachStrategy.AttachCalls[0].BusId, Is.EqualTo("1-1"));
             Assert.That(_attachStrategy.AttachCalls[1].BusId, Is.EqualTo("1-1"),
                 "the failed persona was unregistered again, freeing its bus id for the retry");
-            Assert.That(_emulationFactory.Creations, Has.Count.EqualTo(2), "every attempt uses a fresh persona");
+            Assert.That(_virtualFactory.Creations, Has.Count.EqualTo(2), "every attempt uses a fresh persona");
         });
     }
 
@@ -407,7 +405,7 @@ public sealed class EmulationServiceUsbIpTests
             {
                 Assert.That(status.Running, Is.False);
                 Assert.That(status.Detail, Is.EqualTo("Could not start the Emulation server"));
-                Assert.That(_emulationFactory.Creations, Is.Empty, "a server that cannot start creates no persona");
+                Assert.That(_virtualFactory.Creations, Is.Empty, "a server that cannot start creates no persona");
             });
         }
         finally
@@ -476,9 +474,9 @@ public sealed class EmulationServiceUsbIpTests
         Assert.Multiple(() =>
         {
             Assert.That(_service.GetStatus(device).Mode, Is.EqualTo(EmulationMode.DualSense));
-            Assert.That(_emulationFactory.Creations, Has.Count.EqualTo(1),
+            Assert.That(_virtualFactory.Creations, Has.Count.EqualTo(1),
                 "the temporary override creates the overridden mode");
-            Assert.That(_emulationFactory.Creations[0].Mode, Is.EqualTo(EmulationMode.DualSense));
+            Assert.That(_virtualFactory.Creations[0].Mode, Is.EqualTo(EmulationMode.DualSense));
             Assert.That(_servers, Has.Count.EqualTo(1), "the creation went through the Emulation server");
             Assert.That(_attachStrategy.AttachCallCount, Is.EqualTo(1));
         });
@@ -503,10 +501,10 @@ public sealed class EmulationServiceUsbIpTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(_emulationFactory.Creations, Has.Count.EqualTo(2));
-            Assert.That(_emulationFactory.Creations[0].Creation!.Persona, Is.TypeOf<PersonaDualSense>());
-            Assert.That(_emulationFactory.Creations[1].Creation!.Persona, Is.TypeOf<PersonaDualShock4>());
-            Assert.That(_emulationFactory.Creations[1].Creation!.Controller, Is.TypeOf<EmulationDualShock4Controller>());
+            Assert.That(_virtualFactory.Creations, Has.Count.EqualTo(2));
+            Assert.That(_virtualFactory.Creations[0].Creation!.Persona, Is.TypeOf<PersonaDualSense>());
+            Assert.That(_virtualFactory.Creations[1].Creation!.Persona, Is.TypeOf<PersonaDualShock4>());
+            Assert.That(_virtualFactory.Creations[1].Creation!.Controller, Is.TypeOf<VirtualDualShock4Controller>());
             Assert.That(_attachStrategy.AttachCallCount, Is.EqualTo(2));
             Assert.That(_attachStrategy.DetachCallCount, Is.EqualTo(1));
             Assert.That(_servers, Has.Count.EqualTo(1), "the shared server survives a mode rebuild");
@@ -525,8 +523,8 @@ public sealed class EmulationServiceUsbIpTests
         _service.Start();
         WaitForRunning(device);
         EmulationServer server = _servers.Single();
-        EmulationDualSenseController adapter = (EmulationDualSenseController)_emulationFactory.Creations[0].Creation!.Controller;
-        PersonaDualSense persona = (PersonaDualSense)_emulationFactory.Creations[0].Creation!.Persona;
+        VirtualDualSenseController adapter = (VirtualDualSenseController)_virtualFactory.Creations[0].Creation!.Controller;
+        PersonaDualSense persona = (PersonaDualSense)_virtualFactory.Creations[0].Creation!.Persona;
 
         _service.Dispose();
 
@@ -560,7 +558,7 @@ public sealed class EmulationServiceUsbIpTests
         Assert.Multiple(() =>
         {
             Assert.That(_service.GetStatus(offDevice).Detail, Is.EqualTo("Emulation is disabled for this controller"));
-            Assert.That(_emulationFactory.Creations, Has.Count.EqualTo(1), "only the enabled profile created a persona");
+            Assert.That(_virtualFactory.Creations, Has.Count.EqualTo(1), "only the enabled profile created a persona");
             Assert.That(_servers, Has.Count.EqualTo(1), "the Off profile did not create an Emulation server");
             Assert.That(_attachStrategy.AttachCallCount, Is.EqualTo(1));
         });
@@ -593,7 +591,7 @@ public sealed class EmulationServiceUsbIpTests
         Assert.Multiple(() =>
         {
             Assert.That(_servers, Has.Count.EqualTo(1), "both entries share one server");
-            Assert.That(_emulationFactory.Creations, Has.Count.EqualTo(2));
+            Assert.That(_virtualFactory.Creations, Has.Count.EqualTo(2));
             Assert.That(_attachStrategy.AttachCalls.Select(call => call.BusId), Is.EqualTo(new[]
             {
                 "1-1", "2-1"
@@ -714,7 +712,7 @@ public sealed class EmulationServiceUsbIpTests
 
         object entry = GetEntry(device);
         DualSenseAudioForwarder forwarder = ReadField<DualSenseAudioForwarder>(entry, "Forwarder");
-        PersonaDualSense persona = (PersonaDualSense)_emulationFactory.Creations[0].Creation!.Persona;
+        PersonaDualSense persona = (PersonaDualSense)_virtualFactory.Creations[0].Creation!.Persona;
         Assert.That(ReadField<long>(forwarder, "_lastGameHapticsTimestamp"), Is.Zero,
             "a freshly created forwarder has not seen game haptics yet");
 
@@ -797,16 +795,16 @@ public sealed class EmulationServiceUsbIpTests
     }
 
     /// <summary>
-    /// <see cref="IEmulationControllerFactory"/> test double: delegates to the real factory (so
+    /// <see cref="IVirtualControllerFactory"/> test double: delegates to the real factory (so
     /// the real personas and adapters are created) and records every creation.
     /// </summary>
-    private sealed class RecordingEmulationControllerFactory : IEmulationControllerFactory
+    private sealed class RecordingVirtualControllerFactory : IVirtualControllerFactory
     {
         private readonly object _lock = new object();
-        private readonly EmulationControllerFactory _inner = new EmulationControllerFactory();
-        private readonly List<RecordedEmulationCreation> _creations = new List<RecordedEmulationCreation>();
+        private readonly VirtualControllerFactory _inner = new VirtualControllerFactory();
+        private readonly List<RecordedVirtualCreation> _creations = new List<RecordedVirtualCreation>();
 
-        public IReadOnlyList<RecordedEmulationCreation> Creations
+        public IReadOnlyList<RecordedVirtualCreation> Creations
         {
             get
             {
@@ -817,23 +815,23 @@ public sealed class EmulationServiceUsbIpTests
             }
         }
 
-        public EmulationControllerCreation? Create(EmulationServer server, EmulationMode mode, IDualSenseOutputs outputs, bool vibrationV2,
+        public VirtualControllerCreation? Create(EmulationServer server, EmulationMode mode, IDualSenseOutputs outputs, bool vibrationV2,
             bool edge = false, DualShock4Variant ds4Variant = DualShock4Variant.V2)
         {
-            EmulationControllerCreation? creation = _inner.Create(server, mode, outputs, vibrationV2, edge, ds4Variant);
+            VirtualControllerCreation? creation = _inner.Create(server, mode, outputs, vibrationV2, edge, ds4Variant);
             lock (_lock)
             {
-                _creations.Add(new RecordedEmulationCreation(mode, edge, ds4Variant, creation));
+                _creations.Add(new RecordedVirtualCreation(mode, edge, ds4Variant, creation));
             }
 
             return creation;
         }
     }
 
-    /// <summary>One creation recorded by <see cref="RecordingEmulationControllerFactory"/>.</summary>
-    private sealed class RecordedEmulationCreation
+    /// <summary>One creation recorded by <see cref="RecordingVirtualControllerFactory"/>.</summary>
+    private sealed class RecordedVirtualCreation
     {
-        public RecordedEmulationCreation(EmulationMode mode, bool edge, DualShock4Variant ds4Variant, EmulationControllerCreation? creation)
+        public RecordedVirtualCreation(EmulationMode mode, bool edge, DualShock4Variant ds4Variant, VirtualControllerCreation? creation)
         {
             Mode = mode;
             Edge = edge;
@@ -847,7 +845,7 @@ public sealed class EmulationServiceUsbIpTests
 
         public DualShock4Variant Ds4Variant { get; }
 
-        public EmulationControllerCreation? Creation { get; }
+        public VirtualControllerCreation? Creation { get; }
     }
 
     /// <summary>

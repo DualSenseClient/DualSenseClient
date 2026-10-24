@@ -72,7 +72,7 @@ public abstract class ServiceConfigurator
         services.AddSingleton<IHidDeviceEnumerator, HidDeviceEnumerator>();
         services.AddSingleton<IControllerScanner, ControllerScanner>();
         services.AddSingleton<IControllerTracker, ControllerTracker>();
-        services.AddSingleton<IEmulationControllerFactory, EmulationControllerFactory>();
+        services.AddSingleton<IVirtualControllerFactory, VirtualControllerFactory>();
 
         // Emulation engine: one server for the engine's lifetime. The factory builds a fresh server
         // (never a reused one) with the app-logger bridge for the engine's own logs and the

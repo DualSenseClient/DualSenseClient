@@ -1,10 +1,9 @@
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.DualSense.Output;
-using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Settings.Sections;
 using DualSenseClient.Emulation.Devices.DualShock4;
 
-namespace DualSenseClient.Controllers.Emulation.UsbIp;
+namespace DualSenseClient.Controllers.Emulation;
 
 /// <summary>
 /// An Emulation-backed virtual DualShock 4: mirrors the physical controller's input onto a ready
@@ -32,7 +31,7 @@ namespace DualSenseClient.Controllers.Emulation.UsbIp;
 /// is a no-op.
 /// </para>
 /// </remarks>
-public sealed class EmulationDualShock4Controller : VirtualControllerBase
+public sealed class VirtualDualShock4Controller : VirtualControllerBase
 {
     /// <summary>USB vendor ID of the virtual DualShock 4 (Sony).</summary>
     public const ushort VendorId = 0x054C;
@@ -100,7 +99,7 @@ public sealed class EmulationDualShock4Controller : VirtualControllerBase
     /// <param name="device">Ready persona device, constructed with the desired descriptor variant by the service.</param>
     /// <param name="outputs">The physical controller receiving host feedback.</param>
     /// <exception cref="ArgumentNullException"><paramref name="device"/> or <paramref name="outputs"/> is <see langword="null"/>.</exception>
-    public EmulationDualShock4Controller(DualShock4Device device, IDualSenseOutputs outputs)
+    public VirtualDualShock4Controller(DualShock4Device device, IDualSenseOutputs outputs)
         : base(outputs ?? throw new ArgumentNullException(nameof(outputs)))
     {
         ArgumentNullException.ThrowIfNull(device);
@@ -156,7 +155,7 @@ public sealed class EmulationDualShock4Controller : VirtualControllerBase
             LeftStickY = input.LeftStickY,
             RightStickX = input.RightStickX,
             RightStickY = input.RightStickY,
-            Dpad = (DualShock4DpadDirection)EmulationInputMapping.DpadToHat(mapped.DPad),
+            Dpad = (DualShock4DpadDirection)VirtualInputMapping.DpadToHat(mapped.DPad),
             LeftTrigger = mapped.LeftTrigger,
             RightTrigger = mapped.RightTrigger,
             BatteryLevel = BatteryLevelOf(_batteryRaw),

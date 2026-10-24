@@ -1,18 +1,18 @@
 using DualSenseClient.Controllers.DualSense.Output;
-using DualSenseClient.Controllers.Emulation.UsbIp;
+using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Emulation.Devices.DualShock4;
 
-namespace DualSenseClient.Tests.Controllers.Emulation.UsbIp;
+namespace DualSenseClient.Tests.Controllers.Emulation;
 
 /// <summary>
-/// Output-side tests of <see cref="EmulationDualShock4Controller"/>: a synthetic host output report
+/// Output-side tests of <see cref="VirtualDualShock4Controller"/>: a synthetic host output report
 /// 0x05 is delivered to the persona device and the adapter must honor the host's update flags. A
 /// report updates only the fields its flags enable: rumble goes to
 /// <see cref="IDualSenseOutputs.SetVibration"/> and the lightbar is rebuilt into the same payload
 /// the physical pad receives, while fields the report does not update retain their cached values.
 /// </summary>
 [TestFixture]
-public sealed class EmulationDualShock4ControllerOutputTests
+public sealed class VirtualDualShock4ControllerOutputTests
 {
     /// <summary>Report id of the host output report 0x05.</summary>
     private const byte OutputReportId = 0x05;
@@ -38,7 +38,7 @@ public sealed class EmulationDualShock4ControllerOutputTests
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        _ = new EmulationDualShock4Controller(device, outputs);
+        _ = new VirtualDualShock4Controller(device, outputs);
 
         device.OnOutputReport(Wire(0x07, 0x22, 0x33, 0x01, 0x02, 0x03, 0x07, 0x08));
 
@@ -65,7 +65,7 @@ public sealed class EmulationDualShock4ControllerOutputTests
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        EmulationDualShock4Controller controller = new EmulationDualShock4Controller(device, outputs);
+        VirtualDualShock4Controller controller = new VirtualDualShock4Controller(device, outputs);
         int events = 0;
         controller.OutputStateReceived += _ => events++;
 
@@ -84,7 +84,7 @@ public sealed class EmulationDualShock4ControllerOutputTests
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        _ = new EmulationDualShock4Controller(device, outputs);
+        _ = new VirtualDualShock4Controller(device, outputs);
 
         device.OnOutputReport(Wire(0x02, 0x00, 0x00, 0x0A, 0x0B, 0x0C, 0x00, 0x00));
         device.OnOutputReport(Wire(0x01, 0x22, 0x33, 0x00, 0x00, 0x00, 0x00, 0x00));
@@ -111,7 +111,7 @@ public sealed class EmulationDualShock4ControllerOutputTests
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        _ = new EmulationDualShock4Controller(device, outputs);
+        _ = new VirtualDualShock4Controller(device, outputs);
 
         device.OnOutputReport(Wire(0x01, 0x22, 0x33, 0x00, 0x00, 0x00, 0x00, 0x00));
         device.OnOutputReport(Wire(0x02, 0x00, 0x00, 0x01, 0x02, 0x03, 0x00, 0x00));
@@ -138,7 +138,7 @@ public sealed class EmulationDualShock4ControllerOutputTests
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        EmulationDualShock4Controller controller = new EmulationDualShock4Controller(device, outputs);
+        VirtualDualShock4Controller controller = new VirtualDualShock4Controller(device, outputs);
         int events = 0;
         controller.OutputStateReceived += _ => events++;
 
@@ -157,7 +157,7 @@ public sealed class EmulationDualShock4ControllerOutputTests
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        EmulationDualShock4Controller controller = new EmulationDualShock4Controller(device, outputs);
+        VirtualDualShock4Controller controller = new VirtualDualShock4Controller(device, outputs);
         SetStateData received = default;
 
         controller.OutputStateReceived += payload =>
@@ -177,7 +177,7 @@ public sealed class EmulationDualShock4ControllerOutputTests
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        _ = new EmulationDualShock4Controller(device, outputs);
+        _ = new VirtualDualShock4Controller(device, outputs);
         byte[] wire = Wire(0x07, 0x22, 0x33, 1, 2, 3, 0, 0);
         wire[0] = reportId;
 
@@ -195,7 +195,7 @@ public sealed class EmulationDualShock4ControllerOutputTests
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        _ = new EmulationDualShock4Controller(device, outputs);
+        _ = new VirtualDualShock4Controller(device, outputs);
 
         device.OnOutputReport(Wire(0x07, 0x22, 0x33, 1, 2, 3, 0, 0).AsSpan(0, 10));
 

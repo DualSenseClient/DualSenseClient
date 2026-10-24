@@ -1,10 +1,9 @@
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.DualSense.Output;
-using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Settings.Sections;
 using DualSenseClient.Emulation.Devices.Xbox360;
 
-namespace DualSenseClient.Controllers.Emulation.UsbIp;
+namespace DualSenseClient.Controllers.Emulation;
 
 /// <summary>
 /// An Emulation-backed virtual Xbox 360 controller: mirrors the physical controller's input to the
@@ -25,7 +24,7 @@ namespace DualSenseClient.Controllers.Emulation.UsbIp;
 /// no-ops are kept.
 /// </para>
 /// </remarks>
-public sealed class EmulationXbox360Controller : VirtualControllerBase
+public sealed class VirtualXbox360Controller : VirtualControllerBase
 {
     /// <summary>Mask of the four D-pad bits in the XInput button word.</summary>
     private const uint DPadMask = 0x000F;
@@ -43,7 +42,7 @@ public sealed class EmulationXbox360Controller : VirtualControllerBase
     /// <param name="device">Ready persona device.</param>
     /// <param name="outputs">The physical controller receiving host feedback.</param>
     /// <exception cref="ArgumentNullException"><paramref name="device"/> or <paramref name="outputs"/> is <see langword="null"/>.</exception>
-    public EmulationXbox360Controller(Xbox360Device device, IDualSenseOutputs outputs)
+    public VirtualXbox360Controller(Xbox360Device device, IDualSenseOutputs outputs)
         : base(outputs ?? throw new ArgumentNullException(nameof(outputs)))
     {
         ArgumentNullException.ThrowIfNull(device);

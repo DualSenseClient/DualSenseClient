@@ -3,7 +3,7 @@ using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Emulation.Core;
 
-namespace DualSenseClient.Tests.Controllers.Emulation.UsbIp;
+namespace DualSenseClient.Tests.Controllers.Emulation;
 
 /// <summary>
 /// Shared fakes and physical-report builders for the Emulation virtual-controller adapter tests.

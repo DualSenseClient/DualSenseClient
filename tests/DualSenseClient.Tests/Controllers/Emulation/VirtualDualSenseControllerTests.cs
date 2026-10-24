@@ -3,14 +3,13 @@ using System.Reflection;
 using DualSenseClient.Controllers.DualSense.Enum;
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.Emulation;
-using DualSenseClient.Controllers.Emulation.UsbIp;
 using DualSenseClient.Settings.Sections;
 using DualSenseClient.Emulation.Devices.DualSense;
 
-namespace DualSenseClient.Tests.Controllers.Emulation.UsbIp;
+namespace DualSenseClient.Tests.Controllers.Emulation;
 
 /// <summary>
-/// Input-side tests of <see cref="EmulationDualSenseController"/>: the adapter feeds the persona
+/// Input-side tests of <see cref="VirtualDualSenseController"/>: the adapter feeds the persona
 /// from the same <see cref="ButtonMappingTable"/> / <see cref="VirtualInputMapper"/> pipeline as the
 /// other personas, so every assertion here reads the persona's served 64-byte wire report and
 /// pins the bytes the host would see. Raw passthrough, the first-report battery meta, the
@@ -18,7 +17,7 @@ namespace DualSenseClient.Tests.Controllers.Emulation.UsbIp;
 /// covered.
 /// </summary>
 [TestFixture]
-public sealed class EmulationDualSenseControllerTests
+public sealed class VirtualDualSenseControllerTests
 {
     /// <summary>Report offset of the left stick X axis (sticks follow at +1, +2, +3).</summary>
     private const int OffsetSticks = 1;
@@ -48,11 +47,11 @@ public sealed class EmulationDualSenseControllerTests
     /// Private mute-light cache the adapter serves as the mic-mute echo (report byte 54 bit 2);
     /// read by reflection because it has no public surface.
     /// </summary>
-    private static readonly FieldInfo MuteLightModeField = typeof(EmulationDualSenseController)
+    private static readonly FieldInfo MuteLightModeField = typeof(VirtualDualSenseController)
         .GetField("_muteLightMode", BindingFlags.NonPublic | BindingFlags.Instance)!;
 
-    private static EmulationDualSenseController CreateController(DualSenseDevice device, RecordingDualSenseOutputs outputs) =>
-        new EmulationDualSenseController(device, outputs, false);
+    private static VirtualDualSenseController CreateController(DualSenseDevice device, RecordingDualSenseOutputs outputs) =>
+        new VirtualDualSenseController(device, outputs, false);
 
     private static ButtonMappingEntry Entry(string target, params string[] keys)
     {
@@ -107,7 +106,7 @@ public sealed class EmulationDualSenseControllerTests
     public void PushInput_EveryStickByte_ServesThePhysicalWireValue()
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
-        EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
 
         for (int value = 0; value < 256; value++)
         {
@@ -131,7 +130,7 @@ public sealed class EmulationDualSenseControllerTests
     public void PushInput_AllButtonGroups_MapToTheirWireBytes()
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
-        EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         payload[7] = 0x08 | 0xF0; // released D-pad plus every face button
         payload[8] = 0xFF; // L1 R1 L2 R2 Create Options L3 R3
@@ -170,7 +169,7 @@ public sealed class EmulationDualSenseControllerTests
     public void PushInput_EveryMappedButtonBit_SetsOnlyItsWireBit(DualSenseButtons target, int wireOffset, int wireMask)
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
-        EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
         controller.ButtonMappings = VirtualInputMapper.DualSenseTable([Entry(target.ToString(), "Cross")]);
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         payload[7] |= 0x20; // Cross is the only pressed source
@@ -206,7 +205,7 @@ public sealed class EmulationDualSenseControllerTests
     public void PushInput_EveryDpadMask_ServesTheExpectedHatValue(int mask, int expectedHat)
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
-        EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
         controller.ButtonMappings = DpadTable();
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         byte faceButtons = 0;
@@ -246,7 +245,7 @@ public sealed class EmulationDualSenseControllerTests
     public void PushInput_TriggersTouchpadAndMotion_MapFieldForField()
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
-        EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         payload[4] = 200;
         payload[5] = 100;
@@ -292,7 +291,7 @@ public sealed class EmulationDualSenseControllerTests
     public void PushInput_RawReport_IsServedVerbatimUntilASynthesisedPushFollows()
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
-        EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
         byte[] raw = EmulationAdapterTestSupport.RawReport(0x5A);
         byte[] rawPayload = EmulationAdapterTestSupport.NeutralPayload();
         rawPayload[0] = 1; // deliberately different from the raw byte at report offset 1
@@ -320,7 +319,7 @@ public sealed class EmulationDualSenseControllerTests
     public void PushInput_InvalidRawReport_FallsBackToTheSynthesisedState(int rawLength, byte reportId)
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
-        EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
         byte[] raw = new byte[rawLength];
         raw[0] = reportId;
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
@@ -336,7 +335,7 @@ public sealed class EmulationDualSenseControllerTests
     public void PushInput_CustomMapping_IgnoresTheRawReport()
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
-        EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
         controller.ButtonMappings = VirtualInputMapper.DualSenseTable([Entry("Square", "Cross")]);
         byte[] raw = EmulationAdapterTestSupport.RawReport(0x5A);
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
@@ -357,7 +356,7 @@ public sealed class EmulationDualSenseControllerTests
     public void PushInput_BuiltInMappings_TakeTheRawPath()
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
-        EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
         byte[] raw = EmulationAdapterTestSupport.RawReport(0x5A);
 
         controller.ButtonMappings = VirtualInputMapper.DualSenseDefaultTable;
@@ -373,7 +372,7 @@ public sealed class EmulationDualSenseControllerTests
     public void PushInput_FirstReportBattery_ReachesTheWireOnceAndPushBatteryOverridesIt()
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
-        EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
         byte[] first = EmulationAdapterTestSupport.NeutralPayload();
         first[PayloadBattery] = 0x28;
 
@@ -398,7 +397,7 @@ public sealed class EmulationDualSenseControllerTests
     public void PushBattery_BeforeTheFirstInputReport_IsOverwrittenByThatReport()
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
-        EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
         controller.PushBattery(new BatteryState(0x19));
         Assert.That(EmulationAdapterTestSupport.Pull(device, 64)[OffsetBattery], Is.EqualTo(0x19),
             "the meta lane applies immediately");
@@ -415,7 +414,7 @@ public sealed class EmulationDualSenseControllerTests
     public void PushBattery_EveryRawByte_RoundTripsToTheWireByte()
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
-        EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
         controller.PushInput(EmulationAdapterTestSupport.Report(EmulationAdapterTestSupport.NeutralPayload()));
 
         for (int raw = 0; raw < 256; raw++)
@@ -429,7 +428,7 @@ public sealed class EmulationDualSenseControllerTests
     public void PushConnectionStatus_IsANoOp()
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
-        EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         payload[0] = 33;
         controller.PushInput(EmulationAdapterTestSupport.Report(payload));
@@ -450,7 +449,7 @@ public sealed class EmulationDualSenseControllerTests
     public void Construction_WrapsTheReadyPersonaAndPushes(bool edge)
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity(), edge);
-        EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         payload[0] = 77;
 
@@ -469,7 +468,7 @@ public sealed class EmulationDualSenseControllerTests
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        EmulationDualSenseController controller = CreateController(device, outputs);
+        VirtualDualSenseController controller = CreateController(device, outputs);
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         payload[0] = 11;
         controller.PushInput(EmulationAdapterTestSupport.Report(payload));
@@ -518,7 +517,7 @@ public sealed class EmulationDualSenseControllerTests
     }
 
     /// <summary>Pushes one neutral physical report and returns the served host-status byte.</summary>
-    private static byte ReadServedHostStatus(DualSenseDevice device, EmulationDualSenseController controller)
+    private static byte ReadServedHostStatus(DualSenseDevice device, VirtualDualSenseController controller)
     {
         controller.PushInput(EmulationAdapterTestSupport.Report(EmulationAdapterTestSupport.NeutralPayload()));
         return EmulationAdapterTestSupport.Pull(device, 64)[OffsetHostStatus];
@@ -530,7 +529,7 @@ public sealed class EmulationDualSenseControllerTests
     public void HostMuteLight_AllowedMode_IsEchoedOnFollowingInputPushes(byte mode, bool expectedMicMuted)
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
-        EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
 
         device.OnOutputReport(CreateMuteLightWire(mode));
 
@@ -545,7 +544,7 @@ public sealed class EmulationDualSenseControllerTests
     public void HostMuteLight_OffAfterOn_ClearsTheEcho()
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
-        EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
 
         device.OnOutputReport(CreateMuteLightWire(1));
         device.OnOutputReport(CreateMuteLightWire(0));
@@ -557,7 +556,7 @@ public sealed class EmulationDualSenseControllerTests
     public void HostMuteLight_WithoutTheAllowFlag_KeepsTheCachedEcho()
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
-        EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
 
         device.OnOutputReport(CreateMuteLightWire(1));
         // A report that does not allow the mute light to change must not disturb the echo.
@@ -570,7 +569,7 @@ public sealed class EmulationDualSenseControllerTests
     public void HostMuteLight_EchoSurvivesLaterInputPushes()
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
-        EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
 
         device.OnOutputReport(CreateMuteLightWire(1));
 
@@ -588,7 +587,7 @@ public sealed class EmulationDualSenseControllerTests
     public void HostMuteLight_Dispose_ClearsTheCachedEcho()
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
-        EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
         device.OnOutputReport(CreateMuteLightWire(1));
         Assert.That(MuteLightModeField.GetValue(controller), Is.EqualTo((byte)1), "the host report populated the cache");
 

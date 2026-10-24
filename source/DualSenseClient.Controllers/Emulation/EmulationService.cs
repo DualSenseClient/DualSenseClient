@@ -3,7 +3,6 @@ using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.DualSense.Events;
 using DualSenseClient.Controllers.DualSense.Input;
-using DualSenseClient.Controllers.Emulation.UsbIp;
 using DualSenseClient.Controllers.SpecialActions;
 using DualSenseClient.Hid;
 using DualSenseClient.Logging;
@@ -159,7 +158,7 @@ public sealed class EmulationService : IEmulationService
     /// <summary>
     /// Creates the Emulation personas and adapters.
     /// </summary>
-    private readonly IEmulationControllerFactory _emulationFactory;
+    private readonly IVirtualControllerFactory _virtualFactory;
 
     /// <summary>
     /// Creates a fresh Emulation server whenever the first Emulation entry needs one, so a server
@@ -236,7 +235,7 @@ public sealed class EmulationService : IEmulationService
     public EmulationService(IControllerTracker tracker, IHidDeviceEnumerator enumerator,
         ControllerInfoService controllerInfo,
         AudioEngine audioEngine, SpecialActionEngineRegistry specialActions, AudioApplicationService audioApplications,
-        Func<EmulationServer> emulationServerFactory, IEmulationControllerFactory emulationFactory)
+        Func<EmulationServer> emulationServerFactory, IVirtualControllerFactory virtualFactory)
     {
         _tracker = tracker;
         _enumerator = enumerator;
@@ -245,7 +244,7 @@ public sealed class EmulationService : IEmulationService
         _specialActions = specialActions;
         _audioApplications = audioApplications;
         _emulationServerFactory = emulationServerFactory;
-        _emulationFactory = emulationFactory;
+        _virtualFactory = virtualFactory;
     }
 
     /// <inheritdoc/>
@@ -800,7 +799,7 @@ public sealed class EmulationService : IEmulationService
             ? _enumerator.EnumerateIncludingExcluded(vid, pid).Select(info => info.Path).ToHashSet(StringComparer.OrdinalIgnoreCase)
             : [];
 
-        EmulationControllerCreation? creation = TryCreateEmulationDevice(entry, server, mode, outputs, entry.Device.UsesVibrationV2, edge, ds4Variant);
+        VirtualControllerCreation? creation = TryCreateEmulationDevice(entry, server, mode, outputs, entry.Device.UsesVibrationV2, edge, ds4Variant);
         if (creation is null)
         {
             _log.Warning(
@@ -956,7 +955,7 @@ public sealed class EmulationService : IEmulationService
 
     /// <summary>
     /// Registers a fresh Emulation persona on the shared server (see
-    /// <see cref="IEmulationControllerFactory"/>) and attaches it to the local host. On failure
+    /// <see cref="IVirtualControllerFactory"/>) and attaches it to the local host. On failure
     /// the persona is unregistered again (detached first when it was attached) and the adapter is
     /// disposed, so nothing is left behind for the retry. On success the persona is spotlighted on
     /// the entry and the in-flight set until the calling creation commits or cleans it up.
@@ -970,13 +969,13 @@ public sealed class EmulationService : IEmulationService
     /// <param name="edge">Whether the virtual DualSense should be an Edge variant (DualSense mode only).</param>
     /// <param name="ds4Variant">The DualShock 4 hardware generation to present (DualShock 4 mode only).</param>
     /// <returns>The created adapter and persona, or <c>null</c> when creation or attachment failed.</returns>
-    private EmulationControllerCreation? TryCreateEmulationDevice(VirtualControllerEntry entry, EmulationServer server, EmulationMode mode,
+    private VirtualControllerCreation? TryCreateEmulationDevice(VirtualControllerEntry entry, EmulationServer server, EmulationMode mode,
         DualSenseDeviceOutputs outputs, bool vibrationV2, bool edge, DualShock4Variant ds4Variant)
     {
-        EmulationControllerCreation? creation = null;
+        VirtualControllerCreation? creation = null;
         try
         {
-            creation = _emulationFactory.Create(server, mode, outputs, vibrationV2, edge, ds4Variant);
+            creation = _virtualFactory.Create(server, mode, outputs, vibrationV2, edge, ds4Variant);
             if (creation is null)
             {
                 return null;
@@ -1249,7 +1248,7 @@ public sealed class EmulationService : IEmulationService
     /// The Xbox 360 persona has no speaker, so it never gets a controller capture.
     /// </summary>
     private static bool IsSpeakerBearingAdapter(IVirtualController? virtualController) =>
-        virtualController is EmulationDualSenseController or EmulationDualShock4Controller;
+        virtualController is VirtualDualSenseController or VirtualDualShock4Controller;
 
     /// <summary>
     /// Resumes the entry's controller capture, or rebuilds it when the controller endpoint was
@@ -1315,14 +1314,14 @@ public sealed class EmulationService : IEmulationService
             return null;
         }
 
-        if (virtualController is EmulationDualSenseController emulationDualSense)
+        if (virtualController is VirtualDualSenseController virtualDualSense)
         {
-            return new EmulationDualSenseAudioCapture(emulationDualSense.Persona, sink);
+            return new EmulationDualSenseAudioCapture(virtualDualSense.Persona, sink);
         }
 
-        if (virtualController is EmulationDualShock4Controller emulationDualShock4)
+        if (virtualController is VirtualDualShock4Controller virtualDualShock4)
         {
-            return new EmulationDualShock4AudioCapture(emulationDualShock4.Persona, sink);
+            return new EmulationDualShock4AudioCapture(virtualDualShock4.Persona, sink);
         }
 
         return null;
@@ -1366,15 +1365,15 @@ public sealed class EmulationService : IEmulationService
             return;
         }
 
-        if (entry.Virtual is EmulationDualSenseController emulationDualSense)
+        if (entry.Virtual is VirtualDualSenseController virtualDualSense)
         {
-            emulationDualSense.OutputStateReceived += forwarder.UpdateGameOutputState;
-            emulationDualSense.RealtimeHapticsReceived += forwarder.UpdateGameHaptics;
+            virtualDualSense.OutputStateReceived += forwarder.UpdateGameOutputState;
+            virtualDualSense.RealtimeHapticsReceived += forwarder.UpdateGameHaptics;
             entry.AudioCallbacksWired = true;
         }
-        else if (entry.Virtual is EmulationDualShock4Controller emulationDualShock4)
+        else if (entry.Virtual is VirtualDualShock4Controller virtualDualShock4)
         {
-            emulationDualShock4.OutputStateReceived += forwarder.UpdateGameOutputState;
+            virtualDualShock4.OutputStateReceived += forwarder.UpdateGameOutputState;
             entry.AudioCallbacksWired = true;
         }
     }
@@ -1391,14 +1390,14 @@ public sealed class EmulationService : IEmulationService
             return;
         }
 
-        if (entry.Virtual is EmulationDualSenseController emulationDualSense)
+        if (entry.Virtual is VirtualDualSenseController virtualDualSense)
         {
-            emulationDualSense.OutputStateReceived -= forwarder.UpdateGameOutputState;
-            emulationDualSense.RealtimeHapticsReceived -= forwarder.UpdateGameHaptics;
+            virtualDualSense.OutputStateReceived -= forwarder.UpdateGameOutputState;
+            virtualDualSense.RealtimeHapticsReceived -= forwarder.UpdateGameHaptics;
         }
-        else if (entry.Virtual is EmulationDualShock4Controller emulationDualShock4)
+        else if (entry.Virtual is VirtualDualShock4Controller virtualDualShock4)
         {
-            emulationDualShock4.OutputStateReceived -= forwarder.UpdateGameOutputState;
+            virtualDualShock4.OutputStateReceived -= forwarder.UpdateGameOutputState;
         }
 
         entry.AudioCallbacksWired = false;
@@ -1727,10 +1726,10 @@ public sealed class EmulationService : IEmulationService
     private static (ushort, ushort) GetDeviceIds(EmulationMode mode, bool edge, DualShock4Variant ds4Variant) => mode switch
     {
         EmulationMode.Xbox360 => (0x045E, 0x028E),
-        EmulationMode.DualShock4 => (EmulationDualShock4Controller.VendorId,
+        EmulationMode.DualShock4 => (VirtualDualShock4Controller.VendorId,
             ds4Variant == DualShock4Variant.V1
-                ? EmulationDualShock4Controller.ProductIdV1
-                : EmulationDualShock4Controller.ProductIdV2),
+                ? VirtualDualShock4Controller.ProductIdV1
+                : VirtualDualShock4Controller.ProductIdV2),
         EmulationMode.DualSense when edge => (0x054C, 0x0DF2),
         EmulationMode.DualSense => (0x054C, 0x0CE6),
         _ => (0, 0)

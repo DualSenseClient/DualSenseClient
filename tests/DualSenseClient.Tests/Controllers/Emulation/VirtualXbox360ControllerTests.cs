@@ -1,15 +1,14 @@
 using System.Buffers.Binary;
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.Emulation;
-using DualSenseClient.Controllers.Emulation.UsbIp;
 using DualSenseClient.Settings.Sections;
 using DualSenseClient.Emulation.Devices.Xbox360;
 using ButtonMappingEntry = DualSenseClient.Settings.Sections.ButtonMappingEntry;
 
-namespace DualSenseClient.Tests.Controllers.Emulation.UsbIp;
+namespace DualSenseClient.Tests.Controllers.Emulation;
 
 /// <summary>
-/// Input-side tests of <see cref="EmulationXbox360Controller"/>: the adapter maps the same
+/// Input-side tests of <see cref="VirtualXbox360Controller"/>: the adapter maps the same
 /// <see cref="VirtualInputMapper"/> pipeline result onto the persona's 20-byte XInput packet. The
 /// expected packets are stated independently here (the mapper's flag values are the wire button
 /// bits), so the adapter's button/D-pad translation, the Y-axis inversion and the trigger bytes are
@@ -17,7 +16,7 @@ namespace DualSenseClient.Tests.Controllers.Emulation.UsbIp;
 /// inherited no-ops are kept.
 /// </summary>
 [TestFixture]
-public sealed class EmulationXbox360ControllerTests
+public sealed class VirtualXbox360ControllerTests
 {
     /// <summary>Packet offset of the little-endian button word.</summary>
     private const int OffsetButtons = 2;
@@ -28,8 +27,8 @@ public sealed class EmulationXbox360ControllerTests
     /// <summary>Packet offset of the left stick X word (sticks follow at +2 bytes each).</summary>
     private const int OffsetLeftStickX = 6;
 
-    private static EmulationXbox360Controller CreateController(Xbox360Device device, RecordingDualSenseOutputs outputs) =>
-        new EmulationXbox360Controller(device, outputs);
+    private static VirtualXbox360Controller CreateController(Xbox360Device device, RecordingDualSenseOutputs outputs) =>
+        new VirtualXbox360Controller(device, outputs);
 
     private static ButtonMappingEntry Entry(string target, params string[] keys)
     {
@@ -44,7 +43,7 @@ public sealed class EmulationXbox360ControllerTests
     public void PushInput_EveryStickByte_MapsThroughTheAxisHelpers()
     {
         Xbox360Device device = new Xbox360Device(new Xbox360Identity());
-        EmulationXbox360Controller controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualXbox360Controller controller = CreateController(device, new RecordingDualSenseOutputs());
 
         for (int value = 0; value < 256; value++)
         {
@@ -86,7 +85,7 @@ public sealed class EmulationXbox360ControllerTests
     public void PushInput_EveryMappedButtonBit_SetsOnlyItsWireBit(Xbox360Buttons target)
     {
         Xbox360Device device = new Xbox360Device(new Xbox360Identity());
-        EmulationXbox360Controller controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualXbox360Controller controller = CreateController(device, new RecordingDualSenseOutputs());
         controller.ButtonMappings = VirtualInputMapper.Xbox360Table([Entry(target.ToString(), "Cross")]);
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         payload[7] |= 0x20; // Cross is the only pressed source
@@ -107,7 +106,7 @@ public sealed class EmulationXbox360ControllerTests
     public void PushInput_RichReport_ProducesTheExpectedXInputPacket()
     {
         Xbox360Device device = new Xbox360Device(new Xbox360Identity());
-        EmulationXbox360Controller controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualXbox360Controller controller = CreateController(device, new RecordingDualSenseOutputs());
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         payload[0] = 0; // X360Axis -> short.MinValue
         payload[1] = 0; // X360AxisInverted -> short.MaxValue
@@ -139,7 +138,7 @@ public sealed class EmulationXbox360ControllerTests
     public void PushInput_AttachedRawImage_IsIgnored()
     {
         Xbox360Device device = new Xbox360Device(new Xbox360Identity());
-        EmulationXbox360Controller controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualXbox360Controller controller = CreateController(device, new RecordingDualSenseOutputs());
         byte[] raw = EmulationAdapterTestSupport.RawReport(0x5A);
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         payload[0] = 128;
@@ -159,7 +158,7 @@ public sealed class EmulationXbox360ControllerTests
     public void PushBatteryAndConnectionStatus_AreNoOps()
     {
         Xbox360Device device = new Xbox360Device(new Xbox360Identity());
-        EmulationXbox360Controller controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualXbox360Controller controller = CreateController(device, new RecordingDualSenseOutputs());
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         payload[4] = 120;
         controller.PushInput(EmulationAdapterTestSupport.Report(payload));
@@ -176,7 +175,7 @@ public sealed class EmulationXbox360ControllerTests
     public void Construction_ExposesXbox360Mode()
     {
         Xbox360Device device = new Xbox360Device(new Xbox360Identity());
-        EmulationXbox360Controller controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualXbox360Controller controller = CreateController(device, new RecordingDualSenseOutputs());
 
         Assert.That(controller.Mode, Is.EqualTo(EmulationMode.Xbox360));
     }
@@ -186,7 +185,7 @@ public sealed class EmulationXbox360ControllerTests
     {
         Xbox360Device device = new Xbox360Device(new Xbox360Identity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        EmulationXbox360Controller controller = CreateController(device, outputs);
+        VirtualXbox360Controller controller = CreateController(device, outputs);
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         payload[4] = 200;
         controller.PushInput(EmulationAdapterTestSupport.Report(payload));

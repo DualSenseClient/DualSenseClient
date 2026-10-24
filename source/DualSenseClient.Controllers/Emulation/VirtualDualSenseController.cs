@@ -1,10 +1,9 @@
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.DualSense.Output;
-using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Settings.Sections;
 using DualSenseClient.Emulation.Devices.DualSense;
 
-namespace DualSenseClient.Controllers.Emulation.UsbIp;
+namespace DualSenseClient.Controllers.Emulation;
 
 /// <summary>
 /// An Emulation-backed virtual DualSense: mirrors the physical controller's input onto a ready
@@ -29,7 +28,7 @@ namespace DualSenseClient.Controllers.Emulation.UsbIp;
 /// front-channel audio lane. The forwarder owns the policy that consumes the lane.
 /// </para>
 /// </remarks>
-public sealed class EmulationDualSenseController : VirtualControllerBase
+public sealed class VirtualDualSenseController : VirtualControllerBase
 {
     /// <summary>Mask of the battery capacity nibble in the persona's battery byte.</summary>
     private const byte BatteryLevelMask = 0x0F;
@@ -97,7 +96,7 @@ public sealed class EmulationDualSenseController : VirtualControllerBase
     /// <param name="outputs">The physical controller receiving host feedback.</param>
     /// <param name="vibrationV2">True when the physical controller uses the v2 rumble encoding.</param>
     /// <exception cref="ArgumentNullException"><paramref name="device"/> or <paramref name="outputs"/> is <see langword="null"/>.</exception>
-    public EmulationDualSenseController(DualSenseDevice device, IDualSenseOutputs outputs, bool vibrationV2)
+    public VirtualDualSenseController(DualSenseDevice device, IDualSenseOutputs outputs, bool vibrationV2)
         : base(outputs ?? throw new ArgumentNullException(nameof(outputs)))
     {
         ArgumentNullException.ThrowIfNull(device);
@@ -285,7 +284,7 @@ public sealed class EmulationDualSenseController : VirtualControllerBase
             LeftStickY = input.LeftStickY,
             RightStickX = input.RightStickX,
             RightStickY = input.RightStickY,
-            Dpad = (DualSenseDpadDirection)EmulationInputMapping.DpadToHat(mapped.DPad),
+            Dpad = (DualSenseDpadDirection)VirtualInputMapping.DpadToHat(mapped.DPad),
             LeftTrigger = mapped.LeftTrigger,
             RightTrigger = mapped.RightTrigger,
             BatteryLevel = (byte)(batteryRaw & BatteryLevelMask),

@@ -1,9 +1,9 @@
-namespace DualSenseClient.Controllers.Emulation.UsbIp;
+namespace DualSenseClient.Controllers.Emulation;
 
 /// <summary>
 /// Input translations shared by the Emulation virtual controller adapters.
 /// </summary>
-internal static class EmulationInputMapping
+internal static class VirtualInputMapping
 {
     /// <summary>
     /// Converts the mode-neutral <see cref="VirtualDPad"/> direction mask into the hat value the

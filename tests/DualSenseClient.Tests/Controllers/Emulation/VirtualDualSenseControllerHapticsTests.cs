@@ -1,8 +1,8 @@
-using DualSenseClient.Controllers.Emulation.UsbIp;
+using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Emulation.Devices.DualSense;
 using DualSenseClient.Emulation.Devices.DualShock4;
 
-namespace DualSenseClient.Tests.Controllers.Emulation.UsbIp;
+namespace DualSenseClient.Tests.Controllers.Emulation;
 
 /// <summary>
 /// Pins the adapter's realtime-haptics lane and the persona access points. The persona raises
@@ -12,7 +12,7 @@ namespace DualSenseClient.Tests.Controllers.Emulation.UsbIp;
 /// the service can build the speaker captures from it.
 /// </summary>
 [TestFixture]
-public sealed class EmulationDualSenseControllerHapticsTests
+public sealed class VirtualDualSenseControllerHapticsTests
 {
     /// <summary>Isochronous OUT endpoint address of the speaker path.</summary>
     private const byte AudioOutEndpointAddress = 0x01;
@@ -36,7 +36,7 @@ public sealed class EmulationDualSenseControllerHapticsTests
     public void OnIsoPacketReceived_QuadPacket_RaisesHapticsCopy()
     {
         DualSenseDevice device = CreateDevice();
-        using EmulationDualSenseController controller = CreateController(device);
+        using VirtualDualSenseController controller = CreateController(device);
         byte[] packet = CreateSpeakerPacket(1);
         byte[]? received = null;
         controller.RealtimeHapticsReceived += payload => received = payload;
@@ -55,7 +55,7 @@ public sealed class EmulationDualSenseControllerHapticsTests
     public void OnIsoPacketReceived_SubscriberMutationDoesNotChangePersona()
     {
         DualSenseDevice device = CreateDevice();
-        using EmulationDualSenseController controller = CreateController(device);
+        using VirtualDualSenseController controller = CreateController(device);
         List<byte[]> received = [];
         controller.RealtimeHapticsReceived += payload => received.Add(payload);
 
@@ -78,7 +78,7 @@ public sealed class EmulationDualSenseControllerHapticsTests
     public void Dispose_UnsubscribesRealtimeHaptics()
     {
         DualSenseDevice device = CreateDevice();
-        EmulationDualSenseController controller = CreateController(device);
+        VirtualDualSenseController controller = CreateController(device);
         int calls = 0;
         controller.RealtimeHapticsReceived += _ => calls++;
         byte[] packet = CreateSpeakerPacket(1);
@@ -96,8 +96,8 @@ public sealed class EmulationDualSenseControllerHapticsTests
     {
         DualSenseDevice dualSense = CreateDevice();
         DualShock4Device dualShock4 = new DualShock4Device(new DualShock4Identity());
-        using EmulationDualSenseController dualSenseController = CreateController(dualSense);
-        using EmulationDualShock4Controller dualShock4Controller = new EmulationDualShock4Controller(dualShock4, new RecordingDualSenseOutputs());
+        using VirtualDualSenseController dualSenseController = CreateController(dualSense);
+        using VirtualDualShock4Controller dualShock4Controller = new VirtualDualShock4Controller(dualShock4, new RecordingDualSenseOutputs());
 
         Assert.Multiple(() =>
         {
@@ -110,8 +110,8 @@ public sealed class EmulationDualSenseControllerHapticsTests
     private static DualSenseDevice CreateDevice() => new DualSenseDevice(new DualSenseIdentity());
 
     /// <summary>Creates the adapter under test around <paramref name="device"/>.</summary>
-    private static EmulationDualSenseController CreateController(DualSenseDevice device) =>
-        new EmulationDualSenseController(device, new RecordingDualSenseOutputs(), false);
+    private static VirtualDualSenseController CreateController(DualSenseDevice device) =>
+        new VirtualDualSenseController(device, new RecordingDualSenseOutputs(), false);
 
     /// <summary>
     /// Creates a deterministic 384-byte speaker packet whose four interleaved 16-bit channels carry

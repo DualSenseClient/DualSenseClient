@@ -2,16 +2,15 @@ using System.Buffers.Binary;
 using DualSenseClient.Controllers.DualSense.Enum;
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.Emulation;
-using DualSenseClient.Controllers.Emulation.UsbIp;
 using DualSenseClient.Settings.Sections;
 using DualSenseClient.Emulation.Devices.DualShock4;
 using ButtonMappingEntry = DualSenseClient.Settings.Sections.ButtonMappingEntry;
 using DualShock4Variant = DualSenseClient.Emulation.Devices.DualShock4.DualShock4Variant;
 
-namespace DualSenseClient.Tests.Controllers.Emulation.UsbIp;
+namespace DualSenseClient.Tests.Controllers.Emulation;
 
 /// <summary>
-/// Input-side tests of <see cref="EmulationDualShock4Controller"/>: the adapter reuses the
+/// Input-side tests of <see cref="VirtualDualShock4Controller"/>: the adapter reuses the
 /// <see cref="VirtualInputMapper.DualShock4DefaultTable"/> mapping pipeline (including the
 /// DualShock 4 touch-Y and motion scalers) and feeds the persona whose served 64-byte report is
 /// compared against <see cref="DualShock4InputReport.Build"/> with an independently stated expected
@@ -19,7 +18,7 @@ namespace DualSenseClient.Tests.Controllers.Emulation.UsbIp;
 /// be ignored. Both descriptor variants are wrapped and pushed.
 /// </summary>
 [TestFixture]
-public sealed class EmulationDualShock4ControllerTests
+public sealed class VirtualDualShock4ControllerTests
 {
     /// <summary>Report offset of the left stick X axis (sticks follow at +1, +2, +3).</summary>
     private const int OffsetSticks = 1;
@@ -39,8 +38,8 @@ public sealed class EmulationDualShock4ControllerTests
     /// <summary>Client payload offset of the raw battery byte.</summary>
     private const int PayloadBattery = 52;
 
-    private static EmulationDualShock4Controller CreateController(DualShock4Device device, RecordingDualSenseOutputs outputs) =>
-        new EmulationDualShock4Controller(device, outputs);
+    private static VirtualDualShock4Controller CreateController(DualShock4Device device, RecordingDualSenseOutputs outputs) =>
+        new VirtualDualShock4Controller(device, outputs);
 
     private static ButtonMappingEntry Entry(string target, params string[] keys)
     {
@@ -93,7 +92,7 @@ public sealed class EmulationDualShock4ControllerTests
     public void PushInput_EveryStickByte_ServesThePhysicalWireValue()
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
-        EmulationDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
 
         for (int value = 0; value < 256; value++)
         {
@@ -130,7 +129,7 @@ public sealed class EmulationDualShock4ControllerTests
     public void PushInput_EveryMappedButtonBit_SetsOnlyItsWireBit(DualShock4Buttons target, int wireOffset, int wireMask)
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
-        EmulationDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
         controller.ButtonMappings = VirtualInputMapper.DualShock4Table([Entry(target.ToString(), "Cross")]);
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         payload[7] |= 0x20; // Cross is the only pressed source
@@ -166,7 +165,7 @@ public sealed class EmulationDualShock4ControllerTests
     public void PushInput_EveryDpadMask_ServesTheExpectedHatValue(int mask, int expectedHat)
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
-        EmulationDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
         controller.ButtonMappings = DpadTable();
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         byte faceButtons = 0;
@@ -206,7 +205,7 @@ public sealed class EmulationDualShock4ControllerTests
     public void PushInput_RichReport_ProducesTheExpectedWireState()
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
-        EmulationDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         payload[0] = 10;
         payload[1] = 20;
@@ -278,7 +277,7 @@ public sealed class EmulationDualShock4ControllerTests
     public void PushInput_AttachedRawImage_IsIgnored()
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
-        EmulationDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
         byte[] raw = EmulationAdapterTestSupport.RawReport(0x5A);
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         payload[0] = 33;
@@ -297,7 +296,7 @@ public sealed class EmulationDualShock4ControllerTests
     public void PushInput_FirstReportBattery_UsesTheWireLevelAndCableBits()
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
-        EmulationDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         payload[PayloadBattery] = 0x2A; // level 10 with power state Complete
 
@@ -311,7 +310,7 @@ public sealed class EmulationDualShock4ControllerTests
     public void PushBattery_BeforeTheFirstInputReport_IsOverwrittenByThatReport()
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
-        EmulationDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
         controller.PushBattery(new BatteryState(0x19));
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         payload[PayloadBattery] = 0x2A; // level 10 with power state Complete
@@ -326,7 +325,7 @@ public sealed class EmulationDualShock4ControllerTests
     public void PushBattery_AfterTheFirstInput_AppliesImmediatelyAndSticksAcrossLaterPushes()
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
-        EmulationDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
         controller.PushInput(EmulationAdapterTestSupport.Report(EmulationAdapterTestSupport.NeutralPayload()));
 
         controller.PushBattery(new BatteryState(0x19));
@@ -344,7 +343,7 @@ public sealed class EmulationDualShock4ControllerTests
     public void PushBattery_EveryRawByte_RoundTripsOnTheNextReport()
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
-        EmulationDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
         byte[] neutral = EmulationAdapterTestSupport.NeutralPayload();
         controller.PushInput(EmulationAdapterTestSupport.Report(neutral));
 
@@ -360,7 +359,7 @@ public sealed class EmulationDualShock4ControllerTests
     public void PushConnectionStatus_IsANoOp()
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
-        EmulationDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         payload[0] = 33;
         controller.PushInput(EmulationAdapterTestSupport.Report(payload));
@@ -377,7 +376,7 @@ public sealed class EmulationDualShock4ControllerTests
     public void Construction_WrapsBothDescriptorVariantsAndPushes(DualShock4Variant variant)
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity(), null, variant);
-        EmulationDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
+        VirtualDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         payload[0] = 77;
 
@@ -396,7 +395,7 @@ public sealed class EmulationDualShock4ControllerTests
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        EmulationDualShock4Controller controller = CreateController(device, outputs);
+        VirtualDualShock4Controller controller = CreateController(device, outputs);
         byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
         payload[0] = 11;
         controller.PushInput(EmulationAdapterTestSupport.Report(payload));

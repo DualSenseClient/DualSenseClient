@@ -1,18 +1,17 @@
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Emulation;
-using DualSenseClient.Controllers.Emulation.UsbIp;
 using DualSenseClient.Emulation.Devices.DualSense;
 
-namespace DualSenseClient.Tests.Controllers.Emulation.UsbIp;
+namespace DualSenseClient.Tests.Controllers.Emulation;
 
 /// <summary>
-/// Output-side tests of <see cref="EmulationDualSenseController"/>: a synthetic host output report
+/// Output-side tests of <see cref="VirtualDualSenseController"/>: a synthetic host output report
 /// 0x02 is delivered to the persona device and the adapter rebuilds the physical 47-byte payload,
 /// asserted byte-for-byte for both rumble-mode encodings. The ordering of the outputs-lane call
-/// and the <see cref="EmulationDualSenseController.OutputStateReceived"/> event is pinned too.
+/// and the <see cref="VirtualDualSenseController.OutputStateReceived"/> event is pinned too.
 /// </summary>
 [TestFixture]
-public sealed class EmulationDualSenseControllerOutputTests
+public sealed class VirtualDualSenseControllerOutputTests
 {
     /// <summary>Report id of the host output report 0x02.</summary>
     private const byte OutputReportId = 0x02;
@@ -109,7 +108,7 @@ public sealed class EmulationDualSenseControllerOutputTests
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        _ = new EmulationDualSenseController(device, outputs, vibrationV2);
+        _ = new VirtualDualSenseController(device, outputs, vibrationV2);
         byte[] payload = RichGamePayload();
 
         device.OnOutputReport(Wire(payload));
@@ -123,7 +122,7 @@ public sealed class EmulationDualSenseControllerOutputTests
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        EmulationDualSenseController controller = new EmulationDualSenseController(device, outputs, true);
+        VirtualDualSenseController controller = new VirtualDualSenseController(device, outputs, true);
         SetStateData received = default;
 
         controller.OutputStateReceived += payload =>
@@ -142,7 +141,7 @@ public sealed class EmulationDualSenseControllerOutputTests
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        EmulationDualSenseController controller = new EmulationDualSenseController(device, outputs, true);
+        VirtualDualSenseController controller = new VirtualDualSenseController(device, outputs, true);
 
         device.OnOutputReport(Wire(RichGamePayload()));
 
@@ -168,7 +167,7 @@ public sealed class EmulationDualSenseControllerOutputTests
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        _ = new EmulationDualSenseController(device, outputs, false);
+        _ = new VirtualDualSenseController(device, outputs, false);
         byte[] payload = new byte[47];
         payload[0] = 0x02 | 0x0C; // haptics select + trigger FFB only
         payload[38] = 0x04; // v2 selector
@@ -190,7 +189,7 @@ public sealed class EmulationDualSenseControllerOutputTests
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        EmulationDualSenseController controller = new EmulationDualSenseController(device, outputs, true);
+        VirtualDualSenseController controller = new VirtualDualSenseController(device, outputs, true);
         byte[] payload = new byte[47];
         payload[0] = 0x0C; // trigger-only write: no rumble selector
         payload[2] = 0x7F; // stale motor bytes the pad must ignore
@@ -213,7 +212,7 @@ public sealed class EmulationDualSenseControllerOutputTests
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        _ = new EmulationDualSenseController(device, outputs, false);
+        _ = new VirtualDualSenseController(device, outputs, false);
         byte[] payload = RichGamePayload();
         payload[40] = 0xAB; // reference unknown byte, not exposed by DualSenseOutputReport
         payload[38] |= 0xF0; // undefined high nibble of valid-flag byte 2
@@ -235,7 +234,7 @@ public sealed class EmulationDualSenseControllerOutputTests
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        _ = new EmulationDualSenseController(device, outputs, false);
+        _ = new VirtualDualSenseController(device, outputs, false);
         byte[] payload = RichGamePayload();
         payload[39] = wireValue; // the defined low-pass-filter bit is bit 0; the other bits have no decoded accessor
 
@@ -255,7 +254,7 @@ public sealed class EmulationDualSenseControllerOutputTests
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        _ = new EmulationDualSenseController(device, outputs, false);
+        _ = new VirtualDualSenseController(device, outputs, false);
         byte[] wire = Wire(RichGamePayload());
         wire[0] = reportId;
 
@@ -269,7 +268,7 @@ public sealed class EmulationDualSenseControllerOutputTests
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        _ = new EmulationDualSenseController(device, outputs, false);
+        _ = new VirtualDualSenseController(device, outputs, false);
 
         device.OnOutputReport(Wire(RichGamePayload()).AsSpan(0, 47));
 
