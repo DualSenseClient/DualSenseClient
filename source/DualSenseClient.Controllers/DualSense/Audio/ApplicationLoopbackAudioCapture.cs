@@ -7,7 +7,7 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 /// <summary>
 /// Captures the audio a single application (and its child processes) renders, using the
 /// WASAPI application-loopback API, and forwards it to
-/// <see cref="ViiperDualSenseAudioForwarder"/>.
+/// <see cref="DualSenseAudioForwarder"/>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -66,7 +66,7 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
     /// <summary>
     /// The forwarder receiving the captured audio.
     /// </summary>
-    private readonly ViiperDualSenseAudioForwarder _forwarder;
+    private readonly DualSenseAudioForwarder _forwarder;
 
     /// <summary>
     /// Serializes start/stop and guards the thread handle.
@@ -100,7 +100,7 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
     /// <param name="processId">The process whose audio should be captured.</param>
     /// <param name="applicationPath">The executable the process was resolved from (diagnostics).</param>
     /// <param name="forwarder">The forwarder receiving the captured audio.</param>
-    public ApplicationLoopbackAudioCapture(uint processId, string applicationPath, ViiperDualSenseAudioForwarder forwarder)
+    public ApplicationLoopbackAudioCapture(uint processId, string applicationPath, DualSenseAudioForwarder forwarder)
     {
         _processId = processId;
         _applicationPath = applicationPath;

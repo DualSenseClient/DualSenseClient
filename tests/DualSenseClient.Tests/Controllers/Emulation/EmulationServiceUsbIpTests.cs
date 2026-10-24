@@ -26,19 +26,15 @@ using PersonaXbox360 = DualSenseClient.Emulation.Devices.Xbox360.Xbox360Device;
 namespace DualSenseClient.Tests.Controllers.Emulation;
 
 /// <summary>
-/// Engine-switch tests of <see cref="EmulationService"/>: profiles whose stored
-/// <see cref="EmulationSettings.Engine"/> is <see cref="EmulationEngine.UsbIp"/> create their
-/// virtual controllers through the Emulation server and the Task 3 adapters, profiles on the
-/// default libVIIPER engine never touch the Emulation engine, the shared Emulation server follows
-/// the last entry (start lazily, stop on engine switch/Off/removal/dispose) and an engine change
-/// rebuilds the entry.
+/// Tests of <see cref="EmulationService"/>: profiles whose stored
+/// <see cref="EmulationSettings.Mode"/> is enabled create their virtual controllers through the
+/// Emulation server and the adapters, the shared Emulation server follows the last entry (start
+/// lazily, stop on Off/removal/dispose) and a mode or variant change rebuilds the entry.
 /// </summary>
 /// <remarks>
 /// The tests drive the real server facade (<see cref="EmulationServer"/>) with a fake attach
 /// strategy (the P2 test pattern) and a fake HID enumerator, so no native library, no USB/IP
-/// driver and no real attachment is involved. The libVIIPER branch of the service is static
-/// P/Invoke and is not driven here; the live VIIPER↔Emulation switch is validated in the live
-/// validation session.
+/// driver and no real attachment is involved.
 /// </remarks>
 [TestFixture]
 public sealed class EmulationServiceUsbIpTests
@@ -129,7 +125,7 @@ public sealed class EmulationServiceUsbIpTests
 
     /// <summary>Builds the service under test around the given Emulation server factory.</summary>
     private EmulationService CreateService(Func<EmulationServer> emulationServerFactory) =>
-        new EmulationService(_tracker, _enumerator, _controllerInfo, new VirtualControllerFactory(),
+        new EmulationService(_tracker, _enumerator, _controllerInfo,
             null!, _specialActions, new AudioApplicationService(), emulationServerFactory, _emulationFactory);
 
     /// <summary>
@@ -161,14 +157,13 @@ public sealed class EmulationServiceUsbIpTests
         return device;
     }
 
-    private void SetStoredSettings(PhysicalDualSense device, EmulationMode mode, EmulationEngine engine,
+    private void SetStoredSettings(PhysicalDualSense device, EmulationMode mode,
         DualSenseVariant dsVariant = DualSenseVariant.Standard, DualShock4Variant ds4Variant = DualShock4Variant.V2,
         EmulationAudioSource audioSource = EmulationAudioSource.ControllerEndpoint)
     {
         _controllerInfo.SaveEmulationSettings(null, device.Info.Path, new EmulationSettings
         {
             Mode = mode,
-            Engine = engine,
             Variant = new VariantSettings
             {
                 DualSense = dsVariant,
@@ -265,11 +260,11 @@ public sealed class EmulationServiceUsbIpTests
     [TestCase(EmulationMode.DualShock4, DualSenseVariant.Standard, DualShock4Variant.V1, (ushort)0x054C, (ushort)0x05C4)]
     [TestCase(EmulationMode.DualShock4, DualSenseVariant.Standard, DualShock4Variant.V2, (ushort)0x054C, (ushort)0x09CC)]
     [TestCase(EmulationMode.Xbox360, DualSenseVariant.Standard, DualShock4Variant.V2, (ushort)0x045E, (ushort)0x028E)]
-    public void Creation_EmulationEngine_CreatesTheModePersonaAdapterAndAttachesIt(EmulationMode mode, DualSenseVariant dsVariant,
+    public void Creation_CreatesTheModePersonaAdapterAndAttachesIt(EmulationMode mode, DualSenseVariant dsVariant,
         DualShock4Variant ds4Variant, ushort vendorId, ushort productId)
     {
         PhysicalDualSense device = CreateDevice("mode");
-        SetStoredSettings(device, mode, EmulationEngine.UsbIp, dsVariant, ds4Variant);
+        SetStoredSettings(device, mode, dsVariant, ds4Variant);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, vendorId, productId));
         _tracker.TrackController(device);
 
@@ -309,7 +304,7 @@ public sealed class EmulationServiceUsbIpTests
         if (mode != EmulationMode.Xbox360)
         {
             Assert.That(_enumerator.ExcludedPaths, Does.Contain(VirtualDevicePath),
-                "the discovered path is excluded exactly like the libVIIPER path's");
+                "the discovered path is excluded from enumeration");
         }
     }
 
@@ -317,7 +312,7 @@ public sealed class EmulationServiceUsbIpTests
     public void Creation_DualSensePersona_ServesTheOwnershipMacOverThePairingReport()
     {
         PhysicalDualSense device = CreateDevice("mac");
-        SetStoredSettings(device, EmulationMode.DualSense, EmulationEngine.UsbIp);
+        SetStoredSettings(device, EmulationMode.DualSense);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _tracker.TrackController(device);
 
@@ -342,7 +337,7 @@ public sealed class EmulationServiceUsbIpTests
         _attachStrategy.AttachResult = false;
         _attachStrategy.AttachError = "synthetic attach failure";
         PhysicalDualSense device = CreateDevice("attach-failure");
-        SetStoredSettings(device, EmulationMode.DualSense, EmulationEngine.UsbIp);
+        SetStoredSettings(device, EmulationMode.DualSense);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _tracker.TrackController(device);
 
@@ -355,7 +350,7 @@ public sealed class EmulationServiceUsbIpTests
             Assert.That(status.Running, Is.False);
             Assert.That(status.Detail, Is.EqualTo(
                 "The emulation server could not create the virtual device. Check the emulation logs; USB/IP must be installed for auto-attachment"));
-            Assert.That(_attachStrategy.AttachCallCount, Is.EqualTo(2), "creation is retried once, mirroring the libVIIPER path");
+            Assert.That(_attachStrategy.AttachCallCount, Is.EqualTo(2), "creation is retried once");
             Assert.That(_attachStrategy.AttachCalls[0].BusId, Is.EqualTo("1-1"));
             Assert.That(_attachStrategy.AttachCalls[1].BusId, Is.EqualTo("1-1"),
                 "the failed persona was unregistered again, freeing its bus id for the retry");
@@ -367,7 +362,7 @@ public sealed class EmulationServiceUsbIpTests
     public void Creation_AmbiguousDiscovery_DetachesAndUnregistersThePersona()
     {
         PhysicalDualSense device = CreateDevice("ambiguous");
-        SetStoredSettings(device, EmulationMode.DualSense, EmulationEngine.UsbIp);
+        SetStoredSettings(device, EmulationMode.DualSense);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(@"\\?\hid#emulation-virtual#2", 0x054C, 0x0CE6));
         _tracker.TrackController(device);
@@ -401,7 +396,7 @@ public sealed class EmulationServiceUsbIpTests
             _service = CreateService(() => CreateEmulationServer((IPEndPoint)blocker.LocalEndpoint));
 
             PhysicalDualSense device = CreateDevice("server-start-failure");
-            SetStoredSettings(device, EmulationMode.DualSense, EmulationEngine.UsbIp);
+            SetStoredSettings(device, EmulationMode.DualSense);
             _tracker.TrackController(device);
 
             _service.Start();
@@ -425,7 +420,7 @@ public sealed class EmulationServiceUsbIpTests
     public void Refresh_EngineOff_TearsDownTheEmulationServerAndReEntryCreatesAFreshOne()
     {
         PhysicalDualSense device = CreateDevice("switch");
-        SetStoredSettings(device, EmulationMode.DualSense, EmulationEngine.UsbIp);
+        SetStoredSettings(device, EmulationMode.DualSense);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _tracker.TrackController(device);
 
@@ -433,7 +428,7 @@ public sealed class EmulationServiceUsbIpTests
         WaitForRunning(device);
         EmulationServer firstServer = _servers.Single();
 
-        SetStoredSettings(device, EmulationMode.Off, EmulationEngine.UsbIp);
+        SetStoredSettings(device, EmulationMode.Off);
         _service.Refresh();
 
         EmulationStatus offStatus = _service.GetStatus(device);
@@ -449,7 +444,7 @@ public sealed class EmulationServiceUsbIpTests
         });
 
         // Re-entry creates a fresh server instance (a torn-down server is never reused).
-        SetStoredSettings(device, EmulationMode.DualSense, EmulationEngine.UsbIp);
+        SetStoredSettings(device, EmulationMode.DualSense);
         _service.Refresh();
         WaitForRunning(device);
 
@@ -463,59 +458,17 @@ public sealed class EmulationServiceUsbIpTests
     }
 
     [Test]
-    public void Refresh_EngineChangeWithModeOff_TearsDownAndReEntryCreatesAFreshServer()
-    {
-        PhysicalDualSense device = CreateDevice("engine-change");
-        SetStoredSettings(device, EmulationMode.DualSense, EmulationEngine.UsbIp);
-        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
-        _tracker.TrackController(device);
-
-        _service.Start();
-        WaitForRunning(device);
-        EmulationServer firstServer = _servers.Single();
-
-        // The stored settings now select the other engine and Off: the entry must leave the
-        // Emulation engine (persona detached, server stopped) and surface the Off status.
-        SetStoredSettings(device, EmulationMode.Off, EmulationEngine.Viiper);
-        _service.Refresh();
-
-        Assert.Multiple(() =>
-        {
-            EmulationStatus status = _service.GetStatus(device);
-            Assert.That(status.Mode, Is.EqualTo(EmulationMode.Off));
-            Assert.That(status.Running, Is.False);
-            Assert.That(status.Detail, Is.EqualTo("Emulation is disabled for this controller"));
-            Assert.That(_attachStrategy.DetachCallCount, Is.EqualTo(1), "the engine switch detaches the Emulation persona");
-            Assert.That(() => firstServer.AddDualSense(), Throws.TypeOf<ObjectDisposedException>(),
-                "the engine switch stops the Emulation server");
-        });
-
-        // Re-entry on the Emulation engine creates a fresh server instance, never the old one.
-        SetStoredSettings(device, EmulationMode.DualSense, EmulationEngine.UsbIp);
-        _service.Refresh();
-        WaitForRunning(device);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(_servers, Has.Count.EqualTo(2));
-            Assert.That(_servers[1], Is.Not.SameAs(firstServer));
-            Assert.That(_service.GetStatus(device).Running, Is.True);
-        });
-    }
-
-    [Test]
-    public void TemporaryModeOverride_KeepsTheStoredEmulationEngine()
+    public void TemporaryModeOverride_CreatesWithoutChangingStoredSettings()
     {
         PhysicalDualSense device = CreateDevice("temporary");
-        SetStoredSettings(device, EmulationMode.Off, EmulationEngine.UsbIp);
+        SetStoredSettings(device, EmulationMode.Off);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _tracker.TrackController(device);
 
         _service.Start();
         Assert.That(_service.GetStatus(device).Running, Is.False, "the stored Off setting does not create");
 
-        // The temporary override changes the mode only: the engine must still come from the
-        // stored settings, so the override copy may not silently fall back to libVIIPER.
+        // The temporary override changes the mode only; the stored Off setting must survive.
         _service.SetTemporaryEmulationMode(device, EmulationMode.DualSense);
         _service.Refresh();
         WaitForRunning(device);
@@ -524,7 +477,7 @@ public sealed class EmulationServiceUsbIpTests
         {
             Assert.That(_service.GetStatus(device).Mode, Is.EqualTo(EmulationMode.DualSense));
             Assert.That(_emulationFactory.Creations, Has.Count.EqualTo(1),
-                "the temporary override creates on the Emulation engine the stored settings select");
+                "the temporary override creates the overridden mode");
             Assert.That(_emulationFactory.Creations[0].Mode, Is.EqualTo(EmulationMode.DualSense));
             Assert.That(_servers, Has.Count.EqualTo(1), "the creation went through the Emulation server");
             Assert.That(_attachStrategy.AttachCallCount, Is.EqualTo(1));
@@ -535,14 +488,14 @@ public sealed class EmulationServiceUsbIpTests
     public void Refresh_ModeChangeWithinEmulation_RebuildsTheAdapterOnTheSameServer()
     {
         PhysicalDualSense device = CreateDevice("mode-change");
-        SetStoredSettings(device, EmulationMode.DualSense, EmulationEngine.UsbIp);
+        SetStoredSettings(device, EmulationMode.DualSense);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _tracker.TrackController(device);
 
         _service.Start();
         WaitForRunning(device);
 
-        SetStoredSettings(device, EmulationMode.DualShock4, EmulationEngine.UsbIp, ds4Variant: DualShock4Variant.V2);
+        SetStoredSettings(device, EmulationMode.DualShock4, ds4Variant: DualShock4Variant.V2);
         _enumerator.VirtualDevices.Clear();
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x09CC));
         _service.Refresh();
@@ -565,7 +518,7 @@ public sealed class EmulationServiceUsbIpTests
     public void Dispose_DetachesAndDisposesTheServerAndTheAdapter()
     {
         PhysicalDualSense device = CreateDevice("dispose");
-        SetStoredSettings(device, EmulationMode.DualSense, EmulationEngine.UsbIp);
+        SetStoredSettings(device, EmulationMode.DualSense);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _tracker.TrackController(device);
 
@@ -591,14 +544,14 @@ public sealed class EmulationServiceUsbIpTests
     }
 
     [Test]
-    public void Start_ViiperProfile_DoesNotTouchTheEmulationEngine()
+    public void Start_OffProfile_DoesNotTouchTheEmulationServer()
     {
-        PhysicalDualSense viiperDevice = CreateDevice("viiper");
-        SetStoredSettings(viiperDevice, EmulationMode.Off, EmulationEngine.Viiper);
+        PhysicalDualSense offDevice = CreateDevice("off");
+        SetStoredSettings(offDevice, EmulationMode.Off);
         PhysicalDualSense emulationDevice = CreateDevice("emulation");
-        SetStoredSettings(emulationDevice, EmulationMode.DualSense, EmulationEngine.UsbIp);
+        SetStoredSettings(emulationDevice, EmulationMode.DualSense);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
-        _tracker.TrackController(viiperDevice);
+        _tracker.TrackController(offDevice);
         _tracker.TrackController(emulationDevice);
 
         _service.Start();
@@ -606,9 +559,9 @@ public sealed class EmulationServiceUsbIpTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(_service.GetStatus(viiperDevice).Detail, Is.EqualTo("Emulation is disabled for this controller"));
-            Assert.That(_emulationFactory.Creations, Has.Count.EqualTo(1), "only the Emulation profile created a persona");
-            Assert.That(_servers, Has.Count.EqualTo(1), "the Viiper profile did not create an Emulation server");
+            Assert.That(_service.GetStatus(offDevice).Detail, Is.EqualTo("Emulation is disabled for this controller"));
+            Assert.That(_emulationFactory.Creations, Has.Count.EqualTo(1), "only the enabled profile created a persona");
+            Assert.That(_servers, Has.Count.EqualTo(1), "the Off profile did not create an Emulation server");
             Assert.That(_attachStrategy.AttachCallCount, Is.EqualTo(1));
         });
     }
@@ -618,8 +571,8 @@ public sealed class EmulationServiceUsbIpTests
     {
         PhysicalDualSense firstDevice = CreateDevice("first");
         PhysicalDualSense secondDevice = CreateDevice("second");
-        SetStoredSettings(firstDevice, EmulationMode.DualSense, EmulationEngine.UsbIp);
-        SetStoredSettings(secondDevice, EmulationMode.DualSense, EmulationEngine.UsbIp);
+        SetStoredSettings(firstDevice, EmulationMode.DualSense);
+        SetStoredSettings(secondDevice, EmulationMode.DualSense);
         _enumerator.VirtualDevicesProvider = () => _attachStrategy.AttachCallCount switch
         {
             0 => [],
@@ -651,8 +604,8 @@ public sealed class EmulationServiceUsbIpTests
         // the second entry's persona is still attached, so the shared server may only stop
         // after every persona was detached.
         EmulationServer server = _servers.Single();
-        SetStoredSettings(firstDevice, EmulationMode.Off, EmulationEngine.UsbIp);
-        SetStoredSettings(secondDevice, EmulationMode.Off, EmulationEngine.UsbIp);
+        SetStoredSettings(firstDevice, EmulationMode.Off);
+        SetStoredSettings(secondDevice, EmulationMode.Off);
         _service.Refresh();
 
         Assert.Multiple(() =>
@@ -671,7 +624,7 @@ public sealed class EmulationServiceUsbIpTests
     public void Refresh_DuringAnInFlightCreation_KeepsTheServerUntilThePersonaIsDetached()
     {
         PhysicalDualSense device = CreateDevice("in-flight");
-        SetStoredSettings(device, EmulationMode.DualSense, EmulationEngine.UsbIp);
+        SetStoredSettings(device, EmulationMode.DualSense);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _tracker.TrackController(device);
 
@@ -694,7 +647,7 @@ public sealed class EmulationServiceUsbIpTests
             }
         };
 
-        SetStoredSettings(device, EmulationMode.DualShock4, EmulationEngine.UsbIp);
+        SetStoredSettings(device, EmulationMode.DualShock4);
         _service.Refresh();
         try
         {
@@ -703,7 +656,7 @@ public sealed class EmulationServiceUsbIpTests
 
             // The entry leaves while the persona is attached but not committed to it: the
             // shared server must survive until the creation detached its persona.
-            SetStoredSettings(device, EmulationMode.Off, EmulationEngine.UsbIp);
+            SetStoredSettings(device, EmulationMode.Off);
             _service.Refresh();
             Assert.That(_emulationLogger.Entries.Select(entry => entry.Message), Has.None.Contains("USB/IP server stopped."),
                 "the in-flight persona keeps the server alive across the entry teardown");
@@ -725,7 +678,7 @@ public sealed class EmulationServiceUsbIpTests
         EmulationMode mode, DualSenseVariant dsVariant, ushort productId, Type expectedCapture)
     {
         PhysicalDualSense device = CreateDevice($"audio-{mode}");
-        SetStoredSettings(device, mode, EmulationEngine.UsbIp, dsVariant);
+        SetStoredSettings(device, mode, dsVariant);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, productId));
         _tracker.TrackController(device);
 
@@ -734,13 +687,13 @@ public sealed class EmulationServiceUsbIpTests
 
         object entry = GetEntry(device);
         IDisposable? capture = ReadField<IDisposable?>(entry, "Capture");
-        ViiperDualSenseAudioForwarder? forwarder = ReadField<ViiperDualSenseAudioForwarder?>(entry, "Forwarder");
+        DualSenseAudioForwarder? forwarder = ReadField<DualSenseAudioForwarder?>(entry, "Forwarder");
 
         Assert.Multiple(() =>
         {
             Assert.That(capture, Is.Not.Null, "the controller endpoint has a capture");
             Assert.That(capture, Is.TypeOf(expectedCapture));
-            Assert.That(capture, Is.AssignableTo<IViiperAudioCapture>(), "the capture takes part in source cutover");
+            Assert.That(capture, Is.AssignableTo<IVirtualAudioCapture>(), "the capture takes part in source cutover");
             Assert.That(forwarder, Is.Not.Null, "the capture has a sink to feed");
             Assert.That(forwarder?.IsDisposed, Is.False);
             Assert.That(ReadField<bool>(entry, "AudioCallbacksWired"), Is.True,
@@ -752,7 +705,7 @@ public sealed class EmulationServiceUsbIpTests
     public void Creation_ControllerEndpoint_RoutesSpeakerHapticsIntoTheForwarderUntilUnwired()
     {
         PhysicalDualSense device = CreateDevice("audio-haptics");
-        SetStoredSettings(device, EmulationMode.DualSense, EmulationEngine.UsbIp);
+        SetStoredSettings(device, EmulationMode.DualSense);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _tracker.TrackController(device);
 
@@ -760,7 +713,7 @@ public sealed class EmulationServiceUsbIpTests
         WaitForRunning(device);
 
         object entry = GetEntry(device);
-        ViiperDualSenseAudioForwarder forwarder = ReadField<ViiperDualSenseAudioForwarder>(entry, "Forwarder");
+        DualSenseAudioForwarder forwarder = ReadField<DualSenseAudioForwarder>(entry, "Forwarder");
         PersonaDualSense persona = (PersonaDualSense)_emulationFactory.Creations[0].Creation!.Persona;
         Assert.That(ReadField<long>(forwarder, "_lastGameHapticsTimestamp"), Is.Zero,
             "a freshly created forwarder has not seen game haptics yet");
@@ -786,7 +739,7 @@ public sealed class EmulationServiceUsbIpTests
     public void DeactivateDirectAudioLocked_RebuildsTheControllerCaptureAndKeepsTheLiveForwarder()
     {
         PhysicalDualSense device = CreateDevice("audio-direct");
-        SetStoredSettings(device, EmulationMode.DualSense, EmulationEngine.UsbIp,
+        SetStoredSettings(device, EmulationMode.DualSense,
             audioSource: EmulationAudioSource.SystemOutput);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _tracker.TrackController(device);
@@ -795,7 +748,7 @@ public sealed class EmulationServiceUsbIpTests
         WaitForRunning(device);
 
         object entry = GetEntry(device);
-        ViiperDualSenseAudioForwarder? forwarder = ReadField<ViiperDualSenseAudioForwarder?>(entry, "Forwarder");
+        DualSenseAudioForwarder? forwarder = ReadField<DualSenseAudioForwarder?>(entry, "Forwarder");
         Assert.Multiple(() =>
         {
             Assert.That(ReadField<IDisposable?>(entry, "Capture"), Is.Null,
@@ -810,12 +763,12 @@ public sealed class EmulationServiceUsbIpTests
         InvokeService(_service, "DeactivateDirectAudioLocked", entry);
 
         IDisposable? capture = ReadField<IDisposable?>(entry, "Capture");
-        ViiperDualSenseAudioForwarder? rebuiltForwarder = ReadField<ViiperDualSenseAudioForwarder?>(entry, "Forwarder");
+        DualSenseAudioForwarder? rebuiltForwarder = ReadField<DualSenseAudioForwarder?>(entry, "Forwarder");
         Assert.Multiple(() =>
         {
             Assert.That(capture, Is.TypeOf<EmulationDualSenseAudioCapture>(),
                 "the missing controller capture is rebuilt on the switch back");
-            Assert.That((capture as IViiperAudioCapture)?.IsSuspended, Is.False, "the rebuilt capture feeds again");
+            Assert.That((capture as IVirtualAudioCapture)?.IsSuspended, Is.False, "the rebuilt capture feeds again");
             Assert.That(rebuiltForwarder, Is.SameAs(forwarder),
                 "the live forwarder is reused instead of being torn down");
             Assert.That(rebuiltForwarder?.IsDisposed, Is.False);

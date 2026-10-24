@@ -1,5 +1,6 @@
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.Emulation;
+using DualSenseClient.Controllers.Emulation.UsbIp;
 using DualSenseClient.Hid;
 
 namespace DualSenseClient.Tests.Controllers.DualSense.Input;
@@ -9,8 +10,8 @@ public class DualSenseRawReportTests
     [Test]
     public void ShouldUseRawMapping_NullOrDefault_ReturnsTrue()
     {
-        Assert.That(VirtualDualSenseController.ShouldUseRawMapping(null), Is.True);
-        Assert.That(VirtualDualSenseController.ShouldUseRawMapping(VirtualInputMapper.DualSenseDefaultTable), Is.True);
+        Assert.That(EmulationDualSenseController.ShouldUseRawMapping(null), Is.True);
+        Assert.That(EmulationDualSenseController.ShouldUseRawMapping(VirtualInputMapper.DualSenseDefaultTable), Is.True);
     }
 
     [Test]
@@ -26,7 +27,7 @@ public class DualSenseRawReportTests
             ],
             null);
 
-        Assert.That(VirtualDualSenseController.ShouldUseRawMapping(custom), Is.False);
+        Assert.That(EmulationDualSenseController.ShouldUseRawMapping(custom), Is.False);
     }
 
     [Test]

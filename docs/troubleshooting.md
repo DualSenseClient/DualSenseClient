@@ -47,7 +47,7 @@ If Windows reports a missing `dotnet` runtime when launching:
 
 ### Virtual Controller Does Not Appear
 
-libVIIPER is bundled with the app, but attaching a virtual device requires the **USB/IP driver**:
+Attaching a virtual device requires the **USB/IP driver**:
 
 === "Windows"
 
@@ -58,7 +58,7 @@ libVIIPER is bundled with the app, but attaching a virtual device requires the *
 
     Virtual controller emulation is not yet supported on Linux. The USB/IP package will be required once support is enabled.
 
-If the driver is installed but no device appears, check the VIIPER logs — USB/IP must be available for auto-attachment. See also the [Emulation guide](guides/virtual-controller.md).
+If the driver is installed but no device appears, check the application logs — USB/IP must be available for auto-attachment. See also the [Emulation guide](guides/virtual-controller.md).
 
 ## Games & Double Input
 

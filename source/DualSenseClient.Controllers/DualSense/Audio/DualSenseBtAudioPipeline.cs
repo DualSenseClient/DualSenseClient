@@ -9,7 +9,7 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 /// 200-byte Opus frame (resampled 512→480 frames) and one 64-byte haptics sample
 /// (32 s8 stereo frames at 3 kHz, 16:1 decimated). Owns the Opus encoder state.
 /// Used by <see cref="DualSenseAudioPlayer"/> for local file playback and by the
-/// VIIPER audio forwarder for host audio, so both sides stay in one implementation.
+/// virtual-controller audio forwarder for host audio, so both sides stay in one implementation.
 /// </summary>
 public sealed class DualSenseBtAudioPipeline : IDisposable
 {

@@ -17,9 +17,7 @@ namespace DualSenseClient.Tests.Controllers.Emulation;
 /// <summary>
 /// Pins the controller-endpoint capture selection of <see cref="EmulationService"/>: an Emulation
 /// DualSense or DualShock 4 adapter yields its matching speaker capture, while an Xbox 360 adapter
-/// (no speaker endpoint) and a missing sink yield nothing. The libVIIPER adapter is not covered
-/// here: its native handle can only be produced by the libVIIPER P/Invoke layer, so no handle-free
-/// wrapper can be constructed in a unit test.
+/// (no speaker endpoint) and a missing sink yield nothing.
 /// </summary>
 [TestFixture]
 public sealed class EmulationControllerCaptureTests

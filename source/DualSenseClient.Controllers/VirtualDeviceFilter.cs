@@ -1,8 +1,8 @@
 namespace DualSenseClient.Controllers;
 
 /// <summary>
-/// Identifies virtual DualSense/DualSense Edge devices of both emulation engines (libVIIPER and
-/// Emulation) so they are never tracked as physical controllers.
+/// Identifies virtual DualSense/DualSense Edge devices created by this app so they are never
+/// tracked as physical controllers.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -11,15 +11,10 @@ namespace DualSenseClient.Controllers;
 /// </para>
 /// <list type="bullet">
 /// <item>Devices created by this app carry the locally-administered
-/// <see cref="OwnershipMacPrefix"/> ("02:D5") ownership prefix, stamped at creation in both
-/// engines: libVIIPER via <see cref="DualSenseClient.VIIPER.DualSense.DSMetaState.MACAddress"/>
-/// and Emulation via the persona identity's MAC. The 0x02 first
-/// byte marks a locally-administered unicast address, which real controllers — always
-/// carrying a Sony-assigned universal address — can never have.</item>
-/// <item>libVIIPER and standalone VIIPER instances expose the
-/// library's hardcoded default addresses (<c>A5:FA:9C:CF:92:00</c> for DualSense,
-/// <c>A5:FE:9C:CF:92:00</c> for DualSense Edge; VIIPER device/dualsense/const.go), matched
-/// exactly.</item>
+/// <see cref="OwnershipMacPrefix"/> ("02:D5") ownership prefix, stamped at creation from the
+/// persona identity's MAC. The 0x02 first byte marks a locally-administered unicast address,
+/// which real controllers — always carrying a Sony-assigned universal address — can never
+/// have.</item>
 /// <item>An Emulation DualSense or DualSense Edge persona carrying the default identity serves the
 /// all-zero controller MAC <c>00:00:00:00:00:00</c> over its pairing-info report
 /// (<see cref="DualSenseClient.Emulation.Devices.DualSense.DualSenseIdentity.MacAddress"/> default),
@@ -43,16 +38,6 @@ public static class VirtualDeviceFilter
     public const string OwnershipMacPrefix = "02:D5";
 
     /// <summary>
-    /// The hardcoded default client MAC addresses of libVIIPER's virtual DualSense and
-    /// DualSense Edge devices.
-    /// </summary>
-    private static readonly HashSet<string> LegacyDefaultMacs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-    {
-        "A5:FA:9C:CF:92:00",
-        "A5:FE:9C:CF:92:00"
-    };
-
-    /// <summary>
     /// The all-zero controller MAC an Emulation DualSense or DualSense Edge persona serves over its
     /// pairing-info report (0x09) when it carries the default identity. Matched exactly: the value
     /// is valid as a whole but never as a prefix.
@@ -61,9 +46,8 @@ public static class VirtualDeviceFilter
 
     /// <summary>
     /// Whether the given pairing-info client MAC belongs to a known virtual controller: a device
-    /// created by this app, a libVIIPER/standalone VIIPER default, or an Emulation persona carrying
-    /// its default identity. Matching is case-insensitive; <c>null</c>, empty, or whitespace
-    /// (MAC unavailable) never matches.
+    /// created by this app or an Emulation persona carrying its default identity. Matching is
+    /// case-insensitive; <c>null</c>, empty, or whitespace (MAC unavailable) never matches.
     /// </summary>
     public static bool IsKnownVirtualMac(string? clientMac)
     {
@@ -73,7 +57,6 @@ public static class VirtualDeviceFilter
         }
 
         return clientMac.StartsWith(OwnershipMacPrefix, StringComparison.OrdinalIgnoreCase)
-               || LegacyDefaultMacs.Contains(clientMac)
                || string.Equals(clientMac, EmulationDefaultIdentityMac, StringComparison.OrdinalIgnoreCase);
     }
 

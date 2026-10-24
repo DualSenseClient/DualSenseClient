@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using DualSenseClient.Logging;
 using DualSenseClient.Emulation.Devices.DualShock4;
 
@@ -6,7 +7,7 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 
 /// <summary>
 /// Captures the speaker audio the host renders to an Emulation DualShock 4 persona and forwards it
-/// to an <see cref="IAudioPcmSink"/> (the <see cref="ViiperDualSenseAudioForwarder"/>), so the
+/// to an <see cref="IAudioPcmSink"/> (the <see cref="DualSenseAudioForwarder"/>), so the
 /// physical controller plays the game's audio.
 /// </summary>
 /// <remarks>
@@ -17,8 +18,8 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 /// buffer and is only valid during the callback, so the bytes are copied and converted to
 /// interleaved stereo float synchronously, before the callback returns. The 32 kHz stream is then
 /// upsampled to the 48 kHz stereo stream the sink consumes (an exact 3:2 ratio) by one
-/// <see cref="ViiperDualShock4AudioCapture.Upsampler32To48"/> instance owned by this capture, so
-/// the resampler phase carries across callbacks.
+/// <see cref="Upsampler32To48"/> instance owned by this capture, so the resampler phase carries
+/// across callbacks.
 /// </para>
 /// <para>
 /// <see cref="DualShock4Device.SpeakerResetReceived"/> marks a stream-generation barrier: the host
@@ -26,7 +27,7 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 /// re-primes on the next block.
 /// </para>
 /// </remarks>
-public sealed class EmulationDualShock4AudioCapture : IDisposable, IViiperAudioCapture
+public sealed class EmulationDualShock4AudioCapture : IDisposable, IVirtualAudioCapture
 {
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("EmulationDualShock4AudioCapture");
 
@@ -61,7 +62,7 @@ public sealed class EmulationDualShock4AudioCapture : IDisposable, IViiperAudioC
     /// Streaming 32 kHz → 48 kHz resampler, fed once per callback. One instance per capture keeps
     /// the interpolation history continuous across packets.
     /// </summary>
-    private readonly ViiperDualShock4AudioCapture.Upsampler32To48 _upsampler = new ViiperDualShock4AudioCapture.Upsampler32To48();
+    private readonly Upsampler32To48 _upsampler = new Upsampler32To48();
 
     /// <summary>
     /// Scratch buffer for the raw S16LE bytes copied out of the event callback.
@@ -167,7 +168,7 @@ public sealed class EmulationDualShock4AudioCapture : IDisposable, IViiperAudioC
                 _floatScratch = new float[frames * 2];
             }
 
-            ViiperDualShock4AudioCapture.ConvertToStereoFloat(_rawScratch.AsSpan(0, byteCount), _floatScratch);
+            ConvertToStereoFloat(_rawScratch.AsSpan(0, byteCount), _floatScratch);
 
             if (_stereoScratch.Length < ((int)(frames * 1.5) + 2) * 2)
             {
@@ -251,6 +252,96 @@ public sealed class EmulationDualShock4AudioCapture : IDisposable, IViiperAudioC
             _disposed = true;
             _device.AudioOutReceived -= _audioHandler;
             _device.SpeakerResetReceived -= _resetHandler;
+        }
+    }
+
+    /// <summary>
+    /// Converts an interleaved 2-channel S16LE block into interleaved stereo float.
+    /// </summary>
+    /// <param name="s16Le">Raw little-endian S16LE samples, 4 bytes per frame.</param>
+    /// <param name="stereo">Receives one interleaved float pair per input frame.</param>
+    public static void ConvertToStereoFloat(ReadOnlySpan<byte> s16Le, Span<float> stereo)
+    {
+        ReadOnlySpan<short> pcm = MemoryMarshal.Cast<byte, short>(s16Le);
+        int frames = s16Le.Length / StereoBytesPerFrame;
+        for (int f = 0; f < frames; f++)
+        {
+            stereo[f * 2] = pcm[f * 2] / 32768f;
+            stereo[f * 2 + 1] = pcm[f * 2 + 1] / 32768f;
+        }
+    }
+
+    /// <summary>
+    /// Streaming linear-interpolation resampler from 32 kHz to 48 kHz (an exact 3:2
+    /// ratio): every two input frames yield three output frames. State (the previous
+    /// input frame and the fractional source position) carries across chunk
+    /// boundaries, so arbitrarily sized feeds stay phase-continuous. Output must be
+    /// sized for <c>ceil(inputFrames × 1.5) + 1</c> frames.
+    /// </summary>
+    public sealed class Upsampler32To48
+    {
+        /// <summary>
+        /// Source-position step per output frame (2 input frames → 3 output frames).
+        /// </summary>
+        private const float Step = 2f / 3f;
+
+        /// <summary>
+        /// The last input frame of the previous chunk, the source sample at position 0.
+        /// </summary>
+        private float _prevLeft;
+
+        private float _prevRight;
+
+        /// <summary>
+        /// Fractional source position of the next output frame, relative to the current
+        /// chunk's samples (position 0 = <see cref="_prevLeft"/>/<see cref="_prevRight"/>,
+        /// position <c>k</c> = chunk sample <c>k - 1</c>).
+        /// </summary>
+        private float _position;
+
+        /// <summary>
+        /// Resamples one interleaved stereo chunk. Returns the number of output frames
+        /// written (inputFrames × 1.5 when the output is large enough).
+        /// </summary>
+        public int Process(ReadOnlySpan<float> input, Span<float> output)
+        {
+            int frames = input.Length / 2;
+            if (frames == 0)
+            {
+                return 0;
+            }
+
+            int written = 0;
+            float position = _position;
+            bool inputExhausted = false;
+            while (written < output.Length / 2)
+            {
+                int index = (int)position;
+                if (index >= frames)
+                {
+                    inputExhausted = true;
+                    break;
+                }
+
+                float frac = position - index;
+                float s0Left = index == 0 ? _prevLeft : input[(index - 1) * 2];
+                float s0Right = index == 0 ? _prevRight : input[(index - 1) * 2 + 1];
+                float s1Left = input[index * 2];
+                float s1Right = input[index * 2 + 1];
+                output[written * 2] = s0Left + (s1Left - s0Left) * frac;
+                output[written * 2 + 1] = s0Right + (s1Right - s0Right) * frac;
+                written++;
+                position += Step;
+            }
+
+            if (inputExhausted)
+            {
+                _position = position - frames;
+                _prevLeft = input[(frames - 1) * 2];
+                _prevRight = input[(frames - 1) * 2 + 1];
+            }
+
+            return written;
         }
     }
 }

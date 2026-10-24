@@ -4,8 +4,8 @@ using DualSenseClient.Settings.Sections;
 namespace DualSenseClient.Controllers.Emulation;
 
 /// <summary>
-/// A virtual controller created with libVIIPER that mirrors the physical DualSense
-/// input to the host, and forwards host feedback to the physical device.
+/// A virtual controller that mirrors the physical controller's input to the host, and
+/// forwards host feedback to the physical device.
 /// </summary>
 public interface IVirtualController : IDisposable
 {
@@ -13,11 +13,6 @@ public interface IVirtualController : IDisposable
     /// The emulation mode this controller was created for.
     /// </summary>
     EmulationMode Mode { get; }
-
-    /// <summary>
-    /// The native device handle, or <c>null</c> when creation failed.
-    /// </summary>
-    nuint? DeviceHandle { get; }
 
     /// <summary>
     /// The host HID device path of the virtual controller, discovered after creation,
@@ -51,7 +46,7 @@ public interface IVirtualController : IDisposable
 }
 
 /// <summary>
-/// Base class for the libVIIPER-backed virtual controllers.
+/// Base class for virtual controllers.
 /// </summary>
 public abstract class VirtualControllerBase : IVirtualController
 {
@@ -70,9 +65,6 @@ public abstract class VirtualControllerBase : IVirtualController
 
     /// <inheritdoc/>
     public abstract EmulationMode Mode { get; }
-
-    /// <inheritdoc/>
-    public nuint? DeviceHandle { get; protected set; }
 
     /// <inheritdoc/>
     public string? VirtualDevicePath { get; set; }

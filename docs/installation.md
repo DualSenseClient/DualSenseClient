@@ -15,7 +15,7 @@
 Optional components:
 
 - **HidHide** (optional, Windows only) — driver for hiding physical controllers from other applications; see [nefarius/HidHide](https://github.com/nefarius/HidHide). See the [Controller Hiding guide](guides/controller-hiding.md)
-- **USB/IP** (optional, virtual controller emulation only; currently Windows-only) — libVIIPER is bundled with the app; it only needs the USB/IP driver to attach virtual devices:
+- **USB/IP** (optional, virtual controller emulation only; currently Windows-only) — required by the built-in emulation engine to attach virtual devices:
     - Windows: [usbip-win2](https://github.com/vadimgrn/usbip-win2)
     - Linux: install `usbip` (Arch: `sudo pacman -S usbip`; Ubuntu/Debian: `sudo apt install linux-tools-generic`) — required once virtual controller support is enabled on Linux
 

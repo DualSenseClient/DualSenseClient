@@ -8,8 +8,8 @@ namespace DualSenseClient.Tests.Controllers.DualSense.Audio;
 /// Pins the Emulation DualSense speaker capture: the persona's four-channel S16LE speaker
 /// packets are copied out of the event, reduced to their front stereo pair and fed to the
 /// PCM sink, the speaker-reset event flushes the sink, a suspended capture discards packets,
-/// and disposal unsubscribes both events. The conversion itself is the libVIIPER capture's
-/// pure arithmetic, reused rather than duplicated.
+/// and disposal unsubscribes both events. The conversion is pure arithmetic on the persona's
+/// four-channel packet.
 /// </summary>
 [TestFixture]
 public sealed class EmulationDualSenseAudioCaptureTests
@@ -156,7 +156,7 @@ public sealed class EmulationDualSenseAudioCaptureTests
 
     [Test]
     public void Capture_ImplementsTheSuspendableContract() =>
-        Assert.That(typeof(EmulationDualSenseAudioCapture).IsAssignableTo(typeof(IViiperAudioCapture)), Is.True);
+        Assert.That(typeof(EmulationDualSenseAudioCapture).IsAssignableTo(typeof(IVirtualAudioCapture)), Is.True);
 
     /// <summary>Creates the persona device with the reference identity.</summary>
     private static DualSenseDevice CreateDevice() => new DualSenseDevice(new DualSenseIdentity());

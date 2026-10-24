@@ -1,7 +1,7 @@
-namespace DualSenseClient.VIIPER.DualSense;
+namespace DualSenseClient.Controllers.Emulation;
 
 /// <summary>
-/// DualSense button bit flags.
+/// DualSense button bit flags used by the virtual-controller mapping pipeline.
 /// </summary>
 [Flags]
 public enum DualSenseButtons : uint

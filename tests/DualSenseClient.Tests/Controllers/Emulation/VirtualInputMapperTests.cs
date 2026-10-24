@@ -1,8 +1,5 @@
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.Emulation;
-using DualSenseClient.VIIPER.DualSense;
-using DualSenseClient.VIIPER.DualShock4;
-using DualSenseClient.VIIPER.Xbox360;
 
 namespace DualSenseClient.Tests.Controllers.Emulation;
 

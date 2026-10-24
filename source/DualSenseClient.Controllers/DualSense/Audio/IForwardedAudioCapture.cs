@@ -1,7 +1,7 @@
 namespace DualSenseClient.Controllers.DualSense.Audio;
 
 /// <summary>
-/// A host-audio capture feeding a <see cref="ViiperDualSenseAudioForwarder"/> directly
+/// A host-audio capture feeding a <see cref="DualSenseAudioForwarder"/> directly
 /// with 48 kHz interleaved stereo float PCM, without a virtual controller in between:
 /// the system-output loopback of the default render device or the process loopback of a
 /// single application. Exactly one direct capture owns the forwarder at a time.

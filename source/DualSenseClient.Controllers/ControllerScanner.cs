@@ -132,9 +132,9 @@ public sealed class ControllerScanner : IControllerScanner
     /// A device that is enumerated but cannot be opened (e.g. it is still being
     /// re-enumerated by the OS, or momentarily grabbed by another process) is
     /// skipped instead of crashing the caller.
-    /// Virtual controllers created by either emulation engine (libVIIPER and Emulation) are also
-    /// rejected: they present the same VID/PID as real hardware, so they are recognized by their
-    /// pairing-info MAC (see <see cref="VirtualDeviceFilter"/>).
+    /// Virtual controllers created by the Emulation engine are also rejected: they present the
+    /// same VID/PID as real hardware, so they are recognized by their pairing-info MAC (see
+    /// <see cref="VirtualDeviceFilter"/>).
     /// </summary>
     private IControllerDevice? TryCreate(IHidDeviceInfo info)
     {

@@ -24,13 +24,6 @@ public sealed class ControllerEmulationTests
     }
 
     [Test]
-    public void ControllerInfo_Default_EmulationEngineIsViiper()
-    {
-        ControllerInfo info = new ControllerInfo();
-        Assert.That(info.Emulation.Engine, Is.EqualTo(EmulationEngine.Viiper));
-    }
-
-    [Test]
     public void ControllerInfo_CanChangeEmulationMode()
     {
         ControllerInfo info = new ControllerInfo
@@ -106,24 +99,6 @@ public sealed class ControllerEmulationTests
     }
 
     [Test]
-    public void ControllerInfo_Serialization_RoundTripsEmulationEngine()
-    {
-        ControllerInfo info = new ControllerInfo
-        {
-            Emulation =
-            {
-                Engine = EmulationEngine.UsbIp
-            }
-        };
-        string json = JsonSerializer.Serialize(info, Options);
-
-        Assert.That(json, Does.Contain("\"engine\":\"UsbIp\""));
-
-        ControllerInfo? roundTripped = JsonSerializer.Deserialize<ControllerInfo>(json, Options);
-        Assert.That(roundTripped?.Emulation.Engine, Is.EqualTo(EmulationEngine.UsbIp));
-    }
-
-    [Test]
     public void ControllerInfo_Serialization_RoundTripsMappings()
     {
         List<ButtonMappingEntry> entries =
@@ -169,14 +144,6 @@ public sealed class ControllerEmulationTests
         ControllerInfo? info = JsonSerializer.Deserialize<ControllerInfo>(legacyJson, Options);
         Assert.That(info?.Emulation.Variant.DualSense, Is.EqualTo(DualSenseVariant.Standard));
         Assert.That(info?.Emulation.Forward.AudioOutput, Is.EqualTo(EmulationAudioOutput.Speaker));
-    }
-
-    [Test]
-    public void ControllerInfo_Deserialization_WithoutEmulationEngineFallsBackToViiper()
-    {
-        string legacyJson = """{"mac_address":"AA:BB:CC:DD:EE:FF","emulation":{"mode":"DualSense"}}""";
-        ControllerInfo? info = JsonSerializer.Deserialize<ControllerInfo>(legacyJson, Options);
-        Assert.That(info?.Emulation.Engine, Is.EqualTo(EmulationEngine.Viiper));
     }
 
     [Test]

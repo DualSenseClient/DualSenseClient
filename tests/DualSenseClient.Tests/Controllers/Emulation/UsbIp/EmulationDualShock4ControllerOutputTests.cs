@@ -9,7 +9,7 @@ namespace DualSenseClient.Tests.Controllers.Emulation.UsbIp;
 /// 0x05 is delivered to the persona device and the adapter must honor the host's update flags. A
 /// report updates only the fields its flags enable: rumble goes to
 /// <see cref="IDualSenseOutputs.SetVibration"/> and the lightbar is rebuilt into the same payload
-/// the libVIIPER wrapper sends, while fields the report does not update retain their cached values.
+/// the physical pad receives, while fields the report does not update retain their cached values.
 /// </summary>
 [TestFixture]
 public sealed class EmulationDualShock4ControllerOutputTests
@@ -38,7 +38,7 @@ public sealed class EmulationDualShock4ControllerOutputTests
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        EmulationDualShock4Controller controller = new EmulationDualShock4Controller(device, outputs);
+        _ = new EmulationDualShock4Controller(device, outputs);
 
         device.OnOutputReport(Wire(0x07, 0x22, 0x33, 0x01, 0x02, 0x03, 0x07, 0x08));
 
@@ -57,7 +57,6 @@ public sealed class EmulationDualShock4ControllerOutputTests
             Assert.That(outputs.Vibrations[0], Is.EqualTo(((byte)0x33, (byte)0x22)), "large motor first, small motor second");
             Assert.That(outputs.OutputStates, Has.Count.EqualTo(1));
             Assert.That(outputs.OutputStates[0].AsSpan().ToArray(), Is.EqualTo(expected));
-            Assert.That(controller.DeviceHandle, Is.Null);
         });
     }
 

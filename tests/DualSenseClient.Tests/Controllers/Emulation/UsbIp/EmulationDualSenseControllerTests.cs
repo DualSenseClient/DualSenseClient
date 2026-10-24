@@ -6,14 +6,13 @@ using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Controllers.Emulation.UsbIp;
 using DualSenseClient.Settings.Sections;
 using DualSenseClient.Emulation.Devices.DualSense;
-using DualSenseClient.VIIPER.DualSense;
 
 namespace DualSenseClient.Tests.Controllers.Emulation.UsbIp;
 
 /// <summary>
 /// Input-side tests of <see cref="EmulationDualSenseController"/>: the adapter feeds the persona
 /// from the same <see cref="ButtonMappingTable"/> / <see cref="VirtualInputMapper"/> pipeline as the
-/// libVIIPER wrapper, so every assertion here reads the persona's served 64-byte wire report and
+/// other personas, so every assertion here reads the persona's served 64-byte wire report and
 /// pins the bytes the host would see. Raw passthrough, the first-report battery meta, the
 /// exhaustive D-pad switch and the single-bit sweep of every mapper-reachable button flag are
 /// covered.
@@ -204,7 +203,7 @@ public sealed class EmulationDualSenseControllerTests
     [TestCase(0xD, 0x01)]
     [TestCase(0xE, 0x03)]
     [TestCase(0xF, 0x01)]
-    public void PushInput_EveryDpadMask_ServesTheViiperHatValue(int mask, int expectedHat)
+    public void PushInput_EveryDpadMask_ServesTheExpectedHatValue(int mask, int expectedHat)
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
         EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
@@ -402,14 +401,14 @@ public sealed class EmulationDualSenseControllerTests
         EmulationDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
         controller.PushBattery(new BatteryState(0x19));
         Assert.That(EmulationAdapterTestSupport.Pull(device, 64)[OffsetBattery], Is.EqualTo(0x19),
-            "the meta lane applies immediately, like the wrapper's PushMeta");
+            "the meta lane applies immediately");
 
         byte[] first = EmulationAdapterTestSupport.NeutralPayload();
         first[PayloadBattery] = 0x28;
         controller.PushInput(EmulationAdapterTestSupport.Report(first));
 
         Assert.That(EmulationAdapterTestSupport.Pull(device, 64)[OffsetBattery], Is.EqualTo(0x28),
-            "the first input report overwrites a pre-input battery push, like the wrapper's EnsureInitialMeta");
+            "the first input report overwrites a pre-input battery push");
     }
 
     [Test]
@@ -461,7 +460,6 @@ public sealed class EmulationDualSenseControllerTests
         Assert.Multiple(() =>
         {
             Assert.That(controller.Mode, Is.EqualTo(EmulationMode.DualSense));
-            Assert.That(controller.DeviceHandle, Is.Null, "an Emulation persona is an object, not a native handle");
             Assert.That(report[OffsetSticks], Is.EqualTo(77));
         });
     }
@@ -488,7 +486,6 @@ public sealed class EmulationDualSenseControllerTests
             Assert.That(report[OffsetSticks], Is.EqualTo(11), "a disposed adapter ignores later input pushes");
             Assert.That(outputs.OutputStates, Is.Empty, "a disposed adapter unsubscribes from the persona's output event");
             Assert.That(controller.PushRawInput(EmulationAdapterTestSupport.RawReport(0x77)), Is.False);
-            Assert.That(controller.DeviceHandle, Is.Null);
             Assert.That(() => controller.Dispose(), Throws.Nothing);
         });
     }

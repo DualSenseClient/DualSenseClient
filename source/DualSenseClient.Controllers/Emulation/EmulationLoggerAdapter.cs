@@ -4,9 +4,8 @@ using DualSenseClient.Emulation.Core;
 namespace DualSenseClient.Controllers.Emulation;
 
 /// <summary>
-/// Routes the Emulation engine's <see cref="IEmulationLogger"/> messages into the application log,
-/// mirroring the libVIIPER native log routing
-/// (<c>DualSenseClientLogger.For("VIIPER")</c> in <see cref="EmulationService"/>).
+/// Routes the Emulation engine's <see cref="IEmulationLogger"/> messages into the application log
+/// under the <c>Emulation</c> logger name.
 /// </summary>
 /// <remarks>
 /// The engine calls this adapter from its session and device threads, so <see cref="Log"/> never

@@ -1,7 +1,7 @@
-namespace DualSenseClient.VIIPER.DualShock4;
+namespace DualSenseClient.Controllers.Emulation;
 
 /// <summary>
-/// DualShock 4 button bit flags.
+/// DualShock 4 button bit flags used by the virtual-controller mapping pipeline.
 /// </summary>
 [Flags]
 public enum DualShock4Buttons : ushort

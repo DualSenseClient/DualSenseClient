@@ -4,7 +4,6 @@ using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Controllers.Emulation.UsbIp;
 using DualSenseClient.Settings.Sections;
 using DualSenseClient.Emulation.Devices.Xbox360;
-using DualSenseClient.VIIPER.Xbox360;
 using ButtonMappingEntry = DualSenseClient.Settings.Sections.ButtonMappingEntry;
 
 namespace DualSenseClient.Tests.Controllers.Emulation.UsbIp;
@@ -14,8 +13,8 @@ namespace DualSenseClient.Tests.Controllers.Emulation.UsbIp;
 /// <see cref="VirtualInputMapper"/> pipeline result onto the persona's 20-byte XInput packet. The
 /// expected packets are stated independently here (the mapper's flag values are the wire button
 /// bits), so the adapter's button/D-pad translation, the Y-axis inversion and the trigger bytes are
-/// pinned against the libVIIPER wrapper's semantics. The persona has no battery or connection state,
-/// matching the wrapper's inherited no-ops.
+/// pinned against the mapper's semantics. The persona has no battery or connection state, so the
+/// inherited no-ops are kept.
 /// </summary>
 [TestFixture]
 public sealed class EmulationXbox360ControllerTests
@@ -42,7 +41,7 @@ public sealed class EmulationXbox360ControllerTests
     }
 
     [Test]
-    public void PushInput_EveryStickByte_MapsThroughTheViiperAxisHelpers()
+    public void PushInput_EveryStickByte_MapsThroughTheAxisHelpers()
     {
         Xbox360Device device = new Xbox360Device(new Xbox360Identity());
         EmulationXbox360Controller controller = CreateController(device, new RecordingDualSenseOutputs());
@@ -174,16 +173,12 @@ public sealed class EmulationXbox360ControllerTests
     }
 
     [Test]
-    public void Construction_ExposesXbox360ModeAndNullDeviceHandle()
+    public void Construction_ExposesXbox360Mode()
     {
         Xbox360Device device = new Xbox360Device(new Xbox360Identity());
         EmulationXbox360Controller controller = CreateController(device, new RecordingDualSenseOutputs());
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(controller.Mode, Is.EqualTo(EmulationMode.Xbox360));
-            Assert.That(controller.DeviceHandle, Is.Null, "an Emulation persona is an object, not a native handle");
-        });
+        Assert.That(controller.Mode, Is.EqualTo(EmulationMode.Xbox360));
     }
 
     [Test]
@@ -210,7 +205,6 @@ public sealed class EmulationXbox360ControllerTests
         {
             Assert.That(packet[OffsetLeftTrigger], Is.EqualTo(200), "a disposed adapter ignores later input pushes");
             Assert.That(outputs.Vibrations, Is.Empty);
-            Assert.That(controller.DeviceHandle, Is.Null);
             Assert.That(() => controller.Dispose(), Throws.Nothing);
         });
     }

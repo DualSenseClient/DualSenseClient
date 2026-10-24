@@ -2,17 +2,14 @@ using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Controllers.Emulation.UsbIp;
 using DualSenseClient.Emulation.Devices.DualSense;
-using DualSenseClient.VIIPER.DualSense;
 
 namespace DualSenseClient.Tests.Controllers.Emulation.UsbIp;
 
 /// <summary>
 /// Output-side tests of <see cref="EmulationDualSenseController"/>: a synthetic host output report
-/// 0x02 is delivered to the persona device, the adapter rebuilds the physical 47-byte payload and
-/// the result is compared byte-for-byte with the libVIIPER path's
-/// <see cref="VirtualDualSenseController.BuildOutputPayload(DSOutputState, bool)"/> for the same
-/// wire payload and both rumble-mode encodings. The ordering of the outputs-lane call and the
-/// <see cref="EmulationDualSenseController.OutputStateReceived"/> event is pinned too.
+/// 0x02 is delivered to the persona device and the adapter rebuilds the physical 47-byte payload,
+/// asserted byte-for-byte for both rumble-mode encodings. The ordering of the outputs-lane call
+/// and the <see cref="EmulationDualSenseController.OutputStateReceived"/> event is pinned too.
 /// </summary>
 [TestFixture]
 public sealed class EmulationDualSenseControllerOutputTests
@@ -21,43 +18,39 @@ public sealed class EmulationDualSenseControllerOutputTests
     private const byte OutputReportId = 0x02;
 
     /// <summary>
-    /// Builds the libVIIPER output state from a 47-byte wire payload the same way the existing
-    /// <c>VirtualDualSenseControllerOutputTests</c> fixture does.
+    /// Builds the 47-byte physical payload the adapter must send: the game's wire payload with the
+    /// fields the persona decode does not expose served as zero, and the rumble-mode selector
+    /// translated to the physical pad's encoding.
     /// </summary>
-    private static DSOutputState ViiperOutput(byte[] payload)
+    private static byte[] ExpectedPayload(byte[] payload, bool vibrationV2)
     {
-        Assert.That(payload.Length, Is.EqualTo(47));
-        byte[] right = new byte[11];
-        byte[] left = new byte[11];
-        Buffer.BlockCopy(payload, 10, right, 0, 11);
-        Buffer.BlockCopy(payload, 21, left, 0, 11);
-        return new DSOutputState
+        byte[] bytes = (byte[])payload.Clone();
+        bytes[38] &= 0x0F; // only the four defined valid-flag bits are decoded
+        bytes[39] &= 0x01; // only the low-pass-filter bit is decoded
+        bytes[40] = 0; // the reference unknown byte is not exposed
+
+        bool rumbleSelected = (bytes[0] & 0x01) != 0 || (bytes[38] & 0x04) != 0;
+        if (rumbleSelected)
         {
-            Flags0 = payload[0],
-            Flags1 = payload[1],
-            RumbleSmall = payload[2],
-            RumbleLarge = payload[3],
-            VolumeHeadphones = payload[4],
-            VolumeSpeaker = payload[5],
-            VolumeMic = payload[6],
-            AudioControl = payload[7],
-            MuteLightMode = payload[8],
-            MuteControl = payload[9],
-            TriggerRight = right,
-            TriggerLeft = left,
-            HostTimestamp = (uint)(payload[32] | (payload[33] << 8) | (payload[34] << 16) | (payload[35] << 24)),
-            MotorPower = payload[36],
-            AudioControl2 = payload[37],
-            Flags3 = payload[38],
-            HapticFilter = payload[39],
-            UnkByte = payload[40],
-            LightFade = payload[41],
-            LightBrightness = payload[42],
-            PlayerLeds = payload[43],
-            LedRed = payload[44],
-            LedGreen = payload[45],
-            LedBlue = payload[46]
-        };
+            bytes[0] |= 0x02; // use rumble rather than haptics
+            if (vibrationV2)
+            {
+                bytes[0] &= 0xFE; // clear the v1 selector
+                bytes[38] |= 0x04; // set the v2 selector
+            }
+            else
+            {
+                bytes[0] |= 0x01;
+                bytes[38] &= 0xFB;
+            }
+        }
+        else
+        {
+            bytes[0] &= 0xFC;
+            bytes[38] &= 0xFB;
+        }
+
+        return bytes;
     }
 
     /// <summary>Wraps a 47-byte payload into the id-prefixed 48-byte host transfer.</summary>
@@ -112,19 +105,17 @@ public sealed class EmulationDualSenseControllerOutputTests
 
     [TestCase(true)]
     [TestCase(false)]
-    public void HostOutput_WirePayload_ProducesTheSamePhysicalPayloadAsTheViiperWrapper(bool vibrationV2)
+    public void HostOutput_WirePayload_ProducesTheExpectedPhysicalPayload(bool vibrationV2)
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        EmulationDualSenseController controller = new EmulationDualSenseController(device, outputs, vibrationV2);
+        _ = new EmulationDualSenseController(device, outputs, vibrationV2);
         byte[] payload = RichGamePayload();
 
         device.OnOutputReport(Wire(payload));
 
-        SetStateData expected = VirtualDualSenseController.BuildOutputPayload(ViiperOutput(payload), vibrationV2);
         Assert.That(outputs.OutputStates, Has.Count.EqualTo(1));
-        Assert.That(outputs.OutputStates[0].AsSpan().ToArray(), Is.EqualTo(expected.AsSpan().ToArray()));
-        Assert.That(controller.DeviceHandle, Is.Null);
+        Assert.That(outputs.OutputStates[0].AsSpan().ToArray(), Is.EqualTo(ExpectedPayload(payload, vibrationV2)));
     }
 
     [Test]
@@ -173,6 +164,28 @@ public sealed class EmulationDualSenseControllerOutputTests
     }
 
     [Test]
+    public void HostOutput_V2SelectorOnV1Pad_TranslatesTheSelector()
+    {
+        DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
+        RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
+        _ = new EmulationDualSenseController(device, outputs, false);
+        byte[] payload = new byte[47];
+        payload[0] = 0x02 | 0x0C; // haptics select + trigger FFB only
+        payload[38] = 0x04; // v2 selector
+
+        device.OnOutputReport(Wire(payload));
+
+        SetStateData sent = outputs.OutputStates[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That((byte)sent.ValidFlag0 & 0x01, Is.EqualTo(0x01), "the v1 compatibility bit must be set for a v1 pad");
+            Assert.That((byte)sent.ValidFlag0 & 0x02, Is.EqualTo(0x02), "haptics select must stay set");
+            Assert.That((byte)sent.ValidFlag2 & 0x04, Is.Zero, "the v2 selector must be cleared for a v1 pad");
+            Assert.That((byte)sent.ValidFlag0 & 0x0C, Is.EqualTo(0x0C), "the trigger allow bits must be preserved");
+        });
+    }
+
+    [Test]
     public void HostOutput_WithoutRumble_ClearsTheSelectorSoThePadRetainsItsMotors()
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
@@ -200,23 +213,19 @@ public sealed class EmulationDualSenseControllerOutputTests
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
-        EmulationDualSenseController controller = new EmulationDualSenseController(device, outputs, false);
+        _ = new EmulationDualSenseController(device, outputs, false);
         byte[] payload = RichGamePayload();
         payload[40] = 0xAB; // reference unknown byte, not exposed by DualSenseOutputReport
         payload[38] |= 0xF0; // undefined high nibble of valid-flag byte 2
 
         device.OnOutputReport(Wire(payload));
 
-        DSOutputState decoded = ViiperOutput(payload);
-        decoded.UnkByte = 0;
-        decoded.Flags3 = (byte)(payload[38] & 0x0F);
-        SetStateData expected = VirtualDualSenseController.BuildOutputPayload(decoded, false);
         SetStateData sent = outputs.OutputStates[0];
         Assert.Multiple(() =>
         {
             Assert.That(sent.AsSpan()[40], Is.Zero);
             Assert.That((byte)sent.ValidFlag2 & 0xF0, Is.Zero);
-            Assert.That(sent.AsSpan().ToArray(), Is.EqualTo(expected.AsSpan().ToArray()));
+            Assert.That(sent.AsSpan().ToArray(), Is.EqualTo(ExpectedPayload(payload, false)));
         });
     }
 
@@ -232,14 +241,11 @@ public sealed class EmulationDualSenseControllerOutputTests
 
         device.OnOutputReport(Wire(payload));
 
-        DSOutputState decoded = ViiperOutput(payload);
-        decoded.HapticFilter = servedValue; // the decoded report exposes only bit 0, so only the defined bit can ride
-        SetStateData expected = VirtualDualSenseController.BuildOutputPayload(decoded, false);
         SetStateData sent = outputs.OutputStates[0];
         Assert.Multiple(() =>
         {
             Assert.That(sent.AsSpan()[39], Is.EqualTo(servedValue));
-            Assert.That(sent.AsSpan().ToArray(), Is.EqualTo(expected.AsSpan().ToArray()));
+            Assert.That(sent.AsSpan().ToArray(), Is.EqualTo(ExpectedPayload(payload, false)));
         });
     }
 

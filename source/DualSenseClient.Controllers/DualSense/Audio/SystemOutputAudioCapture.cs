@@ -10,13 +10,13 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 
 /// <summary>
 /// Captures the audio the host plays to its default output device (WASAPI loopback) and
-/// forwards it to <see cref="ViiperDualSenseAudioForwarder"/>, so the physical controller's
+/// forwards it to <see cref="DualSenseAudioForwarder"/>, so the physical controller's
 /// speaker and haptics follow whatever the system is playing — without the game having to
 /// select the virtual controller as its audio output.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The alternative source to <see cref="ViiperDualSenseAudioCapture"/>: that one taps the
+/// The alternative source to <see cref="EmulationDualSenseAudioCapture"/>: that one taps the
 /// audio the host renders to the virtual controller's own endpoint (only works when the
 /// game picks that endpoint), while this one taps the default output device's render stream
 /// (works for any audio the user hears). The two are exclusive — the owning service
@@ -64,7 +64,7 @@ public sealed class SystemOutputAudioCapture : IDisposable, IForwardedAudioCaptu
     /// <summary>
     /// The forwarder receiving the captured audio.
     /// </summary>
-    private readonly ViiperDualSenseAudioForwarder _forwarder;
+    private readonly DualSenseAudioForwarder _forwarder;
 
     /// <summary>
     /// Keeps the native callback alive for the lifetime of the capture.
@@ -111,7 +111,7 @@ public sealed class SystemOutputAudioCapture : IDisposable, IForwardedAudioCaptu
     /// Creates the capture feeding the given forwarder. The capture takes no ownership of
     /// the engine or the forwarder.
     /// </summary>
-    public SystemOutputAudioCapture(AudioEngine engine, ViiperDualSenseAudioForwarder forwarder)
+    public SystemOutputAudioCapture(AudioEngine engine, DualSenseAudioForwarder forwarder)
     {
         _engine = engine;
         _forwarder = forwarder;

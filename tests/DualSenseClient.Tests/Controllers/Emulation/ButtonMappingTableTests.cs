@@ -2,8 +2,6 @@ using DualSenseClient.Controllers.DualSense.Enum;
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Settings.Sections;
-using DualSenseClient.VIIPER.DualShock4;
-using DualSenseClient.VIIPER.Xbox360;
 
 namespace DualSenseClient.Tests.Controllers.Emulation;
 

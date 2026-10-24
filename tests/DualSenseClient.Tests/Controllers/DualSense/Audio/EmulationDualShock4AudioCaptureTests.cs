@@ -147,7 +147,7 @@ public sealed class EmulationDualShock4AudioCaptureTests
 
     [Test]
     public void Capture_ImplementsTheSuspendableContract() =>
-        Assert.That(typeof(EmulationDualShock4AudioCapture).IsAssignableTo(typeof(IViiperAudioCapture)), Is.True);
+        Assert.That(typeof(EmulationDualShock4AudioCapture).IsAssignableTo(typeof(IVirtualAudioCapture)), Is.True);
 
     /// <summary>Creates the persona device with the reference identity.</summary>
     private static DualShock4Device CreateDevice() => new DualShock4Device(new DualShock4Identity());

@@ -1,7 +1,7 @@
-namespace DualSenseClient.VIIPER.Xbox360;
+namespace DualSenseClient.Controllers.Emulation;
 
 /// <summary>
-/// Xbox 360 button bit flags.
+/// Xbox 360 button bit flags used by the virtual-controller mapping pipeline.
 /// </summary>
 [Flags]
 public enum Xbox360Buttons : uint

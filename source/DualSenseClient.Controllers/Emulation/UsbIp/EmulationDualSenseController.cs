@@ -1,35 +1,31 @@
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.DualSense.Output;
+using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Settings.Sections;
 using DualSenseClient.Emulation.Devices.DualSense;
-using DualSenseClient.VIIPER.DualSense;
 
 namespace DualSenseClient.Controllers.Emulation.UsbIp;
 
 /// <summary>
 /// An Emulation-backed virtual DualSense: mirrors the physical controller's input onto a ready
 /// <see cref="DualSenseDevice"/> persona and forwards the host's output reports to the physical
-/// controller through <see cref="IDualSenseOutputs"/>. The adapter is the Emulation counterpart of
-/// <see cref="VirtualDualSenseController"/> and reuses the same
-/// <see cref="ButtonMappingTable"/>/<see cref="VirtualInputMapper"/> pipeline, so both engines
-/// present the same host-visible input and output behaviour. The Edge variant is this same adapter
-/// wrapping a persona constructed with <c>edge: true</c>.
+/// controller through <see cref="IDualSenseOutputs"/>. It reuses the same
+/// <see cref="ButtonMappingTable"/>/<see cref="VirtualInputMapper"/> pipeline as the other
+/// personas, so every virtual device presents the same host-visible input and output behaviour. The
+/// Edge variant is this same adapter wrapping a persona constructed with <c>edge: true</c>.
 /// </summary>
 /// <remarks>
 /// <para>
 /// The adapter owns no device lifecycle: the service creates and seeds the persona (including the
 /// ownership MAC through <c>VirtualDeviceFilter.CreateOwnershipMac()</c> and the Edge/variant
 /// choice), registers and attaches it through the Emulation server, and later detaches and removes
-/// it. <see cref="VirtualControllerBase.DeviceHandle"/> is always <see langword="null"/> here
-/// because an Emulation persona is a managed object, not a native handle; <see langword="null"/> does
-/// NOT mean creation failed — the engine-aware service branch checks the constructed adapter, not
-/// the handle. <see cref="Dispose"/> only unsubscribes and makes later pushes no-ops; it never
+/// it. <see cref="Dispose"/> only unsubscribes and makes later pushes no-ops; it never
 /// detaches or removes the device.
 /// </para>
 /// <para>
 /// The persona's realtime-haptics lane (channels 2 and 3 of the speaker packet) is surfaced through
 /// <see cref="RealtimeHapticsReceived"/>: the adapter copies the persona's scratch-buffer view before
-/// invoking subscribers, exactly like the libVIIPER wrapper, and never derives haptics from the
+/// invoking subscribers, exactly like the physical pad's lane, and never derives haptics from the
 /// front-channel audio lane. The forwarder owns the policy that consumes the lane.
 /// </para>
 /// </remarks>
@@ -133,21 +129,27 @@ public sealed class EmulationDualSenseController : VirtualControllerBase
     }
 
     /// <summary>
-    /// Whether verbatim raw passthrough is safe: only with the built-in one-to-one mapping, exactly
-    /// as <see cref="VirtualDualSenseController.ShouldUseRaw"/> defines it.
+    /// Whether verbatim raw passthrough is safe: only with the built-in one-to-one mapping.
     /// </summary>
     public bool ShouldUseRaw
     {
         get
         {
-            return VirtualDualSenseController.ShouldUseRawMapping(ButtonMappings);
+            return ShouldUseRawMapping(ButtonMappings);
         }
     }
 
     /// <summary>
+    /// Whether the given mapping table allows verbatim raw passthrough.
+    /// </summary>
+    /// <param name="table">Mapping table to check; <c>null</c> means the built-in default.</param>
+    /// <returns><c>true</c> when the table preserves a one-to-one mapping.</returns>
+    public static bool ShouldUseRawMapping(ButtonMappingTable? table)
+        => table is null || ReferenceEquals(table, VirtualInputMapper.DualSenseDefaultTable);
+
+    /// <summary>
     /// Publishes one exact 64-byte USB input report to the persona, served verbatim to the host
-    /// until a synthesised report follows. Mirrors
-    /// <see cref="VirtualDualSenseController.PushRawInput(byte[])"/>.
+    /// until a synthesised report follows.
     /// </summary>
     /// <param name="usbRaw64">Exact 64-byte USB report 0x01.</param>
     /// <returns><see langword="true"/> when the persona accepted the report.</returns>
@@ -164,8 +166,7 @@ public sealed class EmulationDualSenseController : VirtualControllerBase
     }
 
     /// <summary>
-    /// Drops the raw passthrough and restores synthesised reports, mirroring
-    /// <see cref="VirtualDualSenseController.ClearRawInput"/>.
+    /// Drops the raw passthrough and restores synthesised reports.
     /// </summary>
     public void ClearRawInput()
     {
@@ -180,7 +181,7 @@ public sealed class EmulationDualSenseController : VirtualControllerBase
     /// <summary>
     /// Translates physical input to the persona's input state and pushes it. Prefers the verbatim
     /// raw report when the mapping is one-to-one; falls back to the synthesised state for remaps or
-    /// invalid raw reports, mirroring <see cref="VirtualDualSenseController.PushInput"/>.
+    /// invalid raw reports.
     /// </summary>
     /// <param name="report">Latest physical input report.</param>
     public override void PushInput(InputReport report)
@@ -221,8 +222,7 @@ public sealed class EmulationDualSenseController : VirtualControllerBase
     public override void PushConnectionStatus(ConnectionStatus status)
     {
         // The persona carries no connection-status field: its USB report's plug/mute byte echoes
-        // the host, not the physical pad, exactly like the libVIIPER DSMetaState (which has no
-        // connection-status field). Kept as a no-op to satisfy the interface.
+        // the host, not the physical pad. Kept as a no-op to satisfy the interface.
     }
 
     /// <summary>
@@ -247,7 +247,7 @@ public sealed class EmulationDualSenseController : VirtualControllerBase
 
     /// <summary>
     /// Pushes the battery meta from the first received report so the persona reports real values
-    /// from the start, mirroring the wrapper's <c>EnsureInitialMeta</c>.
+    /// from the start.
     /// </summary>
     /// <param name="report">First physical report seen by this adapter.</param>
     private void EnsureInitialMeta(InputReport report)
@@ -263,11 +263,11 @@ public sealed class EmulationDualSenseController : VirtualControllerBase
 
     /// <summary>
     /// Translates one mapped physical report into the persona's input state. This is the single
-    /// translation point of the adapter: every field the VIIPER wrapper writes to
-    /// <c>DSDeviceState</c> is mapped here, the host mute-light echo is served from the adapter's
-    /// cache (see <see cref="_muteLightMode"/>), and fields the wrapper ignores (sensor timestamp,
-    /// temperature, trigger stop/status echo, host/device timestamps) stay at the persona's
-    /// defaults.
+    /// translation point of the adapter: every field the persona's input state exposes is mapped
+    /// here, the host mute-light echo is served from the adapter's cache (see
+    /// <see cref="_muteLightMode"/>), and fields the mapping pipeline does not produce (sensor
+    /// timestamp, temperature, trigger stop/status echo, host/device timestamps) stay at the
+    /// persona's defaults.
     /// </summary>
     /// <param name="report">Physical report being mirrored.</param>
     /// <param name="mapped">Result of the mode's mapping table.</param>
@@ -280,7 +280,7 @@ public sealed class EmulationDualSenseController : VirtualControllerBase
         DualSenseInputState state = new DualSenseInputState
         {
             // The physical stick bytes are the wire values: VirtualInputMapper.DualSenseStick
-            // subtracts 128 for the native signed state and libVIIPER's report builder adds it back.
+            // subtracts 128 for the native signed state and the persona's report builder adds it back.
             LeftStickX = input.LeftStickX,
             LeftStickY = input.LeftStickY,
             RightStickX = input.RightStickX,
@@ -317,12 +317,12 @@ public sealed class EmulationDualSenseController : VirtualControllerBase
     }
 
     /// <summary>
-    /// Translates the VIIPER <see cref="DualSenseButtons"/> bitmask onto the persona's per-button
+    /// Translates the mapped <see cref="DualSenseButtons"/> bitmask onto the persona's per-button
     /// flags: the single place the two button encodings meet. Every bit the mapping pipeline can
     /// produce is covered, including the Edge Fn and paddle bits; bits outside the enum are ignored.
     /// </summary>
     /// <param name="state">State receiving the button flags.</param>
-    /// <param name="buttons">Mapped VIIPER button bitmask.</param>
+    /// <param name="buttons">Mapped button bitmask.</param>
     private static void ApplyButtons(ref DualSenseInputState state, ulong buttons)
     {
         DualSenseButtons mask = (DualSenseButtons)(uint)buttons;
@@ -349,8 +349,8 @@ public sealed class EmulationDualSenseController : VirtualControllerBase
 
     /// <summary>
     /// Forwards the host's decoded output report to the physical controller: sends the rebuilt
-    /// payload on the outputs lane first, then raises <see cref="OutputStateReceived"/>, mirroring
-    /// the libVIIPER wrapper's order. The host mute-light mode is cached first (the persona has no
+    /// payload on the outputs lane first, then raises <see cref="OutputStateReceived"/>, in that
+    /// order. The host mute-light mode is cached first (the persona has no
     /// echo lane of its own), so following input pushes serve it as the mic-mute echo.
     /// </summary>
     /// <param name="report">Decoded host output report 0x02.</param>
@@ -389,11 +389,10 @@ public sealed class EmulationDualSenseController : VirtualControllerBase
 
     /// <summary>
     /// Rebuilds the physical controller's 47-byte output payload from the persona's decoded host
-    /// output report with the same field/offset semantics as
-    /// <see cref="VirtualDualSenseController.BuildOutputPayload(DSOutputState, bool)"/>, then applies
-    /// the shared rumble-mode selector translation. The engine's decode exposes the four defined
-    /// bits of valid-flag byte 2 and not the reference's unknown byte 40, so those positions are
-    /// served as zero; every byte the decode carries rides through unchanged.
+    /// output report with the same field/offset semantics as the physical pad's output report, then
+    /// applies the shared rumble-mode selector translation. The engine's decode exposes the four
+    /// defined bits of valid-flag byte 2 and not the unknown byte 40, so those positions are served
+    /// as zero; every byte the decode carries rides through unchanged.
     /// </summary>
     /// <param name="report">Decoded host output report 0x02.</param>
     /// <param name="vibrationV2">True when the physical controller uses the v2 rumble encoding.</param>
@@ -421,14 +420,56 @@ public sealed class EmulationDualSenseController : VirtualControllerBase
         bytes[37] = report.AudioControl2;
         bytes[38] = Flags2(report);
         bytes[39] = report.HapticLowPassFilter ? (byte)0x01 : (byte)0x00;
-        // Byte 40 carries no decoded field (the reference's unknown byte); it stays zero.
+        // Byte 40 carries no decoded field (the unknown byte); it stays zero.
         bytes[41] = report.LightFadeAnimation;
         bytes[42] = report.LightBrightness;
         bytes[43] = report.PlayerLeds;
         bytes[44] = report.Red;
         bytes[45] = report.Green;
         bytes[46] = report.Blue;
-        return VirtualDualSenseController.ApplyRumbleModeSelector(new SetStateData(bytes, 0), vibrationV2);
+        return ApplyRumbleModeSelector(new SetStateData(bytes, 0), vibrationV2);
+    }
+
+    /// <summary>
+    /// Applies the rumble-mode selector translation to a built output payload. Games select v1
+    /// (flag 0 bit 0) or v2 (flag 2 bit 2) against the virtual device's firmware; the physical pad
+    /// may require the other encoding. When the game did not touch rumble at all, all selector bits
+    /// are cleared so the pad retains its motors - mirroring real hardware.
+    /// </summary>
+    /// <param name="payload">Built 47-byte payload to translate; its selector bits are replaced.</param>
+    /// <param name="vibrationV2">True when the physical controller uses the v2 rumble encoding.</param>
+    /// <returns>The payload with the translated selector bits.</returns>
+    public static SetStateData ApplyRumbleModeSelector(SetStateData payload, bool vibrationV2)
+    {
+        bool rumbleSelected = (payload.ValidFlag0 & ValidFlags.EnableRumbleEmulation) != 0
+                              || (payload.ValidFlag2 & ValidFlags.EnableImprovedRumbleEmu) != 0;
+        ValidFlags flag0 = payload.ValidFlag0;
+        ValidFlags flag2 = payload.ValidFlag2;
+        if (rumbleSelected)
+        {
+            flag0 |= ValidFlags.UseRumbleNotHaptics;
+            if (vibrationV2)
+            {
+                flag0 &= ~ValidFlags.EnableRumbleEmulation;
+                flag2 |= ValidFlags.EnableImprovedRumbleEmu;
+            }
+            else
+            {
+                flag0 |= ValidFlags.EnableRumbleEmulation;
+                flag2 &= ~ValidFlags.EnableImprovedRumbleEmu;
+            }
+        }
+        else
+        {
+            flag0 &= ~(ValidFlags.UseRumbleNotHaptics | ValidFlags.EnableRumbleEmulation);
+            flag2 &= ~ValidFlags.EnableImprovedRumbleEmu;
+        }
+
+        return payload with
+        {
+            ValidFlag0 = flag0,
+            ValidFlag2 = flag2
+        };
     }
 
     /// <summary>Rebuilds valid-flag byte 0 from the decoded allowance bits.</summary>

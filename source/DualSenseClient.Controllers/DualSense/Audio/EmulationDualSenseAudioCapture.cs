@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using DualSenseClient.Logging;
 using DualSenseClient.Emulation.Devices.DualSense;
 
@@ -6,7 +7,7 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 
 /// <summary>
 /// Captures the speaker audio the host renders to an Emulation DualSense persona and forwards it to
-/// an <see cref="IAudioPcmSink"/> (the <see cref="ViiperDualSenseAudioForwarder"/>), so the
+/// an <see cref="IAudioPcmSink"/> (the <see cref="DualSenseAudioForwarder"/>), so the
 /// physical controller plays the game's audio.
 /// </summary>
 /// <remarks>
@@ -27,7 +28,7 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 /// re-primes on the next block.
 /// </para>
 /// </remarks>
-public sealed class EmulationDualSenseAudioCapture : IDisposable, IViiperAudioCapture
+public sealed class EmulationDualSenseAudioCapture : IDisposable, IVirtualAudioCapture
 {
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("EmulationDualSenseAudioCapture");
 
@@ -125,13 +126,20 @@ public sealed class EmulationDualSenseAudioCapture : IDisposable, IViiperAudioCa
 
     /// <summary>
     /// Converts a 4-channel S16LE block (front stereo + rear haptics) into interleaved stereo
-    /// float, keeping only the front speaker pair. Delegates to the libVIIPER capture's pure
-    /// conversion so both engines share one arithmetic.
+    /// float, keeping only the front speaker pair.
     /// </summary>
     /// <param name="quadS16Le">Raw little-endian S16LE samples, 8 bytes per frame.</param>
     /// <param name="stereo">Receives one interleaved float pair per input frame.</param>
-    public static void ConvertToStereoFloat(ReadOnlySpan<byte> quadS16Le, Span<float> stereo) =>
-        ViiperDualSenseAudioCapture.ConvertToStereoFloat(quadS16Le, stereo);
+    public static void ConvertToStereoFloat(ReadOnlySpan<byte> quadS16Le, Span<float> stereo)
+    {
+        ReadOnlySpan<short> quad = MemoryMarshal.Cast<byte, short>(quadS16Le);
+        int frames = quadS16Le.Length / QuadBytesPerFrame;
+        for (int f = 0; f < frames; f++)
+        {
+            stereo[f * 2] = quad[f * 4] / 32768f;
+            stereo[f * 2 + 1] = quad[f * 4 + 1] / 32768f;
+        }
+    }
 
     /// <summary>
     /// Called for every host write to the speaker endpoint. The packet memory is only valid during

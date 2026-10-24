@@ -1,32 +1,28 @@
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.DualSense.Output;
+using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Settings.Sections;
 using DualSenseClient.Emulation.Devices.Xbox360;
-using DualSenseClient.VIIPER.Xbox360;
 
 namespace DualSenseClient.Controllers.Emulation.UsbIp;
 
 /// <summary>
 /// An Emulation-backed virtual Xbox 360 controller: mirrors the physical controller's input to the
 /// host as an XInput device and forwards the host's rumble commands to the physical controller.
-/// The adapter is the Emulation counterpart of <see cref="VirtualXbox360Controller"/> and reuses the
-/// same <see cref="ButtonMappingTable"/>/<see cref="VirtualInputMapper"/> pipeline, including the
-/// two XInput axis helpers. The virtual 360 has no D-pad hat: the D-pad directions are reported as
-/// plain button-word bits.
+/// It reuses the same <see cref="ButtonMappingTable"/>/<see cref="VirtualInputMapper"/> pipeline as
+/// the other personas, including the two XInput axis helpers. The virtual 360 has no D-pad hat: the
+/// D-pad directions are reported as plain button-word bits.
 /// </summary>
 /// <remarks>
 /// <para>
 /// The adapter owns no device lifecycle: the service creates and seeds the persona (including the
 /// ownership MAC), registers and attaches it through the Emulation server, and later detaches and
-/// removes it. <see cref="VirtualControllerBase.DeviceHandle"/> is always <see langword="null"/>
-/// here because an Emulation persona is a managed object, not a native handle;
-/// <see langword="null"/> does NOT mean creation failed — the engine-aware service branch checks
-/// the constructed adapter, not the handle. <see cref="Dispose"/> only unsubscribes and makes later
-/// pushes no-ops; it never detaches or removes the device.
+/// removes it. <see cref="Dispose"/> only unsubscribes and makes later pushes no-ops; it never
+/// detaches or removes the device.
 /// </para>
 /// <para>
-/// The Xbox 360 mode has neither raw passthrough nor battery/connection state in the libVIIPER
-/// wrapper; the persona carries none of those either, so the inherited no-ops are kept.
+/// The Xbox 360 mode has neither raw passthrough nor battery/connection state, so the inherited
+/// no-ops are kept.
 /// </para>
 /// </remarks>
 public sealed class EmulationXbox360Controller : VirtualControllerBase
@@ -66,9 +62,8 @@ public sealed class EmulationXbox360Controller : VirtualControllerBase
 
     /// <summary>
     /// Translates physical input to the persona's XInput state and pushes it. The physical Y axis is
-    /// inverted (XInput treats up as positive), mirroring
-    /// <see cref="VirtualXbox360Controller.PushInput"/>. An attached raw USB image is ignored: the
-    /// Xbox 360 mode has no raw passthrough.
+    /// inverted (XInput treats up as positive). An attached raw USB image is ignored: the Xbox 360
+    /// mode has no raw passthrough.
     /// </summary>
     /// <param name="report">Latest physical input report.</param>
     public override void PushInput(InputReport report)
@@ -109,7 +104,7 @@ public sealed class EmulationXbox360Controller : VirtualControllerBase
     /// <summary>
     /// Forwards the host's rumble packet to the physical controller. The XInput left motor is the
     /// low-frequency motor and maps to the DualSense left motor; the right motor maps to the right
-    /// motor, mirroring <see cref="VirtualXbox360Controller"/>.
+    /// motor.
     /// </summary>
     /// <param name="report">Decoded host rumble packet.</param>
     private void OnOutputReport(Xbox360OutputReport report) => Outputs.SetVibration(report.LeftMotor, report.RightMotor);

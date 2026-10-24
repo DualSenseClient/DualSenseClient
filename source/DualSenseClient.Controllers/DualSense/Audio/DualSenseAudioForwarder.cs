@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Core.Utilities;
@@ -8,7 +8,7 @@ using DualSenseClient.Logging;
 namespace DualSenseClient.Controllers.DualSense.Audio;
 
 /// <summary>
-/// Forwards host audio to the physical DualSense while VIIPER emulation is active, so
+/// Forwards host audio to the physical DualSense while virtual-controller emulation is active, so
 /// the pad's own speaker plays the host's audio. The host loopback capture feeds one
 /// 512-frame (10.667 ms) stereo block per <see cref="FeedPcm"/> call into a bounded
 /// ring; a pump thread paced at the DualSense Bluetooth audio-clock cadence pops blocks
@@ -29,8 +29,8 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 /// first block of a session primes the stream (reset, init-prime and silence
 /// preroll) and, after the lane has been idle long enough to underrun, the next
 /// session re-primes. An idle forwarder therefore never occupies the Bluetooth
-/// audio lane â€” which would make the controller ignore the virtual controller's
-/// output-state reports (rumble, adaptive triggers, LEDs) â€” and never feeds the
+/// audio lane — which would make the controller ignore the virtual controller's
+/// output-state reports (rumble, adaptive triggers, LEDs) — and never feeds the
 /// USB endpoint.
 /// </para>
 /// <para>
@@ -42,7 +42,7 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 /// synthesized into the haptics PCM as 60/180 Hz sine waves.
 /// </para>
 /// <para>
-/// When libVIIPER's realtime-haptics callback delivers a fresh rear voice-coil pair
+/// When the virtual controller's realtime-haptics callback delivers a fresh rear voice-coil pair
 /// (2ch S16LE @48kHz via <see cref="UpdateGameHaptics"/>), it replaces the
 /// audio-derived haptics so the pad reproduces the game's actual haptics; the
 /// audio-derived path is only the fallback for games that do not drive the haptics
@@ -50,7 +50,7 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 /// <see cref="ForceAudioHaptics"/> ignores the game payload entirely.
 /// </para>
 /// </remarks>
-public sealed class ViiperDualSenseAudioForwarder : IAudioPcmSink, IDisposable
+public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
 {
     /// <summary>
     /// Interleaved float samples in one 512-frame stereo block.
@@ -70,17 +70,17 @@ public sealed class ViiperDualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// <summary>
     /// Silence audio/haptics reports sent after priming the Bluetooth stream, so the
     /// controller's speaker path and Opus decoder warm up before real audio. 8 packets
-    /// â‰ˆ 85 ms at the 10.667 ms cadence.
+    /// ≈ 85 ms at the 10.667 ms cadence.
     /// </summary>
     private const int BtPrerollPackets = 8;
 
     /// <summary>
-    /// Ring capacity in blocks (32 Ã— 10.667 ms â‰ˆ 341 ms of buffered audio).
+    /// Ring capacity in blocks (32 × 10.667 ms ≈ 341 ms of buffered audio).
     /// </summary>
     private const int RingBlocks = 32;
 
     /// <summary>
-    /// Steady-state latency the pump targets (3 blocks â‰ˆ 32 ms). Above it, the pump
+    /// Steady-state latency the pump targets (3 blocks ≈ 32 ms). Above it, the pump
     /// discards one extra block per tick until the ring drains back down.
     /// </summary>
     private const int TargetBlocks = 3;
@@ -107,7 +107,7 @@ public sealed class ViiperDualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// <summary>
     /// Logger instance.
     /// </summary>
-    private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("ViiperDualSenseAudioForwarder");
+    private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("DualSenseAudioForwarder");
 
     /// <summary>
     /// The physical controller's Bluetooth audio lane, or <c>null</c> when the pad is
@@ -172,7 +172,7 @@ public sealed class ViiperDualSenseAudioForwarder : IAudioPcmSink, IDisposable
     private readonly byte[] _hapticsPcm = new byte[DualSenseBtAudioPipeline.HapticsBytes];
 
     /// <summary>
-    /// Latest haptics payload delivered by libVIIPER's realtime-haptics callback (the
+    /// Latest haptics payload delivered by the virtual controller's realtime-haptics callback (the
     /// game's own voice-coil data), valid while <see cref="_lastGameHapticsTimestamp"/>
     /// is within <see cref="GameHapticsFreshWindowTicks"/>. Guarded by <see cref="_sync"/>.
     /// </summary>
@@ -250,7 +250,7 @@ public sealed class ViiperDualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// <summary>
     /// The game's latest output state (rumble, lightbar, player LEDs, trigger effects),
     /// embedded into the Bluetooth audio-lane reports while the lane is open. Guarded
-    /// by <see cref="_sync"/>; set from the libVIIPER output-state callback thread.
+    /// by <see cref="_sync"/>; set from the virtual controller's output-state callback thread.
     /// </summary>
     private SetStateData? _gameState;
 
@@ -362,7 +362,7 @@ public sealed class ViiperDualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// Creates the forwarder for the given physical controller lanes. At least one lane
     /// must be non-<c>null</c>; the forwarder takes ownership of <paramref name="usbTarget"/>.
     /// </summary>
-    public ViiperDualSenseAudioForwarder(IDualSenseAudioOutputs? outputs, DualSenseUsbAudioTarget? usbTarget)
+    public DualSenseAudioForwarder(IDualSenseAudioOutputs? outputs, DualSenseUsbAudioTarget? usbTarget)
     {
         _outputs = outputs;
         _usbTarget = usbTarget;
@@ -380,7 +380,7 @@ public sealed class ViiperDualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// <summary>
     /// Starts the pump and opens the USB render endpoint when the physical pad is wired.
     /// The Bluetooth audio lane is intentionally left closed until the first audio block
-    /// is actually fed, so an idle forwarder never occupies the lane â€” which would
+    /// is actually fed, so an idle forwarder never occupies the lane — which would
     /// make the controller ignore the virtual controller's output-state reports.
     /// Returns <c>false</c> when no transport is available.
     /// </summary>
@@ -506,7 +506,7 @@ public sealed class ViiperDualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// Stores the game's latest output state so the pump can embed it into the
     /// Bluetooth audio-lane reports (combined <c>0x36</c> and <c>0x32</c> init-prime)
     /// and drive the classic rumble motors through the haptics PCM. Called from the
-    /// libVIIPER output-state callback thread; safe to call while the forwarder is
+    /// virtual controller's output-state callback thread; safe to call while the forwarder is
     /// stopped.
     /// </summary>
     public void UpdateGameOutputState(SetStateData state)
@@ -520,11 +520,10 @@ public sealed class ViiperDualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// <summary>
     /// Stores the game's actual haptics payload from the virtual controller's realtime-haptics
     /// lane (rear voice-coil pair, 2ch S16LE @48kHz), so the pump can embed it into the Bluetooth
-    /// audio-lane reports instead of the audio-derived haptics. The same lane exists on the
-    /// libVIIPER wrapper and the Emulation DualSense adapter. The S16LE stereo frames are
-    /// decimated to the 32-frame s8 payload; malformed buffers are rejected so the forwarder
-    /// keeps the audio-derived fallback. Called from the engine's callback thread; safe to call
-    /// while stopped.
+    /// audio-lane reports instead of the audio-derived haptics. The Emulation DualSense adapter feeds
+    /// this lane. The S16LE stereo frames are decimated to the 32-frame s8 payload; malformed buffers
+    /// are rejected so the forwarder keeps the audio-derived fallback. Called from the engine's
+    /// callback thread; safe to call while stopped.
     /// </summary>
     public void UpdateGameHaptics(byte[] pcm)
     {
@@ -566,7 +565,7 @@ public sealed class ViiperDualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// next audio block re-primes the stream. Called when the virtual controller's
     /// audio interface resets or changes alternate setting (a stream-generation
     /// barrier), so stale PCM from the previous generation cannot burst into the pad's
-    /// shallow receive buffer. Safe to call from the libVIIPER speaker-reset callback
+    /// shallow receive buffer. Safe to call from the virtual controller's speaker-reset callback
     /// thread.
     /// </summary>
     public void Flush()
@@ -921,7 +920,7 @@ public sealed class ViiperDualSenseAudioForwarder : IAudioPcmSink, IDisposable
 
     /// <summary>
     /// Expands a stereo PCM block into the quad S16 USB representation: channels 1/2
-    /// carry the audio, channels 3/4 carry the audio scaled by the haptic strength â€”
+    /// carry the audio, channels 3/4 carry the audio scaled by the haptic strength —
     /// or silence when haptics are disabled.
     /// </summary>
     private void ToUsbQuadS16(ReadOnlySpan<short> stereo, Span<short> quad)

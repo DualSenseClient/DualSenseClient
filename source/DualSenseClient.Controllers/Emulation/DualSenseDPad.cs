@@ -1,7 +1,7 @@
-namespace DualSenseClient.VIIPER.DualSense;
+namespace DualSenseClient.Controllers.Emulation;
 
 /// <summary>
-/// DualSense D-pad direction bit flags.
+/// DualSense D-pad direction bit flags used by the virtual-controller mapping pipeline.
 /// </summary>
 [Flags]
 public enum DualSenseDPad : byte

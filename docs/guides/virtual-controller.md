@@ -17,7 +17,7 @@ The virtual device **mirrors the physical controller's input**, while rumble, li
 
 ## Requirements
 
-libVIIPER — the emulation backend — is bundled with the app. You only need the **USB/IP driver** so virtual devices can attach to the system:
+The app's built-in emulation engine attaches virtual devices through the **USB/IP driver**, so that is the only requirement:
 
 === "Windows"
 

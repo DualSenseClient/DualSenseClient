@@ -6,8 +6,7 @@ namespace DualSenseClient.Hid.Interop;
 /// <summary>
 /// Resolves P/Invoke calls to hidapi against the native binary embedded in this
 /// assembly (Windows), falling back to the system HIDAPI library
-/// (Linux hidraw backend). Mirrors the embedded-resource pattern used for
-/// libVIIPER without duplicating its implementation.
+/// (Linux hidraw backend).
 /// </summary>
 internal static class HidNativeLibrary
 {

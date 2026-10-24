@@ -6,7 +6,7 @@ namespace DualSenseClient.Tests.Controllers.Emulation.UsbIp;
 /// <summary>
 /// Output-side tests of <see cref="EmulationXbox360Controller"/>: a synthetic 8-byte rumble packet
 /// (id 0x00, size 0x08) is delivered to the persona device and must reach
-/// <see cref="IDualSenseOutputs.SetVibration"/> with the libVIIPER wrapper's orientation — the large
+/// <see cref="IDualSenseOutputs.SetVibration"/> with the physical pad's orientation — the large
 /// (low-frequency) motor as the left value and the small (high-frequency) motor as the right value.
 /// The controller's LED packet is not a rumble command and is ignored.
 /// </summary>
@@ -19,7 +19,7 @@ public sealed class EmulationXbox360ControllerOutputTests
     };
 
     [Test]
-    public void HostOutput_RumblePacket_ForwardsTheViiperMotorOrientation()
+    public void HostOutput_RumblePacket_ForwardsTheMotorOrientation()
     {
         Xbox360Device device = new Xbox360Device(new Xbox360Identity());
         RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();

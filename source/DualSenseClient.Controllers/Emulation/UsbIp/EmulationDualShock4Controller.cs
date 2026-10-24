@@ -1,51 +1,55 @@
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.DualSense.Output;
+using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Settings.Sections;
 using DualSenseClient.Emulation.Devices.DualShock4;
-using DualSenseClient.VIIPER.DualShock4;
 
 namespace DualSenseClient.Controllers.Emulation.UsbIp;
 
 /// <summary>
 /// An Emulation-backed virtual DualShock 4: mirrors the physical controller's input onto a ready
 /// <see cref="DualShock4Device"/> persona and forwards the host's rumble and lightbar commands to the
-/// physical controller through <see cref="IDualSenseOutputs"/>. The adapter is the Emulation
-/// counterpart of <see cref="VirtualDualShock4Controller"/> and reuses the same
-/// <see cref="ButtonMappingTable"/>/<see cref="VirtualInputMapper"/> pipeline, including the same
-/// touch-Y and motion scalers, so both engines present identical host-visible input.
+/// physical controller through <see cref="IDualSenseOutputs"/>. It reuses the same
+/// <see cref="ButtonMappingTable"/>/<see cref="VirtualInputMapper"/> pipeline as the other personas,
+/// including the same touch-Y and motion scalers, so every virtual device presents identical
+/// host-visible input.
 /// </summary>
 /// <remarks>
 /// <para>
 /// The adapter owns no device lifecycle: the service creates and seeds the persona (including the
 /// ownership MAC and the descriptor variant), registers and attaches it through the Emulation
-/// server, and later detaches and removes it. <see cref="VirtualControllerBase.DeviceHandle"/> is
-/// always <see langword="null"/> here because an Emulation persona is a managed object, not a native
-/// handle; <see langword="null"/> does NOT mean creation failed — the engine-aware service branch
-/// checks the constructed adapter, not the handle. <see cref="Dispose"/> only unsubscribes and
-/// makes later pushes no-ops; it never detaches or removes the device.
+/// server, and later detaches and removes it. <see cref="Dispose"/> only unsubscribes and makes
+/// later pushes no-ops; it never detaches or removes the device.
 /// </para>
 /// <para>
-/// The DualShock 4 mode has no raw passthrough in the libVIIPER wrapper, so an attached raw USB
-/// image is ignored here as well. The DS4 has no battery metadata lane: the battery byte travels
-/// inside the persona's input state, so the adapter mirrors the wrapper's push structure instead —
-/// an explicit battery push re-stamps the current state immediately (once one exists) and, exactly
-/// like the wrapper, does not mark the meta initialized, so the first input report's battery still
-/// wins; after that, later reports never overwrite an explicitly pushed battery. Before the first
-/// input push there is no state to re-stamp, so the persona keeps serving its neutral battery until
-/// the first report arrives (the one residual difference from libVIIPER, whose meta lane applies
-/// before any report). The host's flash-LED fields have no DualSense equivalent, so a report that
-/// only flashes is a no-op.
+/// The DualShock 4 mode has no raw passthrough, so an attached raw USB image is ignored. The DS4
+/// has no battery metadata lane: the battery byte travels inside the persona's input state, so an
+/// explicit battery push re-stamps the current state immediately (once one exists) and does not
+/// mark the meta initialized, so the first input report's battery still wins; after that, later
+/// reports never overwrite an explicitly pushed battery. Before the first input push there is no
+/// state to re-stamp, so the persona keeps serving its neutral battery until the first report
+/// arrives. The host's flash-LED fields have no DualSense equivalent, so a report that only flashes
+/// is a no-op.
 /// </para>
 /// </remarks>
 public sealed class EmulationDualShock4Controller : VirtualControllerBase
 {
+    /// <summary>USB vendor ID of the virtual DualShock 4 (Sony).</summary>
+    public const ushort VendorId = 0x054C;
+
+    /// <summary>USB product ID of the first-generation DualShock 4 (CUH-ZCT1).</summary>
+    public const ushort ProductIdV1 = 0x05C4;
+
+    /// <summary>USB product ID of the second-generation DualShock 4 (CUH-ZCT2W).</summary>
+    public const ushort ProductIdV2 = 0x09CC;
+
     /// <summary>Mask of the battery capacity nibble in the physical battery byte.</summary>
     private const byte BatteryLevelMask = 0x0F;
 
     /// <summary>Bit of the DS4 battery/ext byte that carries the cable (charging) state.</summary>
     private const byte ChargingBit = 0x10;
 
-    /// <summary>Lightbar animation the wrapper always sends with a DS4 lightbar update.</summary>
+    /// <summary>Lightbar animation always sent with a DS4 lightbar update.</summary>
     private const byte FadeOutAnimation = 0x02;
 
     /// <summary>The ready persona device; owned by the service, never removed here.</summary>
@@ -55,8 +59,7 @@ public sealed class EmulationDualShock4Controller : VirtualControllerBase
     private bool _disposed;
 
     /// <summary>
-    /// Whether the initial battery byte has been pushed from the first received report, mirroring
-    /// the wrapper's flag of the same role.
+    /// Whether the initial battery byte has been pushed from the first received report.
     /// </summary>
     private bool _metaInitialized;
 
@@ -127,9 +130,8 @@ public sealed class EmulationDualShock4Controller : VirtualControllerBase
     }
 
     /// <summary>
-    /// Translates physical input to the persona's DualShock 4 input state and pushes it, mirroring
-    /// <see cref="VirtualDualShock4Controller.PushInput"/>. An attached raw USB image is ignored:
-    /// the DualShock 4 mode has no raw passthrough.
+    /// Translates physical input to the persona's DualShock 4 input state and pushes it. An attached
+    /// raw USB image is ignored: the DualShock 4 mode has no raw passthrough.
     /// </summary>
     /// <param name="report">Latest physical input report.</param>
     public override void PushInput(InputReport report)
@@ -140,16 +142,16 @@ public sealed class EmulationDualShock4Controller : VirtualControllerBase
         }
 
         // The persona stores the battery inside the input state, so the meta battery must be known
-        // before the state is written; the wrapper's EnsureInitialMeta runs after its state write
-        // but only sets the same cached value, so the observable result is identical.
+        // before the state is written; setting the cached value first yields the same observable
+        // result.
         EnsureInitialMeta(report);
 
         InputState input = report.Input;
         MappedInputResult mapped = (ButtonMappings ?? VirtualInputMapper.DualShock4DefaultTable).Evaluate(input);
         DualShock4InputState state = new DualShock4InputState
         {
-            // The physical stick bytes are the wire values: the wrapper's DualSenseStick conversion
-            // subtracts 128 for the native signed state and libVIIPER's builder adds it back.
+            // The physical stick bytes are the wire values: VirtualInputMapper.DualSenseStick
+            // subtracts 128 for the native signed state and the persona's builder adds it back.
             LeftStickX = input.LeftStickX,
             LeftStickY = input.LeftStickY,
             RightStickX = input.RightStickX,
@@ -191,8 +193,7 @@ public sealed class EmulationDualShock4Controller : VirtualControllerBase
     /// <inheritdoc/>
     public override void PushConnectionStatus(ConnectionStatus status)
     {
-        // The persona carries no connection-status field, and the libVIIPER wrapper's meta state has
-        // none either; kept as a no-op to satisfy the interface.
+        // The persona carries no connection-status field; kept as a no-op to satisfy the interface.
     }
 
     /// <summary>Extracts the capacity nibble of the raw physical battery byte.</summary>
@@ -206,10 +207,9 @@ public sealed class EmulationDualShock4Controller : VirtualControllerBase
     private static bool IsCharging(byte raw) => (raw & ChargingBit) != 0;
 
     /// <summary>
-    /// Pushes the battery byte, mirroring the wrapper's meta push: the state write is the DualShock
-    /// 4 battery lane, so the raw byte re-stamps the current state immediately when one exists, and
-    /// it is carried by every following input state. Like the wrapper's <c>PushMeta</c>, this does
-    /// not mark the meta initialized, so the first input report still wins.
+    /// Pushes the battery byte: the state write is the DualShock 4 battery lane, so the raw byte
+    /// re-stamps the current state immediately when one exists, and it is carried by every following
+    /// input state. This does not mark the meta initialized, so the first input report still wins.
     /// </summary>
     /// <param name="battery">Latest physical battery state.</param>
     private void PushMeta(BatteryState battery)
@@ -233,9 +233,8 @@ public sealed class EmulationDualShock4Controller : VirtualControllerBase
 
     /// <summary>
     /// Pushes the battery from the first received report so the persona reports real values from the
-    /// start, mirroring the wrapper's <c>EnsureInitialMeta</c>. An explicit
-    /// <see cref="PushBattery"/> does not set the flag, exactly like the wrapper, so the first
-    /// report's battery overwrites any pre-input push.
+    /// start. An explicit <see cref="PushBattery"/> does not set the flag, so the first report's
+    /// battery overwrites any pre-input push.
     /// </summary>
     /// <param name="report">First physical report seen by this adapter.</param>
     private void EnsureInitialMeta(InputReport report)
@@ -250,12 +249,12 @@ public sealed class EmulationDualShock4Controller : VirtualControllerBase
     }
 
     /// <summary>
-    /// Translates the VIIPER <see cref="DualShock4Buttons"/> bitmask onto the persona's per-button
+    /// Translates the mapped <see cref="DualShock4Buttons"/> bitmask onto the persona's per-button
     /// flags: the single place the two button encodings meet. Every bit the DualShock 4 mapping
     /// pipeline can produce is covered; bits outside the enum are ignored.
     /// </summary>
     /// <param name="state">State receiving the button flags.</param>
-    /// <param name="buttons">Mapped VIIPER button bitmask.</param>
+    /// <param name="buttons">Mapped button bitmask.</param>
     private static void ApplyButtons(ref DualShock4InputState state, DualShock4Buttons buttons)
     {
         state.Square = (buttons & DualShock4Buttons.Square) != 0;
@@ -277,7 +276,7 @@ public sealed class EmulationDualShock4Controller : VirtualControllerBase
     /// <summary>
     /// Applies the fields the host report's flags enable, filling the rest from the cached values:
     /// sends the rebuilt payload on the outputs lane first, then raises
-    /// <see cref="OutputStateReceived"/>, mirroring the libVIIPER wrapper's order. A report that
+    /// <see cref="OutputStateReceived"/>, in that order. A report that
     /// enables neither rumble nor lightbar, including a flash-only report, is ignored.
     /// </summary>
     /// <param name="report">Decoded host output report 0x05.</param>

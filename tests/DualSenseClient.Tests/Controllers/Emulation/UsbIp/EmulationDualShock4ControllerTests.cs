@@ -5,19 +5,18 @@ using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Controllers.Emulation.UsbIp;
 using DualSenseClient.Settings.Sections;
 using DualSenseClient.Emulation.Devices.DualShock4;
-using DualSenseClient.VIIPER.DualShock4;
 using ButtonMappingEntry = DualSenseClient.Settings.Sections.ButtonMappingEntry;
 using DualShock4Variant = DualSenseClient.Emulation.Devices.DualShock4.DualShock4Variant;
 
 namespace DualSenseClient.Tests.Controllers.Emulation.UsbIp;
 
 /// <summary>
-/// Input-side tests of <see cref="EmulationDualShock4Controller"/>: the adapter reuses the libVIIPER
-/// wrapper's mapping pipeline (<see cref="VirtualInputMapper.DualShock4DefaultTable"/>, the
+/// Input-side tests of <see cref="EmulationDualShock4Controller"/>: the adapter reuses the
+/// <see cref="VirtualInputMapper.DualShock4DefaultTable"/> mapping pipeline (including the
 /// DualShock 4 touch-Y and motion scalers) and feeds the persona whose served 64-byte report is
 /// compared against <see cref="DualShock4InputReport.Build"/> with an independently stated expected
-/// state. The client never uses raw passthrough for the DualShock 4 (the wrapper has no raw path),
-/// so an attached raw image must be ignored. Both descriptor variants are wrapped and pushed.
+/// state. The client never uses raw passthrough for the DualShock 4, so an attached raw image must
+/// be ignored. Both descriptor variants are wrapped and pushed.
 /// </summary>
 [TestFixture]
 public sealed class EmulationDualShock4ControllerTests
@@ -164,7 +163,7 @@ public sealed class EmulationDualShock4ControllerTests
     [TestCase(0xD, 0x01)]
     [TestCase(0xE, 0x03)]
     [TestCase(0xF, 0x01)]
-    public void PushInput_EveryDpadMask_ServesTheViiperHatValue(int mask, int expectedHat)
+    public void PushInput_EveryDpadMask_ServesTheExpectedHatValue(int mask, int expectedHat)
     {
         DualShock4Device device = new DualShock4Device(new DualShock4Identity());
         EmulationDualShock4Controller controller = CreateController(device, new RecordingDualSenseOutputs());
@@ -320,7 +319,7 @@ public sealed class EmulationDualShock4ControllerTests
         controller.PushInput(EmulationAdapterTestSupport.Report(payload));
 
         Assert.That(EmulationAdapterTestSupport.Pull(device, 64)[OffsetBattery], Is.EqualTo(0x0A),
-            "the first input report overwrites a pre-input battery push, like the wrapper's EnsureInitialMeta");
+            "the first input report overwrites a pre-input battery push");
     }
 
     [Test]
@@ -332,7 +331,7 @@ public sealed class EmulationDualShock4ControllerTests
 
         controller.PushBattery(new BatteryState(0x19));
         Assert.That(EmulationAdapterTestSupport.Pull(device, 64)[OffsetBattery], Is.EqualTo(0x19),
-            "an explicit battery push re-stamps the current state immediately, like the wrapper's meta push");
+            "an explicit battery push re-stamps the current state immediately");
 
         byte[] later = EmulationAdapterTestSupport.NeutralPayload();
         later[PayloadBattery] = 0x05;
@@ -388,7 +387,6 @@ public sealed class EmulationDualShock4ControllerTests
         Assert.Multiple(() =>
         {
             Assert.That(controller.Mode, Is.EqualTo(EmulationMode.DualShock4));
-            Assert.That(controller.DeviceHandle, Is.Null, "an Emulation persona is an object, not a native handle");
             Assert.That(report[OffsetSticks], Is.EqualTo(77));
         });
     }
@@ -418,7 +416,6 @@ public sealed class EmulationDualShock4ControllerTests
             Assert.That(report[OffsetSticks], Is.EqualTo(11), "a disposed adapter ignores later input pushes");
             Assert.That(outputs.OutputStates, Is.Empty);
             Assert.That(outputs.Vibrations, Is.Empty);
-            Assert.That(controller.DeviceHandle, Is.Null);
             Assert.That(() => controller.Dispose(), Throws.Nothing);
         });
     }

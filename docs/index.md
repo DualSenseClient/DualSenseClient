@@ -2,7 +2,7 @@
 
 **DualSense Client** is an open-source management tool for the **PlayStation 5 DualSense Controller** on Windows and Linux. It provides lightbar and LED control, profile management, real-time input monitoring, rumble and adaptive trigger output, and audio playback to the controller's speaker and haptics.
 
-It can also create virtual controllers (Xbox 360, DualShock 4, or DualSense; Windows only for now) through the embedded libVIIPER backend, and hide physical controllers from other applications via HidHide (Windows only).
+It can also create virtual controllers (Xbox 360, DualShock 4, or DualSense; Windows only for now) through its built-in emulation engine, and hide physical controllers from other applications via HidHide (Windows only).
 
 Built with .NET and Avalonia, it connects over USB or Bluetooth through HIDAPI with no drivers required.
 

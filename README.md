@@ -30,7 +30,7 @@ DualSense Client
 
 ## Overview
 
-**DualSense Client** is an open-source management tool for the **PlayStation 5 DualSense Controller** on Windows and Linux. It provides lightbar and LED control, profile management, real-time input monitoring, rumble and adaptive trigger output, and audio playback to the controller's speaker and haptics. It can also create virtual controllers (Xbox 360, DualShock 4, or DualSense; Windows only for now) through the embedded libVIIPER backend, and hide physical controllers from other applications via HidHide (Windows only). Built with .NET 10 and Avalonia, it connects over USB or Bluetooth through HIDAPI with no drivers required.
+**DualSense Client** is an open-source management tool for the **PlayStation 5 DualSense Controller** on Windows and Linux. It provides lightbar and LED control, profile management, real-time input monitoring, rumble and adaptive trigger output, and audio playback to the controller's speaker and haptics. It can also create virtual controllers (Xbox 360, DualShock 4, or DualSense; Windows only for now) through its built-in emulation engine, and hide physical controllers from other applications via HidHide (Windows only). Built with .NET 10 and Avalonia, it connects over USB or Bluetooth through HIDAPI with no drivers required.
 
 ## Supported Controllers
 
@@ -94,7 +94,7 @@ DualSense Client
 - Per-controller emulation settings applied on connection, adjustable from the **Emulation** page or the tray menu (currently Windows-only)
 - DualSense output exposes haptics, adaptive triggers, and audio interfaces to the host; host audio can be forwarded to the physical controller's speaker or headset with volume and haptic-strength controls
 - Choose the forwarded audio source: virtual controller audio, system-output loopback, or a specific application (Windows 11)
-- Powered by the bundled **libVIIPER** backend, which only requires the USBIP driver on the host system
+- Powered by the built-in **Emulation** engine, which only requires the USB/IP driver on the host system
 
 ### Controller Hiding
 
@@ -110,7 +110,7 @@ DualSense Client
 - **Linux** — no .NET installation required (self-contained build)
 - **PlayStation 5 DualSense controller** (wired USB or Bluetooth connection)
 - **HidHide** (optional, Windows only) — driver for hiding physical controllers from other applications; see [nefarius/HidHide](https://github.com/nefarius/HidHide)
-- **USB/IP** (optional, virtual controller emulation only; currently Windows-only) — libVIIPER is bundled with the app; it only needs the USB/IP driver to attach virtual devices:
+- **USB/IP** (optional, virtual controller emulation only; currently Windows-only) — the built-in emulation engine attaches virtual devices through it:
     - Windows: [usbip-win2](https://github.com/vadimgrn/usbip-win2)
     - Linux: support is not enabled yet; install `usbip` once it is (Arch: `sudo pacman -S usbip`; Ubuntu/Debian: `sudo apt install linux-tools-generic`)
 
@@ -174,7 +174,6 @@ Requires the .NET 10 SDK. Releases are produced automatically by CI for Windows 
 - [Tmds.DBus](https://github.com/tmds/Tmds.DBus) — D-Bus client for BlueZ integration on Linux (Bluetooth disconnect; Windows uses the native Bluetooth radio driver via P/Invoke)
 - [Concentus](https://github.com/lostromb/concentus) — Opus audio encoding for Bluetooth haptics
 - [SoundFlow](https://github.com/LSXPrime/SoundFlow) — Audio playback with FFmpeg codec support
-- [libVIIPER](https://github.com/DualSenseClient/VIIPER) — Virtual controller emulation backend, stream protocol, and haptics
 - [Nefarius.Drivers.HidHide](https://github.com/nefarius/Nefarius.Drivers.HidHide) — .NET bindings for the HidHide driver
 
 ### Research
@@ -185,7 +184,9 @@ The DualSense protocol, audio, and haptics implementations were developed using 
 - [dualsense-tester](https://github.com/daidr/dualsense-tester) — Input/output report field maps and trigger effect logic
 - [ExtendInput TriggerEffectGenerator by Nielk1](https://gist.github.com/Nielk1/6d54cc2c00d2201ccb8c2720ad7538db) — Adaptive trigger effect byte layouts, parameter packing, and validation ranges
 - [vds](https://github.com/hurryman2212/vds) — Output report structs and Bluetooth audio/haptics implementation
-- [VIIPER](https://github.com/hbashton/VIIPER) — Virtual DualSense emulation, stream protocol, and haptics (base for libVIIPER)
+- [VIIPER](https://github.com/hbashton/VIIPER) — Inspired the Emulation engine's USB/IP approach
+- [DS4Dongle](https://github.com/snipem/DS4Dongle) — DualShock 4 V2 emulation research
+- [ViGEmBus](https://github.com/nefarius/ViGEmBus) — DualShock 4 V1 and Xbox 360 emulation research
 - [HidHide](https://github.com/nefarius/HidHide) — Driver for hiding physical controllers from other applications
 - [DS4Windows](https://github.com/hbashton/DS4Windows) — DualSense integration and emulation
 - [SAxense](https://github.com/egormanga/SAxense) — Bluetooth audio/haptics packet framing

@@ -21,7 +21,7 @@ namespace DualSenseClient.Controllers.DualSense.Audio;
 /// </para>
 /// <para>
 /// TODO(audio-endpoints): The name-based match is ambiguous once virtual DualSense
-/// devices exist (libVIIPER's virtual controller also presents "DualSense Wireless
+/// devices exist (an Emulation virtual controller also presents "DualSense Wireless
 /// Controller"), so this can pick the app's own virtual render endpoint — the
 /// forwarded audio then loops back into the capture and howls. With several USB pads
 /// connected it can also target the wrong pad's speaker. The correct fix is OS-level

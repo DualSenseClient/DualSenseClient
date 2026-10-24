@@ -44,15 +44,6 @@
                                   MinWidth="200" />
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.Engine}"
-                                           Description="{DynamicResource EmulationPage.Emulation.Engine.Description}"
-                                           IsEnabled="{Binding CanChangeEmulation}">
-                    <ui:FASettingsExpanderItem.Footer>
-                        <ComboBox ItemsSource="{Binding EmulationEngines}"
-                                  SelectedIndex="{Binding EmulationEngineIndex}"
-                                  MinWidth="200" />
-                    </ui:FASettingsExpanderItem.Footer>
-                </ui:FASettingsExpanderItem>
                 <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.DeviceType}"
                                            Description="{DynamicResource EmulationPage.Emulation.DeviceType.Description}"
                                            IsVisible="{Binding IsDualSenseEmulation}"

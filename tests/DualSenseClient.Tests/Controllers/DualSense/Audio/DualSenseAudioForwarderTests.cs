@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.DualSense.Triggers;
@@ -7,7 +7,7 @@ using DualSenseClient.Hid;
 
 namespace DualSenseClient.Tests.Controllers.DualSense.Audio;
 
-public class ViiperDualSenseAudioForwarderTests
+public class DualSenseAudioForwarderTests
 {
     /// <summary>
     /// Fake physical-controller audio lane recording every call.
@@ -128,7 +128,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
 
         Assert.That(forwarder.Start(), Is.True);
 
@@ -163,7 +163,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
         forwarder.FeedPcm(AudioBlock);
@@ -186,7 +186,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Usb
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
 
         Assert.That(forwarder.Start(), Is.False);
     }
@@ -203,7 +203,7 @@ public class ViiperDualSenseAudioForwarderTests
             ConnectionType = ConnectionType.Bluetooth
         };
         DualSenseUsbAudioTarget usbTarget = new DualSenseUsbAudioTarget(null!, null!);
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, usbTarget);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, usbTarget);
 
         Assert.That(forwarder.Start(), Is.True);
 
@@ -221,7 +221,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
         for (int i = 0; i < 4; i++)
@@ -251,7 +251,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.HapticsEnabled = false;
         forwarder.Start();
 
@@ -279,7 +279,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
         int halfBlock = DualSenseBtAudioPipeline.FramesPerBlock;
@@ -301,7 +301,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
         forwarder.SpeakerVolume = 0x90;
@@ -331,7 +331,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
         forwarder.FeedPcm(AudioBlock);
@@ -353,7 +353,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
         forwarder.FeedPcm(AudioBlock);
@@ -381,7 +381,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
         forwarder.UpdateGameOutputState(new SetStateData
@@ -440,7 +440,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
         // The game stopped driving the triggers: its allow bits are clear, so the pad
@@ -470,7 +470,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
         for (int i = 0; i < 3; i++)
@@ -493,7 +493,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
         forwarder.UpdateGameOutputState(new SetStateData
@@ -521,7 +521,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
         for (int i = 0; i < 5; i++)
@@ -558,7 +558,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
         forwarder.FeedPcm(AudioBlock);
@@ -585,7 +585,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
         for (int i = 0; i < 8; i++)
@@ -615,7 +615,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
         forwarder.UpdateGameHaptics(MakeRearPcm(0x00));
@@ -641,7 +641,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
         forwarder.UpdateGameHaptics(gamePcm);
@@ -663,7 +663,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
         forwarder.UpdateGameHaptics([0x01, 0x02, 0x03]);
@@ -679,7 +679,7 @@ public class ViiperDualSenseAudioForwarderTests
     [Test]
     public void UpdateGameHaptics_AcceptsVariableFrameCounts()
     {
-        // New libVIIPER delivers the rear pair per host write, so frame counts vary.
+        // The realtime-haptics lane delivers the rear pair per host write, so frame counts vary.
         // A 49-frame (392B 4ch -> 196B rear) write must still decimate to 0x10.
         byte[] gamePcm = MakeRearPcm(0x10, 49);
 
@@ -687,7 +687,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
         for (int i = 0; i < 8; i++)
@@ -715,7 +715,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.HapticStrength = 0.5f;
         forwarder.Start();
 
@@ -749,7 +749,7 @@ public class ViiperDualSenseAudioForwarderTests
         {
             ConnectionType = ConnectionType.Bluetooth
         };
-        using ViiperDualSenseAudioForwarder forwarder = new ViiperDualSenseAudioForwarder(fake, null);
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.ForceAudioHaptics = true;
         forwarder.Start();
 
