@@ -73,7 +73,7 @@ If no mapping is desired, leave the editor empty — the default one-to-one mapp
 
 ## Audio Forwarding
 
-Host audio can be forwarded to your **physical controller's speaker or headset**, with volume and haptic-strength controls. These settings live under **Customization → Audio Forwarding**, not in the emulation section.
+Host audio can be forwarded to your **physical controller's speaker or headset**, with volume and haptic-strength controls. These settings live under **Customization → Audio Forwarding**.
 
 ![Audio Forwarding settings on the Customization page](../assets/images/audio-forwarding-customization.png)
 
@@ -81,6 +81,17 @@ Host audio can be forwarded to your **physical controller's speaker or headset**
 - **Forwarded Audio Volume** — 0 – 255.
 - **Forwarded Haptic Strength** — 0 – 200.
 - **Audio-based haptics** — derive vibration from the forwarded audio instead of the game's own haptics. The haptic-strength slider always applies to audio-based haptics. Only applies to DualSense emulation over Bluetooth.
+
+### Host Feedback
+
+Host feedback passthroughs are configured per controller in **Emulation → Virtual Controller → Passthroughs**. The changes apply live, without recreating the virtual device, and switching a channel off clears its current effect immediately:
+
+- **Vibration** — the game's classic rumble. All emulation modes.
+- **Adaptive triggers** — the game's trigger effects. DualSense emulation only.
+- **Lightbar** — the game's lightbar color and brightness. DualShock 4 and DualSense emulation.
+- **Player LEDs** — the game's player indicator LEDs. DualSense emulation only.
+- **Game haptics** — the game's own haptic payload. Audio-based haptics keep running when this is off. DualSense emulation only.
+- **Controller audio passthrough** — audio the game sends to the virtual controller's own audio endpoint. The system-output and specific-application sources keep working when this is off, and game haptics stay active when they are enabled. DualShock 4 and DualSense emulation.
 
 ### Audio Sources
 

@@ -148,9 +148,13 @@ public sealed class EmulationServiceUsbIpTests
         return server;
     }
 
-    private PhysicalDualSense CreateDevice(string key)
+    private PhysicalDualSense CreateDevice(string key, ConnectionType busType = ConnectionType.Usb)
     {
-        PhysicalDualSense device = new PhysicalDualSense(new StubHidDevice(), new StubHidDeviceInfo($@"\\?\hid#emulation-test#{key}"));
+        PhysicalDualSense device = new PhysicalDualSense(new StubHidDevice(),
+            new StubHidDeviceInfo($@"\\?\hid#emulation-test#{key}")
+            {
+                BusType = busType
+            });
         _devices.Add(device);
         return device;
     }
@@ -217,9 +221,15 @@ public sealed class EmulationServiceUsbIpTests
     /// <summary>Reads one instance field of the private entry, forwarder or capture.</summary>
     private static T ReadField<T>(object target, string fieldName)
     {
-        FieldInfo field = target.GetType()
-            .GetField(fieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!;
-        return (T)field.GetValue(target)!;
+        Type? type = target.GetType();
+        FieldInfo? field = null;
+        while (type is not null && field is null)
+        {
+            field = type.GetField(fieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            type = type.BaseType;
+        }
+
+        return (T)field!.GetValue(target)!;
     }
 
     /// <summary>Writes one instance field of the private entry.</summary>
@@ -774,6 +784,122 @@ public sealed class EmulationServiceUsbIpTests
         });
     }
 
+    [Test]
+    public void Refresh_ForwardingSettings_AreAppliedToTheLiveAdapterAndForwarder()
+    {
+        PhysicalDualSense device = CreateDevice("audio-forwarding-live");
+        SetStoredSettings(device, EmulationMode.DualSense);
+        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
+        _tracker.TrackController(device);
+
+        _service.Start();
+        WaitForRunning(device);
+
+        object entry = GetEntry(device);
+        IVirtualController adapter = ReadField<IVirtualController>(entry, "Virtual");
+        DualSenseAudioForwarder forwarder = ReadField<DualSenseAudioForwarder>(entry, "Forwarder");
+
+        EmulationSettings settings = _controllerInfo.GetEmulationSettings(null, device.Info.Path);
+        settings.Forward.Rumble = false;
+        settings.Forward.Triggers = false;
+        settings.Forward.Lightbar = false;
+        settings.Forward.PlayerLeds = false;
+        settings.Forward.HapticsEnabled = false;
+        _controllerInfo.SaveEmulationSettings(null, device.Info.Path, settings);
+        _service.Refresh();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_virtualFactory.Creations, Has.Count.EqualTo(1),
+                "forwarding changes must not recreate the virtual device");
+            Assert.That(ReadField<bool>(adapter, "_rumbleForwarding"), Is.False);
+            Assert.That(ReadField<bool>(adapter, "_triggerForwarding"), Is.False);
+            Assert.That(ReadField<bool>(adapter, "_lightbarForwarding"), Is.False);
+            Assert.That(ReadField<bool>(adapter, "_playerLedsForwarding"), Is.False);
+            Assert.That(ReadField<bool>(adapter, "_hapticsForwarding"), Is.False);
+            Assert.That(ReadField<bool>(forwarder, "_gameRumbleEnabled"), Is.False);
+            Assert.That(ReadField<bool>(forwarder, "_gameTriggersEnabled"), Is.False);
+            Assert.That(ReadField<bool>(forwarder, "_gameLightbarEnabled"), Is.False);
+            Assert.That(ReadField<bool>(forwarder, "_gamePlayerLedsEnabled"), Is.False);
+            Assert.That(ReadField<bool>(forwarder, "_gameHapticsEnabled"), Is.False);
+        });
+    }
+
+    [Test]
+    public void Refresh_AudioPassthroughDisabled_StopsTheControllerCaptureAndResumesWhenEnabled()
+    {
+        PhysicalDualSense device = CreateDevice("audio-toggle", ConnectionType.Bluetooth);
+        SetStoredSettings(device, EmulationMode.DualSense);
+        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
+        _tracker.TrackController(device);
+
+        _service.Start();
+        WaitForRunning(device);
+
+        object entry = GetEntry(device);
+        DualSenseAudioForwarder forwarder = ReadField<DualSenseAudioForwarder>(entry, "Forwarder");
+        Assert.That(ReadField<IDisposable?>(entry, "Capture"), Is.Not.Null);
+
+        EmulationSettings settings = _controllerInfo.GetEmulationSettings(null, device.Info.Path);
+        settings.Forward.AudioEnabled = false;
+        _controllerInfo.SaveEmulationSettings(null, device.Info.Path, settings);
+        _service.Refresh();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadField<IDisposable?>(entry, "Capture"), Is.Null, "the controller-endpoint capture must stop");
+            Assert.That(ReadField<DualSenseAudioForwarder?>(entry, "Forwarder"), Is.SameAs(forwarder),
+                "the forwarder stays: it is the only Bluetooth lane for game haptics");
+            Assert.That(forwarder.IsDisposed, Is.False);
+            Assert.That(ReadField<bool>(entry, "AudioCallbacksWired"), Is.True,
+                "game haptics stay wired to the forwarder");
+        });
+
+        // The game keeps sending realtime haptics: with audio off they must still reach the forwarder.
+        PersonaDualSense persona = (PersonaDualSense)_virtualFactory.Creations[0].Creation!.Persona;
+        persona.OnIsoPacketReceived(0x01, CreateSpeakerPacket());
+        Assert.That(ReadField<long>(forwarder, "_lastGameHapticsTimestamp"), Is.Not.Zero,
+            "disabling audio passthrough must not unwire the game-haptics lane");
+
+        settings.Forward.AudioEnabled = true;
+        _controllerInfo.SaveEmulationSettings(null, device.Info.Path, settings);
+        _service.Refresh();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadField<IDisposable?>(entry, "Capture"), Is.TypeOf<EmulationDualSenseAudioCapture>(),
+                "re-enabling must rebuild the controller-endpoint capture");
+            Assert.That(ReadField<DualSenseAudioForwarder?>(entry, "Forwarder"), Is.SameAs(forwarder));
+        });
+    }
+
+    [Test]
+    public void Refresh_AudioPassthroughAndGameHapticsDisabled_TearsDownTheForwarder()
+    {
+        PhysicalDualSense device = CreateDevice("audio-toggle-haptics-off", ConnectionType.Bluetooth);
+        SetStoredSettings(device, EmulationMode.DualSense);
+        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
+        _tracker.TrackController(device);
+
+        _service.Start();
+        WaitForRunning(device);
+
+        object entry = GetEntry(device);
+        EmulationSettings settings = _controllerInfo.GetEmulationSettings(null, device.Info.Path);
+        settings.Forward.AudioEnabled = false;
+        settings.Forward.HapticsEnabled = false;
+        _controllerInfo.SaveEmulationSettings(null, device.Info.Path, settings);
+        _service.Refresh();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadField<IDisposable?>(entry, "Capture"), Is.Null);
+            Assert.That(ReadField<DualSenseAudioForwarder?>(entry, "Forwarder"), Is.Null,
+                "nothing needs the forwarder once audio and game haptics are both off");
+            Assert.That(ReadField<bool>(entry, "AudioCallbacksWired"), Is.False);
+        });
+    }
+
     /// <summary>
     /// Reads one feature report of the persona through a GET_REPORT control transfer, the same
     /// public entry point the persona conformance tests use.
@@ -1058,12 +1184,6 @@ public sealed class EmulationServiceUsbIpTests
             }
         }
 
-        public ConnectionType BusType
-        {
-            get
-            {
-                return ConnectionType.Usb;
-            }
-        }
+        public ConnectionType BusType { get; init; } = ConnectionType.Usb;
     }
 }

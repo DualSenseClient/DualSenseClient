@@ -106,7 +106,13 @@ public sealed class VirtualXbox360Controller : VirtualControllerBase
     /// motor.
     /// </summary>
     /// <param name="report">Decoded host rumble packet.</param>
-    private void OnOutputReport(Xbox360OutputReport report) => Outputs.SetVibration(report.LeftMotor, report.RightMotor);
+    private void OnOutputReport(Xbox360OutputReport report)
+    {
+        if (RumbleForwardingEnabled)
+        {
+            Outputs.SetVibration(report.LeftMotor, report.RightMotor);
+        }
+    }
 
     /// <inheritdoc/>
     public override void Dispose()

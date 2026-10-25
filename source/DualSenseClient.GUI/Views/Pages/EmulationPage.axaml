@@ -70,6 +70,56 @@
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                TextWrapping="Wrap" />
                 </ui:FASettingsExpanderItem>
+                <!-- Host feedback passthroughs -->
+                <ui:FASettingsExpanderItem IsVisible="{Binding IsForwardRumbleVisible}">
+                    <!-- FluentAvalonia's expand animation NREs on nested expanders; the no-animation theme avoids it. -->
+                    <ui:FASettingsExpander Theme="{StaticResource SettingsExpanderNoAnimationStyle}"
+                                           Header="{DynamicResource EmulationPage.Passthroughs.Title}"
+                                           Description="{DynamicResource EmulationPage.Passthroughs.Description}"
+                                           IsExpanded="False">
+                        <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Passthroughs.Rumble}"
+                                                   Description="{DynamicResource EmulationPage.Passthroughs.Rumble.Description}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <ToggleSwitch IsChecked="{Binding ForwardRumble, Mode=TwoWay}" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Passthroughs.Triggers}"
+                                                   Description="{DynamicResource EmulationPage.Passthroughs.Triggers.Description}"
+                                                   IsVisible="{Binding IsDualSenseEmulation}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <ToggleSwitch IsChecked="{Binding ForwardTriggers, Mode=TwoWay}" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Passthroughs.Lightbar}"
+                                                   Description="{DynamicResource EmulationPage.Passthroughs.Lightbar.Description}"
+                                                   IsVisible="{Binding IsForwardLightbarVisible}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <ToggleSwitch IsChecked="{Binding ForwardLightbar, Mode=TwoWay}" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Passthroughs.PlayerLeds}"
+                                                   Description="{DynamicResource EmulationPage.Passthroughs.PlayerLeds.Description}"
+                                                   IsVisible="{Binding IsDualSenseEmulation}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <ToggleSwitch IsChecked="{Binding ForwardPlayerLeds, Mode=TwoWay}" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Passthroughs.GameHaptics}"
+                                                   Description="{DynamicResource EmulationPage.Passthroughs.GameHaptics.Description}"
+                                                   IsVisible="{Binding IsDualSenseEmulation}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <ToggleSwitch IsChecked="{Binding ForwardGameHaptics, Mode=TwoWay}" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Passthroughs.AudioEnabled}"
+                                                   Description="{DynamicResource EmulationPage.Passthroughs.AudioEnabled.Description}"
+                                                   IsVisible="{Binding IsForwardLightbarVisible}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <ToggleSwitch IsChecked="{Binding ForwardAudioEnabled, Mode=TwoWay}" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+                    </ui:FASettingsExpander>
+                </ui:FASettingsExpanderItem>
                 <!-- Button remapping -->
                 <ui:FASettingsExpanderItem IsVisible="{Binding IsMappingEditorVisible}">
                     <StackPanel Spacing="8">

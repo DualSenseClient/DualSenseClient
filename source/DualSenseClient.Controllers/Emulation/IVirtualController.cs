@@ -29,6 +29,13 @@ public interface IVirtualController : IDisposable
     ButtonMappingTable? ButtonMappings { get; set; }
 
     /// <summary>
+    /// Applies the host-feedback forwarding options without recreating the device.
+    /// Channels switched off stop being forwarded and their current effect is cleared.
+    /// </summary>
+    /// <param name="settings">The forwarding options to apply.</param>
+    void ApplyForwardingSettings(ForwardSettings settings);
+
+    /// <summary>
     /// Pushes the latest physical input report to the virtual controller. Called on
     /// the physical device's read thread.
     /// </summary>
@@ -71,6 +78,97 @@ public abstract class VirtualControllerBase : IVirtualController
 
     /// <inheritdoc/>
     public ButtonMappingTable? ButtonMappings { get; set; }
+
+    /// <summary>Whether classic rumble is currently forwarded.</summary>
+    protected bool RumbleForwardingEnabled
+    {
+        get
+        {
+            return _rumbleForwarding;
+        }
+    }
+
+    /// <summary>Whether adaptive trigger effects are currently forwarded.</summary>
+    protected bool TriggerForwardingEnabled
+    {
+        get
+        {
+            return _triggerForwarding;
+        }
+    }
+
+    /// <summary>Whether lightbar updates are currently forwarded.</summary>
+    protected bool LightbarForwardingEnabled
+    {
+        get
+        {
+            return _lightbarForwarding;
+        }
+    }
+
+    /// <summary>Whether player LED updates are currently forwarded.</summary>
+    protected bool PlayerLedsForwardingEnabled
+    {
+        get
+        {
+            return _playerLedsForwarding;
+        }
+    }
+
+    /// <inheritdoc/>
+    public virtual void ApplyForwardingSettings(ForwardSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        UpdateForwarding(ref _rumbleForwarding, settings.Rumble, ClearRumble);
+        UpdateForwarding(ref _triggerForwarding, settings.Triggers, ClearTriggers);
+        UpdateForwarding(ref _lightbarForwarding, settings.Lightbar, ClearLightbar);
+        UpdateForwarding(ref _playerLedsForwarding, settings.PlayerLeds, ClearPlayerLeds);
+    }
+
+    /// <summary>Backing field for <see cref="RumbleForwardingEnabled"/>.</summary>
+    private bool _rumbleForwarding = true;
+
+    /// <summary>Backing field for <see cref="TriggerForwardingEnabled"/>.</summary>
+    private bool _triggerForwarding = true;
+
+    /// <summary>Backing field for <see cref="LightbarForwardingEnabled"/>.</summary>
+    private bool _lightbarForwarding = true;
+
+    /// <summary>Backing field for <see cref="PlayerLedsForwardingEnabled"/>.</summary>
+    private bool _playerLedsForwarding = true;
+
+    /// <summary>
+    /// Updates one forwarding flag, clearing the physical effect when it is switched off.
+    /// </summary>
+    private static void UpdateForwarding(ref bool field, bool value, Action clear)
+    {
+        // Disable before clearing so a report racing this change can no longer
+        // forward the channel after the physical effect was cleared.
+        bool wasEnabled = field;
+        field = value;
+        if (wasEnabled && !value)
+        {
+            clear();
+        }
+    }
+
+    /// <summary>Clears the physical rumble motors.</summary>
+    protected virtual void ClearRumble() => Outputs.SetVibration(0, 0);
+
+    /// <summary>Clears the physical adaptive trigger effects.</summary>
+    protected virtual void ClearTriggers()
+    {
+    }
+
+    /// <summary>Clears the physical lightbar.</summary>
+    protected virtual void ClearLightbar()
+    {
+    }
+
+    /// <summary>Clears the physical player LEDs.</summary>
+    protected virtual void ClearPlayerLeds()
+    {
+    }
 
     /// <inheritdoc/>
     public abstract void PushInput(InputReport report);

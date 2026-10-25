@@ -1,9 +1,11 @@
 using System.Diagnostics;
 using DualSenseClient.Controllers.DualSense.Output;
+using DualSenseClient.Controllers.DualSense.Triggers;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Core.Utilities;
 using DualSenseClient.Hid;
 using DualSenseClient.Logging;
+using DualSenseClient.Settings.Sections;
 
 namespace DualSenseClient.Controllers.DualSense.Audio;
 
@@ -230,6 +232,21 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// </summary>
     private volatile bool _forceAudioHaptics;
 
+    /// <summary>Whether the game's classic rumble is forwarded to the physical controller.</summary>
+    private volatile bool _gameRumbleEnabled = true;
+
+    /// <summary>Whether the game's adaptive trigger effects are forwarded.</summary>
+    private volatile bool _gameTriggersEnabled = true;
+
+    /// <summary>Whether the game's lightbar is forwarded.</summary>
+    private volatile bool _gameLightbarEnabled = true;
+
+    /// <summary>Whether the game's player indicator LEDs are forwarded.</summary>
+    private volatile bool _gamePlayerLedsEnabled = true;
+
+    /// <summary>Whether the game's own realtime haptics payload is forwarded.</summary>
+    private volatile bool _gameHapticsEnabled = true;
+
     /// <summary>
     /// Whether audio is routed to the headset jack instead of the internal speaker.
     /// </summary>
@@ -341,6 +358,22 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         {
             _forceAudioHaptics = value;
         }
+    }
+
+    /// <summary>
+    /// Applies the host-feedback forwarding options to the game-output lane. Disabled
+    /// channels are cleared from the state embedded in the Bluetooth audio reports and
+    /// from the rumble mix on the next pump tick; audio-derived haptics are unaffected.
+    /// </summary>
+    /// <param name="settings">The forwarding options to apply.</param>
+    public void ApplyForwardingSettings(ForwardSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        _gameRumbleEnabled = settings.Rumble;
+        _gameTriggersEnabled = settings.Triggers;
+        _gameLightbarEnabled = settings.Lightbar;
+        _gamePlayerLedsEnabled = settings.PlayerLeds;
+        _gameHapticsEnabled = settings.HapticsEnabled;
     }
 
     /// <summary>
@@ -579,16 +612,16 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     }
 
     /// <summary>
-    /// Runs the pump loop until canceled: waits for audio to appear in the ring, then
-    /// pops one block per tick and fans it out to every active transport. Ticks are
-    /// paced against an accumulated deadline so the average cadence matches
+    /// Runs the pump loop until canceled: waits for audio or fresh game haptics to
+    /// appear, then pops one block per tick and fans it out to every active transport.
+    /// Ticks are paced against an accumulated deadline so the average cadence matches
     /// <see cref="TickInterval"/> exactly (a per-tick restart would drift). While the
-    /// ring is empty the pump idles without sending, so an idle forwarder never
-    /// occupies the Bluetooth audio lane (which would corrupt <see cref="DualSenseAudioPlayer"/>
-    /// playback and make the controller ignore the virtual controller's output-state
-    /// reports); the first block of a session primes the lane, and after the lane has
-    /// been idle beyond <see cref="RePrimeIdleTicks"/> the next session re-primes.
-    /// When audio resumes, the deadline is re-anchored to now.
+    /// ring is empty and no game haptics are fresh the pump idles without sending, so an
+    /// idle forwarder never occupies the Bluetooth audio lane (which would corrupt
+    /// <see cref="DualSenseAudioPlayer"/> playback and make the controller ignore the
+    /// virtual controller's output-state reports); the first block of a session primes
+    /// the lane, and after the lane has been idle beyond <see cref="RePrimeIdleTicks"/>
+    /// the next session re-primes. When audio resumes, the deadline is re-anchored to now.
     /// </summary>
     private void PumpLoop(CancellationToken ct)
     {
@@ -602,7 +635,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
             while (!ct.IsCancellationRequested)
             {
                 bool wasIdle = false;
-                while (!ct.IsCancellationRequested && _audioRing.Count == 0)
+                while (!ct.IsCancellationRequested && _audioRing.Count == 0 && !HasPendingGameHaptics())
                 {
                     if (!wasIdle)
                     {
@@ -757,6 +790,31 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     }
 
     /// <summary>
+    /// Whether a fresh, non-silent game-haptics payload is available. Caller must hold
+    /// <see cref="_sync"/>.
+    /// </summary>
+    private bool HasFreshGameHaptics()
+    {
+        return _gameHapticsEnabled
+               && _lastGameHapticsTimestamp != 0
+               && Stopwatch.GetTimestamp() - _lastGameHapticsTimestamp <= GameHapticsFreshWindowTicks
+               && _gameHapticsPcm.AsSpan().ContainsAnyExcept((byte)0);
+    }
+
+    /// <summary>
+    /// Whether the pump has game haptics to send without audio. While this holds, the
+    /// haptics-only lane keeps the game's voice-coil data flowing even when
+    /// controller-audio passthrough is off.
+    /// </summary>
+    private bool HasPendingGameHaptics()
+    {
+        lock (_sync)
+        {
+            return _hapticsEnabled && HasFreshGameHaptics();
+        }
+    }
+
+    /// <summary>
     /// Copies the freshest realtime-haptics payload into <paramref name="destination"/>
     /// if one was delivered recently. A payload is fresh while its timestamp is within
     /// <see cref="GameHapticsFreshWindowTicks"/> and silent (all zero) payloads are
@@ -765,14 +823,13 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// </summary>
     private bool TryGetFreshGameHaptics(Span<byte> destination)
     {
-        if (_lastGameHapticsTimestamp == 0
-            || Stopwatch.GetTimestamp() - _lastGameHapticsTimestamp > GameHapticsFreshWindowTicks)
+        if (!HasFreshGameHaptics())
         {
             return false;
         }
 
         _gameHapticsPcm.CopyTo(destination);
-        return destination.ContainsAnyExcept((byte)0);
+        return true;
     }
 
     /// <summary>
@@ -844,21 +901,63 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// Every other field rides through exactly as the game wrote it, including the
     /// trigger FFB allow bits: with a bit set the pad applies the embedded block each
     /// tick; with a bit clear the pad retains its effect, matching real hardware.
-    /// Caller must hold <see cref="_sync"/>.
+    /// Channels the forwarding options disabled are replaced with their clearing
+    /// value (Off triggers, black lightbar, no player LEDs) so they release even while
+    /// standalone output reports are ignored. Caller must hold <see cref="_sync"/>.
     /// </summary>
     private SetStateData CreateAudioState()
     {
         SetStateData game = _gameState ?? new SetStateData();
 
-        // Recompute the flags from the game's bytes every tick: the `with` expression
-        // below writes through the shared raw buffer, so the merge must be idempotent.
-        ValidFlags flag0 = (game.ValidFlag0 & ~(ValidFlags.EnableRumbleEmulation | ValidFlags.UseRumbleNotHaptics))
+        // Clone: `with` writes through the shared raw buffer, and the cached game state must
+        // keep the host's own fields so re-enabling a channel restores them on the next tick.
+        byte[] raw = new byte[SetStateData.PayloadSize];
+        game.CopyTo(raw, 0);
+        SetStateData state = new SetStateData(raw, 0);
+
+        // Recompute the flags from the game's bytes every tick; the `with` expressions
+        // below write through this tick's clone, never the cached game state.
+        ValidFlags flag0 = (state.ValidFlag0 & ~(ValidFlags.EnableRumbleEmulation | ValidFlags.UseRumbleNotHaptics))
                            | ValidFlags.AllowSpeakerVolume | ValidFlags.AllowHeadphoneVolume
                            | ValidFlags.AllowAudioControl;
-        ValidFlags flag1 = game.ValidFlag1 | ValidFlags.AllowAudioControl2;
-        ValidFlags flag2 = game.ValidFlag2 & ~ValidFlags.EnableImprovedRumbleEmu;
+        ValidFlags flag1 = state.ValidFlag1 | ValidFlags.AllowAudioControl2;
+        ValidFlags flag2 = state.ValidFlag2 & ~ValidFlags.EnableImprovedRumbleEmu;
 
-        return game with
+        if (!_gameTriggersEnabled)
+        {
+            // Keep the allow bits set with an Off block so the pad releases the triggers
+            // instead of retaining the last effect while the lane is open.
+            flag0 |= ValidFlags.AllowRightTriggerFfb | ValidFlags.AllowLeftTriggerFfb;
+            state = state with
+            {
+                R2TriggerEffect = TriggerEffectBuilder.Off(),
+                L2TriggerEffect = TriggerEffectBuilder.Off()
+            };
+        }
+
+        if (!_gameLightbarEnabled)
+        {
+            flag1 |= ValidFlags.AllowLedColor;
+            flag2 |= ValidFlags.AllowColorFadeAnim;
+            state = state with
+            {
+                LightFadeAnimation = 0x02,
+                LedRed = 0,
+                LedGreen = 0,
+                LedBlue = 0
+            };
+        }
+
+        if (!_gamePlayerLedsEnabled)
+        {
+            flag1 |= ValidFlags.AllowPlayerIndicators;
+            state = state with
+            {
+                PlayerLeds = PlayerLedMask.None
+            };
+        }
+
+        return state with
         {
             ValidFlag0 = flag0,
             ValidFlag1 = flag1,
@@ -882,6 +981,13 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// </summary>
     private void MixRumbleIntoHaptics()
     {
+        if (!_gameRumbleEnabled)
+        {
+            _rumbleLeftMagnitude = 0f;
+            _rumbleRightMagnitude = 0f;
+            return;
+        }
+
         if (_gameState is not { } game)
         {
             return;

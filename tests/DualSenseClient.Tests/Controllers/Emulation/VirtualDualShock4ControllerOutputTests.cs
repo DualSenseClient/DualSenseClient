@@ -1,6 +1,7 @@
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Emulation.Devices.DualShock4;
+using DualSenseClient.Settings.Sections;
 
 namespace DualSenseClient.Tests.Controllers.Emulation;
 
@@ -169,6 +170,87 @@ public sealed class VirtualDualShock4ControllerOutputTests
         device.OnOutputReport(Wire(0x07, 0x22, 0x33, 0x01, 0x02, 0x03, 0x00, 0x00));
 
         Assert.That(received.AsSpan().ToArray(), Is.EqualTo(outputs.OutputStates[0].AsSpan().ToArray()));
+    }
+
+    [Test]
+    public void ApplyForwardingSettings_DisabledRumbleAndLightbar_AreDroppedFromHostPayloads()
+    {
+        DualShock4Device device = new DualShock4Device(new DualShock4Identity());
+        RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
+        VirtualDualShock4Controller controller = new VirtualDualShock4Controller(device, outputs);
+        controller.ApplyForwardingSettings(new ForwardSettings
+        {
+            Rumble = false,
+            Lightbar = false
+        });
+        outputs.OutputStates.Clear();
+        outputs.Vibrations.Clear();
+
+        device.OnOutputReport(Wire(0x07, 0x22, 0x33, 0x01, 0x02, 0x03, 0x00, 0x00));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outputs.Vibrations, Is.Empty);
+            Assert.That(outputs.OutputStates, Is.Empty);
+        });
+    }
+
+    [Test]
+    public void ApplyForwardingSettings_DisablingRumbleAndLightbar_ClearsThePhysicalEffects()
+    {
+        DualShock4Device device = new DualShock4Device(new DualShock4Identity());
+        RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
+        VirtualDualShock4Controller controller = new VirtualDualShock4Controller(device, outputs);
+        device.OnOutputReport(Wire(0x07, 0x22, 0x33, 0x01, 0x02, 0x03, 0x00, 0x00));
+
+        controller.ApplyForwardingSettings(new ForwardSettings
+        {
+            Rumble = false,
+            Lightbar = false
+        });
+
+        Assert.That(outputs.Vibrations, Has.Count.EqualTo(2));
+        Assert.That(outputs.Vibrations[1], Is.EqualTo(((byte)0, (byte)0)), "the motors must stop immediately");
+        Assert.That(outputs.OutputStates, Has.Count.EqualTo(2), "one host payload plus the lightbar clear");
+        SetStateData lightbar = outputs.OutputStates[1];
+        Assert.Multiple(() =>
+        {
+            Assert.That(lightbar.ValidFlag1, Is.EqualTo(ValidFlags.AllowLedColor));
+            Assert.That(lightbar.ValidFlag2, Is.EqualTo(ValidFlags.AllowColorFadeAnim));
+            Assert.That(lightbar.LightFadeAnimation, Is.EqualTo(0x02));
+            Assert.That((lightbar.LedRed, lightbar.LedGreen, lightbar.LedBlue), Is.EqualTo(((byte)0, (byte)0, (byte)0)));
+        });
+    }
+
+    [Test]
+    public void HostOutput_DisabledLightbar_KeepsForwardingRumble()
+    {
+        DualShock4Device device = new DualShock4Device(new DualShock4Identity());
+        RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
+        VirtualDualShock4Controller controller = new VirtualDualShock4Controller(device, outputs);
+        controller.ApplyForwardingSettings(new ForwardSettings
+        {
+            Lightbar = false
+        });
+        outputs.OutputStates.Clear();
+        outputs.Vibrations.Clear();
+
+        device.OnOutputReport(Wire(0x07, 0x22, 0x33, 0x01, 0x02, 0x03, 0x00, 0x00));
+
+        Assert.That(outputs.Vibrations, Is.EqualTo(new[]
+        {
+            ((byte)0x33, (byte)0x22)
+        }));
+        Assert.That(outputs.OutputStates, Has.Count.EqualTo(1));
+        SetStateData sent = outputs.OutputStates[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(sent.ValidFlag1, Is.EqualTo(ValidFlags.None));
+            Assert.That(sent.ValidFlag2, Is.EqualTo(ValidFlags.None));
+            Assert.That(sent.LedRed, Is.Zero);
+            Assert.That(sent.LedGreen, Is.Zero);
+            Assert.That(sent.LedBlue, Is.Zero);
+        });
     }
 
     [TestCase(0x00)]

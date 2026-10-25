@@ -4,6 +4,7 @@ using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.DualSense.Triggers;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Hid;
+using DualSenseClient.Settings.Sections;
 
 namespace DualSenseClient.Tests.Controllers.DualSense.Audio;
 
@@ -464,6 +465,127 @@ public class DualSenseAudioForwarderTests
     }
 
     [Test]
+    public void ApplyForwardingSettings_DisabledGameChannels_AreClearedInTheEmbeddedState()
+    {
+        byte[] right = new byte[11];
+        right[0] = (byte)TriggerEffectType.Weapon;
+        byte[] left = new byte[11];
+        left[0] = (byte)TriggerEffectType.Vibration;
+
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+        forwarder.ApplyForwardingSettings(new ForwardSettings
+        {
+            Triggers = false,
+            Lightbar = false,
+            PlayerLeds = false
+        });
+        forwarder.UpdateGameOutputState(new SetStateData
+        {
+            ValidFlag0 = ValidFlags.AllowRightTriggerFfb | ValidFlags.AllowLeftTriggerFfb,
+            PlayerLeds = (PlayerLedMask)0x0A,
+            LedRed = 0x12,
+            LedGreen = 0x34,
+            LedBlue = 0x56,
+            R2TriggerEffect = new TriggerEffectBlock(right, 0),
+            L2TriggerEffect = new TriggerEffectBlock(left, 0)
+        });
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => fake.ReportCount >= 8 && fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
+
+        byte[] state = fake.LastStateBlock;
+        Assert.Multiple(() =>
+        {
+            Assert.That(state[0] & 0x0C, Is.EqualTo(0x0C), "the allow bits must stay set so the Off blocks release the triggers");
+            Assert.That(state[10], Is.EqualTo((byte)TriggerEffectType.Off), "the R2 effect must be cleared");
+            Assert.That(state[21], Is.EqualTo((byte)TriggerEffectType.Off), "the L2 effect must be cleared");
+            Assert.That(state[43], Is.Zero, "the player LEDs must be cleared");
+            Assert.That(state[41], Is.EqualTo(0x02), "the fade-out must clear a lightbar the pad may still hold");
+            Assert.That(state[44], Is.Zero, "the lightbar must be black");
+            Assert.That(state[45], Is.Zero);
+            Assert.That(state[46], Is.Zero);
+        });
+
+        // The cached game state must keep the host's own values so re-enabling restores them.
+        forwarder.ApplyForwardingSettings(new ForwardSettings());
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => fake.LastStateBlock[10] == (byte)TriggerEffectType.Weapon, TimeSpan.FromSeconds(3));
+
+        state = fake.LastStateBlock;
+        Assert.Multiple(() =>
+        {
+            Assert.That(state[10], Is.EqualTo((byte)TriggerEffectType.Weapon));
+            Assert.That(state[21], Is.EqualTo((byte)TriggerEffectType.Vibration));
+            Assert.That(state[43], Is.EqualTo(0x0A));
+            Assert.That(state[44], Is.EqualTo(0x12));
+        });
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void ApplyForwardingSettings_RumbleDisabled_StopsGameRumbleInHaptics()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+        forwarder.ApplyForwardingSettings(new ForwardSettings
+        {
+            Rumble = false
+        });
+
+        forwarder.UpdateGameOutputState(new SetStateData
+        {
+            RumbleLeft = 0xFF,
+            RumbleRight = 0x00
+        });
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => fake.ReportCount >= 12, TimeSpan.FromSeconds(3));
+
+        Assert.That(fake.LastHapticsFrame.Distinct().Count(), Is.EqualTo(1),
+            "disabled rumble must not add the 60 Hz sine to the audio-derived haptics");
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void ApplyForwardingSettings_GameHapticsDisabled_FallsBackToAudioDerived()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+        forwarder.ApplyForwardingSettings(new ForwardSettings
+        {
+            HapticsEnabled = false
+        });
+
+        for (int i = 0; i < 8; i++)
+        {
+            forwarder.FeedPcm(MakeAudioBlock(0f));
+        }
+
+        WaitUntil(() => fake.ReportCount >= 8 && fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
+        forwarder.UpdateGameHaptics(MakeRearPcm(0x10));
+        forwarder.FeedPcm(MakeAudioBlock(0f));
+        WaitUntil(() => fake.ReportCount >= 12, TimeSpan.FromSeconds(3));
+
+        Assert.That(fake.LastHapticsFrame.All(b => b == 0), Is.True,
+            "the game's haptics must be ignored; silent audio derives to zeros");
+
+        forwarder.Stop();
+    }
+
+    [Test]
     public void FeedPcm_WithoutGameStateHapticsFollowTheAudio()
     {
         FakeAudioOutputs fake = new FakeAudioOutputs
@@ -604,6 +726,37 @@ public class DualSenseAudioForwarderTests
 
         Assert.That(fake.LastHapticsFrame.All(b => b == 0x10), Is.True,
             "the game's haptics payload must replace the audio-derived haptics (silence would derive to zeros)");
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void UpdateGameHaptics_WithoutAudioKeepsSendingTheHapticsLane()
+    {
+        byte[] gamePcm = MakeRearPcm(0x10);
+
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        // No audio is fed: this is the controller-audio-passthrough-off shape. Re-deliver
+        // while waiting because priming the lane takes ~85 ms and the payload is only
+        // fresh for 100 ms; in the field the game feeds the lane continuously.
+        WaitUntil(() =>
+        {
+            forwarder.UpdateGameHaptics(gamePcm);
+            return fake.LastHapticsFrame is { Length: 64 } && fake.LastHapticsFrame.All(b => b == 0x10);
+        }, TimeSpan.FromSeconds(3));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fake.CombinedReportCount, Is.GreaterThan(0), "the haptics lane must open without audio");
+            Assert.That(fake.LastHapticsFrame.All(b => b == 0x10), Is.True,
+                "the game's haptics must reach the pad while audio passthrough is off");
+        });
 
         forwarder.Stop();
     }

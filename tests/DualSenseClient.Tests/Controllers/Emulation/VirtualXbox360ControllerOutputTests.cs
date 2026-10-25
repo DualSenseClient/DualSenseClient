@@ -1,5 +1,6 @@
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Emulation.Devices.Xbox360;
+using DualSenseClient.Settings.Sections;
 
 namespace DualSenseClient.Tests.Controllers.Emulation;
 
@@ -33,6 +34,27 @@ public sealed class VirtualXbox360ControllerOutputTests
             Assert.That(outputs.Vibrations[0], Is.EqualTo(((byte)0x11, (byte)0x22)), "the large motor drives the left output");
             Assert.That(outputs.OutputStates, Is.Empty, "the Xbox 360 path never forwards an output state");
         });
+    }
+
+    [Test]
+    public void ApplyForwardingSettings_DisabledRumble_DropsPacketsAndStopsTheMotors()
+    {
+        Xbox360Device device = new Xbox360Device(new Xbox360Identity());
+        RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
+        VirtualXbox360Controller controller = new VirtualXbox360Controller(device, outputs);
+
+        device.OnOutputReport(RumblePacket(0x11, 0x22));
+        controller.ApplyForwardingSettings(new ForwardSettings
+        {
+            Rumble = false
+        });
+        device.OnOutputReport(RumblePacket(0x33, 0x44));
+
+        Assert.That(outputs.Vibrations, Is.EqualTo(new[]
+            {
+                ((byte)0x11, (byte)0x22), ((byte)0, (byte)0)
+            }),
+            "disabling must stop the motors and drop later packets");
     }
 
     [Test]

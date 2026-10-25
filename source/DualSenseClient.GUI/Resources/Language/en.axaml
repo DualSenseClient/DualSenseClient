@@ -369,6 +369,21 @@
     <sys:String x:Key="EmulationPage.Mapping.SuppressSolos">Mute member buttons' own outputs while the combo is held</sys:String>
     <sys:String x:Key="EmulationPage.Mapping.Target.None">None (disabled)</sys:String>
     <sys:String x:Key="EmulationPage.Mapping.Title">Button Mapping</sys:String>
+    <!-- Passthroughs -->
+    <sys:String x:Key="EmulationPage.Passthroughs.AudioEnabled">Controller audio passthrough</sys:String>
+    <sys:String x:Key="EmulationPage.Passthroughs.AudioEnabled.Description">Forward the virtual controller's audio to the physical controller. The system-output and application audio sources keep working when this is off.</sys:String>
+    <sys:String x:Key="EmulationPage.Passthroughs.Description">Choose which host feedback reaches the physical controller. Changes apply live.</sys:String>
+    <sys:String x:Key="EmulationPage.Passthroughs.GameHaptics">Game haptics</sys:String>
+    <sys:String x:Key="EmulationPage.Passthroughs.GameHaptics.Description">Forward the game's own haptics to the physical controller. Audio-based haptics keep working when this is off.</sys:String>
+    <sys:String x:Key="EmulationPage.Passthroughs.Lightbar">Lightbar</sys:String>
+    <sys:String x:Key="EmulationPage.Passthroughs.Lightbar.Description">Forward the game's lightbar color and brightness to the physical controller.</sys:String>
+    <sys:String x:Key="EmulationPage.Passthroughs.PlayerLeds">Player LEDs</sys:String>
+    <sys:String x:Key="EmulationPage.Passthroughs.PlayerLeds.Description">Forward the game's player indicator LEDs to the physical controller.</sys:String>
+    <sys:String x:Key="EmulationPage.Passthroughs.Rumble">Vibration</sys:String>
+    <sys:String x:Key="EmulationPage.Passthroughs.Rumble.Description">Forward the game's rumble to the physical controller.</sys:String>
+    <sys:String x:Key="EmulationPage.Passthroughs.Title">Passthroughs</sys:String>
+    <sys:String x:Key="EmulationPage.Passthroughs.Triggers">Adaptive triggers</sys:String>
+    <sys:String x:Key="EmulationPage.Passthroughs.Triggers.Description">Forward the game's adaptive trigger effects to the physical controller.</sys:String>
 
     <!-- AutoProfilesPage -->
     <!-- AudioSource -->

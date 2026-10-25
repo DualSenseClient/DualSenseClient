@@ -274,6 +274,8 @@ public partial class EmulationPageViewModel : ObservableObject
             OnPropertyChanged(nameof(IsEmulationEnabled));
             OnPropertyChanged(nameof(IsDualSenseEmulation));
             OnPropertyChanged(nameof(IsDualShock4Emulation));
+            OnPropertyChanged(nameof(IsForwardRumbleVisible));
+            OnPropertyChanged(nameof(IsForwardLightbarVisible));
             OnPropertyChanged(nameof(IsMappingEditorVisible));
             NotifyTargetPickerState();
             RefreshMappingTargets();
@@ -304,6 +306,160 @@ public partial class EmulationPageViewModel : ObservableObject
         {
             return EmulationModeIndex == (int)EmulationMode.DualShock4;
         }
+    }
+
+    /// <summary>
+    /// Whether the vibration passthrough toggle applies to the selected controller's
+    /// emulation mode (every mode with a virtual device).
+    /// </summary>
+    public bool IsForwardRumbleVisible
+    {
+        get
+        {
+            return HasDevice && GetEmulationSettings().Mode != EmulationMode.Off;
+        }
+    }
+
+    /// <summary>
+    /// Whether the lightbar and controller-audio passthrough toggles apply to the
+    /// selected controller's emulation mode.
+    /// </summary>
+    public bool IsForwardLightbarVisible
+    {
+        get
+        {
+            if (!HasDevice)
+            {
+                return false;
+            }
+
+            EmulationMode mode = GetEmulationSettings().Mode;
+            return mode is EmulationMode.DualSense or EmulationMode.DualShock4;
+        }
+    }
+
+    /// <summary>
+    /// Whether the host's classic rumble is forwarded to the physical controller
+    /// (two-way, persisted).
+    /// </summary>
+    public bool ForwardRumble
+    {
+        get
+        {
+            return HasDevice && GetEmulationSettings().Forward.Rumble;
+        }
+        set
+        {
+            SetForwardingToggle(value, nameof(ForwardRumble), forward => forward.Rumble, (forward, enabled) => forward.Rumble = enabled);
+        }
+    }
+
+    /// <summary>
+    /// Whether the host's adaptive trigger effects are forwarded to the physical
+    /// controller (two-way, persisted). Only applies to DualSense emulation.
+    /// </summary>
+    public bool ForwardTriggers
+    {
+        get
+        {
+            return HasDevice && GetEmulationSettings().Forward.Triggers;
+        }
+        set
+        {
+            SetForwardingToggle(value, nameof(ForwardTriggers), forward => forward.Triggers, (forward, enabled) => forward.Triggers = enabled);
+        }
+    }
+
+    /// <summary>
+    /// Whether the host's lightbar color and brightness are forwarded to the physical
+    /// controller (two-way, persisted). Applies to DualShock 4 and DualSense emulation.
+    /// </summary>
+    public bool ForwardLightbar
+    {
+        get
+        {
+            return HasDevice && GetEmulationSettings().Forward.Lightbar;
+        }
+        set
+        {
+            SetForwardingToggle(value, nameof(ForwardLightbar), forward => forward.Lightbar, (forward, enabled) => forward.Lightbar = enabled);
+        }
+    }
+
+    /// <summary>
+    /// Whether the host's player indicator LEDs are forwarded to the physical controller
+    /// (two-way, persisted). Only applies to DualSense emulation.
+    /// </summary>
+    public bool ForwardPlayerLeds
+    {
+        get
+        {
+            return HasDevice && GetEmulationSettings().Forward.PlayerLeds;
+        }
+        set
+        {
+            SetForwardingToggle(value, nameof(ForwardPlayerLeds), forward => forward.PlayerLeds, (forward, enabled) => forward.PlayerLeds = enabled);
+        }
+    }
+
+    /// <summary>
+    /// Whether the game's own haptics are forwarded to the physical controller (two-way,
+    /// persisted). Audio-derived haptics are unaffected. Only applies to DualSense
+    /// emulation.
+    /// </summary>
+    public bool ForwardGameHaptics
+    {
+        get
+        {
+            return HasDevice && GetEmulationSettings().Forward.HapticsEnabled;
+        }
+        set
+        {
+            SetForwardingToggle(value, nameof(ForwardGameHaptics), forward => forward.HapticsEnabled,
+                (forward, enabled) => forward.HapticsEnabled = enabled);
+        }
+    }
+
+    /// <summary>
+    /// Whether the virtual controller's own audio is forwarded to the physical controller
+    /// (two-way, persisted). The direct system-output and application audio sources are
+    /// unaffected. Applies to DualShock 4 and DualSense emulation.
+    /// </summary>
+    public bool ForwardAudioEnabled
+    {
+        get
+        {
+            return HasDevice && GetEmulationSettings().Forward.AudioEnabled;
+        }
+        set
+        {
+            SetForwardingToggle(value, nameof(ForwardAudioEnabled), forward => forward.AudioEnabled,
+                (forward, enabled) => forward.AudioEnabled = enabled);
+        }
+    }
+
+    /// <summary>
+    /// Persists a host-feedback passthrough toggle and applies it to the live virtual
+    /// controller and audio forwarder without recreating the virtual device.
+    /// </summary>
+    private void SetForwardingToggle(bool value, string propertyName, Func<ForwardSettings, bool> getter, Action<ForwardSettings, bool> setter)
+    {
+        if (!HasDevice)
+        {
+            return;
+        }
+
+        EmulationSettings settings = GetEmulationSettings();
+        if (getter(settings.Forward) == value)
+        {
+            return;
+        }
+
+        _log.Info($"Setting {propertyName} of {CurrentMac} to {value}");
+        setter(settings.Forward, value);
+        _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+        OnPropertyChanged(propertyName);
+        _emulation.Refresh();
     }
 
     /// <summary>
@@ -1318,6 +1474,14 @@ public partial class EmulationPageViewModel : ObservableObject
         OnPropertyChanged(nameof(IsEmulationEnabled));
         OnPropertyChanged(nameof(IsDualSenseEmulation));
         OnPropertyChanged(nameof(IsDualShock4Emulation));
+        OnPropertyChanged(nameof(IsForwardRumbleVisible));
+        OnPropertyChanged(nameof(IsForwardLightbarVisible));
+        OnPropertyChanged(nameof(ForwardRumble));
+        OnPropertyChanged(nameof(ForwardTriggers));
+        OnPropertyChanged(nameof(ForwardLightbar));
+        OnPropertyChanged(nameof(ForwardPlayerLeds));
+        OnPropertyChanged(nameof(ForwardGameHaptics));
+        OnPropertyChanged(nameof(ForwardAudioEnabled));
         OnPropertyChanged(nameof(IsMappingEditorVisible));
         NotifyTargetPickerState();
         OnPropertyChanged(nameof(DualSenseVariantIndex));

@@ -184,6 +184,51 @@ public class ForwardSettings
     public bool ForceAudioHaptics { get; set; }
 
     /// <summary>
+    /// Gets or sets whether the host's classic rumble is forwarded to the physical
+    /// controller (true by default).
+    /// </summary>
+    [JsonPropertyName("rumble")]
+    public bool Rumble { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether the host's adaptive trigger effects are forwarded to the
+    /// physical controller (true by default). Only applies to DualSense emulation.
+    /// </summary>
+    [JsonPropertyName("triggers")]
+    public bool Triggers { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether the host's lightbar color and brightness are forwarded to
+    /// the physical controller (true by default). Applies to DualShock 4 and DualSense
+    /// emulation.
+    /// </summary>
+    [JsonPropertyName("lightbar")]
+    public bool Lightbar { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether the host's player indicator LEDs are forwarded to the
+    /// physical controller (true by default). Only applies to DualSense emulation.
+    /// </summary>
+    [JsonPropertyName("player_leds")]
+    public bool PlayerLeds { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether the game's own haptics are forwarded to the physical
+    /// controller (true by default). Audio-derived haptics are unaffected. Only applies
+    /// to DualSense emulation.
+    /// </summary>
+    [JsonPropertyName("haptics_enabled")]
+    public bool HapticsEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether the virtual controller's own audio is forwarded to the
+    /// physical controller (true by default). The direct system-output and application
+    /// audio sources are unaffected. Applies to DualShock 4 and DualSense emulation.
+    /// </summary>
+    [JsonPropertyName("audio_enabled")]
+    public bool AudioEnabled { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets whether the forwarded audio is captured from the system's default
     /// output device (loopback) instead of the virtual controller's own audio endpoint,
     /// so any audio the host plays drives the controller without the game having to

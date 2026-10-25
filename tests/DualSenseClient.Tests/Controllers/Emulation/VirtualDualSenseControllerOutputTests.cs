@@ -1,6 +1,8 @@
 using DualSenseClient.Controllers.DualSense.Output;
+using DualSenseClient.Controllers.DualSense.Triggers;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Emulation.Devices.DualSense;
+using DualSenseClient.Settings.Sections;
 
 namespace DualSenseClient.Tests.Controllers.Emulation;
 
@@ -245,6 +247,108 @@ public sealed class VirtualDualSenseControllerOutputTests
         {
             Assert.That(sent.AsSpan()[39], Is.EqualTo(servedValue));
             Assert.That(sent.AsSpan().ToArray(), Is.EqualTo(ExpectedPayload(payload, false)));
+        });
+    }
+
+    [Test]
+    public void ApplyForwardingSettings_DisabledChannels_AreDroppedFromHostPayloads()
+    {
+        DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
+        RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
+        VirtualDualSenseController controller = new VirtualDualSenseController(device, outputs, true);
+        controller.ApplyForwardingSettings(new ForwardSettings
+        {
+            Rumble = false,
+            Triggers = false,
+            Lightbar = false,
+            PlayerLeds = false
+        });
+        outputs.OutputStates.Clear();
+        outputs.Vibrations.Clear();
+
+        device.OnOutputReport(Wire(RichGamePayload()));
+
+        Assert.That(outputs.OutputStates, Has.Count.EqualTo(1));
+        SetStateData sent = outputs.OutputStates[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(sent.ValidFlag0 & (ValidFlags.EnableRumbleEmulation | ValidFlags.UseRumbleNotHaptics),
+                Is.EqualTo(ValidFlags.None), "the rumble selector bits must be cleared");
+            Assert.That(sent.ValidFlag2 & ValidFlags.EnableImprovedRumbleEmu, Is.EqualTo(ValidFlags.None));
+            Assert.That(sent.RumbleLeft, Is.Zero, "the motor bytes must be zeroed");
+            Assert.That(sent.RumbleRight, Is.Zero);
+            Assert.That(sent.ValidFlag0 & (ValidFlags.AllowLeftTriggerFfb | ValidFlags.AllowRightTriggerFfb),
+                Is.EqualTo(ValidFlags.None), "the trigger allow bits must be cleared");
+            Assert.That(sent.L2TriggerEffect.Mode, Is.EqualTo(TriggerEffectType.Off));
+            Assert.That(sent.R2TriggerEffect.Mode, Is.EqualTo(TriggerEffectType.Off));
+            Assert.That(sent.ValidFlag1 & (ValidFlags.AllowLedColor | ValidFlags.ResetLights), Is.EqualTo(ValidFlags.None));
+            Assert.That(sent.ValidFlag2 & (ValidFlags.AllowBrightnessChange | ValidFlags.AllowColorFadeAnim),
+                Is.EqualTo(ValidFlags.None));
+            Assert.That((sent.LedRed, sent.LedGreen, sent.LedBlue), Is.EqualTo(((byte)0, (byte)0, (byte)0)));
+            Assert.That(sent.ValidFlag1 & ValidFlags.AllowPlayerIndicators, Is.EqualTo(ValidFlags.None));
+            Assert.That(sent.PlayerLeds, Is.EqualTo(PlayerLedMask.None));
+        });
+    }
+
+    [Test]
+    public void ApplyForwardingSettings_DisablingChannels_ClearsThePhysicalEffects()
+    {
+        DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
+        RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
+        VirtualDualSenseController controller = new VirtualDualSenseController(device, outputs, true);
+        device.OnOutputReport(Wire(RichGamePayload()));
+        Assert.That(outputs.OutputStates, Has.Count.EqualTo(1));
+
+        controller.ApplyForwardingSettings(new ForwardSettings
+        {
+            Rumble = false,
+            Triggers = false,
+            Lightbar = false,
+            PlayerLeds = false
+        });
+
+        Assert.That(outputs.Vibrations, Is.EqualTo(new[]
+        {
+            ((byte)0, (byte)0)
+        }), "the motors must stop immediately");
+        Assert.That(outputs.OutputStates, Has.Count.EqualTo(4), "one host payload plus one clear per disabled channel");
+        Assert.Multiple(() =>
+        {
+            SetStateData triggers = outputs.OutputStates[1];
+            Assert.That(triggers.ValidFlag0, Is.EqualTo(ValidFlags.AllowLeftTriggerFfb | ValidFlags.AllowRightTriggerFfb));
+            Assert.That(triggers.L2TriggerEffect.Mode, Is.EqualTo(TriggerEffectType.Off));
+            Assert.That(triggers.R2TriggerEffect.Mode, Is.EqualTo(TriggerEffectType.Off));
+
+            SetStateData lightbar = outputs.OutputStates[2];
+            Assert.That(lightbar.ValidFlag1, Is.EqualTo(ValidFlags.AllowLedColor));
+            Assert.That(lightbar.ValidFlag2, Is.EqualTo(ValidFlags.AllowColorFadeAnim));
+            Assert.That(lightbar.LightFadeAnimation, Is.EqualTo(0x02));
+            Assert.That((lightbar.LedRed, lightbar.LedGreen, lightbar.LedBlue), Is.EqualTo(((byte)0, (byte)0, (byte)0)));
+
+            SetStateData playerLeds = outputs.OutputStates[3];
+            Assert.That(playerLeds.ValidFlag1, Is.EqualTo(ValidFlags.AllowPlayerIndicators));
+            Assert.That(playerLeds.PlayerLeds, Is.EqualTo(PlayerLedMask.None));
+        });
+    }
+
+    [Test]
+    public void ApplyForwardingSettings_UnchangedEnabledChannels_SendNothing()
+    {
+        DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
+        RecordingDualSenseOutputs outputs = new RecordingDualSenseOutputs();
+        VirtualDualSenseController controller = new VirtualDualSenseController(device, outputs, true);
+
+        controller.ApplyForwardingSettings(new ForwardSettings());
+        controller.ApplyForwardingSettings(new ForwardSettings
+        {
+            HapticsEnabled = false,
+            AudioEnabled = false
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outputs.Vibrations, Is.Empty);
+            Assert.That(outputs.OutputStates, Is.Empty);
         });
     }
 

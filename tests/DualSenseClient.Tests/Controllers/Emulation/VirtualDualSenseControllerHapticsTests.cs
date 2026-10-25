@@ -1,6 +1,7 @@
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Emulation.Devices.DualSense;
 using DualSenseClient.Emulation.Devices.DualShock4;
+using DualSenseClient.Settings.Sections;
 
 namespace DualSenseClient.Tests.Controllers.Emulation;
 
@@ -89,6 +90,31 @@ public sealed class VirtualDualSenseControllerHapticsTests
         device.OnIsoPacketReceived(AudioOutEndpointAddress, packet);
 
         Assert.That(calls, Is.EqualTo(1), "the disposed adapter still received the lane");
+    }
+
+    [Test]
+    public void ApplyForwardingSettings_GameHapticsDisabled_DropsTheRealtimeLane()
+    {
+        DualSenseDevice device = CreateDevice();
+        using VirtualDualSenseController controller = CreateController(device);
+        int calls = 0;
+        controller.RealtimeHapticsReceived += _ => calls++;
+        controller.ApplyForwardingSettings(new ForwardSettings
+        {
+            HapticsEnabled = false
+        });
+
+        device.OnIsoPacketReceived(AudioOutEndpointAddress, CreateSpeakerPacket(1));
+
+        Assert.That(calls, Is.Zero, "the game's realtime haptics must not reach the audio forwarder");
+
+        controller.ApplyForwardingSettings(new ForwardSettings
+        {
+            HapticsEnabled = true
+        });
+        device.OnIsoPacketReceived(AudioOutEndpointAddress, CreateSpeakerPacket(1));
+
+        Assert.That(calls, Is.EqualTo(1), "re-enabling the channel must resume the lane");
     }
 
     [Test]

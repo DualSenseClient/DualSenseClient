@@ -128,6 +128,31 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
         }
     }
 
+    /// <inheritdoc/>
+    protected override void ClearRumble()
+    {
+        _rumbleLeft = 0;
+        _rumbleRight = 0;
+        base.ClearRumble();
+    }
+
+    /// <inheritdoc/>
+    protected override void ClearLightbar()
+    {
+        _ledRed = 0;
+        _ledGreen = 0;
+        _ledBlue = 0;
+        Outputs.SendOutputState(new SetStateData
+        {
+            ValidFlag1 = ValidFlags.AllowLedColor,
+            ValidFlag2 = ValidFlags.AllowColorFadeAnim,
+            LightFadeAnimation = FadeOutAnimation,
+            LedRed = 0,
+            LedGreen = 0,
+            LedBlue = 0
+        });
+    }
+
     /// <summary>
     /// Translates physical input to the persona's DualShock 4 input state and pushes it. An attached
     /// raw USB image is ignored: the DualShock 4 mode has no raw passthrough.
@@ -292,14 +317,21 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
             return;
         }
 
-        if (report.RumbleEnabled)
+        bool forwardRumble = report.RumbleEnabled && RumbleForwardingEnabled;
+        bool forwardLightbar = report.LightbarEnabled && LightbarForwardingEnabled;
+        if (!forwardRumble && !forwardLightbar)
+        {
+            return;
+        }
+
+        if (forwardRumble)
         {
             _rumbleLeft = report.LeftMotor;
             _rumbleRight = report.RightMotor;
             Outputs.SetVibration(_rumbleLeft, _rumbleRight);
         }
 
-        if (report.LightbarEnabled)
+        if (forwardLightbar)
         {
             _ledRed = report.Red;
             _ledGreen = report.Green;
@@ -308,7 +340,7 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
 
         ValidFlags flag1 = ValidFlags.None;
         ValidFlags flag2 = ValidFlags.None;
-        if (report.LightbarEnabled)
+        if (forwardLightbar)
         {
             flag1 |= ValidFlags.AllowLedColor;
             flag2 = ValidFlags.AllowColorFadeAnim;
@@ -316,14 +348,14 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
 
         SetStateData payload = new SetStateData
         {
-            RumbleLeft = _rumbleLeft,
-            RumbleRight = _rumbleRight,
+            RumbleLeft = RumbleForwardingEnabled ? _rumbleLeft : (byte)0,
+            RumbleRight = RumbleForwardingEnabled ? _rumbleRight : (byte)0,
             ValidFlag1 = flag1,
             ValidFlag2 = flag2,
-            LightFadeAnimation = report.LightbarEnabled ? FadeOutAnimation : (byte)0,
-            LedRed = _ledRed,
-            LedGreen = _ledGreen,
-            LedBlue = _ledBlue
+            LightFadeAnimation = forwardLightbar ? FadeOutAnimation : (byte)0,
+            LedRed = LightbarForwardingEnabled ? _ledRed : (byte)0,
+            LedGreen = LightbarForwardingEnabled ? _ledGreen : (byte)0,
+            LedBlue = LightbarForwardingEnabled ? _ledBlue : (byte)0
         };
         Outputs.SendOutputState(payload);
         OutputStateReceived?.Invoke(payload);

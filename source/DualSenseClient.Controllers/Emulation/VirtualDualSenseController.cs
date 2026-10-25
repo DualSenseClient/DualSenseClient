@@ -1,5 +1,6 @@
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.DualSense.Output;
+using DualSenseClient.Controllers.DualSense.Triggers;
 using DualSenseClient.Settings.Sections;
 using DualSenseClient.Emulation.Devices.DualSense;
 
@@ -58,6 +59,9 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
 
     /// <summary>Whether the adapter has been disposed; later pushes and deliveries become no-ops.</summary>
     private bool _disposed;
+
+    /// <summary>Whether the game's realtime haptics lane is currently forwarded.</summary>
+    private bool _hapticsForwarding = true;
 
     /// <summary>
     /// The latest battery byte the adapter knows (meta battery), carried into every synthesised
@@ -125,6 +129,125 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         {
             return EmulationMode.DualSense;
         }
+    }
+
+    /// <inheritdoc/>
+    public override void ApplyForwardingSettings(ForwardSettings settings)
+    {
+        base.ApplyForwardingSettings(settings);
+        _hapticsForwarding = settings.HapticsEnabled;
+    }
+
+    /// <summary>
+    /// Drops the channels the host-feedback forwarding options switched off, so neither the
+    /// physical outputs lane nor the audio forwarder sees them.
+    /// </summary>
+    /// <param name="payload">Payload built from the host report.</param>
+    /// <returns>The payload with disabled channels cleared.</returns>
+    private SetStateData FilterOutputPayload(SetStateData payload)
+    {
+        if (RumbleForwardingEnabled && TriggerForwardingEnabled && LightbarForwardingEnabled && PlayerLedsForwardingEnabled)
+        {
+            return payload;
+        }
+
+        ValidFlags flag0 = payload.ValidFlag0;
+        ValidFlags flag1 = payload.ValidFlag1;
+        ValidFlags flag2 = payload.ValidFlag2;
+        byte rumbleLeft = payload.RumbleLeft;
+        byte rumbleRight = payload.RumbleRight;
+        TriggerEffectBlock r2 = payload.R2TriggerEffect;
+        TriggerEffectBlock l2 = payload.L2TriggerEffect;
+        byte lightFade = payload.LightFadeAnimation;
+        byte brightness = payload.LightBrightness;
+        PlayerLedMask playerLeds = payload.PlayerLeds;
+        byte red = payload.LedRed;
+        byte green = payload.LedGreen;
+        byte blue = payload.LedBlue;
+
+        if (!RumbleForwardingEnabled)
+        {
+            flag0 &= ~(ValidFlags.EnableRumbleEmulation | ValidFlags.UseRumbleNotHaptics);
+            flag2 &= ~(ValidFlags.EnableImprovedRumbleEmu | (ValidFlags)UseRumbleNotHaptics2Bit);
+            rumbleLeft = 0;
+            rumbleRight = 0;
+        }
+
+        if (!TriggerForwardingEnabled)
+        {
+            flag0 &= ~(ValidFlags.AllowRightTriggerFfb | ValidFlags.AllowLeftTriggerFfb);
+            r2 = TriggerEffectBuilder.Off();
+            l2 = TriggerEffectBuilder.Off();
+        }
+
+        if (!LightbarForwardingEnabled)
+        {
+            flag1 &= ~(ValidFlags.AllowLedColor | ValidFlags.ResetLights);
+            flag2 &= ~(ValidFlags.AllowBrightnessChange | ValidFlags.AllowColorFadeAnim);
+            lightFade = 0;
+            brightness = 0;
+            red = 0;
+            green = 0;
+            blue = 0;
+        }
+
+        if (!PlayerLedsForwardingEnabled)
+        {
+            flag1 &= ~ValidFlags.AllowPlayerIndicators;
+            playerLeds = PlayerLedMask.None;
+        }
+
+        return payload with
+        {
+            ValidFlag0 = flag0,
+            ValidFlag1 = flag1,
+            ValidFlag2 = flag2,
+            RumbleLeft = rumbleLeft,
+            RumbleRight = rumbleRight,
+            R2TriggerEffect = r2,
+            L2TriggerEffect = l2,
+            LightFadeAnimation = lightFade,
+            LightBrightness = brightness,
+            PlayerLeds = playerLeds,
+            LedRed = red,
+            LedGreen = green,
+            LedBlue = blue
+        };
+    }
+
+    /// <inheritdoc/>
+    protected override void ClearTriggers()
+    {
+        Outputs.SendOutputState(new SetStateData
+        {
+            ValidFlag0 = ValidFlags.AllowLeftTriggerFfb | ValidFlags.AllowRightTriggerFfb,
+            L2TriggerEffect = TriggerEffectBuilder.Off(),
+            R2TriggerEffect = TriggerEffectBuilder.Off()
+        });
+    }
+
+    /// <inheritdoc/>
+    protected override void ClearLightbar()
+    {
+        Outputs.SendOutputState(new SetStateData
+        {
+            ValidFlag1 = ValidFlags.AllowLedColor,
+            ValidFlag2 = ValidFlags.AllowColorFadeAnim,
+            LightFadeAnimation = 0x02,
+            LedRed = 0,
+            LedGreen = 0,
+            LedBlue = 0
+        });
+    }
+
+    /// <inheritdoc/>
+    protected override void ClearPlayerLeds()
+    {
+        Outputs.SendOutputState(new SetStateData
+        {
+            ValidFlag1 = ValidFlags.AllowPlayerIndicators,
+            PlayerLeds = PlayerLedMask.None
+        });
     }
 
     /// <summary>
@@ -365,7 +488,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
             _muteLightMode = report.MuteLightMode;
         }
 
-        SetStateData payload = BuildOutputPayload(report, _vibrationV2);
+        SetStateData payload = FilterOutputPayload(BuildOutputPayload(report, _vibrationV2));
         Outputs.SendOutputState(payload);
         OutputStateReceived?.Invoke(payload);
     }
@@ -378,7 +501,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
     /// <param name="pcm">Persona view over the extracted rear channels; valid only during this callback.</param>
     private void OnRealtimeHaptics(ReadOnlyMemory<byte> pcm)
     {
-        if (_disposed || RealtimeHapticsReceived is not { } handlers)
+        if (_disposed || !_hapticsForwarding || RealtimeHapticsReceived is not { } handlers)
         {
             return;
         }

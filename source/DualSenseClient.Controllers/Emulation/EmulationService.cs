@@ -321,10 +321,12 @@ public sealed class EmulationService : IEmulationService
                     : null;
                 EmulationAudioSource audioSource = emulation?.Forward.AudioSource ?? EmulationAudioSource.ControllerEndpoint;
                 string audioApp = emulation?.Forward.AudioApp ?? string.Empty;
+                bool audioEnabled = emulation?.Forward.AudioEnabled ?? true;
+                ApplyForwardingLocked(entry, emulation);
                 if (!ShouldRecreateEntry(entry.Virtual is not null, entry.Status.Mode, entry.Status.Variant, entry.Status.Ds4Variant,
                         mode, variant, ds4Variant))
                 {
-                    SyncAudioLocked(entry, audioSource, audioApp);
+                    SyncAudioLocked(entry, audioSource, audioApp, audioEnabled);
                     continue;
                 }
 
@@ -338,7 +340,7 @@ public sealed class EmulationService : IEmulationService
                 }
                 else
                 {
-                    SyncAudioLocked(entry, audioSource, audioApp);
+                    SyncAudioLocked(entry, audioSource, audioApp, audioEnabled);
                 }
             }
         }
@@ -428,7 +430,8 @@ public sealed class EmulationService : IEmulationService
         {
             if (_entries.TryGetValue(device, out VirtualControllerEntry? entry))
             {
-                SyncAudioLocked(entry, audioSource, audioApp ?? string.Empty);
+                bool audioEnabled = GetEmulationSettings(device).Forward.AudioEnabled;
+                SyncAudioLocked(entry, audioSource, audioApp ?? string.Empty, audioEnabled);
             }
         }
     }
@@ -657,7 +660,7 @@ public sealed class EmulationService : IEmulationService
                     // No virtual device (emulation off or unsupported platform), but a
                     // direct (system-output or application) source forwards without one.
                     EmulationSettings direct = GetEmulationSettings(device);
-                    SyncAudioLocked(entry, direct.Forward.AudioSource, direct.Forward.AudioApp);
+                    SyncAudioLocked(entry, direct.Forward.AudioSource, direct.Forward.AudioApp, direct.Forward.AudioEnabled);
                 }
             }
         }
@@ -774,6 +777,8 @@ public sealed class EmulationService : IEmulationService
         DualShock4Variant ds4Variant = emulation?.Variant.DualShock4 ?? DualShock4Variant.V2;
         EmulationAudioSource audioSource = emulation?.Forward.AudioSource ?? EmulationAudioSource.ControllerEndpoint;
         string audioApp = emulation?.Forward.AudioApp ?? string.Empty;
+        bool audioEnabled = emulation?.Forward.AudioEnabled ?? true;
+        ForwardSettings forwarding = emulation?.Forward ?? new ForwardSettings();
         (ushort vid, ushort pid) = GetDeviceIds(mode, edge, ds4Variant);
         SpecialActionEngine specialActions;
         DualSenseDeviceOutputs outputs;
@@ -799,7 +804,8 @@ public sealed class EmulationService : IEmulationService
             ? _enumerator.EnumerateIncludingExcluded(vid, pid).Select(info => info.Path).ToHashSet(StringComparer.OrdinalIgnoreCase)
             : [];
 
-        VirtualControllerCreation? creation = TryCreateEmulationDevice(entry, server, mode, outputs, entry.Device.UsesVibrationV2, edge, ds4Variant);
+        VirtualControllerCreation? creation = TryCreateEmulationDevice(entry, server, mode, outputs, entry.Device.UsesVibrationV2, edge, ds4Variant,
+            forwarding);
         if (creation is null)
         {
             _log.Warning(
@@ -816,7 +822,7 @@ public sealed class EmulationService : IEmulationService
                 return;
             }
 
-            creation = TryCreateEmulationDevice(entry, server, mode, outputs, entry.Device.UsesVibrationV2, edge, ds4Variant);
+            creation = TryCreateEmulationDevice(entry, server, mode, outputs, entry.Device.UsesVibrationV2, edge, ds4Variant, forwarding);
         }
 
         if (creation is null)
@@ -908,6 +914,7 @@ public sealed class EmulationService : IEmulationService
                 // SyncAudioLocked) and needs no controller capture.
                 IDisposable? capture = null;
                 if (audioSource == EmulationAudioSource.ControllerEndpoint
+                    && audioEnabled
                     && IsSpeakerBearingAdapter(virtualController))
                 {
                     EnsureForwarderLocked(entry, emulation);
@@ -924,7 +931,9 @@ public sealed class EmulationService : IEmulationService
                     EmulationSettings current = GetEmulationSettings(entry.Device);
                     audioSource = current.Forward.AudioSource;
                     audioApp = current.Forward.AudioApp;
+                    audioEnabled = current.Forward.AudioEnabled;
                     if (audioSource == EmulationAudioSource.ControllerEndpoint
+                        && audioEnabled
                         && IsSpeakerBearingAdapter(virtualController))
                     {
                         EnsureForwarderLocked(entry, current);
@@ -935,7 +944,7 @@ public sealed class EmulationService : IEmulationService
                 entry.Capture = capture;
                 WireGameCallbacksLocked(entry);
                 ApplyButtonMappingsLocked(virtualController, entry.Device);
-                SyncAudioLocked(entry, audioSource, audioApp);
+                SyncAudioLocked(entry, audioSource, audioApp, audioEnabled);
             }
 
             SetStatus(entry, new EmulationStatus(mode, true, null, virtualController.VirtualDevicePath,
@@ -968,9 +977,10 @@ public sealed class EmulationService : IEmulationService
     /// <param name="vibrationV2">Whether the physical controller uses the V2 report format.</param>
     /// <param name="edge">Whether the virtual DualSense should be an Edge variant (DualSense mode only).</param>
     /// <param name="ds4Variant">The DualShock 4 hardware generation to present (DualShock 4 mode only).</param>
+    /// <param name="forwarding">The host-feedback forwarding options to apply before the host can send output.</param>
     /// <returns>The created adapter and persona, or <c>null</c> when creation or attachment failed.</returns>
     private VirtualControllerCreation? TryCreateEmulationDevice(VirtualControllerEntry entry, EmulationServer server, EmulationMode mode,
-        DualSenseDeviceOutputs outputs, bool vibrationV2, bool edge, DualShock4Variant ds4Variant)
+        DualSenseDeviceOutputs outputs, bool vibrationV2, bool edge, DualShock4Variant ds4Variant, ForwardSettings forwarding)
     {
         VirtualControllerCreation? creation = null;
         try
@@ -981,6 +991,9 @@ public sealed class EmulationService : IEmulationService
                 return null;
             }
 
+            // Apply before attaching so the host cannot send output in the window
+            // between the device appearing and the settings being known.
+            creation.Controller.ApplyForwardingSettings(forwarding);
             if (server.TryAttach(creation.Persona, out string? error))
             {
                 // Spotlight the attached persona immediately: until the owning creation
@@ -1077,6 +1090,12 @@ public sealed class EmulationService : IEmulationService
             Volume = source.Volume,
             Haptics = source.Haptics,
             ForceAudioHaptics = source.ForceAudioHaptics,
+            Rumble = source.Rumble,
+            Triggers = source.Triggers,
+            Lightbar = source.Lightbar,
+            PlayerLeds = source.PlayerLeds,
+            HapticsEnabled = source.HapticsEnabled,
+            AudioEnabled = source.AudioEnabled,
             AudioSource = audioSource,
             AudioApp = audioApp
         };
@@ -1103,9 +1122,21 @@ public sealed class EmulationService : IEmulationService
             forwarder.HapticStrength = Math.Clamp(emulation.Forward.Haptics, 0, 200) / 100f;
             forwarder.ForceAudioHaptics = emulation.Forward.ForceAudioHaptics;
             forwarder.PlayToHeadset = emulation.Forward.AudioOutput == EmulationAudioOutput.Headset;
+            forwarder.ApplyForwardingSettings(emulation.Forward);
         }
 
         return forwarder;
+    }
+
+    /// <summary>
+    /// Applies the host-feedback forwarding options to the entry's live adapter and audio
+    /// forwarder without recreating either. Caller must hold <see cref="_sync"/>.
+    /// </summary>
+    private static void ApplyForwardingLocked(VirtualControllerEntry entry, EmulationSettings? emulation)
+    {
+        ForwardSettings forwarding = emulation?.Forward ?? new ForwardSettings();
+        entry.Virtual?.ApplyForwardingSettings(forwarding);
+        entry.Forwarder?.ApplyForwardingSettings(forwarding);
     }
 
     /// <summary>
@@ -1115,14 +1146,45 @@ public sealed class EmulationService : IEmulationService
     /// spurious syncs never drop buffered audio, while a source or application change
     /// restarts the direct capture. Caller must hold <see cref="_sync"/>.
     /// </summary>
-    private void SyncAudioLocked(VirtualControllerEntry entry, EmulationAudioSource audioSource, string audioApp)
+    private void SyncAudioLocked(VirtualControllerEntry entry, EmulationAudioSource audioSource, string audioApp, bool audioEnabled)
     {
         bool direct = audioSource is EmulationAudioSource.SystemOutput or EmulationAudioSource.Application;
         if (!direct)
         {
+            if (!audioEnabled)
+            {
+                // The controller-endpoint passthrough is off: stop the capture. The
+                // forwarder stays alive when game haptics are enabled because it is the
+                // only Bluetooth lane that carries them; its pump idles until the game
+                // sends haptics. Direct captures are independent and never reach this
+                // branch, but one may still be running from a previous source.
+                StopControllerCaptureLocked(entry);
+                EmulationSettings settings = GetEmulationSettings(entry.Device);
+                if (settings.Forward.HapticsEnabled
+                    && entry.Virtual is VirtualDualSenseController
+                    && entry.Outputs?.ConnectionType == ConnectionType.Bluetooth)
+                {
+                    // Game haptics only travel through the forwarder's Bluetooth audio
+                    // lane; a wired pad has no use for it with the audio passthrough off.
+                    StopDirectCaptureLocked(entry);
+                    EnsureForwarderLocked(entry, settings);
+                    entry.Forwarder?.Flush();
+                }
+                else
+                {
+                    TeardownAudioLocked(entry);
+                }
+
+                return;
+            }
+
             if (entry.DirectAudioActive)
             {
                 DeactivateDirectAudioLocked(entry);
+            }
+            else
+            {
+                ResumeControllerCaptureLocked(entry);
             }
 
             return;
@@ -1303,6 +1365,16 @@ public sealed class EmulationService : IEmulationService
     }
 
     /// <summary>
+    /// Stops and drops the entry's controller-endpoint capture, leaving the forwarder
+    /// alone. Caller must hold <see cref="_sync"/>.
+    /// </summary>
+    private static void StopControllerCaptureLocked(VirtualControllerEntry entry)
+    {
+        entry.Capture?.Dispose();
+        entry.Capture = null;
+    }
+
+    /// <summary>
     /// Builds the capture tapping the virtual controller's audio endpoint, or <c>null</c>
     /// when following a direct source (no sink), when the sink is a disposed forwarder, or
     /// when the virtual controller exposes no audio endpoint.
@@ -1339,6 +1411,11 @@ public sealed class EmulationService : IEmulationService
         {
             if (!existing.IsDisposed)
             {
+                if (emulation is not null)
+                {
+                    existing.ApplyForwardingSettings(emulation.Forward);
+                }
+
                 WireGameCallbacksLocked(entry);
                 return;
             }
