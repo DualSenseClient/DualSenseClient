@@ -65,6 +65,11 @@ public partial class EmulationPageViewModel : ObservableObject
     private readonly AudioEngine _audioEngine;
 
     /// <summary>
+    /// Tracks the previous device item so its event subscriptions are released on replacement.
+    /// </summary>
+    private DeviceInfoItem? _previousItem;
+
+    /// <summary>
     /// Tracks the previous monitor state so its event subscriptions are released on replacement.
     /// </summary>
     private InputMonitorItem? _previousMonitorState;
@@ -1443,10 +1448,12 @@ public partial class EmulationPageViewModel : ObservableObject
     /// </summary>
     private void UpdateDevice()
     {
+        _previousItem?.Dispose();
         _previousMonitorState?.Dispose();
 
         ControllerItem? selected = _mainViewModel.SelectedItem;
         CurrentDevice = selected is not null ? new DeviceInfoItem(selected) : null;
+        _previousItem = CurrentDevice;
         MonitorState = selected is not null ? new InputMonitorItem(selected, _audioEngine) : null;
         _previousMonitorState = MonitorState;
 
