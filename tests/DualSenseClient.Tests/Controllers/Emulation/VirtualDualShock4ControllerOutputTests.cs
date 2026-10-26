@@ -44,6 +44,7 @@ public sealed class VirtualDualShock4ControllerOutputTests
         device.OnOutputReport(Wire(0x07, 0x22, 0x33, 0x01, 0x02, 0x03, 0x07, 0x08));
 
         byte[] expected = new byte[SetStateData.PayloadSize];
+        expected[0] = (byte)ValidFlags.UseRumbleNotHaptics;
         expected[1] = (byte)ValidFlags.AllowLedColor;
         expected[2] = 0x22; // right (small) motor
         expected[3] = 0x33; // left (large) motor
@@ -101,6 +102,7 @@ public sealed class VirtualDualShock4ControllerOutputTests
             Assert.That(second.LedRed, Is.EqualTo(0x0A));
             Assert.That(second.LedGreen, Is.EqualTo(0x0B));
             Assert.That(second.LedBlue, Is.EqualTo(0x0C));
+            Assert.That(second.ValidFlag0, Is.EqualTo(ValidFlags.UseRumbleNotHaptics));
             Assert.That(second.ValidFlag1, Is.EqualTo(ValidFlags.None));
             Assert.That(second.ValidFlag2, Is.EqualTo(ValidFlags.None));
             Assert.That(second.LightFadeAnimation, Is.Zero);
@@ -128,6 +130,7 @@ public sealed class VirtualDualShock4ControllerOutputTests
             Assert.That(second.LedRed, Is.EqualTo(0x01));
             Assert.That(second.LedGreen, Is.EqualTo(0x02));
             Assert.That(second.LedBlue, Is.EqualTo(0x03));
+            Assert.That(second.ValidFlag0, Is.EqualTo(ValidFlags.None));
             Assert.That(second.ValidFlag1, Is.EqualTo(ValidFlags.AllowLedColor));
             Assert.That(second.ValidFlag2 & ValidFlags.AllowColorFadeAnim, Is.Not.EqualTo(ValidFlags.None));
             Assert.That(second.LightFadeAnimation, Is.EqualTo(0x02));

@@ -272,6 +272,16 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     private SetStateData? _gameState;
 
     /// <summary>
+    /// Target rumble motor strengths (0-255) derived from <see cref="_gameState"/> only
+    /// when the game's output state explicitly selected rumble emulation. When rumble
+    /// is not gated on, targets stay zero so stale motor bytes do not vibrate. Guarded by
+    /// <see cref="_sync"/>.
+    /// </summary>
+    private byte _rumbleLeftTarget;
+
+    private byte _rumbleRightTarget;
+
+    /// <summary>
     /// Phase (in cycles) of the rumble-emulation haptics oscillators, advanced once per
     /// 3 kHz haptics sample so the waveform stays continuous across report boundaries.
     /// </summary>
@@ -547,6 +557,18 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         lock (_sync)
         {
             _gameState = state;
+            bool rumbleSelected = (state.ValidFlag0 & (ValidFlags.EnableRumbleEmulation | ValidFlags.UseRumbleNotHaptics)) != 0
+                                  || (state.ValidFlag2 & ValidFlags.EnableImprovedRumbleEmu) != 0;
+            if (!rumbleSelected && state.ValidFlag0 == ValidFlags.None && state.ValidFlag1 == ValidFlags.None && state.ValidFlag2 == ValidFlags.None)
+            {
+                rumbleSelected = true;
+            }
+
+            if (rumbleSelected)
+            {
+                _rumbleLeftTarget = state.RumbleLeft;
+                _rumbleRightTarget = state.RumbleRight;
+            }
         }
     }
 
@@ -608,6 +630,10 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
             _audioRing.Clear();
             _btStreamPrimed = false;
             _lastGameHapticsTimestamp = 0;
+            _rumbleLeftTarget = 0;
+            _rumbleRightTarget = 0;
+            _rumbleLeftMagnitude = 0;
+            _rumbleRightMagnitude = 0;
         }
     }
 
@@ -790,15 +816,14 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     }
 
     /// <summary>
-    /// Whether a fresh, non-silent game-haptics payload is available. Caller must hold
+    /// Whether a fresh game-haptics payload is available. Caller must hold
     /// <see cref="_sync"/>.
     /// </summary>
     private bool HasFreshGameHaptics()
     {
         return _gameHapticsEnabled
                && _lastGameHapticsTimestamp != 0
-               && Stopwatch.GetTimestamp() - _lastGameHapticsTimestamp <= GameHapticsFreshWindowTicks
-               && _gameHapticsPcm.AsSpan().ContainsAnyExcept((byte)0);
+               && Stopwatch.GetTimestamp() - _lastGameHapticsTimestamp <= GameHapticsFreshWindowTicks;
     }
 
     /// <summary>
@@ -817,9 +842,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// <summary>
     /// Copies the freshest realtime-haptics payload into <paramref name="destination"/>
     /// if one was delivered recently. A payload is fresh while its timestamp is within
-    /// <see cref="GameHapticsFreshWindowTicks"/> and silent (all zero) payloads are
-    /// ignored, so the derived haptics remain the fallback the moment the game stops
-    /// driving the haptics channels. Caller must hold <see cref="_sync"/>.
+    /// <see cref="GameHapticsFreshWindowTicks"/>. Caller must hold <see cref="_sync"/>.
     /// </summary>
     private bool TryGetFreshGameHaptics(Span<byte> destination)
     {
@@ -988,13 +1011,15 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
             return;
         }
 
-        if (_gameState is not { } game)
+        byte leftTarget = _rumbleLeftTarget;
+        byte rightTarget = _rumbleRightTarget;
+
+        if (leftTarget == 0 && rightTarget == 0 && _rumbleLeftMagnitude < 0.001f && _rumbleRightMagnitude < 0.001f)
         {
+            _rumbleLeftMagnitude = 0f;
+            _rumbleRightMagnitude = 0f;
             return;
         }
-
-        byte leftTarget = game.RumbleLeft;
-        byte rightTarget = game.RumbleRight;
 
         // Haptics sample rate: 32 frames per 512/48000 s tick = 3 kHz.
         const double rate = DualSenseBtAudioPipeline.HapticsFrames

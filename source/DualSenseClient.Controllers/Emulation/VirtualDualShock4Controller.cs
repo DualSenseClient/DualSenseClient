@@ -338,6 +338,7 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
             _ledBlue = report.Blue;
         }
 
+        ValidFlags flag0 = forwardRumble ? ValidFlags.UseRumbleNotHaptics : ValidFlags.None;
         ValidFlags flag1 = ValidFlags.None;
         ValidFlags flag2 = ValidFlags.None;
         if (forwardLightbar)
@@ -350,6 +351,7 @@ public sealed class VirtualDualShock4Controller : VirtualControllerBase
         {
             RumbleLeft = RumbleForwardingEnabled ? _rumbleLeft : (byte)0,
             RumbleRight = RumbleForwardingEnabled ? _rumbleRight : (byte)0,
+            ValidFlag0 = flag0,
             ValidFlag1 = flag1,
             ValidFlag2 = flag2,
             LightFadeAnimation = forwardLightbar ? FadeOutAnimation : (byte)0,

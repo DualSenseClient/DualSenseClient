@@ -1,4 +1,4 @@
-﻿using DualSenseClient.Controllers.DualSense.Output;
+using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.SpecialActions;
 using DualSenseClient.Hid;
@@ -120,6 +120,11 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
     {
         lock (_writeLock)
         {
+            if (_device.IsDisposed)
+            {
+                return;
+            }
+
             _device.SetVibration(left, right);
         }
     }

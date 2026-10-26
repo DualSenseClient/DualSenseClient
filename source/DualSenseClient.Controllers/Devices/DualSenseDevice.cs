@@ -79,6 +79,17 @@ public class DualSenseDevice : ControllerDevice
     /// </summary>
     private int _disposed;
 
+    /// <summary>
+    /// Whether this controller has been disposed.
+    /// </summary>
+    public bool IsDisposed
+    {
+        get
+        {
+            return Volatile.Read(ref _disposed) != 0;
+        }
+    }
+
     /// <inheritdoc/>
     public override ControllerType ControllerType
     {
@@ -840,6 +851,14 @@ public class DualSenseDevice : ControllerDevice
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;
+        }
+
+        try
+        {
+            SetVibration(0, 0);
+        }
+        catch
+        {
         }
 
         _cts.Cancel();
