@@ -1,5 +1,12 @@
 [
  {
+  "tag": "v1.0.0-18.50b0f81",
+  "name": "DualSenseClient (v1.0.0-18.50b0f81)",
+  "publishedAt": "2026-10-26T08:35:27Z",
+  "prerelease": true,
+  "body": "### Features\n\n- **emulation: Host feedback passthrough settings** ([50b0f81](https://github.com/DualSenseClient/DualSenseClient/commit/50b0f81a9cf5cc208cea6f8d4b8431e14decfbb7))\n- **emulation: Add controller audio capture and haptics** ([07c8943](https://github.com/DualSenseClient/DualSenseClient/commit/07c89433402b013bf83d930374da92b6ca1ab824))\n- **emulation: Add UAC1 audio and composite controller descriptors** ([60a7e66](https://github.com/DualSenseClient/DualSenseClient/commit/60a7e669eff5aade11cfaa3516ca998f0bcc858c))\n- **emulation: Add isochronous USB transport** ([deaf548](https://github.com/DualSenseClient/DualSenseClient/commit/deaf548c99bc4235f162bd846f143d272bcdf0e7))\n- **emulation: Integrate the USB/IP engine with the application** ([ee7c576](https://github.com/DualSenseClient/DualSenseClient/commit/ee7c576a12b913f345c7af2b67bf10de653a9e9f))\n- **emulation: Add native VHCI attachment with fallback** ([4c95983](https://github.com/DualSenseClient/DualSenseClient/commit/4c959835d1d5904684bafc20c0c16099160bff0d))\n- **emulation: Add controller personas and conformance coverage** ([9b80d5f](https://github.com/DualSenseClient/DualSenseClient/commit/9b80d5f831cd1c85a646678cf4065e2899e78a11))\n- **emulation: Add DualShock 4 persona and server facade** ([831210d](https://github.com/DualSenseClient/DualSenseClient/commit/831210d689e53408237b656f2a4fe73b5eb420fb))\n- **emulation: Add USB/IP server and CLI attachment** ([f06ba7a](https://github.com/DualSenseClient/DualSenseClient/commit/f06ba7a134c3b631082628c725649f36286e69f2))\n- **emulation: Add USB/IP protocol and virtual USB core** ([9283a1f](https://github.com/DualSenseClient/DualSenseClient/commit/9283a1faff3eded597b363bd76a617348166b6f3))\n\n### Other\n\n- **emulation: Rename adapters to Virtual controllers** ([b1c6908](https://github.com/DualSenseClient/DualSenseClient/commit/b1c6908134e0e031bdda08ce17dbc55451d1945b))\n- **emulation: Remove libVIIPER** ([0816e64](https://github.com/DualSenseClient/DualSenseClient/commit/0816e64074cd9c5b50e09d60dd8da2e8f8055f09))"
+ },
+ {
   "tag": "v1.0.0-17.fdfcf3a",
   "name": "DualSenseClient (v1.0.0-17.fdfcf3a)",
   "publishedAt": "2026-10-21T19:00:52Z",
