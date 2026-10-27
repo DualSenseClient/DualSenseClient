@@ -90,6 +90,23 @@ public class DualSenseDevice : ControllerDevice
         }
     }
 
+    /// <summary>
+    /// 1 once the read loop observed the input link drop. Output writes are dropped from
+    /// then on: the HID handle is gone even though <see cref="Dispose"/> has not run yet.
+    /// </summary>
+    private int _linkLost;
+
+    /// <summary>
+    /// Whether the controller's input link dropped.
+    /// </summary>
+    private bool IsLinkLost
+    {
+        get
+        {
+            return Volatile.Read(ref _linkLost) != 0;
+        }
+    }
+
     /// <inheritdoc/>
     public override ControllerType ControllerType
     {
@@ -121,6 +138,11 @@ public class DualSenseDevice : ControllerDevice
     {
         get
         {
+            if (IsLinkLost)
+            {
+                return false;
+            }
+
             try
             {
                 return GetFeatureReport(0x09, 20).Length > 0;
@@ -355,6 +377,14 @@ public class DualSenseDevice : ControllerDevice
             }
         }
 
+        if (!ct.IsCancellationRequested)
+        {
+            // The loop only exits on a read failure unless disposal canceled it. The
+            // handle is gone, so drop output writes until the scanner disposes the
+            // device instead of retrying every audio tick against a dead link.
+            Volatile.Write(ref _linkLost, 1);
+        }
+
         _log.Debug("Read Loop End");
     }
 
@@ -421,6 +451,11 @@ public class DualSenseDevice : ControllerDevice
     /// <param name="payload">The output state to send.</param>
     public void SendOutputState(SetStateData payload)
     {
+        if (IsDisposed || IsLinkLost)
+        {
+            return;
+        }
+
         if ((payload.ValidFlag1 & ValidFlags.AllowLedColor) != 0
             && (payload.LedRed, payload.LedGreen, payload.LedBlue) != CurrentLightbarColor)
         {
@@ -541,6 +576,11 @@ public class DualSenseDevice : ControllerDevice
     /// <param name="right">Right (high-frequency) motor strength (0-255).</param>
     public void SetVibration(byte left, byte right)
     {
+        if (IsDisposed || IsLinkLost)
+        {
+            return;
+        }
+
         SetStateData payload = new SetStateData
         {
             ValidFlag0 = ValidFlags.UseRumbleNotHaptics
@@ -715,6 +755,11 @@ public class DualSenseDevice : ControllerDevice
     /// </summary>
     private void TrySendAudioReport(byte[] report)
     {
+        if (IsDisposed || IsLinkLost)
+        {
+            return;
+        }
+
         try
         {
             if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
@@ -848,17 +893,25 @@ public class DualSenseDevice : ControllerDevice
     /// <inheritdoc/>
     public override void Dispose()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        if (IsDisposed)
         {
             return;
         }
 
+        // SetVibration is guarded by IsDisposed, so switch the motors off before
+        // claiming disposal. A link already gone makes this a no-op.
         try
         {
             SetVibration(0, 0);
         }
         catch
         {
+            //
+        }
+
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
         }
 
         _cts.Cancel();

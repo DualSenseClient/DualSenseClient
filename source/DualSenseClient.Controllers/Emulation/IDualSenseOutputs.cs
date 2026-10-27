@@ -120,11 +120,6 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
     {
         lock (_writeLock)
         {
-            if (_device.IsDisposed)
-            {
-                return;
-            }
-
             _device.SetVibration(left, right);
         }
     }
