@@ -26,7 +26,7 @@ namespace DualSenseClient.GUI.Services;
 /// used by the reusable <see cref="DualSenseClient.GUI.Controls.DualSenseControllerView"/>.
 /// </para>
 /// </remarks>
-public sealed class ControllerIllustrationService : IDisposable
+public sealed class ControllerIllustrationService
 {
     /// <summary>
     /// The skin used when no per-controller skin is stored.
@@ -78,9 +78,10 @@ public sealed class ControllerIllustrationService : IDisposable
     private readonly Dictionary<string, Bitmap> _monitorBaseCache = new Dictionary<string, Bitmap>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Maximum number of lightbar-tinted monitor base bitmaps kept in memory before older entries are evicted and disposed.
+    /// Maximum number of lightbar-tinted monitor base bitmaps kept in memory. A tint is
+    /// ~4.8 MB, so this caps the cache at ~38 MB.
     /// </summary>
-    private const int MaxMonitorBaseTintCacheSize = 16;
+    private const int MaxMonitorBaseTintCacheSize = 8;
 
     /// <summary>
     /// Synchronizes mutations to the tinted monitor base LRU cache.
@@ -373,9 +374,10 @@ public sealed class ControllerIllustrationService : IDisposable
 
                 while (_monitorBaseTintCache.Count >= MaxMonitorBaseTintCacheSize && _monitorBaseTintLru.Last is { } oldest)
                 {
+                    // A view may still display the evicted bitmap, so only drop the cache
+                    // reference and let it be collected once its last view releases it.
                     _monitorBaseTintCache.Remove(oldest.Value.Key);
                     _monitorBaseTintLru.RemoveLast();
-                    oldest.Value.Value.Dispose();
                 }
 
                 LinkedListNode<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)> newNode =
@@ -908,66 +910,6 @@ public sealed class ControllerIllustrationService : IDisposable
             }
 
             return null;
-        }
-    }
-
-    /// <summary>
-    /// Clears and disposes all tinted monitor base bitmaps in the LRU cache.
-    /// </summary>
-    public void ClearMonitorBaseTintCache()
-    {
-        lock (_monitorBaseTintLock)
-        {
-            foreach (((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value) item in _monitorBaseTintLru)
-            {
-                item.Value.Dispose();
-            }
-
-            _monitorBaseTintCache.Clear();
-            _monitorBaseTintLru.Clear();
-        }
-    }
-
-    /// <summary>
-    /// Disposes all cached bitmaps and frees unmanaged Skia surface allocations.
-    /// </summary>
-    public void Dispose()
-    {
-        ClearMonitorBaseTintCache();
-
-        lock (_basePixelBuffers)
-        {
-            _basePixelBuffers.Clear();
-        }
-
-        foreach (Bitmap bitmap in _monitorBaseCache.Values)
-        {
-            bitmap.Dispose();
-        }
-
-        _monitorBaseCache.Clear();
-
-        foreach (Bitmap bitmap in _bitmapCache.Values)
-        {
-            bitmap.Dispose();
-        }
-
-        _bitmapCache.Clear();
-
-        foreach (Bitmap bitmap in _spriteCache.Values)
-        {
-            bitmap.Dispose();
-        }
-
-        _spriteCache.Clear();
-
-        lock (_micLedSpriteLock)
-        {
-            if (_micLedSprite is { } micSprite)
-            {
-                micSprite.Dispose();
-                _micLedSprite = null;
-            }
         }
     }
 }
