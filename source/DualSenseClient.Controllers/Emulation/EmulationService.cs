@@ -1156,8 +1156,9 @@ public sealed class EmulationService : IEmulationService
                 // The controller-endpoint passthrough is off: stop the capture. The
                 // forwarder stays alive when game haptics are enabled because it is the
                 // only Bluetooth lane that carries them; its pump idles until the game
-                // sends haptics. Direct captures are independent and never reach this
-                // branch, but one may still be running from a previous source.
+                // first sends a nonzero haptics payload. Direct captures are independent
+                // and never reach this branch, but one may still be running from a
+                // previous source.
                 StopControllerCaptureLocked(entry);
                 EmulationSettings settings = GetEmulationSettings(entry.Device);
                 if (settings.Forward.HapticsEnabled
