@@ -78,11 +78,36 @@ public sealed class ControllerIllustrationService
     private readonly Dictionary<string, Bitmap> _monitorBaseCache = new Dictionary<string, Bitmap>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Maximum number of lightbar-tinted monitor base bitmaps kept in memory. A tint is
+    /// ~4.8 MB, so this caps the cache at ~38 MB.
+    /// </summary>
+    private const int MaxMonitorBaseTintCacheSize = 8;
+
+    /// <summary>
+    /// Synchronizes mutations to the tinted monitor base LRU cache.
+    /// </summary>
+    private readonly object _monitorBaseTintLock = new object();
+
+    /// <summary>
     /// Lightbar-tinted monitor base bitmaps, cached by file name, lightbar color, and
     /// player LED layout.
     /// </summary>
-    private readonly Dictionary<(string File, byte R, byte G, byte B, byte Leds), Bitmap> _monitorBaseTintCache =
-        new Dictionary<(string File, byte R, byte G, byte B, byte Leds), Bitmap>();
+    private readonly
+        Dictionary<(string File, byte R, byte G, byte B, byte Leds), LinkedListNode<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)>>
+        _monitorBaseTintCache =
+            new Dictionary<(string File, byte R, byte G, byte B, byte Leds),
+                LinkedListNode<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)>>();
+
+    /// <summary>
+    /// LRU tracking order for tinted monitor base cache entries.
+    /// </summary>
+    private readonly LinkedList<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)> _monitorBaseTintLru =
+        new LinkedList<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)>();
+
+    /// <summary>
+    /// Raw un-tinted BGRA base pixel buffers cached by file name so that tinting does not repeatedly re-read the source bitmap.
+    /// </summary>
+    private readonly Dictionary<string, byte[]> _basePixelBuffers = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Loaded overlay sprite bitmaps, cached by sprite key (skin variant prefixed).
@@ -321,17 +346,45 @@ public sealed class ControllerIllustrationService
         string file = GetBaseFile(skin);
 
         (string file, byte red, byte green, byte blue, byte playerLeds) key = (file, red, green, blue, playerLeds);
-        if (_monitorBaseTintCache.TryGetValue(key, out Bitmap? cached))
+        lock (_monitorBaseTintLock)
         {
-            return cached;
+            if (_monitorBaseTintCache.TryGetValue(key, out LinkedListNode<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)>? node))
+            {
+                _monitorBaseTintLru.Remove(node);
+                _monitorBaseTintLru.AddFirst(node);
+                return node.Value.Value;
+            }
         }
 
         Bitmap? original = GetMonitorBase(skin ?? string.Empty);
         bool dev = string.Equals(skin, DevModeSkin, StringComparison.OrdinalIgnoreCase);
-        Bitmap? tinted = original is null ? null : TintLightbar(original, red, green, blue, playerLeds, dev);
+        Bitmap? tinted = original is null ? null : TintLightbar(file, original, red, green, blue, playerLeds, dev);
         if (tinted is not null)
         {
-            _monitorBaseTintCache[key] = tinted;
+            lock (_monitorBaseTintLock)
+            {
+                if (_monitorBaseTintCache.TryGetValue(key,
+                        out LinkedListNode<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)>? existingNode))
+                {
+                    tinted.Dispose();
+                    _monitorBaseTintLru.Remove(existingNode);
+                    _monitorBaseTintLru.AddFirst(existingNode);
+                    return existingNode.Value.Value;
+                }
+
+                while (_monitorBaseTintCache.Count >= MaxMonitorBaseTintCacheSize && _monitorBaseTintLru.Last is { } oldest)
+                {
+                    // A view may still display the evicted bitmap, so only drop the cache
+                    // reference and let it be collected once its last view releases it.
+                    _monitorBaseTintCache.Remove(oldest.Value.Key);
+                    _monitorBaseTintLru.RemoveLast();
+                }
+
+                LinkedListNode<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)> newNode =
+                    new LinkedListNode<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)>((key, tinted));
+                _monitorBaseTintLru.AddFirst(newNode);
+                _monitorBaseTintCache[key] = newNode;
+            }
         }
 
         return tinted ?? original;
@@ -347,7 +400,7 @@ public sealed class ControllerIllustrationService
     /// there. Dev Mode bases render the lightbar in black, so they are recolored from the
     /// default render's luminance instead.
     /// </summary>
-    private static Bitmap? TintLightbar(Bitmap source, byte red, byte green, byte blue, byte playerLeds, bool useSharedLuminance)
+    private Bitmap? TintLightbar(string file, Bitmap source, byte red, byte green, byte blue, byte playerLeds, bool useSharedLuminance)
     {
         List<(int X, int Y, byte Luminance)> mask = GetLightbarMask();
         if (mask.Count == 0 || source.Format != PixelFormat.Bgra8888)
@@ -358,7 +411,21 @@ public sealed class ControllerIllustrationService
         int width = source.PixelSize.Width;
         int height = source.PixelSize.Height;
         int rowBytes = width * 4;
-        byte[] buffer = ReadPixels(source, width, height, rowBytes);
+
+        byte[] template;
+        lock (_basePixelBuffers)
+        {
+            if (!_basePixelBuffers.TryGetValue(file, out byte[]? cachedTemplate))
+            {
+                cachedTemplate = ReadPixels(source, width, height, rowBytes);
+                _basePixelBuffers[file] = cachedTemplate;
+            }
+
+            template = cachedTemplate;
+        }
+
+        byte[] buffer = new byte[template.Length];
+        Buffer.BlockCopy(template, 0, buffer, 0, template.Length);
         int bottomSegmentStart = BottomSegmentStartRow(mask);
 
         for (int i = 0; i < mask.Count; i++)

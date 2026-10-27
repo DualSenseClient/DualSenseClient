@@ -91,8 +91,9 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// How long an update from the realtime-haptics callback stays fresh before the
     /// forwarder falls back to the audio-derived haptics. The callback fires on every
     /// host speaker write, so this window (~9 intervals) tolerates scheduling gaps
-    /// while keeping the fallback prompt when the game stops driving the haptics
-    /// channels.
+    /// while keeping the fallback prompt when the game stops sending haptics packets.
+    /// All-zero packets are not stale: while they keep arriving, silence is
+    /// authoritative once the game has delivered its first nonzero payload.
     /// </summary>
     private const int GameHapticsFreshWindowMs = 100;
 
@@ -187,6 +188,13 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     private long _lastGameHapticsTimestamp;
 
     /// <summary>
+    /// Whether the game has delivered a nonzero haptics payload since the lane was opened.
+    /// Until then an all-zero payload is ignored so the audio-derived haptics keep playing;
+    /// afterwards silence is authoritative. Guarded by <see cref="_sync"/>.
+    /// </summary>
+    private bool _gameHapticsActive;
+
+    /// <summary>
     /// One-shot diagnostics for the realtime-haptics combined report validation.
     /// </summary>
     private int _gameHapticsAcceptedLogged;
@@ -270,6 +278,16 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// by <see cref="_sync"/>; set from the virtual controller's output-state callback thread.
     /// </summary>
     private SetStateData? _gameState;
+
+    /// <summary>
+    /// Target rumble motor strengths (0-255) derived from <see cref="_gameState"/> only
+    /// when the game's output state explicitly selected rumble emulation. When rumble
+    /// is not gated on, targets stay zero so stale motor bytes do not vibrate. Guarded by
+    /// <see cref="_sync"/>.
+    /// </summary>
+    private byte _rumbleLeftTarget;
+
+    private byte _rumbleRightTarget;
 
     /// <summary>
     /// Phase (in cycles) of the rumble-emulation haptics oscillators, advanced once per
@@ -438,6 +456,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
 
             _btStreamPrimed = false;
             _appliedConfigSignature = -1;
+            _gameHapticsActive = false;
             _cts = new CancellationTokenSource();
             _loopTask = Task.Run(() => PumpLoop(_cts.Token));
             _log.Info($"Audio forwarding started ({(bluetooth ? "bluetooth" : "usb")})");
@@ -547,6 +566,14 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         lock (_sync)
         {
             _gameState = state;
+            bool rumbleSelected = (state.ValidFlag0 & (ValidFlags.EnableRumbleEmulation | ValidFlags.UseRumbleNotHaptics)) != 0
+                                  || (state.ValidFlag2 & ValidFlags.EnableImprovedRumbleEmu) != 0;
+
+            if (rumbleSelected)
+            {
+                _rumbleLeftTarget = state.RumbleLeft;
+                _rumbleRightTarget = state.RumbleRight;
+            }
         }
     }
 
@@ -555,8 +582,10 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// lane (rear voice-coil pair, 2ch S16LE @48kHz), so the pump can embed it into the Bluetooth
     /// audio-lane reports instead of the audio-derived haptics. The Emulation DualSense adapter feeds
     /// this lane. The S16LE stereo frames are decimated to the 32-frame s8 payload; malformed buffers
-    /// are rejected so the forwarder keeps the audio-derived fallback. Called from the engine's
-    /// callback thread; safe to call while stopped.
+    /// are rejected so the forwarder keeps the audio-derived fallback. All-zero payloads are treated
+    /// as intentional silence only after the game has delivered a nonzero payload; before that they
+    /// are ignored so the audio-derived haptics keep playing. Called from the engine's callback
+    /// thread; safe to call while stopped.
     /// </summary>
     public void UpdateGameHaptics(byte[] pcm)
     {
@@ -577,13 +606,18 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         int frames = pcm.Length / 4;
         lock (_sync)
         {
+            bool nonZero = false;
             for (int i = 0; i < DualSenseBtAudioPipeline.HapticsFrames; i++)
             {
                 int src = i * frames / DualSenseBtAudioPipeline.HapticsFrames;
-                _gameHapticsPcm[i * 2] = pcm[src * 4 + 1];
-                _gameHapticsPcm[i * 2 + 1] = pcm[src * 4 + 3];
+                byte left = pcm[src * 4 + 1];
+                byte right = pcm[src * 4 + 3];
+                _gameHapticsPcm[i * 2] = left;
+                _gameHapticsPcm[i * 2 + 1] = right;
+                nonZero |= left != 0 || right != 0;
             }
 
+            _gameHapticsActive |= nonZero;
             _lastGameHapticsTimestamp = Stopwatch.GetTimestamp();
         }
 
@@ -608,6 +642,11 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
             _audioRing.Clear();
             _btStreamPrimed = false;
             _lastGameHapticsTimestamp = 0;
+            _gameHapticsActive = false;
+            _rumbleLeftTarget = 0;
+            _rumbleRightTarget = 0;
+            _rumbleLeftMagnitude = 0;
+            _rumbleRightMagnitude = 0;
         }
     }
 
@@ -754,9 +793,11 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
 
     /// <summary>
     /// Fills <see cref="_hapticsPcm"/> for the current block. The game's own haptics
-    /// payload takes priority while it is fresh and non-silent (scaled by the haptic
-    /// strength, so the slider also applies to game-driven haptics); otherwise the haptics
-    /// are derived from the block's audio content (with the classic rumble folded in).
+    /// payload takes priority while it is fresh (scaled by the haptic strength, so the
+    /// slider also applies to game-driven haptics); an all-zero payload is intentional
+    /// silence once the game has driven haptics, so it also wins. Before the first
+    /// nonzero payload, silence is ignored and the haptics are derived from the block's
+    /// audio content (with the classic rumble folded in).
     /// <see cref="ForceAudioHaptics"/> skips the game payload and always derives from audio.
     /// Caller must hold <see cref="_sync"/>.
     /// </summary>
@@ -790,15 +831,16 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     }
 
     /// <summary>
-    /// Whether a fresh, non-silent game-haptics payload is available. Caller must hold
-    /// <see cref="_sync"/>.
+    /// Whether a fresh game-haptics payload is available and the game has actually driven
+    /// haptics. An all-zero payload before the first nonzero one is not authoritative.
+    /// Caller must hold <see cref="_sync"/>.
     /// </summary>
     private bool HasFreshGameHaptics()
     {
         return _gameHapticsEnabled
+               && _gameHapticsActive
                && _lastGameHapticsTimestamp != 0
-               && Stopwatch.GetTimestamp() - _lastGameHapticsTimestamp <= GameHapticsFreshWindowTicks
-               && _gameHapticsPcm.AsSpan().ContainsAnyExcept((byte)0);
+               && Stopwatch.GetTimestamp() - _lastGameHapticsTimestamp <= GameHapticsFreshWindowTicks;
     }
 
     /// <summary>
@@ -817,9 +859,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// <summary>
     /// Copies the freshest realtime-haptics payload into <paramref name="destination"/>
     /// if one was delivered recently. A payload is fresh while its timestamp is within
-    /// <see cref="GameHapticsFreshWindowTicks"/> and silent (all zero) payloads are
-    /// ignored, so the derived haptics remain the fallback the moment the game stops
-    /// driving the haptics channels. Caller must hold <see cref="_sync"/>.
+    /// <see cref="GameHapticsFreshWindowTicks"/>. Caller must hold <see cref="_sync"/>.
     /// </summary>
     private bool TryGetFreshGameHaptics(Span<byte> destination)
     {
@@ -988,13 +1028,15 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
             return;
         }
 
-        if (_gameState is not { } game)
+        byte leftTarget = _rumbleLeftTarget;
+        byte rightTarget = _rumbleRightTarget;
+
+        if (leftTarget == 0 && rightTarget == 0 && _rumbleLeftMagnitude < 0.001f && _rumbleRightMagnitude < 0.001f)
         {
+            _rumbleLeftMagnitude = 0f;
+            _rumbleRightMagnitude = 0f;
             return;
         }
-
-        byte leftTarget = game.RumbleLeft;
-        byte rightTarget = game.RumbleRight;
 
         // Haptics sample rate: 32 frames per 512/48000 s tick = 3 kHz.
         const double rate = DualSenseBtAudioPipeline.HapticsFrames

@@ -620,6 +620,7 @@ public class DualSenseAudioForwarderTests
 
         forwarder.UpdateGameOutputState(new SetStateData
         {
+            ValidFlag0 = ValidFlags.EnableRumbleEmulation,
             RumbleLeft = 0xFF,
             RumbleRight = 0x00
         });
@@ -762,7 +763,7 @@ public class DualSenseAudioForwarderTests
     }
 
     [Test]
-    public void UpdateGameHaptics_SilentPayloadFallsBackToAudioDerived()
+    public void UpdateGameHaptics_SilentPayloadReproducesSilence()
     {
         FakeAudioOutputs fake = new FakeAudioOutputs
         {
@@ -771,15 +772,149 @@ public class DualSenseAudioForwarderTests
         using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
         forwarder.Start();
 
-        forwarder.UpdateGameHaptics(MakeRearPcm(0x00));
-        forwarder.FeedPcm(AudioBlock);
-        WaitUntil(() => fake.ReportCount >= 12, TimeSpan.FromSeconds(3));
+        // Prove the audio-derived haptics are active first: a loud block derives a
+        // constant 0x40 frame, so a later all-zero frame means the game payload won.
+        for (int i = 0; i < 8; i++)
+        {
+            forwarder.FeedPcm(AudioBlock);
+        }
+
+        WaitUntil(() => fake.AnyHapticsNonZero, TimeSpan.FromSeconds(3));
+        Assert.That(fake.AnyHapticsNonZero, Is.True,
+            "audio-derived haptics must be active before the silent payload");
+
+        // Drive a nonzero payload first: silence is authoritative only once the game
+        // has actually produced haptics.
+        WaitUntil(() =>
+        {
+            forwarder.UpdateGameHaptics(MakeRearPcm(0x10));
+            return fake.LastHapticsFrame is { Length: DualSenseBtAudioPipeline.HapticsBytes }
+                   && fake.LastHapticsFrame.All(b => b == 0x10);
+        }, TimeSpan.FromSeconds(3));
+        Assert.That(fake.LastHapticsFrame is { Length: DualSenseBtAudioPipeline.HapticsBytes }
+                    && fake.LastHapticsFrame.All(b => b == 0x10), Is.True,
+            "the nonzero game payload must reach the pad before silence can override it");
+
+        // Keep loud blocks queued so a zero frame can only mean the silent game payload
+        // suppressed the audio-derived haptics. Three reports skip any in-flight tick.
+        int before = fake.CombinedReportCount;
+        for (int i = 0; i < 8; i++)
+        {
+            forwarder.FeedPcm(AudioBlock);
+        }
+
+        WaitUntil(() =>
+        {
+            forwarder.UpdateGameHaptics(MakeRearPcm(0x00));
+            return fake.CombinedReportCount >= before + 3
+                   && fake.LastHapticsFrame.All(b => b == 0);
+        }, TimeSpan.FromSeconds(3));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fake.CombinedReportCount, Is.GreaterThanOrEqualTo(before + 3),
+                "the reports after the silent payload must actually be produced");
+            Assert.That(fake.LastHapticsFrame, Has.Length.EqualTo(DualSenseBtAudioPipeline.HapticsBytes));
+            Assert.That(fake.LastHapticsFrame.All(b => b == 0), Is.True,
+                "a silent game payload must produce silence and not fall back to audio-derived haptics");
+        });
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void UpdateGameHaptics_SilentPayloadBeforeAnyGameHapticsKeepsAudioDerived()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        for (int i = 0; i < 8; i++)
+        {
+            forwarder.FeedPcm(AudioBlock);
+        }
+
+        WaitUntil(() => fake.AnyHapticsNonZero, TimeSpan.FromSeconds(3));
+        Assert.That(fake.AnyHapticsNonZero, Is.True, "audio-derived haptics must be active");
+
+        // The persona forwards an all-zero rear pair for every speaker packet, including
+        // before the game has ever driven haptics. That silence must not suppress the
+        // audio-derived haptics while loud audio is still flowing.
+        int before = fake.CombinedReportCount;
+        for (int i = 0; i < 8; i++)
+        {
+            forwarder.FeedPcm(AudioBlock);
+        }
+
+        WaitUntil(() =>
+        {
+            forwarder.UpdateGameHaptics(MakeRearPcm(0x00));
+            return fake.CombinedReportCount >= before + 3
+                   && fake.LastHapticsFrame.Any(b => b != 0);
+        }, TimeSpan.FromSeconds(3));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fake.CombinedReportCount, Is.GreaterThanOrEqualTo(before + 3),
+                "the reports after the silent payload must actually be produced");
+            Assert.That(fake.LastHapticsFrame, Has.Length.EqualTo(DualSenseBtAudioPipeline.HapticsBytes));
+            Assert.That(fake.LastHapticsFrame.Any(b => b != 0), Is.True,
+                "an all-zero payload before the game has driven haptics must not suppress audio-derived haptics");
+        });
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void UpdateGameOutputState_UngatedRumbleBytesAreIgnored()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        // Stale motor bytes while rumble selector flags are clear (e.g. trigger-only write)
+        forwarder.UpdateGameOutputState(new SetStateData
+        {
+            ValidFlag0 = ValidFlags.AllowRightTriggerFfb,
+            RumbleLeft = 0x7F,
+            RumbleRight = 0x7F
+        });
+
+        // An all-clear flag report makes no field valid, so its motor bytes are stale too.
+        forwarder.UpdateGameOutputState(new SetStateData
+        {
+            RumbleLeft = 0x7F,
+            RumbleRight = 0x7F
+        });
+
+        for (int i = 0; i < 8; i++)
+        {
+            forwarder.FeedPcm(MakeAudioBlock(0f));
+        }
+
+        WaitUntil(() => fake.ReportCount >= 8 && fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
+
+        for (int i = 0; i < 4; i++)
+        {
+            forwarder.FeedPcm(MakeAudioBlock(0f));
+        }
+
+        WaitUntil(() => fake.ReportCount >= 16, TimeSpan.FromSeconds(3));
 
         byte[] frame = fake.LastHapticsFrame;
         Assert.Multiple(() =>
         {
-            Assert.That(frame.Distinct().Count(), Is.EqualTo(1), "a silent game payload must not suppress the audio-derived haptics");
-            Assert.That(frame.Max(b => (sbyte)b), Is.GreaterThan(0), "the audio-derived haptics must still drive the voice coils");
+            Assert.That(fake.ReportCount, Is.GreaterThanOrEqualTo(16),
+                "the reports after the stale motor bytes must actually be produced");
+            Assert.That(frame, Has.Length.EqualTo(DualSenseBtAudioPipeline.HapticsBytes));
+            Assert.That(frame.All(b => b == 0), Is.True,
+                "stale motor bytes when rumble is not selected must not be synthesized into haptics");
         });
 
         forwarder.Stop();

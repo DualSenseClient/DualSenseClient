@@ -1,4 +1,4 @@
-﻿using DualSenseClient.Controllers.DualSense.Output;
+using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.SpecialActions;
 using DualSenseClient.Hid;
