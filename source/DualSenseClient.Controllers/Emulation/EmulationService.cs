@@ -855,6 +855,8 @@ public sealed class EmulationService : IEmulationService
             lock (_sync)
             {
                 entry.Persona = null;
+                entry.Device.LightbarPassthroughEnabled = false;
+                entry.Device.PlayerLedPassthroughEnabled = false;
                 _inFlightEmulationPersonas.Remove(persona);
                 MaybeTeardownEmulationServerLocked();
             }
@@ -907,6 +909,7 @@ public sealed class EmulationService : IEmulationService
                 personaHandled = true;
                 entry.Persona = persona;
                 entry.Virtual = virtualController;
+                ApplyPassthroughLocked(entry, forwarding);
                 _inFlightEmulationPersonas.Remove(persona);
 
                 // The controller-audio capture taps the Emulation persona's speaker endpoint
@@ -1137,6 +1140,20 @@ public sealed class EmulationService : IEmulationService
         ForwardSettings forwarding = emulation?.Forward ?? new ForwardSettings();
         entry.Virtual?.ApplyForwardingSettings(forwarding);
         entry.Forwarder?.ApplyForwardingSettings(forwarding);
+        ApplyPassthroughLocked(entry, forwarding);
+    }
+
+    /// <summary>
+    /// Lets the game own the lightbar and player LEDs only while a live DualSense virtual
+    /// device mirrors the pad and the matching forwarding option is on; otherwise the
+    /// profile must keep driving the physical controller.
+    /// Caller must hold <see cref="_sync"/>.
+    /// </summary>
+    private static void ApplyPassthroughLocked(VirtualControllerEntry entry, ForwardSettings forwarding)
+    {
+        bool dualSense = entry.Virtual is VirtualDualSenseController;
+        entry.Device.LightbarPassthroughEnabled = dualSense && forwarding.Lightbar;
+        entry.Device.PlayerLedPassthroughEnabled = dualSense && forwarding.PlayerLeds;
     }
 
     /// <summary>
@@ -1672,6 +1689,8 @@ public sealed class EmulationService : IEmulationService
         IVirtualController virtualController = entry.Virtual;
         UnwireGameCallbacksLocked(entry);
         entry.Virtual = null;
+        entry.Device.LightbarPassthroughEnabled = false;
+        entry.Device.PlayerLedPassthroughEnabled = false;
 
         entry.Capture?.Dispose();
         entry.Capture = null;

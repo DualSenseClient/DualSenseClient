@@ -874,15 +874,26 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
 
     /// <summary>
     /// Sends the Bluetooth audio frame to the configured route, folding the haptics
-    /// packet into the combined <c>0x36</c> report when haptics are enabled.
+    /// packet into the combined <c>0x36</c> report when haptics are enabled — or when a
+    /// lightbar/player-LED override needs the output-state block carried — with a
+    /// cleared haptics payload.
     /// </summary>
     private void SendBluetoothReports()
     {
         SetStateData state = CreateAudioState();
         BluetoothAudioRoute route = _playToHeadset ? BluetoothAudioRoute.Headset : BluetoothAudioRoute.Speaker;
-        if (_hapticsEnabled)
+        bool stateBlock = _outputs!.NeedsOutputStateBlock;
+        if (_hapticsEnabled || stateBlock)
         {
-            MixRumbleIntoHaptics();
+            if (_hapticsEnabled)
+            {
+                MixRumbleIntoHaptics();
+            }
+            else
+            {
+                _hapticsPcm.AsSpan().Clear();
+            }
+
             _outputs!.SendBluetoothAudioAndHaptics(state, _opusFrame, _hapticsPcm, route);
         }
         else

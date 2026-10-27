@@ -75,6 +75,28 @@ public class DualSenseDevice : ControllerDevice
     private readonly object _audioWriteLock = new object();
 
     /// <summary>
+    /// Whether the game currently owns the lightbar.
+    /// </summary>
+    private volatile bool _lightbarPassthrough;
+
+    /// <summary>
+    /// Whether the game currently owns the player LEDs.
+    /// </summary>
+    private volatile bool _playerLedPassthrough;
+
+    /// <summary>
+    /// The applied profile's light values, or null before a profile is applied. Kept so
+    /// the audio lane can restore them whenever the game does not own the channel.
+    /// </summary>
+    private volatile ProfileLights? _profileLights;
+
+    /// <summary>
+    /// The light values an applied profile writes. Immutable so the output thread sees a
+    /// consistent snapshot.
+    /// </summary>
+    private sealed record ProfileLights(byte Red, byte Green, byte Blue, PlayerLedMask PlayerLeds);
+
+    /// <summary>
     /// 1 once <see cref="Dispose"/> has run, guarding against double disposal.
     /// </summary>
     private int _disposed;
@@ -305,6 +327,62 @@ public class DualSenseDevice : ControllerDevice
     public byte CurrentMuteLedMode { get; private set; }
 
     /// <summary>
+    /// Gets or sets whether the game owns the lightbar.
+    /// </summary>
+    public bool LightbarPassthroughEnabled
+    {
+        get
+        {
+            return _lightbarPassthrough;
+        }
+        set
+        {
+            _lightbarPassthrough = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets whether the game owns the player LEDs.
+    /// </summary>
+    public bool PlayerLedPassthroughEnabled
+    {
+        get
+        {
+            return _playerLedPassthrough;
+        }
+        set
+        {
+            _playerLedPassthrough = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets the applied profile's light values.
+    /// </summary>
+    /// <returns><c>true</c> when a profile has been applied.</returns>
+    internal bool TryGetProfileLights(
+        out byte red,
+        out byte green,
+        out byte blue,
+        out PlayerLedMask playerLeds)
+    {
+        if (_profileLights is { } value)
+        {
+            red = value.Red;
+            green = value.Green;
+            blue = value.Blue;
+            playerLeds = value.PlayerLeds;
+            return true;
+        }
+
+        red = 0;
+        green = 0;
+        blue = 0;
+        playerLeds = PlayerLedMask.None;
+        return false;
+    }
+
+    /// <summary>
     /// Creates a new DualSense controller wrapper around an already-opened HID device.
     /// Profiles are not applied here; the owning application applies a profile later via
     /// <see cref="ApplyProfile"/> once the device is connected.
@@ -533,6 +611,14 @@ public class DualSenseDevice : ControllerDevice
     /// <param name="profile">The profile to apply.</param>
     public void ApplyProfile(Profile profile)
     {
+        // Publish before sending, so the audio lane can already restore these lights if
+        // it needs the state block while the standalone report is in flight.
+        _profileLights = new ProfileLights(
+            profile.Lightbar.Red,
+            profile.Lightbar.Green,
+            profile.Lightbar.Blue,
+            (PlayerLedMask)profile.PlayerLeds.Mask);
+
         SetStateData payload = new SetStateData
         {
             // The RGB bytes are gated by ValidFlag1.AllowLedColor, but taking over the

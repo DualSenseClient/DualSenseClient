@@ -465,4 +465,186 @@ public class DualSenseDeviceOutputsTests
         engine.Dispose();
         device.Dispose();
     }
+
+    [Test]
+    public void SendOutputState_ProfileLightsRestored_WhenPassthroughDisabled()
+    {
+        RecordingHidDevice hid = new RecordingHidDevice();
+        DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
+        SpecialActionEngine engine = new SpecialActionEngine();
+        engine.Attach(device);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        device.ApplyProfile(new Profile
+        {
+            Name = "Single",
+            Lightbar = new LightbarSettings
+            {
+                Red = 200,
+                Green = 100,
+                Blue = 50
+            },
+            PlayerLeds = new PlayerLedSettings
+            {
+                Mask = 0x0A
+            }
+        });
+        device.LightbarPassthroughEnabled = false;
+        device.PlayerLedPassthroughEnabled = false;
+        hid.Writes.Clear();
+
+        // The audio lane's state block clears the lightbar to release the game's color.
+        outputs.SendOutputState(new SetStateData
+        {
+            ValidFlag1 = ValidFlags.AllowLedColor | ValidFlags.AllowPlayerIndicators,
+            PlayerLeds = (PlayerLedMask)0x1F,
+            LedRed = 0,
+            LedGreen = 0,
+            LedBlue = 0
+        });
+
+        Assert.That(hid.Writes, Has.Count.EqualTo(1));
+        byte[] report = hid.Writes[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(report[44], Is.EqualTo(0x0A));
+            Assert.That(report[45], Is.EqualTo(200));
+            Assert.That(report[46], Is.EqualTo(100));
+            Assert.That(report[47], Is.EqualTo(50));
+        });
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void SendOutputState_ProfileLightbarOwned_KeepsForwardedPlayerLeds()
+    {
+        RecordingHidDevice hid = new RecordingHidDevice();
+        DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
+        SpecialActionEngine engine = new SpecialActionEngine();
+        engine.Attach(device);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        device.ApplyProfile(new Profile
+        {
+            Name = "Single",
+            Lightbar = new LightbarSettings
+            {
+                Red = 1,
+                Green = 2,
+                Blue = 3
+            },
+            PlayerLeds = new PlayerLedSettings
+            {
+                Mask = 0x0A
+            }
+        });
+        device.LightbarPassthroughEnabled = false;
+        device.PlayerLedPassthroughEnabled = true;
+        hid.Writes.Clear();
+
+        outputs.SendOutputState(new SetStateData
+        {
+            ValidFlag1 = ValidFlags.AllowLedColor | ValidFlags.AllowPlayerIndicators,
+            PlayerLeds = (PlayerLedMask)0x1F,
+            LedRed = 0,
+            LedGreen = 0,
+            LedBlue = 0
+        });
+
+        Assert.That(hid.Writes, Has.Count.EqualTo(1));
+        byte[] report = hid.Writes[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(report[44], Is.EqualTo(0x1F), "the game still owns the player LEDs");
+            Assert.That(report[45], Is.EqualTo(1));
+            Assert.That(report[46], Is.EqualTo(2));
+            Assert.That(report[47], Is.EqualTo(3));
+        });
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void SendOutputState_ProfileFullyForwarded_KeepsGameLights()
+    {
+        RecordingHidDevice hid = new RecordingHidDevice();
+        DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
+        SpecialActionEngine engine = new SpecialActionEngine();
+        engine.Attach(device);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        device.ApplyProfile(new Profile
+        {
+            Name = "Single",
+            Lightbar = new LightbarSettings
+            {
+                Red = 200,
+                Green = 100,
+                Blue = 50
+            },
+            PlayerLeds = new PlayerLedSettings
+            {
+                Mask = 0x0A
+            }
+        });
+        device.LightbarPassthroughEnabled = true;
+        device.PlayerLedPassthroughEnabled = true;
+        hid.Writes.Clear();
+
+        outputs.SendOutputState(new SetStateData
+        {
+            ValidFlag1 = ValidFlags.AllowLedColor | ValidFlags.AllowPlayerIndicators,
+            PlayerLeds = (PlayerLedMask)0x05,
+            LedRed = 1,
+            LedGreen = 2,
+            LedBlue = 3
+        });
+
+        Assert.That(hid.Writes, Has.Count.EqualTo(1));
+        byte[] report = hid.Writes[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(report[44], Is.EqualTo(0x05));
+            Assert.That(report[45], Is.EqualTo(1));
+            Assert.That(report[46], Is.EqualTo(2));
+            Assert.That(report[47], Is.EqualTo(3));
+        });
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void NeedsOutputStateBlock_TracksProfileLightOwnership()
+    {
+        RecordingHidDevice hid = new RecordingHidDevice();
+        DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
+        SpecialActionEngine engine = new SpecialActionEngine();
+        engine.Attach(device);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+
+        Assert.That(outputs.NeedsOutputStateBlock, Is.False);
+
+        device.ApplyProfile(new Profile
+        {
+            Name = "Single",
+            Lightbar = new LightbarSettings
+            {
+                Red = 1,
+                Green = 2,
+                Blue = 3
+            }
+        });
+        Assert.That(outputs.NeedsOutputStateBlock, Is.True);
+
+        device.LightbarPassthroughEnabled = true;
+        device.PlayerLedPassthroughEnabled = true;
+        Assert.That(outputs.NeedsOutputStateBlock, Is.False);
+
+        device.PlayerLedPassthroughEnabled = false;
+        Assert.That(outputs.NeedsOutputStateBlock, Is.True);
+
+        engine.Dispose();
+        device.Dispose();
+    }
 }

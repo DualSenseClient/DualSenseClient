@@ -26,6 +26,12 @@ public interface IDualSenseOutputs
     /// </summary>
     /// <param name="payload">The output state to send.</param>
     void SendOutputState(SetStateData payload);
+
+    /// <summary>
+    /// Whether the next Bluetooth audio report must carry the output-state block
+    /// (<c>0x36</c>) because a lightbar/player-LED override is driving the physical pad.
+    /// </summary>
+    bool NeedsOutputStateBlock { get; }
 }
 
 /// <summary>
@@ -116,6 +122,21 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
     }
 
     /// <inheritdoc/>
+    public bool NeedsOutputStateBlock
+    {
+        get
+        {
+            OutputStateOverride overrideState = _specialActions.OutputOverride;
+            bool profileLights = _device.TryGetProfileLights(out _, out _, out _, out _)
+                                 && (!_device.LightbarPassthroughEnabled
+                                     || !_device.PlayerLedPassthroughEnabled);
+            return overrideState.LightbarColor is not null
+                   || overrideState.PlayerLeds is not null
+                   || profileLights;
+        }
+    }
+
+    /// <inheritdoc/>
     public void SetVibration(byte left, byte right)
     {
         lock (_writeLock)
@@ -144,17 +165,28 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
     }
 
     /// <summary>
-    /// Merges the fields held by the active special actions (lightbar color, player LEDs)
-    /// over the payload, so the game's output cannot overwrite an active action's output
-    /// for as long as the action is active. Fields no action holds pass through unchanged.
-    /// Returns the payload unchanged when no field is held.
+    /// Merges the applied profile's static lights and the fields held by the active
+    /// special actions (lightbar color, player LEDs) over the payload, so neither the
+    /// game's output nor a plain passthrough can overwrite them. The profile's lightbar
+    /// and player LEDs are only restored while the game does not own that channel.
+    /// Actions are applied afterwards, so an action always wins. Fields nothing holds
+    /// pass through unchanged. Returns the payload unchanged when nothing is driving the
+    /// lights.
     /// </summary>
     private SetStateData ApplyOutputOverride(SetStateData payload)
     {
         OutputStateOverride overrideState = _specialActions.OutputOverride;
         (byte Red, byte Green, byte Blue)? color = overrideState.LightbarColor;
         byte? leds = overrideState.PlayerLeds;
-        if (color is null && leds is null)
+
+        bool hasProfile = _device.TryGetProfileLights(
+            out byte profileRed,
+            out byte profileGreen,
+            out byte profileBlue,
+            out PlayerLedMask profileLeds);
+        bool profileLightbar = hasProfile && !_device.LightbarPassthroughEnabled;
+        bool profilePlayerLeds = hasProfile && !_device.PlayerLedPassthroughEnabled;
+        if (color is null && leds is null && !profileLightbar && !profilePlayerLeds)
         {
             return payload;
         }
@@ -164,13 +196,41 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
         byte[] raw = new byte[SetStateData.PayloadSize];
         payload.CopyTo(raw, 0);
         SetStateData copy = new SetStateData(raw, 0);
-        return copy with
+
+        if (profileLightbar)
         {
-            LedRed = color?.Red ?? payload.LedRed,
-            LedGreen = color?.Green ?? payload.LedGreen,
-            LedBlue = color?.Blue ?? payload.LedBlue,
-            PlayerLeds = leds is { } mask ? (PlayerLedMask)mask : payload.PlayerLeds
-        };
+            copy = copy with
+            {
+                ValidFlag1 = copy.ValidFlag1 | ValidFlags.AllowLedColor,
+                ValidFlag2 = copy.ValidFlag2 | ValidFlags.AllowColorFadeAnim,
+                LightFadeAnimation = 0x02,
+                LedRed = profileRed,
+                LedGreen = profileGreen,
+                LedBlue = profileBlue
+            };
+        }
+
+        if (profilePlayerLeds)
+        {
+            copy = copy with
+            {
+                ValidFlag1 = copy.ValidFlag1 | ValidFlags.AllowPlayerIndicators,
+                PlayerLeds = profileLeds
+            };
+        }
+
+        if (color is not null || leds is not null)
+        {
+            copy = copy with
+            {
+                LedRed = color?.Red ?? copy.LedRed,
+                LedGreen = color?.Green ?? copy.LedGreen,
+                LedBlue = color?.Blue ?? copy.LedBlue,
+                PlayerLeds = leds is { } mask ? (PlayerLedMask)mask : copy.PlayerLeds
+            };
+        }
+
+        return copy;
     }
 
     /// <inheritdoc/>

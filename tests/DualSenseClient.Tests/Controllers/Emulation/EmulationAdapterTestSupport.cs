@@ -102,6 +102,9 @@ internal sealed class RecordingDualSenseOutputs : IDualSenseOutputs
     internal List<SetStateData> OutputStates { get; } = [];
 
     /// <inheritdoc/>
+    public bool NeedsOutputStateBlock { get; set; }
+
+    /// <inheritdoc/>
     public void SetVibration(byte left, byte right) => Vibrations.Add((left, right));
 
     /// <inheritdoc/>

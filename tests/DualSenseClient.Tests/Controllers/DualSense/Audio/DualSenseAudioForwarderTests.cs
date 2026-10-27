@@ -17,6 +17,8 @@ public class DualSenseAudioForwarderTests
     {
         public ConnectionType ConnectionType { get; init; } = ConnectionType.Bluetooth;
 
+        public bool NeedsOutputStateBlock { get; set; }
+
         public int ResetCount { get; private set; }
         public int PrimeCount { get; private set; }
         public int CombinedReportCount { get; private set; }
@@ -268,6 +270,36 @@ public class DualSenseAudioForwarderTests
             Assert.That(fake.AudioOnlyReportCount, Is.GreaterThanOrEqualTo(11), "8 preroll reports plus the 3 fed blocks must all be sent audio-only");
             Assert.That(fake.CombinedReportCount, Is.Zero);
             Assert.That(fake.LastOpusFrameLength, Is.EqualTo(200));
+        });
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void FeedPcm_StateBlockNeededSendsCombinedReportsWithSilentHaptics()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth,
+            NeedsOutputStateBlock = true
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.HapticsEnabled = false;
+        forwarder.Start();
+
+        for (int i = 0; i < 3; i++)
+        {
+            forwarder.FeedPcm(AudioBlock);
+        }
+
+        WaitUntil(() => fake.ReportCount >= 11, TimeSpan.FromSeconds(3));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fake.CombinedReportCount, Is.GreaterThanOrEqualTo(11), "the output-state block must ride the combined report");
+            Assert.That(fake.AudioOnlyReportCount, Is.Zero);
+            Assert.That(fake.LastHapticsLength, Is.EqualTo(64));
+            Assert.That(fake.LastHapticsFrame, Is.All.Zero, "haptics stay silent while disabled");
         });
 
         forwarder.Stop();
