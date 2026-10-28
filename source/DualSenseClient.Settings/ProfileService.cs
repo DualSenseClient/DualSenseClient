@@ -108,8 +108,29 @@ public sealed class ProfileService
         {
             _log.Info($"Loading profiles from '{_store.FilePath}'");
             _store.Load();
+            NormalizeLightbarSettings(_store.Item);
             _loaded = true;
             EnsureDefaultProfile();
+        }
+    }
+
+    /// <summary>
+    /// Replaces the lightbar settings that <see cref="JsonSerializer"/> can leave <c>null</c> with
+    /// their defaults and drops <c>null</c> palette elements. The evaluator and
+    /// <see cref="LightbarSettings.Clone"/> cannot handle either.
+    /// </summary>
+    /// <param name="settings">Settings just read from storage; not <see cref="Settings"/>, which would reload.</param>
+    private static void NormalizeLightbarSettings(ProfileSettings settings)
+    {
+        LightbarSettings defaults = new LightbarSettings();
+        foreach (Profile profile in settings.Profiles)
+        {
+            LightbarSettings lightbar = profile.Lightbar ??= new LightbarSettings();
+            lightbar.Colors ??= LightbarSettings.CreateDefaultColors();
+            lightbar.AudioLowColor ??= defaults.AudioLowColor.Clone();
+            lightbar.AudioMidColor ??= defaults.AudioMidColor.Clone();
+            lightbar.AudioHighColor ??= defaults.AudioHighColor.Clone();
+            lightbar.Colors.RemoveAll(color => color is null);
         }
     }
 
@@ -184,12 +205,7 @@ public sealed class ProfileService
         Profile copy = new Profile
         {
             Name = GetUniqueProfileName($"{source.Name} Copy"),
-            Lightbar =
-            {
-                Red = source.Lightbar.Red,
-                Green = source.Lightbar.Green,
-                Blue = source.Lightbar.Blue
-            },
+            Lightbar = source.Lightbar.Clone(),
             MicLed =
             {
                 Mode = source.MicLed.Mode
