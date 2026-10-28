@@ -157,6 +157,29 @@
     <sys:String x:Key="CustomizationPage.Forwarding.Description">Forward desktop audio to the controller's speaker, headset, and haptics</sys:String>
     <sys:String x:Key="CustomizationPage.Forwarding.Title">Audio Forwarding</sys:String>
     <!-- Lightbar -->
+    <sys:String x:Key="CustomizationPage.Lightbar.Audio.Hint">Follows the audio being forwarded to the controller. Audio forwarding must be active.</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Audio.Loud">Loud color</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Audio.Medium">Medium color</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Audio.Quiet">Quiet color</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Audio.Sensitivity">Sensitivity</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Battery.Description">Shows the controller's charge level. While charging, the lightbar cycles through all ten level colors.</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Battery.PlayerLeds">Animate player LEDs while charging</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Breath.Max">Maximum intensity</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Breath.Min">Minimum intensity</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Brightness">Brightness</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Mode">Mode</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Mode.AudioReactive">Audio Reactive</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Mode.Battery">Battery</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Mode.Breathing">Breathing</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Mode.MultiColor">Multi Color</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Mode.SingleColor">Single Color</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Mode.Strobe">Strobing</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Palette">Palette</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Palette.Add">Add color</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Palette.Remove">Remove</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Palette.Reset">Reset to rainbow</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.RandomColor">Random color</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Speed">Speed</sys:String>
     <sys:String x:Key="CustomizationPage.Lightbar.Title">Lightbar</sys:String>
     <!-- MicLed -->
     <sys:String x:Key="CustomizationPage.MicLed.Mode">Mode</sys:String>

@@ -1,7 +1,11 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
 using Avalonia.Media;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using DualSenseClient.Settings;
 using DualSenseClient.Settings.Sections;
 
@@ -225,6 +229,178 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
     [ObservableProperty] private bool _playerPreset5;
 
     /// <summary>
+    /// Lightbar effect mode as the ComboBox selection index (see <see cref="LightbarMode"/>).
+    /// </summary>
+    [ObservableProperty] private int _lightbarModeIndex;
+
+    /// <summary>
+    /// Lightbar brightness percentage (0-100).
+    /// </summary>
+    [ObservableProperty] private double _lightbarBrightness;
+
+    /// <summary>
+    /// Effect speed percentage (0-100).
+    /// </summary>
+    [ObservableProperty] private double _lightbarSpeed;
+
+    /// <summary>
+    /// Whether the multi-color palette is played in random order.
+    /// </summary>
+    [ObservableProperty] private bool _lightbarRandomColor;
+
+    /// <summary>
+    /// Minimum brightness percentage of the breathing effect (0-100).
+    /// </summary>
+    [ObservableProperty] private double _breathMin;
+
+    /// <summary>
+    /// Maximum brightness percentage of the breathing effect (0-100).
+    /// </summary>
+    [ObservableProperty] private double _breathMax;
+
+    /// <summary>
+    /// Audio reactivity sensitivity percentage (0-100).
+    /// </summary>
+    [ObservableProperty] private double _audioSensitivity;
+
+    /// <summary>
+    /// Whether the player LEDs show the battery level alongside the lightbar.
+    /// </summary>
+    [ObservableProperty] private bool _batteryPlayerLeds;
+
+    /// <summary>
+    /// Color shown at low audio levels.
+    /// </summary>
+    [ObservableProperty] private Color _audioLowColor;
+
+    /// <summary>
+    /// Color shown at mid audio levels.
+    /// </summary>
+    [ObservableProperty] private Color _audioMidColor;
+
+    /// <summary>
+    /// Color shown at high audio levels.
+    /// </summary>
+    [ObservableProperty] private Color _audioHighColor;
+
+    /// <summary>
+    /// The palette color shown in the color picker.
+    /// </summary>
+    [ObservableProperty] private LightbarPaletteItem? _selectedPaletteItem;
+
+    /// <summary>
+    /// Editable multi-color palette.
+    /// </summary>
+    public ObservableCollection<LightbarPaletteItem> Palette { get; } = [];
+
+    /// <summary>
+    /// Read-only battery level colors shown while editing the battery mode.
+    /// </summary>
+    public IReadOnlyList<LightbarColorPreview> BatteryColorPreviews { get; } =
+        SpecialActionEffect.DefaultBatteryColors
+            .Select(c => new LightbarColorPreview(new SolidColorBrush(Color.FromRgb(c.Red, c.Green, c.Blue))))
+            .ToList();
+
+    /// <summary>
+    /// Whether the single-color mode is selected.
+    /// </summary>
+    public bool IsSingleColorMode
+    {
+        get
+        {
+            return LightbarModeIndex == (int)LightbarMode.SingleColor;
+        }
+    }
+
+    /// <summary>
+    /// Whether the multi-color mode is selected.
+    /// </summary>
+    public bool IsMultiColorMode
+    {
+        get
+        {
+            return LightbarModeIndex == (int)LightbarMode.MultiColor;
+        }
+    }
+
+    /// <summary>
+    /// Whether the breathing mode is selected.
+    /// </summary>
+    public bool IsBreathingMode
+    {
+        get
+        {
+            return LightbarModeIndex == (int)LightbarMode.Breathing;
+        }
+    }
+
+    /// <summary>
+    /// Whether the strobe mode is selected.
+    /// </summary>
+    public bool IsStrobeMode
+    {
+        get
+        {
+            return LightbarModeIndex == (int)LightbarMode.Strobe;
+        }
+    }
+
+    /// <summary>
+    /// Whether the battery mode is selected.
+    /// </summary>
+    public bool IsBatteryMode
+    {
+        get
+        {
+            return LightbarModeIndex == (int)LightbarMode.Battery;
+        }
+    }
+
+    /// <summary>
+    /// Whether the audio-reactive mode is selected.
+    /// </summary>
+    public bool IsAudioReactiveMode
+    {
+        get
+        {
+            return LightbarModeIndex == (int)LightbarMode.AudioReactive;
+        }
+    }
+
+    /// <summary>
+    /// Whether the currently selected mode uses the base lightbar color.
+    /// </summary>
+    public bool UsesBaseColor
+    {
+        get
+        {
+            return IsSingleColorMode || IsBreathingMode || IsStrobeMode;
+        }
+    }
+
+    /// <summary>
+    /// Whether the currently selected mode uses the effect speed.
+    /// </summary>
+    public bool UsesSpeed
+    {
+        get
+        {
+            return IsMultiColorMode || IsBreathingMode || IsStrobeMode;
+        }
+    }
+
+    /// <summary>
+    /// Whether a palette color is selected for editing.
+    /// </summary>
+    public bool HasSelectedPaletteColor
+    {
+        get
+        {
+            return SelectedPaletteItem is not null;
+        }
+    }
+
+    /// <summary>
     /// Brush for the lightbar color preview swatch.
     /// </summary>
     public IBrush LightbarBrush
@@ -303,6 +479,24 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
         _playerPreset3 = profile.PlayerLeds.Mask == PlayerPresetMasks[2];
         _playerPreset4 = profile.PlayerLeds.Mask == PlayerPresetMasks[3];
         _playerPreset5 = profile.PlayerLeds.Mask == PlayerPresetMasks[4];
+        _lightbarModeIndex = Enum.IsDefined(profile.Lightbar.Mode) ? (int)profile.Lightbar.Mode : 0;
+        _lightbarBrightness = Math.Clamp(profile.Lightbar.Brightness, 0, 100);
+        _lightbarSpeed = Math.Clamp(profile.Lightbar.Speed, 0, 100);
+        _lightbarRandomColor = profile.Lightbar.RandomColor;
+        _breathMin = Math.Clamp(profile.Lightbar.BreathMin, 0, 100);
+        _breathMax = Math.Clamp(profile.Lightbar.BreathMax, 0, 100);
+        _audioSensitivity = Math.Clamp(profile.Lightbar.AudioSensitivity, 0, 100);
+        _batteryPlayerLeds = profile.Lightbar.BatteryPlayerLeds;
+        _audioLowColor = ToColor(profile.Lightbar.AudioLowColor);
+        _audioMidColor = ToColor(profile.Lightbar.AudioMidColor);
+        _audioHighColor = ToColor(profile.Lightbar.AudioHighColor);
+
+        foreach (LightbarColorSetting color in profile.Lightbar.Colors)
+        {
+            Palette.Add(new LightbarPaletteItem(ToColor(color), _ => Persist()));
+        }
+
+        SelectedPaletteItem = Palette.FirstOrDefault();
 
         _saveTimer = new DispatcherTimer
         {
@@ -380,6 +574,78 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
     /// Applies the Player 5 preset (mask 0x1F).
     /// </summary>
     partial void OnPlayerPreset5Changed(bool value) => ApplyPlayerPreset(4, value);
+
+    /// <summary>
+    /// Re-raises the mode-dependent visibility properties and persists the new mode.
+    /// </summary>
+    partial void OnLightbarModeIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsSingleColorMode));
+        OnPropertyChanged(nameof(IsMultiColorMode));
+        OnPropertyChanged(nameof(IsBreathingMode));
+        OnPropertyChanged(nameof(IsStrobeMode));
+        OnPropertyChanged(nameof(IsBatteryMode));
+        OnPropertyChanged(nameof(IsAudioReactiveMode));
+        OnPropertyChanged(nameof(UsesBaseColor));
+        OnPropertyChanged(nameof(UsesSpeed));
+        Persist();
+    }
+
+    /// <summary>
+    /// Re-raises the selection-dependent visibility property.
+    /// </summary>
+    partial void OnSelectedPaletteItemChanged(LightbarPaletteItem? value) =>
+        OnPropertyChanged(nameof(HasSelectedPaletteColor));
+
+    /// <summary>
+    /// Persists the new lightbar brightness.
+    /// </summary>
+    partial void OnLightbarBrightnessChanged(double value) => Persist();
+
+    /// <summary>
+    /// Persists the new effect speed.
+    /// </summary>
+    partial void OnLightbarSpeedChanged(double value) => Persist();
+
+    /// <summary>
+    /// Persists the new random palette order.
+    /// </summary>
+    partial void OnLightbarRandomColorChanged(bool value) => Persist();
+
+    /// <summary>
+    /// Persists the new breath minimum.
+    /// </summary>
+    partial void OnBreathMinChanged(double value) => Persist();
+
+    /// <summary>
+    /// Persists the new breath maximum.
+    /// </summary>
+    partial void OnBreathMaxChanged(double value) => Persist();
+
+    /// <summary>
+    /// Persists the new audio sensitivity.
+    /// </summary>
+    partial void OnAudioSensitivityChanged(double value) => Persist();
+
+    /// <summary>
+    /// Persists the new battery player-LED setting.
+    /// </summary>
+    partial void OnBatteryPlayerLedsChanged(bool value) => Persist();
+
+    /// <summary>
+    /// Persists the new low audio color.
+    /// </summary>
+    partial void OnAudioLowColorChanged(Color value) => Persist();
+
+    /// <summary>
+    /// Persists the new mid audio color.
+    /// </summary>
+    partial void OnAudioMidColorChanged(Color value) => Persist();
+
+    /// <summary>
+    /// Persists the new high audio color.
+    /// </summary>
+    partial void OnAudioHighColorChanged(Color value) => Persist();
 
     /// <summary>
     /// Handles an individual LED toggle: persists the layout and re-syncs the preset
@@ -486,6 +752,20 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
         Profile.Lightbar.Red = Channel(LedRed);
         Profile.Lightbar.Green = Channel(LedGreen);
         Profile.Lightbar.Blue = Channel(LedBlue);
+        Profile.Lightbar.Mode = (LightbarMode)Math.Clamp(LightbarModeIndex, 0, 5);
+        Profile.Lightbar.Brightness = (int)Math.Round(Math.Clamp(LightbarBrightness, 0, 100));
+        Profile.Lightbar.Speed = (int)Math.Round(Math.Clamp(LightbarSpeed, 0, 100));
+        Profile.Lightbar.RandomColor = LightbarRandomColor;
+        int breathMin = (int)Math.Round(Math.Clamp(BreathMin, 0, 100));
+        int breathMax = (int)Math.Round(Math.Clamp(BreathMax, 0, 100));
+        Profile.Lightbar.BreathMin = Math.Min(breathMin, breathMax);
+        Profile.Lightbar.BreathMax = Math.Max(breathMin, breathMax);
+        Profile.Lightbar.Colors = Palette.Select(p => ToSetting(p.Color)).ToList();
+        Profile.Lightbar.AudioLowColor = ToSetting(AudioLowColor);
+        Profile.Lightbar.AudioMidColor = ToSetting(AudioMidColor);
+        Profile.Lightbar.AudioHighColor = ToSetting(AudioHighColor);
+        Profile.Lightbar.AudioSensitivity = (int)Math.Round(Math.Clamp(AudioSensitivity, 0, 100));
+        Profile.Lightbar.BatteryPlayerLeds = BatteryPlayerLeds;
         Profile.MicLed.Mode = (byte)Math.Clamp(MuteLedMode, 0, 2);
         Profile.PlayerLeds.Mask = ComputePlayerLedMask();
         ProfileChanged?.Invoke(this, EventArgs.Empty);
@@ -563,6 +843,70 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
     private static byte Channel(double value) => (byte)Math.Round(Math.Clamp(value, 0, 255));
 
     /// <summary>
+    /// Appends the current base color to the multi-color palette and selects it.
+    /// </summary>
+    [RelayCommand]
+    private void AddPaletteColor()
+    {
+        LightbarPaletteItem item = new LightbarPaletteItem(LightbarColor, _ => Persist());
+        Palette.Add(item);
+        SelectedPaletteItem = item;
+        Persist();
+    }
+
+    /// <summary>
+    /// Replaces the palette with the six default colors.
+    /// </summary>
+    [RelayCommand]
+    private void ResetPalette()
+    {
+        Palette.Clear();
+        foreach (LightbarColorSetting color in LightbarSettings.CreateDefaultColors())
+        {
+            Palette.Add(new LightbarPaletteItem(ToColor(color), _ => Persist()));
+        }
+
+        SelectedPaletteItem = Palette.FirstOrDefault();
+        Persist();
+    }
+
+    /// <summary>
+    /// Removes the selected palette color and selects the nearest remaining color.
+    /// </summary>
+    [RelayCommand]
+    private void RemoveSelectedPaletteColor()
+    {
+        if (SelectedPaletteItem is not { } item)
+        {
+            return;
+        }
+
+        int index = Palette.IndexOf(item);
+        Palette.Remove(item);
+        SelectedPaletteItem = Palette.Count == 0
+            ? null
+            : Palette[Math.Min(index, Palette.Count - 1)];
+        Persist();
+    }
+
+    /// <summary>
+    /// Converts a stored color to an Avalonia color.
+    /// </summary>
+    private static Color ToColor(LightbarColorSetting color) =>
+        Color.FromRgb(color.Red, color.Green, color.Blue);
+
+    /// <summary>
+    /// Converts an Avalonia color to a stored color.
+    /// </summary>
+    private static LightbarColorSetting ToSetting(Color color) =>
+        new LightbarColorSetting
+        {
+            Red = color.R,
+            Green = color.G,
+            Blue = color.B
+        };
+
+    /// <summary>
     /// Releases the item: stops the debounce timer and flushes any pending changes so
     /// edits made just before disposal are not lost.
     /// </summary>
@@ -580,5 +924,137 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
             _pendingCommit = false;
             _profileService.Save();
         }
+    }
+}
+
+/// <summary>
+/// Display model for one color of the multi-color lightbar palette.
+/// </summary>
+public sealed partial class LightbarPaletteItem : ObservableObject
+{
+    /// <summary>
+    /// Invoked whenever the color changes, so the owning item can persist.
+    /// </summary>
+    private readonly Action<LightbarPaletteItem> _onChanged;
+
+    /// <summary>
+    /// The palette color.
+    /// </summary>
+    [ObservableProperty] private Color _color;
+
+    /// <summary>
+    /// Creates a new palette color.
+    /// </summary>
+    /// <param name="color">The initial color.</param>
+    /// <param name="onChanged">Callback invoked when the color changes.</param>
+    public LightbarPaletteItem(Color color, Action<LightbarPaletteItem> onChanged)
+    {
+        _color = color;
+        _onChanged = onChanged;
+    }
+
+    /// <summary>
+    /// Red channel (0-255).
+    /// </summary>
+    public double Red
+    {
+        get
+        {
+            return Color.R;
+        }
+        set
+        {
+            Color = Color.FromRgb(Channel(value), Color.G, Color.B);
+        }
+    }
+
+    /// <summary>
+    /// Green channel (0-255).
+    /// </summary>
+    public double Green
+    {
+        get
+        {
+            return Color.G;
+        }
+        set
+        {
+            Color = Color.FromRgb(Color.R, Channel(value), Color.B);
+        }
+    }
+
+    /// <summary>
+    /// Blue channel (0-255).
+    /// </summary>
+    public double Blue
+    {
+        get
+        {
+            return Color.B;
+        }
+        set
+        {
+            Color = Color.FromRgb(Color.R, Color.G, Channel(value));
+        }
+    }
+
+    /// <summary>
+    /// Color as a "#RRGGBB" string.
+    /// </summary>
+    public string Hex
+    {
+        get
+        {
+            return $"#{Color.R:X2}{Color.G:X2}{Color.B:X2}";
+        }
+    }
+
+    /// <summary>
+    /// Brush for the palette swatch.
+    /// </summary>
+    public IBrush Brush
+    {
+        get
+        {
+            return new SolidColorBrush(Color);
+        }
+    }
+
+    /// <summary>
+    /// Re-raises the channel and display properties and forwards the change.
+    /// </summary>
+    partial void OnColorChanged(Color value)
+    {
+        OnPropertyChanged(nameof(Red));
+        OnPropertyChanged(nameof(Green));
+        OnPropertyChanged(nameof(Blue));
+        OnPropertyChanged(nameof(Hex));
+        OnPropertyChanged(nameof(Brush));
+        _onChanged(this);
+    }
+
+    /// <summary>
+    /// Converts a slider value to the 0-255 channel byte.
+    /// </summary>
+    private static byte Channel(double value) => (byte)Math.Round(Math.Clamp(value, 0, 255));
+}
+
+/// <summary>
+/// Read-only preview brush for one battery level color.
+/// </summary>
+public sealed class LightbarColorPreview
+{
+    /// <summary>
+    /// The brush used to paint the preview swatch.
+    /// </summary>
+    public IBrush Brush { get; }
+
+    /// <summary>
+    /// Creates a new battery color preview.
+    /// </summary>
+    /// <param name="brush">The brush used to paint the preview swatch.</param>
+    public LightbarColorPreview(IBrush brush)
+    {
+        Brush = brush;
     }
 }
