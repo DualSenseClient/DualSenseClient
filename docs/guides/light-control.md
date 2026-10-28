@@ -4,16 +4,66 @@ DualSense Client gives you full control over the controller's lighting: the RGB 
 
 ## Lightbar
 
-The lightbar supports full RGB color control:
+The lightbar has a **mode** that decides what it shows, plus a shared **brightness** slider. Brightness runs from 0 to 100 and scales the color the mode produces in software, so 0 turns the lightbar off. Each profile stores its own mode, colors, and brightness.
+
+![Lightbar controls in the profile editor](../assets/images/light-control.png)
+
+!!! note "Passthrough takes over"
+    When a virtual **DualSense** forwards the host's lighting, **Forward lightbar** suspends the profile's lightbar effect until it is turned off, and **Forward player LEDs** suppresses the Battery mode's player-LED chase. With a virtual DualShock 4 the game's lightbar is still forwarded, but it does not suspend the profile effect. Passthroughs are configured under **Emulation → Virtual Controller → Passthroughs**.
+
+!!! note "Special Actions and manual edits"
+    [Special Actions](special-actions.md) always win while they are applying light effects. Editing the lightbar directly on the [Device Info](device-info.md) page stops the effect until the profile is applied again.
+
+!!! tip
+    Put the look you want in a [profile](profiles.md) and assign it to the controller on the Device Info page, so it is applied automatically whenever that controller connects.
+
+### Single Color
+
+The lightbar shows one fixed color:
 
 - **Color picker** — pick a color visually, with a spectrum and a palette of standard colors
 - **Sliders** — fine-tune the red, green, and blue channels
 - **Profile color swatch** — the selected profile's color is shown in the profile list and dropdown
 
-![Lightbar controls in the profile editor](../assets/images/light-control.png)
+### Multi Color
 
-!!! tip
-    Put the look you want in a [profile](profiles.md) and assign it to the controller on the Device Info page, so it is applied automatically whenever that controller connects.
+The lightbar blends through a palette of colors:
+
+- **Palette** — the colors to cycle through; a single entry keeps the lightbar on that color
+- **Speed** — how quickly the palette cycles, from slow to fast
+- **Random color** — picks each segment's palette color at random instead of following the palette order
+
+### Breathing
+
+The lightbar fades smoothly between two intensity levels:
+
+- **Minimum intensity** / **Maximum intensity** — the dimmest and brightest points of the breath, as 0–100%
+- **Speed** — how fast one breath cycle runs
+- **Random color** — uses a new hue for each breath instead of the profile color
+
+### Strobing
+
+The lightbar flashes on and off using the profile color:
+
+- **Speed** — flash rate, from slow to fast
+
+### Battery
+
+The lightbar shows the controller's charge level:
+
+- **Discharging** — the lightbar shows the color of the current charge band, one of ten level colors from empty to full
+- **Charging** — the lightbar cycles through all ten level colors
+- **Animate player LEDs while charging** — optional; runs a single LED chase across the player LEDs while charging. Only available on Generation 0x02 / 0x03 hardware.
+
+### Audio Reactive
+
+The lightbar follows the audio being forwarded to the controller:
+
+- **Quiet color** / **Medium color** / **Loud color** — the color shown at each audio level; the lightbar blends between them as the level rises and falls
+- **Sensitivity** — scales the audio level before it is mapped to a color
+
+!!! note "Audio forwarding must be active"
+    Audio Reactive follows the audio stream being forwarded to the controller, whichever forwarding source is selected; audio forwarding must be active. Enable it in **Customization → Audio Forwarding** (see [Emulation](virtual-controller.md#audio-forwarding)); with no audio being forwarded, the lightbar stays at the quiet color.
 
 ## Player LEDs
 
