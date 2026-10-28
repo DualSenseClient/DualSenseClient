@@ -139,6 +139,13 @@
                             </ui:FASettingsExpanderItem.Footer>
                         </ui:FASettingsExpanderItem>
 
+                        <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Lightbar.RandomColor}"
+                                                   IsVisible="{Binding SelectedProfile.IsBreathingMode}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <ToggleSwitch IsChecked="{Binding SelectedProfile.LightbarRandomColor, Mode=TwoWay}" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+
                         <StackPanel Spacing="8"
                                     IsVisible="{Binding SelectedProfile.UsesBaseColor}">
                             <Grid ColumnDefinitions="Auto,*"
@@ -259,8 +266,6 @@
                                                           Value="{Binding SelectedProfile.BreathMax}" />
                                 </ui:FASettingsExpanderItem.Footer>
                             </ui:FASettingsExpanderItem>
-                            <ToggleButton Content="{DynamicResource CustomizationPage.Lightbar.RandomColor}"
-                                          IsChecked="{Binding SelectedProfile.LightbarRandomColor}" />
                         </StackPanel>
 
                         <!-- Battery -->

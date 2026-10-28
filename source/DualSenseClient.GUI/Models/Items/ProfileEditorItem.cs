@@ -393,13 +393,14 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Whether the currently selected mode uses the base lightbar color.
+    /// Whether the base lightbar color is shown. A random-color breath picks its own
+    /// hue, so the picked color would be misleading.
     /// </summary>
     public bool UsesBaseColor
     {
         get
         {
-            return IsSingleColorMode || IsBreathingMode || IsStrobeMode;
+            return IsSingleColorMode || IsStrobeMode || (IsBreathingMode && !LightbarRandomColor);
         }
     }
 
@@ -657,9 +658,13 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
     partial void OnLightbarSpeedChanged(double value) => Persist();
 
     /// <summary>
-    /// Persists the new random palette order.
+    /// Re-raises the base color visibility and persists the new random palette order.
     /// </summary>
-    partial void OnLightbarRandomColorChanged(bool value) => Persist();
+    partial void OnLightbarRandomColorChanged(bool value)
+    {
+        OnPropertyChanged(nameof(UsesBaseColor));
+        Persist();
+    }
 
     /// <summary>
     /// Persists the new breath minimum.
