@@ -1,3 +1,4 @@
+using DualSenseClient.Controllers.DualSense.Lightbar;
 using DualSenseClient.Settings;
 using DualSenseClient.Settings.Sections;
 
@@ -397,6 +398,38 @@ public class ProfileServiceTests
             Assert.That(loaded.Lightbar.AudioHighColor.Blue, Is.EqualTo(15));
             Assert.That(loaded.Lightbar.AudioSensitivity, Is.EqualTo(33));
             Assert.That(loaded.Lightbar.BatteryPlayerLeds, Is.True);
+        });
+    }
+
+    [Test]
+    public void Load_NullPaletteEntry_DropsItAndEvaluatesAndClones()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(ProfilesPath)!);
+        File.WriteAllText(
+            ProfilesPath,
+            """{"profiles":[{"name":"Null Palette","lightbar":{"mode":1,"colors":[{"red":10,"green":20,"blue":30},null]}}]}""");
+
+        Profile? profile = CreateService().GetProfile("Null Palette");
+
+        Assert.That(profile, Is.Not.Null);
+        Assert.That(
+            profile!.Lightbar.Colors.Select(c => (c.Red, c.Green, c.Blue)),
+            Is.EqualTo(new[]
+            {
+                ((byte)10, (byte)20, (byte)30)
+            }));
+
+        LightbarEffectResult result = LightbarEffectEvaluator.Evaluate(
+            new LightbarEffectContext
+            {
+                Settings = profile.Lightbar
+            });
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Frame.Red, Is.EqualTo(10));
+            Assert.That(result.Frame.Green, Is.EqualTo(20));
+            Assert.That(result.Frame.Blue, Is.EqualTo(30));
+            Assert.That(profile.Lightbar.Clone().Colors, Has.Count.EqualTo(1));
         });
     }
 
