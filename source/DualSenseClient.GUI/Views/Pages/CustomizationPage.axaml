@@ -105,33 +105,237 @@
                         <TextBlock Text="{DynamicResource CustomizationPage.Lightbar.Title}"
                                    FontWeight="SemiBold"
                                    Margin="0,4,0,0" />
-                        <Grid ColumnDefinitions="Auto,*"
-                              ColumnSpacing="16">
-                            <avalonia:ColorView Grid.Column="0"
-                                                Width="320"
-                                                Color="{Binding SelectedProfile.LightbarColor}"
-                                                IsColorSpectrumVisible="True"
-                                                IsColorPaletteVisible="True"
-                                                IsColorComponentsVisible="False"
-                                                IsColorPreviewVisible="True"
-                                                IsAlphaEnabled="False"
-                                                IsAlphaVisible="False" />
-                            <Grid Grid.Column="1"
-                                  RowDefinitions="Auto,*,Auto,*,Auto">
-                                <controls:SliderInput Grid.Row="0"
-                                                      Minimum="0"
-                                                      Maximum="255"
-                                                      Value="{Binding SelectedProfile.LedRed}" />
-                                <controls:SliderInput Grid.Row="2"
-                                                      Minimum="0"
-                                                      Maximum="255"
-                                                      Value="{Binding SelectedProfile.LedGreen}" />
-                                <controls:SliderInput Grid.Row="4"
-                                                      Minimum="0"
-                                                      Maximum="255"
-                                                      Value="{Binding SelectedProfile.LedBlue}" />
+
+                        <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Lightbar.Mode}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <ComboBox ItemsSource="{Binding LightbarModes}"
+                                          SelectedIndex="{Binding SelectedProfile.LightbarModeIndex}"
+                                          MinWidth="200" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+
+                        <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Lightbar.Brightness}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <controls:SliderInput Minimum="0"
+                                                      Maximum="100"
+                                                      Width="240"
+                                                      Value="{Binding SelectedProfile.LightbarBrightness}" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+
+                        <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Lightbar.Speed}"
+                                                   IsVisible="{Binding SelectedProfile.UsesSpeed}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <controls:SliderInput Minimum="0"
+                                                      Maximum="100"
+                                                      Width="240"
+                                                      Value="{Binding SelectedProfile.LightbarSpeed}" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
+
+                        <StackPanel Spacing="8"
+                                    IsVisible="{Binding SelectedProfile.UsesBaseColor}">
+                            <Grid ColumnDefinitions="Auto,*"
+                                  ColumnSpacing="16">
+                                <avalonia:ColorView Grid.Column="0"
+                                                    Width="320"
+                                                    Color="{Binding SelectedProfile.LightbarColor}"
+                                                    IsColorSpectrumVisible="True"
+                                                    IsColorPaletteVisible="True"
+                                                    IsColorComponentsVisible="False"
+                                                    IsColorPreviewVisible="True"
+                                                    IsAlphaEnabled="False"
+                                                    IsAlphaVisible="False" />
+                                <Grid Grid.Column="1"
+                                      RowDefinitions="Auto,*,Auto,*,Auto">
+                                    <controls:SliderInput Grid.Row="0"
+                                                          Minimum="0"
+                                                          Maximum="255"
+                                                          Value="{Binding SelectedProfile.LedRed}" />
+                                    <controls:SliderInput Grid.Row="2"
+                                                          Minimum="0"
+                                                          Maximum="255"
+                                                          Value="{Binding SelectedProfile.LedGreen}" />
+                                    <controls:SliderInput Grid.Row="4"
+                                                          Minimum="0"
+                                                          Maximum="255"
+                                                          Value="{Binding SelectedProfile.LedBlue}" />
+                                </Grid>
                             </Grid>
-                        </Grid>
+                        </StackPanel>
+
+                        <!-- Multi Color palette -->
+                        <StackPanel Spacing="8"
+                                    IsVisible="{Binding SelectedProfile.IsMultiColorMode}">
+                            <TextBlock Text="{DynamicResource CustomizationPage.Lightbar.Palette}"
+                                       FontWeight="SemiBold"
+                                       Margin="0,4,0,0" />
+                            <StackPanel Orientation="Horizontal"
+                                        Spacing="16">
+                                <ComboBox ItemsSource="{Binding SelectedProfile.Palette}"
+                                          SelectedItem="{Binding SelectedProfile.SelectedPaletteItem, Mode=TwoWay}"
+                                          MinWidth="220">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="items:LightbarPaletteItem">
+                                            <StackPanel Orientation="Horizontal"
+                                                        Spacing="8">
+                                                <Border Width="16"
+                                                        Height="16"
+                                                        CornerRadius="4"
+                                                        VerticalAlignment="Center"
+                                                        Background="{Binding Brush}" />
+                                                <TextBlock Text="{Binding Hex}"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <ToggleButton Content="{DynamicResource CustomizationPage.Lightbar.RandomColor}"
+                                              IsChecked="{Binding SelectedProfile.LightbarRandomColor}"
+                                              VerticalAlignment="Center" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal"
+                                        Spacing="8">
+                                <Button Content="{DynamicResource CustomizationPage.Lightbar.Palette.Add}"
+                                        Command="{Binding SelectedProfile.AddPaletteColorCommand}" />
+                                <Button Content="{DynamicResource CustomizationPage.Lightbar.Palette.Remove}"
+                                        Command="{Binding SelectedProfile.RemoveSelectedPaletteColorCommand}"
+                                        IsEnabled="{Binding SelectedProfile.HasSelectedPaletteColor}" />
+                                <Button Content="{DynamicResource CustomizationPage.Lightbar.Palette.Reset}"
+                                        Command="{Binding SelectedProfile.ResetPaletteCommand}" />
+                            </StackPanel>
+                            <Grid ColumnDefinitions="Auto,*"
+                                  ColumnSpacing="16"
+                                  IsVisible="{Binding SelectedProfile.HasSelectedPaletteColor}">
+                                <avalonia:ColorView Grid.Column="0"
+                                                    Width="320"
+                                                    Color="{Binding SelectedProfile.SelectedPaletteItem.Color, Mode=TwoWay}"
+                                                    IsColorSpectrumVisible="True"
+                                                    IsColorPaletteVisible="True"
+                                                    IsColorComponentsVisible="False"
+                                                    IsColorPreviewVisible="True"
+                                                    IsAlphaEnabled="False"
+                                                    IsAlphaVisible="False" />
+                                <Grid Grid.Column="1"
+                                      RowDefinitions="Auto,*,Auto,*,Auto">
+                                    <controls:SliderInput Grid.Row="0"
+                                                          Minimum="0"
+                                                          Maximum="255"
+                                                          Value="{Binding SelectedProfile.SelectedPaletteItem.Red}" />
+                                    <controls:SliderInput Grid.Row="2"
+                                                          Minimum="0"
+                                                          Maximum="255"
+                                                          Value="{Binding SelectedProfile.SelectedPaletteItem.Green}" />
+                                    <controls:SliderInput Grid.Row="4"
+                                                          Minimum="0"
+                                                          Maximum="255"
+                                                          Value="{Binding SelectedProfile.SelectedPaletteItem.Blue}" />
+                                </Grid>
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- Breathing -->
+                        <StackPanel Spacing="8"
+                                    IsVisible="{Binding SelectedProfile.IsBreathingMode}">
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Lightbar.Breath.Min}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <controls:SliderInput Minimum="0"
+                                                          Maximum="100"
+                                                          Width="240"
+                                                          Value="{Binding SelectedProfile.BreathMin}" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Lightbar.Breath.Max}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <controls:SliderInput Minimum="0"
+                                                          Maximum="100"
+                                                          Width="240"
+                                                          Value="{Binding SelectedProfile.BreathMax}" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ToggleButton Content="{DynamicResource CustomizationPage.Lightbar.RandomColor}"
+                                          IsChecked="{Binding SelectedProfile.LightbarRandomColor}" />
+                        </StackPanel>
+
+                        <!-- Battery -->
+                        <StackPanel Spacing="8"
+                                    IsVisible="{Binding SelectedProfile.IsBatteryMode}">
+                            <TextBlock Text="{DynamicResource CustomizationPage.Lightbar.Battery.Description}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" />
+                            <ItemsControl ItemsSource="{Binding SelectedProfile.BatteryColorPreviews}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Rows="1" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="items:LightbarColorPreview">
+                                        <Border Height="12"
+                                                Background="{Binding Brush}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <ToggleButton Content="{DynamicResource CustomizationPage.Lightbar.Battery.PlayerLeds}"
+                                          IsChecked="{Binding SelectedProfile.BatteryPlayerLeds}"
+                                          IsVisible="{Binding HasFullPlayerLedSupport}" />
+                        </StackPanel>
+
+                        <!-- Audio reactive -->
+                        <StackPanel Spacing="8"
+                                    IsVisible="{Binding SelectedProfile.IsAudioReactiveMode}">
+                            <UniformGrid Rows="1">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{DynamicResource CustomizationPage.Lightbar.Audio.Quiet}"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    <avalonia:ColorView Color="{Binding SelectedProfile.AudioLowColor, Mode=TwoWay}"
+                                                        IsColorSpectrumVisible="True"
+                                                        IsColorPaletteVisible="True"
+                                                        IsColorComponentsVisible="False"
+                                                        IsColorPreviewVisible="True"
+                                                        IsAlphaEnabled="False"
+                                                        IsAlphaVisible="False" />
+                                </StackPanel>
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{DynamicResource CustomizationPage.Lightbar.Audio.Medium}"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    <avalonia:ColorView Color="{Binding SelectedProfile.AudioMidColor, Mode=TwoWay}"
+                                                        IsColorSpectrumVisible="True"
+                                                        IsColorPaletteVisible="True"
+                                                        IsColorComponentsVisible="False"
+                                                        IsColorPreviewVisible="True"
+                                                        IsAlphaEnabled="False"
+                                                        IsAlphaVisible="False" />
+                                </StackPanel>
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{DynamicResource CustomizationPage.Lightbar.Audio.Loud}"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    <avalonia:ColorView Color="{Binding SelectedProfile.AudioHighColor, Mode=TwoWay}"
+                                                        IsColorSpectrumVisible="True"
+                                                        IsColorPaletteVisible="True"
+                                                        IsColorComponentsVisible="False"
+                                                        IsColorPreviewVisible="True"
+                                                        IsAlphaEnabled="False"
+                                                        IsAlphaVisible="False" />
+                                </StackPanel>
+                            </UniformGrid>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Lightbar.Audio.Sensitivity}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <controls:SliderInput Minimum="0"
+                                                          Maximum="100"
+                                                          Width="240"
+                                                          Value="{Binding SelectedProfile.AudioSensitivity}" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <TextBlock Text="{DynamicResource CustomizationPage.Lightbar.Audio.Hint}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
 
                         <!-- Microphone LED -->
                         <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.MicLed.Title}"

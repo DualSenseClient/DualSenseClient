@@ -261,6 +261,19 @@ public partial class CustomizationPageViewModel : ObservableObject
     ];
 
     /// <summary>
+    /// Lightbar mode options for the dropdown, in <see cref="LightbarMode"/> order.
+    /// </summary>
+    public ObservableCollection<string> LightbarModes { get; } =
+    [
+        LocalizationService.GetText("CustomizationPage.Lightbar.Mode.SingleColor"),
+        LocalizationService.GetText("CustomizationPage.Lightbar.Mode.MultiColor"),
+        LocalizationService.GetText("CustomizationPage.Lightbar.Mode.Breathing"),
+        LocalizationService.GetText("CustomizationPage.Lightbar.Mode.Strobe"),
+        LocalizationService.GetText("CustomizationPage.Lightbar.Mode.Battery"),
+        LocalizationService.GetText("CustomizationPage.Lightbar.Mode.AudioReactive")
+    ];
+
+    /// <summary>
     /// The profile currently being edited, or <c>null</c> when none exists.
     /// </summary>
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(DeleteProfileCommand))] [NotifyCanExecuteChangedFor(nameof(DuplicateProfileCommand))]
