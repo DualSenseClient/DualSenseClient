@@ -15,6 +15,13 @@ public class Profile
     public string Name { get; set; } = "Profile";
 
     /// <summary>
+    /// Gets or sets whether the profile's lightbar, player LEDs, and microphone LED take
+    /// precedence over the virtual controller's forwarded lighting.
+    /// </summary>
+    [JsonPropertyName("override_virtual_lights")]
+    public bool OverrideVirtualLights { get; set; }
+
+    /// <summary>
     /// Gets or sets the lightbar color preset.
     /// </summary>
     [JsonPropertyName("lightbar")]

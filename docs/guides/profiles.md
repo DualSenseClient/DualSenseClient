@@ -11,7 +11,7 @@ Open **Customization → Profiles**. You can:
 - **Rename** it in the name field
 - **Delete** it with the delete button
 
-The profile editor contains the [lightbar and player LED controls](light-control.md). Select a profile from the dropdown to edit it.
+The profile editor contains the [lightbar and player LED controls](light-control.md). Select a profile from the dropdown to edit it. Enable **Override virtual controller lights** below the name to keep the profile's lighting in control when a virtual controller forwards the game's lights.
 
 ![Profile editor on the Customization page](../assets/images/profiles.png)
 

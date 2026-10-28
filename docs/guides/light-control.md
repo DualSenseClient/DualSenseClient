@@ -11,6 +11,8 @@ The lightbar has a **mode** that decides what it shows, plus a shared **brightne
 !!! note "Passthrough takes over"
     When a virtual **DualSense** forwards the host's lighting, **Forward lightbar** suspends the profile's lightbar effect until it is turned off, and **Forward player LEDs** suppresses the profile's player-LED effects (Battery and Audio Reactive). With a virtual DualShock 4 the game's lightbar is still forwarded, but it does not suspend the profile effect. Passthroughs are configured under **Emulation → Virtual Controller → Passthroughs**.
 
+    To keep the profile in control instead, enable **Override virtual controller lights** below the profile name. While it is on, the profile's lightbar, player LEDs, and microphone LED are applied over the forwarded output; special actions still take priority.
+
 !!! note "Special Actions and manual edits"
     [Special Actions](special-actions.md) always win while they are applying light effects. Editing the lightbar directly on the [Device Info](device-info.md) page stops the effect until the profile is applied again.
 

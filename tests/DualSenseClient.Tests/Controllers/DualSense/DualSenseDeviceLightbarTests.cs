@@ -294,6 +294,30 @@ public class DualSenseDeviceLightbarTests
     }
 
     [Test]
+    public void AnimatedModeProfileOverrideSendsFramesDespitePassthrough()
+    {
+        RecordingHidDevice hid = new RecordingHidDevice();
+        using DualSenseDevice device = CreateDevice(hid);
+        device.LightbarPassthroughEnabled = true;
+        Profile profile = Profile(new LightbarSettings
+        {
+            Mode = LightbarMode.Breathing,
+            Red = 10,
+            Green = 20,
+            Blue = 30,
+            BreathMin = 100,
+            BreathMax = 100
+        });
+        profile.OverrideVirtualLights = true;
+
+        device.ApplyProfile(profile);
+        hid.Clear();
+        Thread.Sleep(150);
+
+        Assert.That(Snapshot(hid), Is.Not.Empty);
+    }
+
+    [Test]
     public void DisablingPassthroughResumesEffectImmediately()
     {
         RecordingHidDevice hid = new RecordingHidDevice();

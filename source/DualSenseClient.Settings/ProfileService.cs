@@ -205,6 +205,7 @@ public sealed class ProfileService
         Profile copy = new Profile
         {
             Name = GetUniqueProfileName($"{source.Name} Copy"),
+            OverrideVirtualLights = source.OverrideVirtualLights,
             Lightbar = source.Lightbar.Clone(),
             MicLed =
             {

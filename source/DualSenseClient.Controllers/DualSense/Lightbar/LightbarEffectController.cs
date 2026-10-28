@@ -66,6 +66,28 @@ public sealed class LightbarEffectController : IDisposable
     }
 
     /// <summary>
+    /// Whether the game owns the lightbar. A profile light override takes it back.
+    /// </summary>
+    private bool GameOwnsLightbar
+    {
+        get
+        {
+            return _device.LightbarPassthroughEnabled && !_device.ProfileLightsOverrideEnabled;
+        }
+    }
+
+    /// <summary>
+    /// Whether the game owns the player LEDs. A profile light override takes them back.
+    /// </summary>
+    private bool GameOwnsPlayerLeds
+    {
+        get
+        {
+            return _device.PlayerLedPassthroughEnabled && !_device.ProfileLightsOverrideEnabled;
+        }
+    }
+
+    /// <summary>
     /// Starts or updates the effect for the given settings. The settings are stored as-is,
     /// so callers must pass a snapshot they do not mutate afterwards.
     /// </summary>
@@ -133,7 +155,7 @@ public sealed class LightbarEffectController : IDisposable
     {
         lock (_lock)
         {
-            if (_disposed || _settings is null || _device.LightbarPassthroughEnabled || _device.LightbarEffectSuspended)
+            if (_disposed || _settings is null || GameOwnsLightbar || _device.LightbarEffectSuspended)
             {
                 frame = default;
                 return false;
@@ -141,7 +163,7 @@ public sealed class LightbarEffectController : IDisposable
 
             frame = EvaluateLocked();
 
-            if (_device.PlayerLedPassthroughEnabled)
+            if (GameOwnsPlayerLeds)
             {
                 frame = frame with
                 {
@@ -223,7 +245,7 @@ public sealed class LightbarEffectController : IDisposable
             try
             {
                 LightbarEffectFrame frame = EvaluateLocked();
-                if (_device.LightbarPassthroughEnabled || _device.LightbarEffectSuspended)
+                if (GameOwnsLightbar || _device.LightbarEffectSuspended)
                 {
                     return;
                 }
@@ -244,7 +266,7 @@ public sealed class LightbarEffectController : IDisposable
     /// </summary>
     private LightbarEffectFrame EvaluateLocked()
     {
-        _clock.Suspended = _device.LightbarPassthroughEnabled || _device.LightbarEffectSuspended;
+        _clock.Suspended = GameOwnsLightbar || _device.LightbarEffectSuspended;
 
         LightbarEffectResult result = LightbarEffectEvaluator.Evaluate(new LightbarEffectContext
         {
@@ -272,7 +294,7 @@ public sealed class LightbarEffectController : IDisposable
 
         // While the game owns the player LEDs the chase state is left untouched, so
         // releasing them restores the chase or the profile mask on the next tick.
-        if (!_device.PlayerLedPassthroughEnabled)
+        if (!GameOwnsPlayerLeds)
         {
             if (frame.PlayerLeds is PlayerLedMask chase)
             {
