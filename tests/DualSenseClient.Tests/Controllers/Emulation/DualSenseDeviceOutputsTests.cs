@@ -427,6 +427,216 @@ public class DualSenseDeviceOutputsTests
     }
 
     [Test]
+    public void SendOutputState_ProfileOverrideForcesProfileLights_WhenPassthroughEnabled()
+    {
+        RecordingHidDevice hid = new RecordingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
+        using SpecialActionEngine engine = new SpecialActionEngine();
+        engine.Attach(device);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        device.LightbarPassthroughEnabled = true;
+        device.PlayerLedPassthroughEnabled = true;
+        device.ApplyProfile(new Profile
+        {
+            Name = "Override",
+            OverrideVirtualLights = true,
+            Lightbar = new LightbarSettings
+            {
+                Red = 200,
+                Green = 100,
+                Blue = 50,
+                Brightness = 50
+            },
+            MicLed = new MicLedSettings
+            {
+                Mode = 2
+            },
+            PlayerLeds = new PlayerLedSettings
+            {
+                Mask = 0x0A
+            }
+        });
+        hid.Clear();
+
+        outputs.SendOutputState(new SetStateData
+        {
+            ValidFlag1 = ValidFlags.AllowLedColor | ValidFlags.AllowPlayerIndicators | ValidFlags.AllowMuteLight,
+            RumbleLeft = GameMarker,
+            MuteLedMode = 0,
+            PlayerLeds = (PlayerLedMask)0x11,
+            LedRed = 0x01,
+            LedGreen = 0x02,
+            LedBlue = 0x03
+        });
+
+        byte[] write = FindMergedWrite(hid);
+        Assert.Multiple(() =>
+        {
+            Assert.That(write[2] & (byte)ValidFlags.AllowLedColor, Is.Not.Zero);
+            Assert.That(write[2] & (byte)ValidFlags.AllowPlayerIndicators, Is.Not.Zero);
+            Assert.That(write[2] & (byte)ValidFlags.AllowMuteLight, Is.Not.Zero);
+            Assert.That(write[45], Is.EqualTo(100));
+            Assert.That(write[46], Is.EqualTo(50));
+            Assert.That(write[47], Is.EqualTo(25));
+            Assert.That(write[44], Is.EqualTo(0x0A));
+            Assert.That(write[9], Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public void SendOutputState_PlayerLedAction_KeepsProfileBaseColor_WhenEffectSuspended()
+    {
+        RecordingHidDevice hid = new RecordingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
+        using SpecialActionEngine engine = new SpecialActionEngine();
+        engine.Attach(device);
+        engine.UpdateActions([CreateSustainedPlayerLedsAction(0x05)]);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        Profile profile = AnimatedProfile();
+        profile.OverrideVirtualLights = true;
+        device.ApplyProfile(profile);
+        device.LightbarPassthroughEnabled = true;
+        HoldCombo(device);
+        hid.Clear();
+
+        outputs.SendOutputState(GameOutputWithMarker(0x01, 0x02, 0x03, (PlayerLedMask)0x1F));
+
+        byte[] write = FindMergedWrite(hid);
+        Assert.Multiple(() =>
+        {
+            Assert.That(write[44], Is.EqualTo(0x05));
+            Assert.That(write[45], Is.EqualTo(10));
+            Assert.That(write[46], Is.EqualTo(20));
+            Assert.That(write[47], Is.EqualTo(30));
+        });
+    }
+
+    [Test]
+    public void SendOutputState_ProfileOverrideOff_LeavesGameMicLedThrough()
+    {
+        RecordingHidDevice hid = new RecordingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
+        using SpecialActionEngine engine = new SpecialActionEngine();
+        engine.Attach(device);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        device.ApplyProfile(new Profile
+        {
+            Name = "Normal",
+            MicLed = new MicLedSettings
+            {
+                Mode = 2
+            }
+        });
+        hid.Clear();
+
+        outputs.SendOutputState(new SetStateData
+        {
+            ValidFlag1 = ValidFlags.AllowMuteLight,
+            RumbleLeft = GameMarker,
+            MuteLedMode = 1
+        });
+
+        byte[] write = FindMergedWrite(hid);
+        Assert.Multiple(() =>
+        {
+            Assert.That(write[2] & (byte)ValidFlags.AllowMuteLight, Is.Not.Zero);
+            Assert.That(write[9], Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void SendOutputState_ProfileOverrideOff_RestoresForwardedLights()
+    {
+        RecordingHidDevice hid = new RecordingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
+        using SpecialActionEngine engine = new SpecialActionEngine();
+        engine.Attach(device);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        device.LightbarPassthroughEnabled = true;
+        device.PlayerLedPassthroughEnabled = true;
+        Profile profile = new Profile
+        {
+            Name = "Override",
+            OverrideVirtualLights = true,
+            Lightbar = new LightbarSettings
+            {
+                Red = 200,
+                Green = 100,
+                Blue = 50,
+                Brightness = 100
+            },
+            PlayerLeds = new PlayerLedSettings
+            {
+                Mask = 0x0A
+            }
+        };
+        device.ApplyProfile(profile);
+        profile.OverrideVirtualLights = false;
+        device.ApplyProfile(profile);
+        hid.Clear();
+
+        outputs.SendOutputState(GameOutputWithMarker(0x01, 0x02, 0x03, (PlayerLedMask)0x1F));
+
+        byte[] write = FindMergedWrite(hid);
+        Assert.Multiple(() =>
+        {
+            Assert.That(write[45], Is.EqualTo(0x01));
+            Assert.That(write[46], Is.EqualTo(0x02));
+            Assert.That(write[47], Is.EqualTo(0x03));
+            Assert.That(write[44], Is.EqualTo(0x1F));
+        });
+    }
+
+    [Test]
+    public void SendOutputState_ChargingChaseRuns_WhenProfileOverrideEnabledDespitePassthrough()
+    {
+        RecordingHidDevice hid = new RecordingHidDevice(FirmwareReportGeneration2());
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
+        using SpecialActionEngine engine = new SpecialActionEngine();
+        engine.Attach(device);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        FeedReport(device, CreateChargingReport());
+        Profile profile = BatteryChaseProfile();
+        profile.OverrideVirtualLights = true;
+        device.ApplyProfile(profile);
+        device.PlayerLedPassthroughEnabled = true;
+        hid.Clear();
+
+        outputs.SendOutputState(GameOutputWithMarker(0x01, 0x02, 0x03, (PlayerLedMask)0x1F));
+
+        byte[] write = FindMergedWrite(hid);
+        Assert.Multiple(() =>
+        {
+            Assert.That(write[44], Is.AnyOf(0x01, 0x02, 0x04, 0x08, 0x10));
+            Assert.That(write[2] & (byte)ValidFlags.AllowPlayerIndicators, Is.Not.Zero);
+        });
+    }
+
+    [Test]
+    public void NeedsOutputStateBlock_TrueWhenProfileOverrideEnabled()
+    {
+        RecordingHidDevice hid = new RecordingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
+        using SpecialActionEngine engine = new SpecialActionEngine();
+        engine.Attach(device);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        device.ApplyProfile(new Profile
+        {
+            Name = "Override",
+            OverrideVirtualLights = true,
+            Lightbar = new LightbarSettings
+            {
+                Red = 1,
+                Green = 2,
+                Blue = 3
+            }
+        });
+        device.LightbarPassthroughEnabled = true;
+
+        Assert.That(outputs.NeedsOutputStateBlock, Is.True);
+    }
+
+    [Test]
     public void SendOutputState_SpecialActionWinsOverEffect()
     {
         RecordingHidDevice hid = new RecordingHidDevice();
@@ -734,7 +944,8 @@ public class DualSenseDeviceOutputsTests
             {
                 Red = 200,
                 Green = 100,
-                Blue = 50
+                Blue = 50,
+                Brightness = 50
             },
             PlayerLeds = new PlayerLedSettings
             {
@@ -760,9 +971,9 @@ public class DualSenseDeviceOutputsTests
         Assert.Multiple(() =>
         {
             Assert.That(report[44], Is.EqualTo(0x0A));
-            Assert.That(report[45], Is.EqualTo(200));
-            Assert.That(report[46], Is.EqualTo(100));
-            Assert.That(report[47], Is.EqualTo(50));
+            Assert.That(report[45], Is.EqualTo(100));
+            Assert.That(report[46], Is.EqualTo(50));
+            Assert.That(report[47], Is.EqualTo(25));
         });
 
         engine.Dispose();
@@ -899,5 +1110,30 @@ public class DualSenseDeviceOutputsTests
 
         engine.Dispose();
         device.Dispose();
+    }
+
+    [Test]
+    public void StopLightbarAnimation_StopsRestoringProfileLights()
+    {
+        RecordingHidDevice hid = new RecordingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
+        using SpecialActionEngine engine = new SpecialActionEngine();
+        engine.Attach(device);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        device.ApplyProfile(new Profile
+        {
+            Name = "Single",
+            Lightbar = new LightbarSettings
+            {
+                Red = 1,
+                Green = 2,
+                Blue = 3
+            }
+        });
+
+        Assert.That(outputs.NeedsOutputStateBlock, Is.True);
+
+        device.StopLightbarAnimation();
+        Assert.That(outputs.NeedsOutputStateBlock, Is.False, "a manual edit owns the lights until the profile is applied again");
     }
 }

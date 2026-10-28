@@ -192,6 +192,9 @@
     <sys:String x:Key="CustomizationPage.MicLed.Title">Microphone LED</sys:String>
     <!-- Name -->
     <sys:String x:Key="CustomizationPage.Name.Title">Name</sys:String>
+    <!-- OverrideVirtualLights -->
+    <sys:String x:Key="CustomizationPage.OverrideVirtualLights.Title">Override virtual controller lights</sys:String>
+    <sys:String x:Key="CustomizationPage.OverrideVirtualLights.Description">Use this profile's lightbar, player LEDs, and microphone LED instead of the virtual controller's output</sys:String>
     <!-- OutputTest -->
     <sys:String x:Key="CustomizationPage.OutputTest.Triggers.End">End position</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Triggers.Force">Force</sys:String>

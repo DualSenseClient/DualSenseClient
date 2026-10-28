@@ -100,6 +100,12 @@
                                          Width="280" />
                             </ui:FASettingsExpanderItem.Footer>
                         </ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.OverrideVirtualLights.Title}"
+                                                   Description="{DynamicResource CustomizationPage.OverrideVirtualLights.Description}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <ToggleSwitch IsChecked="{Binding SelectedProfile.OverrideVirtualLights, Mode=TwoWay}" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
 
                         <!-- Lightbar color -->
                         <TextBlock Text="{DynamicResource CustomizationPage.Lightbar.Title}"

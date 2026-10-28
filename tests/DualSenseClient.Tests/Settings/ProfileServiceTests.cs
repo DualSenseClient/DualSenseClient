@@ -238,6 +238,7 @@ public class ProfileServiceTests
         profile.Lightbar.Blue = 0xCC;
         profile.MicLed.Mode = 2;
         profile.PlayerLeds.Mask = 0x07;
+        profile.OverrideVirtualLights = true;
         service.Save();
 
         ProfileService reloaded = CreateService();
@@ -250,6 +251,7 @@ public class ProfileServiceTests
             Assert.That(loaded.Lightbar.Blue, Is.EqualTo(0xCC));
             Assert.That(loaded.MicLed.Mode, Is.EqualTo(2));
             Assert.That(loaded.PlayerLeds.Mask, Is.EqualTo(0x07));
+            Assert.That(loaded.OverrideVirtualLights, Is.True);
         });
     }
 
@@ -263,6 +265,7 @@ public class ProfileServiceTests
         source.Lightbar.Blue = 0x56;
         source.MicLed.Mode = 1;
         source.PlayerLeds.Mask = 0x05;
+        source.OverrideVirtualLights = true;
         service.Save();
 
         Profile? copy = service.DuplicateProfile("Night Mode");
@@ -276,6 +279,7 @@ public class ProfileServiceTests
             Assert.That(copy.Lightbar.Blue, Is.EqualTo(0x56));
             Assert.That(copy.MicLed.Mode, Is.EqualTo(1));
             Assert.That(copy.PlayerLeds.Mask, Is.EqualTo(0x05));
+            Assert.That(copy.OverrideVirtualLights, Is.True);
             Assert.That(service.GetProfile("Night Mode"), Is.Not.Null);
         });
 
@@ -323,7 +327,21 @@ public class ProfileServiceTests
             Assert.That(legacy.Lightbar.BatteryPlayerLeds, Is.False);
             Assert.That(legacy.Lightbar.BatteryPlayerLedSpeed, Is.EqualTo(50));
             Assert.That(legacy.Lightbar.BatteryLevelPlayerLeds, Is.False);
+            Assert.That(legacy.OverrideVirtualLights, Is.False);
         });
+    }
+
+    [Test]
+    public void Load_OverrideVirtualLights_UsesJsonKey()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(ProfilesPath)!);
+        File.WriteAllText(
+            ProfilesPath,
+            """{"profiles":[{"name":"Override","override_virtual_lights":true}]}""");
+
+        Profile? profile = CreateService().GetProfile("Override");
+
+        Assert.That(profile?.OverrideVirtualLights, Is.True);
     }
 
     [Test]

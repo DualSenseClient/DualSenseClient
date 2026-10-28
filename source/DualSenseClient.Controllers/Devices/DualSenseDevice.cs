@@ -91,8 +91,9 @@ public class DualSenseDevice : ControllerDevice
     private volatile bool _playerLedPassthrough;
 
     /// <summary>
-    /// The applied profile's light values, or null before a profile is applied. Kept so
-    /// the audio lane can restore them whenever the game does not own the channel.
+    /// The applied profile's light values, or null before a profile is applied. The values
+    /// are also kept when the profile does not force them, so the audio lane can restore
+    /// the profile's static lights whenever the game does not own them.
     /// </summary>
     private volatile ProfileLights? _profileLights;
 
@@ -102,10 +103,16 @@ public class DualSenseDevice : ControllerDevice
     private volatile bool _lightbarEffectSuspended;
 
     /// <summary>
-    /// The light values an applied profile writes. Immutable so the output thread sees a
-    /// consistent snapshot.
+    /// The light values an applied profile writes. Immutable so the output thread sees
+    /// a consistent snapshot.
     /// </summary>
-    private sealed record ProfileLights(byte Red, byte Green, byte Blue, PlayerLedMask PlayerLeds);
+    private sealed record ProfileLights(
+        byte Red,
+        byte Green,
+        byte Blue,
+        PlayerLedMask PlayerLeds,
+        byte MuteLedMode,
+        bool ForceOverGame);
 
     /// <summary>
     /// Last raw battery byte, or -1 before the first input report.
@@ -383,14 +390,29 @@ public class DualSenseDevice : ControllerDevice
     }
 
     /// <summary>
-    /// Gets the applied profile's light values.
+    /// Gets whether the applied profile forces its lightbar, player LEDs, and microphone
+    /// LED over the virtual controller's forwarded lighting.
+    /// </summary>
+    public bool ProfileLightsOverrideEnabled
+    {
+        get
+        {
+            return _profileLights is { ForceOverGame: true };
+        }
+    }
+
+    /// <summary>
+    /// Gets the applied profile's light values and whether it forces them over the
+    /// virtual controller's forwarded lighting.
     /// </summary>
     /// <returns><c>true</c> when a profile has been applied.</returns>
     internal bool TryGetProfileLights(
         out byte red,
         out byte green,
         out byte blue,
-        out PlayerLedMask playerLeds)
+        out PlayerLedMask playerLeds,
+        out byte muteLedMode,
+        out bool forceOverGame)
     {
         if (_profileLights is { } value)
         {
@@ -398,6 +420,8 @@ public class DualSenseDevice : ControllerDevice
             green = value.Green;
             blue = value.Blue;
             playerLeds = value.PlayerLeds;
+            muteLedMode = value.MuteLedMode;
+            forceOverGame = value.ForceOverGame;
             return true;
         }
 
@@ -405,6 +429,8 @@ public class DualSenseDevice : ControllerDevice
         green = 0;
         blue = 0;
         playerLeds = PlayerLedMask.None;
+        muteLedMode = 0;
+        forceOverGame = false;
         return false;
     }
 
@@ -692,7 +718,9 @@ public class DualSenseDevice : ControllerDevice
             baseRed,
             baseGreen,
             baseBlue,
-            (PlayerLedMask)profile.PlayerLeds.Mask);
+            (PlayerLedMask)profile.PlayerLeds.Mask,
+            profile.MicLed.Mode,
+            profile.OverrideVirtualLights);
 
         // Start the effect before the base write: a Single Color apply stops an old
         // animation first, so no in-flight tick can overwrite the one-shot color.
@@ -735,8 +763,13 @@ public class DualSenseDevice : ControllerDevice
 
     /// <summary>
     /// Stops the profile's animated lightbar effect, leaving the current frame on screen.
+    /// Drops the stored profile lights so a manual edit is not overwritten by the audio lane.
     /// </summary>
-    public void StopLightbarAnimation() => _lightbarEffect.Stop();
+    public void StopLightbarAnimation()
+    {
+        _lightbarEffect.Stop();
+        _profileLights = null;
+    }
 
     /// <summary>
     /// Gets the current lightbar effect frame for consumers that merge effect colors.

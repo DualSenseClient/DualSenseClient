@@ -128,8 +128,9 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
         get
         {
             OutputStateOverride overrideState = _specialActions.OutputOverride;
-            bool profileLights = _device.TryGetProfileLights(out _, out _, out _, out _)
-                                 && (!_device.LightbarPassthroughEnabled
+            bool profileLights = _device.TryGetProfileLights(out _, out _, out _, out _, out _, out bool force)
+                                 && (force
+                                     || !_device.LightbarPassthroughEnabled
                                      || !_device.PlayerLedPassthroughEnabled);
             return overrideState.LightbarColor is not null
                    || overrideState.PlayerLeds is not null
@@ -171,9 +172,9 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
     /// the fields held by the active special actions (lightbar color, player LEDs) over
     /// the payload, so neither the game's output nor a plain passthrough can overwrite
     /// them. The profile's lightbar and player LEDs are only restored while the game does
-    /// not own that channel. Effects are applied first and actions afterwards, so an
-    /// action always wins. Fields nothing holds pass through unchanged. Returns the
-    /// payload unchanged when nothing is driving the lights.
+    /// not own that channel, or when the profile forces them. Effects are applied first
+    /// and actions afterwards, so an action always wins. Fields nothing holds pass
+    /// through unchanged. Returns the payload unchanged when nothing is driving the lights.
     /// </summary>
     private SetStateData ApplyOutputOverride(SetStateData payload)
     {
@@ -187,10 +188,13 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
             out byte profileRed,
             out byte profileGreen,
             out byte profileBlue,
-            out PlayerLedMask profileLeds);
-        bool profileLightbar = hasProfile && !_device.LightbarPassthroughEnabled;
-        bool profilePlayerLeds = hasProfile && !_device.PlayerLedPassthroughEnabled;
-        if (color is null && leds is null && !hasFrame && !profileLightbar && !profilePlayerLeds)
+            out PlayerLedMask profileLeds,
+            out byte profileMuteLed,
+            out bool forceOverGame);
+        bool profileLightbar = hasProfile && (forceOverGame || !_device.LightbarPassthroughEnabled);
+        bool profilePlayerLeds = hasProfile && (forceOverGame || !_device.PlayerLedPassthroughEnabled);
+        bool profileMute = hasProfile && forceOverGame;
+        if (color is null && leds is null && !hasFrame && !profileLightbar && !profilePlayerLeds && !profileMute)
         {
             return payload;
         }
@@ -251,6 +255,15 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
                     PlayerLeds = profileLeds
                 };
             }
+        }
+
+        if (profileMute)
+        {
+            copy = copy with
+            {
+                ValidFlag1 = copy.ValidFlag1 | ValidFlags.AllowMuteLight,
+                MuteLedMode = profileMuteLed
+            };
         }
 
         if (color is not null || leds is not null)

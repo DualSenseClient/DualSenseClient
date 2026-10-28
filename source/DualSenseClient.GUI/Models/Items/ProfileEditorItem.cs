@@ -158,6 +158,11 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
     }
 
     /// <summary>
+    /// Whether the profile's lights take precedence over the virtual controller's output.
+    /// </summary>
+    [ObservableProperty] private bool _overrideVirtualLights;
+
+    /// <summary>
     /// Lightbar red channel (0-255).
     /// </summary>
     [ObservableProperty] private double _ledRed;
@@ -498,6 +503,7 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
         Profile = profile;
         _profileService = profileService;
 
+        _overrideVirtualLights = profile.OverrideVirtualLights;
         _ledRed = profile.Lightbar.Red;
         _ledGreen = profile.Lightbar.Green;
         _ledBlue = profile.Lightbar.Blue;
@@ -541,6 +547,11 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
         };
         _saveTimer.Tick += (_, _) => CommitPendingChanges();
     }
+
+    /// <summary>
+    /// Persists the new virtual lighting override.
+    /// </summary>
+    partial void OnOverrideVirtualLightsChanged(bool value) => Persist();
 
     /// <summary>
     /// Re-raises the derived color properties and persists the new lightbar color.
@@ -827,6 +838,7 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
             return;
         }
 
+        Profile.OverrideVirtualLights = OverrideVirtualLights;
         Profile.Lightbar.Red = Channel(LedRed);
         Profile.Lightbar.Green = Channel(LedGreen);
         Profile.Lightbar.Blue = Channel(LedBlue);
