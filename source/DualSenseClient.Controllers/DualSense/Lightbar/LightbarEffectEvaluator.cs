@@ -1,6 +1,7 @@
 using DualSenseClient.Controllers.DualSense.Enum;
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.DualSense.Output;
+using DualSenseClient.Controllers.SpecialActions;
 using DualSenseClient.Settings.Sections;
 
 namespace DualSenseClient.Controllers.DualSense.Lightbar;
@@ -242,23 +243,59 @@ public static class LightbarEffectEvaluator
     {
         LightbarSettings settings = context.Settings;
         bool charging = context.Battery?.PowerState == BatteryPowerState.Charging;
+        bool animate = charging && settings.BatteryChargingAnimation;
 
-        int index = charging
-            ? (int)(context.ElapsedSeconds / 0.5) % 10
-            : band;
+        BatteryLevelColor from;
+        BatteryLevelColor to;
+        double blend;
 
-        BatteryLevelColor color = BatteryColors[index];
-        (byte red, byte green, byte blue) =
-            ApplyBrightness(color.Red, color.Green, color.Blue, settings.Brightness);
+        if (animate)
+        {
+            // One full cycle takes 10 s at speed 0 and 1 s at speed 100; each
+            // step crossfades into the next level color instead of switching.
+            double cycleSeconds = 10 - Math.Clamp(settings.Speed, 0, 100) / 100.0 * 9;
+            double stepSeconds = cycleSeconds / BatteryColors.Length;
+            double position = context.ElapsedSeconds / stepSeconds;
+            int step = (int)Math.Floor(position);
+            blend = position - step;
+            from = BatteryColors[step % BatteryColors.Length];
+            to = BatteryColors[(step + 1) % BatteryColors.Length];
+        }
+        else
+        {
+            from = BatteryColors[band];
+            to = from;
+            blend = 0;
+        }
+
+        (byte red, byte green, byte blue) = ApplyBrightness(
+            Blend(from.Red, to.Red),
+            Blend(from.Green, to.Green),
+            Blend(from.Blue, to.Blue),
+            settings.Brightness);
 
         PlayerLedMask? playerLeds = null;
 
-        if (charging && settings.BatteryPlayerLeds && context.FullPlayerLedSupport)
+        if (context.FullPlayerLedSupport)
         {
-            playerLeds = (PlayerLedMask)(1 << ((int)(context.ElapsedSeconds / 0.25) % 5));
+            if (charging && settings.BatteryPlayerLeds)
+            {
+                // One full chase takes 2 s at speed 0 and 0.5 s at speed 100.
+                double stepSeconds = (2 - Math.Clamp(settings.BatteryPlayerLedSpeed, 0, 100) / 100.0 * 1.5) / 5;
+                playerLeds = (PlayerLedMask)(1 << ((int)(context.ElapsedSeconds / stepSeconds) % 5));
+            }
+            else if (settings.BatteryLevelPlayerLeds && context.Battery?.Percentage is int percentage)
+            {
+                playerLeds = (PlayerLedMask)SpecialActionEngine.BatteryPercentageToPlayerLedMask(percentage);
+            }
         }
 
         return new LightbarEffectFrame(red, green, blue, playerLeds);
+
+        byte Blend(byte start, byte end)
+        {
+            return (byte)Math.Round(start + (end - start) * blend, MidpointRounding.AwayFromZero);
+        }
     }
 
     private static LightbarEffectFrame EvaluateStrobe(in LightbarEffectContext context)
@@ -306,7 +343,19 @@ public static class LightbarEffectEvaluator
             Blend(start.Blue, end.Blue),
             settings.Brightness);
 
-        return new LightbarEffectFrame(red, green, blue, null);
+        PlayerLedMask? playerLeds = null;
+
+        if (context.FullPlayerLedSupport && settings.AudioPlayerLeds)
+        {
+            int litLeds = level >= 0.8f ? 5
+                : level >= 0.6f ? 4
+                : level >= 0.4f ? 3
+                : level >= 0.2f ? 2
+                : 1;
+            playerLeds = (PlayerLedMask)((1 << litLeds) - 1);
+        }
+
+        return new LightbarEffectFrame(red, green, blue, playerLeds);
 
         byte Blend(byte startChannel, byte endChannel)
         {

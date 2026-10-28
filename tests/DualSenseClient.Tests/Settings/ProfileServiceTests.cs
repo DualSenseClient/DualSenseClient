@@ -318,7 +318,11 @@ public class ProfileServiceTests
             Assert.That(legacy.Lightbar.Brightness, Is.EqualTo(100));
             Assert.That(legacy.Lightbar.Colors, Has.Count.EqualTo(6));
             Assert.That(legacy.Lightbar.AudioLowColor.Blue, Is.EqualTo(255));
+            Assert.That(legacy.Lightbar.AudioPlayerLeds, Is.False);
+            Assert.That(legacy.Lightbar.BatteryChargingAnimation, Is.True);
             Assert.That(legacy.Lightbar.BatteryPlayerLeds, Is.False);
+            Assert.That(legacy.Lightbar.BatteryPlayerLedSpeed, Is.EqualTo(50));
+            Assert.That(legacy.Lightbar.BatteryLevelPlayerLeds, Is.False);
         });
     }
 
@@ -334,7 +338,11 @@ public class ProfileServiceTests
         profile.Lightbar.BreathMin = 10;
         profile.Lightbar.BreathMax = 90;
         profile.Lightbar.AudioSensitivity = 33;
+        profile.Lightbar.AudioPlayerLeds = true;
+        profile.Lightbar.BatteryChargingAnimation = false;
         profile.Lightbar.BatteryPlayerLeds = true;
+        profile.Lightbar.BatteryPlayerLedSpeed = 80;
+        profile.Lightbar.BatteryLevelPlayerLeds = true;
         profile.Lightbar.Colors =
         [
             new LightbarColorSetting
@@ -397,7 +405,11 @@ public class ProfileServiceTests
             Assert.That(loaded.Lightbar.AudioHighColor.Green, Is.EqualTo(14));
             Assert.That(loaded.Lightbar.AudioHighColor.Blue, Is.EqualTo(15));
             Assert.That(loaded.Lightbar.AudioSensitivity, Is.EqualTo(33));
+            Assert.That(loaded.Lightbar.AudioPlayerLeds, Is.True);
+            Assert.That(loaded.Lightbar.BatteryChargingAnimation, Is.False);
             Assert.That(loaded.Lightbar.BatteryPlayerLeds, Is.True);
+            Assert.That(loaded.Lightbar.BatteryPlayerLedSpeed, Is.EqualTo(80));
+            Assert.That(loaded.Lightbar.BatteryLevelPlayerLeds, Is.True);
         });
     }
 

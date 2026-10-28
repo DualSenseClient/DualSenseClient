@@ -160,10 +160,13 @@
     <sys:String x:Key="CustomizationPage.Lightbar.Audio.Hint">Follows the audio being forwarded to the controller. Audio forwarding must be active.</sys:String>
     <sys:String x:Key="CustomizationPage.Lightbar.Audio.Loud">Loud color</sys:String>
     <sys:String x:Key="CustomizationPage.Lightbar.Audio.Medium">Medium color</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Audio.PlayerLeds">Show audio level on player LEDs</sys:String>
     <sys:String x:Key="CustomizationPage.Lightbar.Audio.Quiet">Quiet color</sys:String>
     <sys:String x:Key="CustomizationPage.Lightbar.Audio.Sensitivity">Sensitivity</sys:String>
-    <sys:String x:Key="CustomizationPage.Lightbar.Battery.Description">Shows the controller's charge level. While charging, the lightbar cycles through all ten level colors.</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Battery.Description">Shows the controller's charge level. While charging, the lightbar can crossfade through all ten level colors.</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Battery.Lightbar">Animate lightbar while charging</sys:String>
     <sys:String x:Key="CustomizationPage.Lightbar.Battery.PlayerLeds">Animate player LEDs while charging</sys:String>
+    <sys:String x:Key="CustomizationPage.Lightbar.Battery.LevelPlayerLeds">Show battery level on player LEDs</sys:String>
     <sys:String x:Key="CustomizationPage.Lightbar.Breath.Max">Maximum intensity</sys:String>
     <sys:String x:Key="CustomizationPage.Lightbar.Breath.Min">Minimum intensity</sys:String>
     <sys:String x:Key="CustomizationPage.Lightbar.Brightness">Brightness</sys:String>

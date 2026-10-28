@@ -272,15 +272,41 @@ public class LightbarEffectEvaluatorTests
         BatteryState charging = new BatteryState(0x17);
 
         AssertFrame(EvaluateBattery(0, charging), 255, 60, 60);
-        AssertFrame(EvaluateBattery(0.5, charging), 255, 90, 50);
-        AssertFrame(EvaluateBattery(4.5, charging), 40, 180, 110);
-        AssertFrame(EvaluateBattery(5.0, charging), 255, 60, 60);
+        AssertFrame(EvaluateBattery(1, charging), 255, 90, 50);
+        AssertFrame(EvaluateBattery(9, charging), 40, 180, 110);
+        AssertFrame(EvaluateBattery(10, charging), 255, 60, 60);
+    }
+
+    [Test]
+    public void Battery_Charging_CrossfadesBetweenBands() => AssertFrame(EvaluateBattery(0.5, new BatteryState(0x17)), 255, 75, 55);
+
+    [Test]
+    public void Battery_ChargingAnimationSpeed_ChangesCrossfadeRate()
+    {
+        LightbarEffectResult result = LightbarEffectEvaluator.Evaluate(
+            Build(LightbarMode.Battery, 0.05, speed: 100, battery: new BatteryState(0x17)));
+
+        AssertFrame(result, 255, 75, 55);
+    }
+
+    [Test]
+    public void Battery_ChargingAnimationDisabled_ShowsCurrentBand()
+    {
+        LightbarEffectResult result = LightbarEffectEvaluator.Evaluate(
+            Build(
+                LightbarMode.Battery,
+                1.25,
+                battery: new BatteryState(0x17),
+                batteryChargingAnimation: false));
+
+        AssertFrame(result, 180, 235, 50);
+        Assert.That(result.BatteryBand, Is.EqualTo(6));
     }
 
     [Test]
     public void Battery_ChargingStops_ReturnsToLevelColor()
     {
-        AssertFrame(EvaluateBattery(0.5, new BatteryState(0x17)), 255, 90, 50);
+        AssertFrame(EvaluateBattery(1, new BatteryState(0x17)), 255, 90, 50);
         AssertFrame(EvaluateBattery(0.5, new BatteryState(0x07)), 110, 220, 60);
     }
 
@@ -312,6 +338,75 @@ public class LightbarEffectEvaluatorTests
         Assert.That(EvaluateBatteryFrame(0.75, charging, true, true).PlayerLeds, Is.EqualTo(PlayerLedMask.Led4));
         Assert.That(EvaluateBatteryFrame(1.0, charging, true, true).PlayerLeds, Is.EqualTo(PlayerLedMask.Led5));
         Assert.That(EvaluateBatteryFrame(1.25, charging, true, true).PlayerLeds, Is.EqualTo(PlayerLedMask.Led1));
+    }
+
+    [Test]
+    public void Battery_ChaseSpeedControlsStepInterval()
+    {
+        BatteryState charging = new BatteryState(0x17);
+
+        Assert.That(
+            EvaluateBatteryFrame(0.39, charging, true, true, batteryPlayerLedSpeed: 0).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.Led1));
+        Assert.That(
+            EvaluateBatteryFrame(0.41, charging, true, true, batteryPlayerLedSpeed: 0).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.Led2));
+        Assert.That(
+            EvaluateBatteryFrame(0.09, charging, true, true, batteryPlayerLedSpeed: 100).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.Led1));
+        Assert.That(
+            EvaluateBatteryFrame(0.11, charging, true, true, batteryPlayerLedSpeed: 100).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.Led2));
+    }
+
+    [Test]
+    public void Battery_LevelPlayerLeds_LightCumulativeGates()
+    {
+        Assert.That(
+            EvaluateBatteryFrame(0, new BatteryState(0x12), fullPlayerLedSupport: true, batteryLevelPlayerLeds: true).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.Led1));
+        Assert.That(
+            EvaluateBatteryFrame(0, new BatteryState(0x14), fullPlayerLedSupport: true, batteryLevelPlayerLeds: true).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.Led1 | PlayerLedMask.Led2));
+        Assert.That(
+            EvaluateBatteryFrame(0, new BatteryState(0x16), fullPlayerLedSupport: true, batteryLevelPlayerLeds: true).PlayerLeds,
+            Is.EqualTo((PlayerLedMask)0x07));
+        Assert.That(
+            EvaluateBatteryFrame(0, new BatteryState(0x18), fullPlayerLedSupport: true, batteryLevelPlayerLeds: true).PlayerLeds,
+            Is.EqualTo((PlayerLedMask)0x0F));
+        Assert.That(
+            EvaluateBatteryFrame(0, new BatteryState(0x1A), fullPlayerLedSupport: true, batteryLevelPlayerLeds: true).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.All));
+    }
+
+    [Test]
+    public void Battery_LevelPlayerLeds_ChargingChaseWinsOverLevel()
+    {
+        Assert.That(
+            EvaluateBatteryFrame(0, new BatteryState(0x1A), true, true, true).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.Led1));
+        Assert.That(
+            EvaluateBatteryFrame(0.25, new BatteryState(0x1A), true, true, true).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.Led2));
+    }
+
+    [Test]
+    public void Battery_LevelPlayerLeds_ShowsLevelWhileDischarging()
+    {
+        Assert.That(
+            EvaluateBatteryFrame(0, new BatteryState(0x07), true, true, true).PlayerLeds,
+            Is.EqualTo((PlayerLedMask)0x0F));
+    }
+
+    [Test]
+    public void Battery_LevelPlayerLeds_UnknownLevelOrNoSupport_LeavesPlayerLedsAlone()
+    {
+        Assert.That(
+            EvaluateBatteryFrame(0, new BatteryState(0xF0), fullPlayerLedSupport: true, batteryLevelPlayerLeds: true).PlayerLeds,
+            Is.Null);
+        Assert.That(
+            EvaluateBatteryFrame(0, new BatteryState(0x1A), batteryLevelPlayerLeds: true).PlayerLeds,
+            Is.Null);
     }
 
     [Test]
@@ -387,17 +482,119 @@ public class LightbarEffectEvaluatorTests
         AssertFrame(result, 0, 40, 128);
     }
 
+    [Test]
+    public void AudioReactive_PlayerLeds_Quiet_ShowsFirstLed()
+    {
+        Assert.That(
+            EvaluateAudioFrame(0.04f, true, true).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.Led1));
+    }
+
+    [Test]
+    public void AudioReactive_PlayerLeds_SecondStep_ShowsFirstTwoLeds()
+    {
+        Assert.That(
+            EvaluateAudioFrame(0.075f, true, true).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.Led1 | PlayerLedMask.Led2));
+    }
+
+    [Test]
+    public void AudioReactive_PlayerLeds_Medium_ShowsFirstThreeLeds()
+    {
+        Assert.That(
+            EvaluateAudioFrame(0.125f, true, true).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.Led1 | PlayerLedMask.Led2 | PlayerLedMask.Led3));
+    }
+
+    [Test]
+    public void AudioReactive_PlayerLeds_FourthStep_ShowsFirstFourLeds()
+    {
+        Assert.That(
+            EvaluateAudioFrame(0.175f, true, true).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.Led1 | PlayerLedMask.Led2 | PlayerLedMask.Led3 | PlayerLedMask.Led4));
+    }
+
+    [Test]
+    public void AudioReactive_PlayerLeds_Loud_ShowsAllLeds()
+    {
+        Assert.That(
+            EvaluateAudioFrame(0.25f, true, true).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.All));
+    }
+
+    [Test]
+    public void AudioReactive_PlayerLeds_GatesAtFifths()
+    {
+        Assert.That(
+            EvaluateAudioFrame(0.05f, true, true).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.Led1 | PlayerLedMask.Led2));
+        Assert.That(
+            EvaluateAudioFrame(0.1f, true, true).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.Led1 | PlayerLedMask.Led2 | PlayerLedMask.Led3));
+        Assert.That(
+            EvaluateAudioFrame(0.15f, true, true).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.Led1 | PlayerLedMask.Led2 | PlayerLedMask.Led3 | PlayerLedMask.Led4));
+        Assert.That(
+            EvaluateAudioFrame(0.2f, true, true).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.All));
+    }
+
+    [Test]
+    public void AudioReactive_PlayerLeds_Disabled_LeavesPlayerLedsAlone()
+    {
+        Assert.That(
+            EvaluateAudioFrame(0.2f, false, true).PlayerLeds,
+            Is.Null);
+    }
+
+    [Test]
+    public void AudioReactive_PlayerLeds_NoFullSupport_LeavesPlayerLedsAlone()
+    {
+        Assert.That(
+            EvaluateAudioFrame(0.2f, true, false).PlayerLeds,
+            Is.Null);
+    }
+
+    [Test]
+    public void AudioReactive_PlayerLeds_UsesSensitivityScaledLevel()
+    {
+        Assert.That(
+            EvaluateAudioFrame(0.1f, true, true, 0).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.Led1));
+        Assert.That(
+            EvaluateAudioFrame(0.1f, true, true, 100).PlayerLeds,
+            Is.EqualTo(PlayerLedMask.Led1 | PlayerLedMask.Led2 | PlayerLedMask.Led3));
+    }
+
+    private static LightbarEffectFrame EvaluateAudioFrame(
+        float audioLevel,
+        bool audioPlayerLeds = false,
+        bool fullPlayerLedSupport = false,
+        int audioSensitivity = 100) =>
+        LightbarEffectEvaluator
+            .Evaluate(Build(
+                LightbarMode.AudioReactive,
+                audioLevel: audioLevel,
+                audioSensitivity: audioSensitivity,
+                audioPlayerLeds: audioPlayerLeds,
+                fullPlayerLedSupport: fullPlayerLedSupport))
+            .Frame;
+
     private static LightbarEffectFrame EvaluateBatteryFrame(
         double elapsed,
         BatteryState battery,
         bool batteryPlayerLeds = false,
-        bool fullPlayerLedSupport = false) =>
+        bool fullPlayerLedSupport = false,
+        bool batteryLevelPlayerLeds = false,
+        int batteryPlayerLedSpeed = 50) =>
         LightbarEffectEvaluator
             .Evaluate(Build(
                 LightbarMode.Battery,
                 elapsed,
                 battery: battery,
                 batteryPlayerLeds: batteryPlayerLeds,
+                batteryPlayerLedSpeed: batteryPlayerLedSpeed,
+                batteryLevelPlayerLeds: batteryLevelPlayerLeds,
                 fullPlayerLedSupport: fullPlayerLedSupport))
             .Frame;
 
@@ -435,10 +632,14 @@ public class LightbarEffectEvaluatorTests
         int breathMax = 100,
         BatteryState? battery = null,
         int lastBatteryBand = 5,
+        bool batteryChargingAnimation = true,
         bool batteryPlayerLeds = false,
+        int batteryPlayerLedSpeed = 50,
+        bool batteryLevelPlayerLeds = false,
         bool fullPlayerLedSupport = false,
         float audioLevel = 0,
-        int audioSensitivity = 50)
+        int audioSensitivity = 50,
+        bool audioPlayerLeds = false)
     {
         LightbarSettings settings = new LightbarSettings
         {
@@ -451,8 +652,12 @@ public class LightbarEffectEvaluatorTests
             RandomColor = randomColor,
             BreathMin = breathMin,
             BreathMax = breathMax,
+            BatteryChargingAnimation = batteryChargingAnimation,
             BatteryPlayerLeds = batteryPlayerLeds,
-            AudioSensitivity = audioSensitivity
+            BatteryPlayerLedSpeed = batteryPlayerLedSpeed,
+            BatteryLevelPlayerLeds = batteryLevelPlayerLeds,
+            AudioSensitivity = audioSensitivity,
+            AudioPlayerLeds = audioPlayerLeds
         };
 
         if (colors is not null)

@@ -264,9 +264,29 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
     [ObservableProperty] private double _audioSensitivity;
 
     /// <summary>
-    /// Whether the player LEDs show the battery level alongside the lightbar.
+    /// Whether the player LEDs show the current audio level.
+    /// </summary>
+    [ObservableProperty] private bool _audioPlayerLeds;
+
+    /// <summary>
+    /// Whether the lightbar crossfades through the charge-level colors while charging.
+    /// </summary>
+    [ObservableProperty] private bool _batteryChargingAnimation;
+
+    /// <summary>
+    /// Whether the player LEDs run a chase while charging.
     /// </summary>
     [ObservableProperty] private bool _batteryPlayerLeds;
+
+    /// <summary>
+    /// Player LED charging chase speed percentage (0-100).
+    /// </summary>
+    [ObservableProperty] private double _batteryPlayerLedSpeed;
+
+    /// <summary>
+    /// Whether the player LEDs show the battery level as five cumulative gates.
+    /// </summary>
+    [ObservableProperty] private bool _batteryLevelPlayerLeds;
 
     /// <summary>
     /// Color shown at low audio levels.
@@ -390,6 +410,19 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
     }
 
     /// <summary>
+    /// Whether the player LED editor is shown. Battery and audio-reactive modes hide it
+    /// while the player LEDs are driven by the effect.
+    /// </summary>
+    public bool IsPlayerLedsSectionVisible
+    {
+        get
+        {
+            return !(IsBatteryMode && BatteryLevelPlayerLeds) &&
+                   !(IsAudioReactiveMode && AudioPlayerLeds);
+        }
+    }
+
+    /// <summary>
     /// Whether a palette color is selected for editing.
     /// </summary>
     public bool HasSelectedPaletteColor
@@ -486,7 +519,11 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
         _breathMin = Math.Clamp(profile.Lightbar.BreathMin, 0, 100);
         _breathMax = Math.Clamp(profile.Lightbar.BreathMax, 0, 100);
         _audioSensitivity = Math.Clamp(profile.Lightbar.AudioSensitivity, 0, 100);
+        _audioPlayerLeds = profile.Lightbar.AudioPlayerLeds;
+        _batteryChargingAnimation = profile.Lightbar.BatteryChargingAnimation;
         _batteryPlayerLeds = profile.Lightbar.BatteryPlayerLeds;
+        _batteryPlayerLedSpeed = Math.Clamp(profile.Lightbar.BatteryPlayerLedSpeed, 0, 100);
+        _batteryLevelPlayerLeds = profile.Lightbar.BatteryLevelPlayerLeds;
         _audioLowColor = ToColor(profile.Lightbar.AudioLowColor);
         _audioMidColor = ToColor(profile.Lightbar.AudioMidColor);
         _audioHighColor = ToColor(profile.Lightbar.AudioHighColor);
@@ -588,6 +625,7 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsAudioReactiveMode));
         OnPropertyChanged(nameof(UsesBaseColor));
         OnPropertyChanged(nameof(UsesSpeed));
+        OnPropertyChanged(nameof(IsPlayerLedsSectionVisible));
         Persist();
     }
 
@@ -628,9 +666,49 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
     partial void OnAudioSensitivityChanged(double value) => Persist();
 
     /// <summary>
+    /// Clears the manual player LED layout when the audio level takes over the player
+    /// LEDs, then re-raises the section visibility and persists the setting.
+    /// </summary>
+    partial void OnAudioPlayerLedsChanged(bool value)
+    {
+        if (value)
+        {
+            SetPlayerLedMask(0);
+        }
+
+        OnPropertyChanged(nameof(IsPlayerLedsSectionVisible));
+        Persist();
+    }
+
+    /// <summary>
+    /// Persists the new battery lightbar animation setting.
+    /// </summary>
+    partial void OnBatteryChargingAnimationChanged(bool value) => Persist();
+
+    /// <summary>
     /// Persists the new battery player-LED setting.
     /// </summary>
     partial void OnBatteryPlayerLedsChanged(bool value) => Persist();
+
+    /// <summary>
+    /// Persists the new battery player-LED chase speed.
+    /// </summary>
+    partial void OnBatteryPlayerLedSpeedChanged(double value) => Persist();
+
+    /// <summary>
+    /// Clears the manual player LED layout when the battery level takes over the player
+    /// LEDs, then re-raises the section visibility and persists the setting.
+    /// </summary>
+    partial void OnBatteryLevelPlayerLedsChanged(bool value)
+    {
+        if (value)
+        {
+            SetPlayerLedMask(0);
+        }
+
+        OnPropertyChanged(nameof(IsPlayerLedsSectionVisible));
+        Persist();
+    }
 
     /// <summary>
     /// Persists the new low audio color.
@@ -765,7 +843,11 @@ public sealed partial class ProfileEditorItem : ObservableObject, IDisposable
         Profile.Lightbar.AudioMidColor = ToSetting(AudioMidColor);
         Profile.Lightbar.AudioHighColor = ToSetting(AudioHighColor);
         Profile.Lightbar.AudioSensitivity = (int)Math.Round(Math.Clamp(AudioSensitivity, 0, 100));
+        Profile.Lightbar.AudioPlayerLeds = AudioPlayerLeds;
+        Profile.Lightbar.BatteryChargingAnimation = BatteryChargingAnimation;
         Profile.Lightbar.BatteryPlayerLeds = BatteryPlayerLeds;
+        Profile.Lightbar.BatteryPlayerLedSpeed = (int)Math.Round(Math.Clamp(BatteryPlayerLedSpeed, 0, 100));
+        Profile.Lightbar.BatteryLevelPlayerLeds = BatteryLevelPlayerLeds;
         Profile.MicLed.Mode = (byte)Math.Clamp(MuteLedMode, 0, 2);
         Profile.PlayerLeds.Mask = ComputePlayerLedMask();
         ProfileChanged?.Invoke(this, EventArgs.Empty);
