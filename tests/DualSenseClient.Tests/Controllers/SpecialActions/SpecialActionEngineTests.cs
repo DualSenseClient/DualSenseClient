@@ -1389,6 +1389,51 @@ public class SpecialActionEngineTests
     }
 
     [Test]
+    public void LightbarAction_SuspendsEffectWhileHeldAndResumesOnRelease()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
+        engine.UpdateActions([CreateLightbarAction(0xAA, 0xBB, 0xCC, true)]);
+
+        FeedReport(device, CreateReport());
+        Assert.That(device.LightbarEffectSuspended, Is.False);
+
+        FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
+        Assert.That(device.LightbarEffectSuspended, Is.True);
+
+        // Releasing a combination button ends the action: the profile effect resumes.
+        FeedReport(device, CreateReport(ButtonType.L1));
+        FeedReport(device, CreateReport());
+        Assert.That(device.LightbarEffectSuspended, Is.False);
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void PlayerLedsAction_AlsoSuspendsEffect()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired();
+        SpecialAction action = CreateAction(ButtonType.L1, ButtonType.R1);
+        action.Effects[0].Type = SpecialActionTypes.SetPlayerLeds;
+        action.Effects[0].PlayerLeds.Mask = 0x05;
+        action.ApplyWhileHeld = true;
+        engine.UpdateActions([action]);
+
+        FeedReport(device, CreateReport());
+        Assert.That(device.LightbarEffectSuspended, Is.False);
+
+        FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
+        Assert.That(device.LightbarEffectSuspended, Is.True);
+
+        FeedReport(device, CreateReport(ButtonType.L1));
+        FeedReport(device, CreateReport());
+        Assert.That(device.LightbarEffectSuspended, Is.False);
+
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
     public void CombinedLightEffects_SetBothOverrideFields()
     {
         (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired();

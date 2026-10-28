@@ -289,6 +289,8 @@ public sealed partial class LightsItem : ObservableObject, IDisposable
             return;
         }
 
+        _device.StopLightbarAnimation();
+
         PlayerLedMask playerLeds = PlayerLedMask.None;
         if (PlayerLed1)
         {
