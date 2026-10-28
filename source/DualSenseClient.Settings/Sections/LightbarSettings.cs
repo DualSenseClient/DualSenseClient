@@ -167,10 +167,34 @@ public class LightbarSettings
     public int AudioSensitivity { get; set; } = 50;
 
     /// <summary>
-    /// Gets or sets whether player LEDs show the battery level alongside the lightbar.
+    /// Gets or sets whether player LEDs show the current audio level.
+    /// </summary>
+    [JsonPropertyName("audio_player_leds")]
+    public bool AudioPlayerLeds { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the lightbar crossfades through the charge-level colors while charging.
+    /// </summary>
+    [JsonPropertyName("battery_charging_animation")]
+    public bool BatteryChargingAnimation { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether player LEDs run a chase while charging.
     /// </summary>
     [JsonPropertyName("battery_player_leds")]
     public bool BatteryPlayerLeds { get; set; }
+
+    /// <summary>
+    /// Gets or sets the player LED charging chase speed percentage (0-100).
+    /// </summary>
+    [JsonPropertyName("battery_player_led_speed")]
+    public int BatteryPlayerLedSpeed { get; set; } = 50;
+
+    /// <summary>
+    /// Gets or sets whether player LEDs show the battery level as five cumulative gates.
+    /// </summary>
+    [JsonPropertyName("battery_level_player_leds")]
+    public bool BatteryLevelPlayerLeds { get; set; }
 
     /// <summary>
     /// Creates a new default six-color palette.
@@ -237,6 +261,10 @@ public class LightbarSettings
             AudioMidColor = AudioMidColor.Clone(),
             AudioHighColor = AudioHighColor.Clone(),
             AudioSensitivity = AudioSensitivity,
-            BatteryPlayerLeds = BatteryPlayerLeds
+            AudioPlayerLeds = AudioPlayerLeds,
+            BatteryChargingAnimation = BatteryChargingAnimation,
+            BatteryPlayerLeds = BatteryPlayerLeds,
+            BatteryPlayerLedSpeed = BatteryPlayerLedSpeed,
+            BatteryLevelPlayerLeds = BatteryLevelPlayerLeds
         };
 }

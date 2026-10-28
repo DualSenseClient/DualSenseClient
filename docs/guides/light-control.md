@@ -9,7 +9,7 @@ The lightbar has a **mode** that decides what it shows, plus a shared **brightne
 ![Lightbar controls in the profile editor](../assets/images/light-control.png)
 
 !!! note "Passthrough takes over"
-    When a virtual **DualSense** forwards the host's lighting, **Forward lightbar** suspends the profile's lightbar effect until it is turned off, and **Forward player LEDs** suppresses the Battery mode's player-LED chase. With a virtual DualShock 4 the game's lightbar is still forwarded, but it does not suspend the profile effect. Passthroughs are configured under **Emulation → Virtual Controller → Passthroughs**.
+    When a virtual **DualSense** forwards the host's lighting, **Forward lightbar** suspends the profile's lightbar effect until it is turned off, and **Forward player LEDs** suppresses the profile's player-LED effects (Battery and Audio Reactive). With a virtual DualShock 4 the game's lightbar is still forwarded, but it does not suspend the profile effect. Passthroughs are configured under **Emulation → Virtual Controller → Passthroughs**.
 
 !!! note "Special Actions and manual edits"
     [Special Actions](special-actions.md) always win while they are applying light effects. Editing the lightbar directly on the [Device Info](device-info.md) page stops the effect until the profile is applied again.
@@ -52,8 +52,10 @@ The lightbar flashes on and off using the profile color:
 The lightbar shows the controller's charge level:
 
 - **Discharging** — the lightbar shows the color of the current charge band, one of ten level colors from empty to full
-- **Charging** — the lightbar cycles through all ten level colors
-- **Animate player LEDs while charging** — optional; runs a single LED chase across the player LEDs while charging. Only available on Generation 0x02 / 0x03 hardware.
+- **Charging** — the lightbar shows the current charge band color
+- **Animate lightbar while charging** — optional; crossfades through all ten level colors while charging. Expand the row to set the crossfade **Speed**.
+- **Animate player LEDs while charging** — optional; runs a single LED chase across the player LEDs while charging. Expand the row to set the chase **Speed**. Only available on Generation 0x02 / 0x03 hardware.
+- **Show battery level on player LEDs** — optional; lights one to five player LEDs as the charge rises. Only available on Generation 0x02 / 0x03 hardware. Enabling it clears the profile's player LED layout and hides the Player LEDs section while Battery mode is selected; turn it off to set the player LEDs again. If both player-LED options are on and the controller is charging, the chase takes priority.
 
 ### Audio Reactive
 
@@ -61,6 +63,7 @@ The lightbar follows the audio being forwarded to the controller:
 
 - **Quiet color** / **Medium color** / **Loud color** — the color shown at each audio level; the lightbar blends between them as the level rises and falls
 - **Sensitivity** — scales the audio level before it is mapped to a color
+- **Show audio level on player LEDs** — optional; lights one to five LEDs in five even steps as the level rises, from one LED at quiet levels to all five at loud levels. Only available on Generation 0x02 / 0x03 hardware. Enabling it clears the profile's player LED layout and hides the Player LEDs section while Audio Reactive mode is selected; turn it off to set the player LEDs again.
 
 !!! note "Audio forwarding must be active"
     Audio Reactive follows the audio stream being forwarded to the controller, whichever forwarding source is selected; audio forwarding must be active. Enable it in **Customization → Audio Forwarding** (see [Emulation](virtual-controller.md#audio-forwarding)); with no audio being forwarded, the lightbar stays at the quiet color.

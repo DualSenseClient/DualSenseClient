@@ -277,9 +277,44 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <ToggleButton Content="{DynamicResource CustomizationPage.Lightbar.Battery.PlayerLeds}"
-                                          IsChecked="{Binding SelectedProfile.BatteryPlayerLeds}"
-                                          IsVisible="{Binding HasFullPlayerLedSupport}" />
+                            <!-- FluentAvalonia's expand animation NREs on nested expanders; the no-animation theme avoids it. -->
+                            <ui:FASettingsExpander Theme="{StaticResource SettingsExpanderNoAnimationStyle}"
+                                                   Header="{DynamicResource CustomizationPage.Lightbar.Battery.Lightbar}"
+                                                   IsExpanded="False">
+                                <ui:FASettingsExpander.Footer>
+                                    <ToggleSwitch IsChecked="{Binding SelectedProfile.BatteryChargingAnimation, Mode=TwoWay}" />
+                                </ui:FASettingsExpander.Footer>
+                                <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Lightbar.Speed}">
+                                    <ui:FASettingsExpanderItem.Footer>
+                                        <controls:SliderInput Minimum="0"
+                                                              Maximum="100"
+                                                              Width="240"
+                                                              Value="{Binding SelectedProfile.LightbarSpeed}" />
+                                    </ui:FASettingsExpanderItem.Footer>
+                                </ui:FASettingsExpanderItem>
+                            </ui:FASettingsExpander>
+                            <ui:FASettingsExpander Theme="{StaticResource SettingsExpanderNoAnimationStyle}"
+                                                   Header="{DynamicResource CustomizationPage.Lightbar.Battery.PlayerLeds}"
+                                                   IsVisible="{Binding HasFullPlayerLedSupport}"
+                                                   IsExpanded="False">
+                                <ui:FASettingsExpander.Footer>
+                                    <ToggleSwitch IsChecked="{Binding SelectedProfile.BatteryPlayerLeds, Mode=TwoWay}" />
+                                </ui:FASettingsExpander.Footer>
+                                <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Lightbar.Speed}">
+                                    <ui:FASettingsExpanderItem.Footer>
+                                        <controls:SliderInput Minimum="0"
+                                                              Maximum="100"
+                                                              Width="240"
+                                                              Value="{Binding SelectedProfile.BatteryPlayerLedSpeed}" />
+                                    </ui:FASettingsExpanderItem.Footer>
+                                </ui:FASettingsExpanderItem>
+                            </ui:FASettingsExpander>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Lightbar.Battery.LevelPlayerLeds}"
+                                                       IsVisible="{Binding HasFullPlayerLedSupport}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ToggleSwitch IsChecked="{Binding SelectedProfile.BatteryLevelPlayerLeds, Mode=TwoWay}" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
                         </StackPanel>
 
                         <!-- Audio reactive -->
@@ -331,6 +366,12 @@
                                                           Value="{Binding SelectedProfile.AudioSensitivity}" />
                                 </ui:FASettingsExpanderItem.Footer>
                             </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Lightbar.Audio.PlayerLeds}"
+                                                       IsVisible="{Binding HasFullPlayerLedSupport}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ToggleSwitch IsChecked="{Binding SelectedProfile.AudioPlayerLeds, Mode=TwoWay}" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
                             <TextBlock Text="{DynamicResource CustomizationPage.Lightbar.Audio.Hint}"
                                        FontSize="12"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
@@ -348,7 +389,7 @@
                         </ui:FASettingsExpanderItem>
 
                         <!-- Player LEDs -->
-                        <ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem IsVisible="{Binding SelectedProfile.IsPlayerLedsSectionVisible}">
                             <StackPanel Spacing="8">
                                 <TextBlock Text="{DynamicResource CustomizationPage.PlayerLeds.Title}"
                                            FontWeight="SemiBold" />

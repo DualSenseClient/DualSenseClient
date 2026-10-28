@@ -36,7 +36,11 @@ public class LightbarSettingsTests
         Assert.That(settings.AudioHighColor.Green, Is.EqualTo(40));
         Assert.That(settings.AudioHighColor.Blue, Is.EqualTo(40));
         Assert.That(settings.AudioSensitivity, Is.EqualTo(50));
+        Assert.That(settings.AudioPlayerLeds, Is.False);
+        Assert.That(settings.BatteryChargingAnimation, Is.True);
         Assert.That(settings.BatteryPlayerLeds, Is.False);
+        Assert.That(settings.BatteryPlayerLedSpeed, Is.EqualTo(50));
+        Assert.That(settings.BatteryLevelPlayerLeds, Is.False);
 
         LightbarSettings other = new LightbarSettings();
         Assert.That(other.Colors, Is.Not.SameAs(settings.Colors));
@@ -45,9 +49,19 @@ public class LightbarSettingsTests
     [Test]
     public void Clone_DeepCopiesPaletteAndAudioColors()
     {
-        LightbarSettings source = new LightbarSettings();
+        LightbarSettings source = new LightbarSettings
+        {
+            AudioPlayerLeds = true,
+            BatteryChargingAnimation = false,
+            BatteryPlayerLedSpeed = 80,
+            BatteryLevelPlayerLeds = true
+        };
 
         LightbarSettings clone = source.Clone();
+        Assert.That(clone.AudioPlayerLeds, Is.True);
+        Assert.That(clone.BatteryChargingAnimation, Is.False);
+        Assert.That(clone.BatteryPlayerLedSpeed, Is.EqualTo(80));
+        Assert.That(clone.BatteryLevelPlayerLeds, Is.True);
         clone.Colors[0].Red = 1;
         clone.AudioLowColor.Red = 2;
         clone.Mode = LightbarMode.Strobe;
@@ -55,6 +69,7 @@ public class LightbarSettingsTests
         Assert.That(source.Colors[0].Red, Is.EqualTo(255));
         Assert.That(source.AudioLowColor.Red, Is.EqualTo(0));
         Assert.That(source.Mode, Is.EqualTo(LightbarMode.SingleColor));
+        Assert.That(source.BatteryChargingAnimation, Is.False);
         Assert.That(clone.Colors, Is.Not.SameAs(source.Colors));
     }
 }
