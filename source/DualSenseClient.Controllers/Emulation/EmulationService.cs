@@ -1191,7 +1191,7 @@ public sealed class EmulationService : IEmulationService
     /// <summary>
     /// Lets the game own the lightbar and player LEDs only while a live DualSense virtual
     /// device mirrors the pad and the matching forwarding option is on; otherwise the
-    /// profile must keep driving the physical controller.
+    /// profile effects must keep driving the physical controller.
     /// Caller must hold <see cref="_sync"/>.
     /// </summary>
     private static void ApplyPassthroughLocked(VirtualControllerEntry entry, ForwardSettings forwarding)
@@ -1479,6 +1479,7 @@ public sealed class EmulationService : IEmulationService
                     existing.ApplyForwardingSettings(emulation.Forward);
                 }
 
+                entry.Device.AudioLevelProvider = () => existing.AudioLevel;
                 WireGameCallbacksLocked(entry);
                 return;
             }
@@ -1489,6 +1490,7 @@ public sealed class EmulationService : IEmulationService
         entry.Outputs ??= new DualSenseDeviceOutputs(entry.Device, _specialActions.GetOrCreate(entry.Device));
         DualSenseAudioForwarder forwarder = CreateAudioForwarder(entry.Outputs, emulation);
         entry.Forwarder = forwarder;
+        entry.Device.AudioLevelProvider = () => forwarder.AudioLevel;
         WireGameCallbacksLocked(entry);
         _log.Info($"Host audio forwarding {(forwarder.Start() ? "started" : "unavailable")} for {entry.Device.Info.ProductName}");
     }
@@ -1555,6 +1557,7 @@ public sealed class EmulationService : IEmulationService
 
         entry.Forwarder?.Dispose();
         entry.Forwarder = null;
+        entry.Device.AudioLevelProvider = null;
     }
 
     /// <summary>
@@ -1744,6 +1747,7 @@ public sealed class EmulationService : IEmulationService
         {
             entry.Forwarder?.Dispose();
             entry.Forwarder = null;
+            entry.Device.AudioLevelProvider = null;
         }
 
         // The virtual device's path stays excluded: unexcluding before the detach

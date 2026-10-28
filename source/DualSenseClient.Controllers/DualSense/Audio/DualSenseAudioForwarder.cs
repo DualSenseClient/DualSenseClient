@@ -136,6 +136,11 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     private readonly PcmBlockRing _audioRing = new PcmBlockRing(RingBlocks);
 
     /// <summary>
+    /// Smoothed level of the fed audio, for reactive lighting.
+    /// </summary>
+    private readonly AudioLevelMeter _levelMeter = new AudioLevelMeter();
+
+    /// <summary>
     /// Serializes start/stop and the pump's per-tick work with feed/stop calls.
     /// </summary>
     private readonly Lock _sync = new Lock();
@@ -360,6 +365,17 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         get
         {
             return _cts is not null;
+        }
+    }
+
+    /// <summary>
+    /// Smoothed level (0-1) of the audio currently being forwarded, for reactive lighting.
+    /// </summary>
+    public float AudioLevel
+    {
+        get
+        {
+            return _levelMeter.Level;
         }
     }
 
@@ -643,6 +659,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         }
 
         _usbTarget?.Stop();
+        _levelMeter.Reset();
         _log.Info("Audio forwarding stopped");
     }
 
@@ -683,6 +700,8 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
             {
                 return;
             }
+
+            _levelMeter.Process(stereo, stereo.Length / 2.0 / 48000.0);
 
             int offset = 0;
             int partial = _audioRing.PartialCount;
@@ -822,6 +841,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         lock (_sync)
         {
             _audioRing.Clear();
+            _levelMeter.Reset();
             _btStreamPrimed = false;
             _doubleFramePending = false;
             _gameHapticsInputFrames = 0;
