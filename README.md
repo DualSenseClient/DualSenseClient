@@ -46,7 +46,7 @@ DualSense Client
 
 ### Light Control
 
-- Full RGB lightbar control with a color picker and RGB channel sliders
+- Per-profile lightbar modes: Single Color, Multi Color, Breathing, Strobing, Battery, and Audio Reactive, with palettes, brightness, and lighting that follows forwarded audio
 - Player LED presets, plus individual toggles for all five LEDs on Generation 2/3 hardware
 - Microphone LED configuration (off / on / pulse)
 
