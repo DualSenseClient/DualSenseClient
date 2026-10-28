@@ -1,4 +1,5 @@
 using DualSenseClient.Controllers.DualSense.Audio;
+using DualSenseClient.Tests.Emulation.TestSupport;
 
 namespace DualSenseClient.Tests.Controllers.DualSense.Audio;
 
@@ -54,6 +55,35 @@ public class AudioLevelMeterTests
         meter.Process([0.8f, -0.8f], BlockSeconds);
 
         meter.Reset();
+
+        Assert.That(meter.Level, Is.Zero);
+    }
+
+    [Test]
+    public void Level_DecaysToZero_WhenBlocksStopWithoutStop()
+    {
+        ManualTimeProvider time = new ManualTimeProvider();
+        AudioLevelMeter meter = new AudioLevelMeter(time);
+        meter.Process([0.8f, -0.8f], BlockSeconds);
+        Assert.That(meter.Level, Is.GreaterThan(0f));
+
+        time.Advance(TimeSpan.FromSeconds(0.6));
+
+        Assert.That(meter.Level, Is.Zero);
+    }
+
+    [Test]
+    public void Process_AfterIdle_DoesNotResumeFromStaleLevel()
+    {
+        ManualTimeProvider time = new ManualTimeProvider();
+        AudioLevelMeter meter = new AudioLevelMeter(time);
+        for (int i = 0; i < 1000; i++)
+        {
+            meter.Process([0.8f, -0.8f], BlockSeconds);
+        }
+
+        time.Advance(TimeSpan.FromSeconds(0.6));
+        meter.Process(new float[2], BlockSeconds);
 
         Assert.That(meter.Level, Is.Zero);
     }

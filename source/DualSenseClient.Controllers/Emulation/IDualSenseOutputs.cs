@@ -1,3 +1,4 @@
+using DualSenseClient.Controllers.DualSense.Lightbar;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.SpecialActions;
@@ -132,7 +133,8 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
                                      || !_device.PlayerLedPassthroughEnabled);
             return overrideState.LightbarColor is not null
                    || overrideState.PlayerLeds is not null
-                   || profileLights;
+                   || profileLights
+                   || _device.TryGetLightbarEffectFrame(out _);
         }
     }
 
@@ -165,13 +167,13 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
     }
 
     /// <summary>
-    /// Merges the applied profile's static lights and the fields held by the active
-    /// special actions (lightbar color, player LEDs) over the payload, so neither the
-    /// game's output nor a plain passthrough can overwrite them. The profile's lightbar
-    /// and player LEDs are only restored while the game does not own that channel.
-    /// Actions are applied afterwards, so an action always wins. Fields nothing holds
-    /// pass through unchanged. Returns the payload unchanged when nothing is driving the
-    /// lights.
+    /// Merges the active lightbar effect frame, the applied profile's static lights and
+    /// the fields held by the active special actions (lightbar color, player LEDs) over
+    /// the payload, so neither the game's output nor a plain passthrough can overwrite
+    /// them. The profile's lightbar and player LEDs are only restored while the game does
+    /// not own that channel. Effects are applied first and actions afterwards, so an
+    /// action always wins. Fields nothing holds pass through unchanged. Returns the
+    /// payload unchanged when nothing is driving the lights.
     /// </summary>
     private SetStateData ApplyOutputOverride(SetStateData payload)
     {
@@ -179,6 +181,8 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
         (byte Red, byte Green, byte Blue)? color = overrideState.LightbarColor;
         byte? leds = overrideState.PlayerLeds;
 
+        // Both providers are read once so the merges see the same snapshot.
+        bool hasFrame = _device.TryGetLightbarEffectFrame(out LightbarEffectFrame frame);
         bool hasProfile = _device.TryGetProfileLights(
             out byte profileRed,
             out byte profileGreen,
@@ -186,7 +190,7 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
             out PlayerLedMask profileLeds);
         bool profileLightbar = hasProfile && !_device.LightbarPassthroughEnabled;
         bool profilePlayerLeds = hasProfile && !_device.PlayerLedPassthroughEnabled;
-        if (color is null && leds is null && !profileLightbar && !profilePlayerLeds)
+        if (color is null && leds is null && !hasFrame && !profileLightbar && !profilePlayerLeds)
         {
             return payload;
         }
@@ -197,26 +201,56 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
         payload.CopyTo(raw, 0);
         SetStateData copy = new SetStateData(raw, 0);
 
-        if (profileLightbar)
+        if (hasFrame)
         {
+            ValidFlags flag1 = copy.ValidFlag1 | ValidFlags.AllowLedColor;
+            PlayerLedMask playerLeds = profilePlayerLeds ? profileLeds : copy.PlayerLeds;
+            if (frame.PlayerLeds is { } chase)
+            {
+                flag1 |= ValidFlags.AllowPlayerIndicators;
+                playerLeds = chase;
+            }
+            else if (profilePlayerLeds)
+            {
+                flag1 |= ValidFlags.AllowPlayerIndicators;
+            }
+
             copy = copy with
             {
-                ValidFlag1 = copy.ValidFlag1 | ValidFlags.AllowLedColor,
-                ValidFlag2 = copy.ValidFlag2 | ValidFlags.AllowColorFadeAnim,
+                ValidFlag1 = flag1,
+                ValidFlag2 = copy.ValidFlag2 | ValidFlags.AllowColorFadeAnim | ValidFlags.AllowBrightnessChange,
                 LightFadeAnimation = 0x02,
-                LedRed = profileRed,
-                LedGreen = profileGreen,
-                LedBlue = profileBlue
+                LightBrightness = 0,
+                PlayerLeds = playerLeds,
+                LedRed = frame.Red,
+                LedGreen = frame.Green,
+                LedBlue = frame.Blue
             };
         }
-
-        if (profilePlayerLeds)
+        else
         {
-            copy = copy with
+            if (profileLightbar)
             {
-                ValidFlag1 = copy.ValidFlag1 | ValidFlags.AllowPlayerIndicators,
-                PlayerLeds = profileLeds
-            };
+                copy = copy with
+                {
+                    ValidFlag1 = copy.ValidFlag1 | ValidFlags.AllowLedColor,
+                    ValidFlag2 = copy.ValidFlag2 | ValidFlags.AllowColorFadeAnim | ValidFlags.AllowBrightnessChange,
+                    LightFadeAnimation = 0x02,
+                    LightBrightness = 0,
+                    LedRed = profileRed,
+                    LedGreen = profileGreen,
+                    LedBlue = profileBlue
+                };
+            }
+
+            if (profilePlayerLeds)
+            {
+                copy = copy with
+                {
+                    ValidFlag1 = copy.ValidFlag1 | ValidFlags.AllowPlayerIndicators,
+                    PlayerLeds = profileLeds
+                };
+            }
         }
 
         if (color is not null || leds is not null)

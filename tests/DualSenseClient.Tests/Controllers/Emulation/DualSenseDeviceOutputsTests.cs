@@ -11,9 +11,36 @@ namespace DualSenseClient.Tests.Controllers.Emulation;
 
 public class DualSenseDeviceOutputsTests
 {
-    private sealed class RecordingHidDevice : IHidDevice
+    private sealed class RecordingHidDevice(byte[]? firmwareReport = null) : IHidDevice
     {
-        public List<byte[]> Writes { get; } = new List<byte[]>();
+        private readonly object _writesLock = new object();
+
+        private readonly List<byte[]> _writes = [];
+
+        /// <summary>
+        /// Snapshot of every write, safe to read while an effect timer is writing too.
+        /// </summary>
+        public IReadOnlyList<byte[]> Writes
+        {
+            get
+            {
+                lock (_writesLock)
+                {
+                    return _writes.ToArray();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Discards all recorded writes.
+        /// </summary>
+        public void Clear()
+        {
+            lock (_writesLock)
+            {
+                _writes.Clear();
+            }
+        }
 
         public ushort VendorId
         {
@@ -54,11 +81,16 @@ public class DualSenseDeviceOutputsTests
         {
             byte[] copy = new byte[count];
             Buffer.BlockCopy(buffer, offset, copy, 0, count);
-            Writes.Add(copy);
+            lock (_writesLock)
+            {
+                _writes.Add(copy);
+            }
+
             return count;
         }
 
-        public byte[] GetFeatureReport(byte reportId, int bufferSize = 64) => [];
+        public byte[] GetFeatureReport(byte reportId, int bufferSize = 64) =>
+            reportId == 0x20 && firmwareReport is not null ? (byte[])firmwareReport.Clone() : [];
 
         public void SendFeatureReport(byte[] buffer, int offset, int count)
         {
@@ -262,6 +294,227 @@ public class DualSenseDeviceOutputsTests
         FeedReport(device, CreateReport());
     }
 
+    /// <summary>
+    /// Marker stored in the game payload's rumble byte so the merged write can be told
+    /// apart from the effect timer's own frames.
+    /// </summary>
+    private const byte GameMarker = 0x5A;
+
+    /// <summary>
+    /// The game output a virtual controller would forward, tagged with <see cref="GameMarker"/>.
+    /// </summary>
+    private static SetStateData GameOutputWithMarker(
+        byte red,
+        byte green,
+        byte blue,
+        PlayerLedMask leds = PlayerLedMask.None) =>
+        new SetStateData
+        {
+            ValidFlag1 = ValidFlags.AllowLedColor
+                         | (leds == PlayerLedMask.None ? ValidFlags.None : ValidFlags.AllowPlayerIndicators),
+            RumbleLeft = GameMarker,
+            PlayerLeds = leds,
+            LedRed = red,
+            LedGreen = green,
+            LedBlue = blue
+        };
+
+    /// <summary>
+    /// Finds the one write carrying the game marker, i.e. the merged game output.
+    /// </summary>
+    private static byte[] FindMergedWrite(RecordingHidDevice hid) =>
+        hid.Writes.Single(write => write[4] == GameMarker);
+
+    /// <summary>
+    /// A breathing profile that evaluates to its base color (10,20,30) at every phase.
+    /// </summary>
+    private static Profile AnimatedProfile() =>
+        new Profile
+        {
+            Name = "Test",
+            Lightbar = new LightbarSettings
+            {
+                Mode = LightbarMode.Breathing,
+                Red = 10,
+                Green = 20,
+                Blue = 30,
+                Brightness = 100,
+                BreathMin = 100,
+                BreathMax = 100
+            }
+        };
+
+    /// <summary>
+    /// A battery profile that drives the charging chase on the player LEDs.
+    /// </summary>
+    private static Profile BatteryChaseProfile() =>
+        new Profile
+        {
+            Name = "Test",
+            Lightbar = new LightbarSettings
+            {
+                Mode = LightbarMode.Battery,
+                BatteryPlayerLeds = true
+            }
+        };
+
+    /// <summary>
+    /// Builds a valid 0x20 firmware report whose hardware generation is 2
+    /// (full player-LED support).
+    /// </summary>
+    private static byte[] FirmwareReportGeneration2()
+    {
+        byte[] raw = new byte[64];
+        raw[0] = 0x20;
+        raw[25] = 0x02;
+        return raw;
+    }
+
+    /// <summary>
+    /// Builds an input report carrying a charging battery.
+    /// </summary>
+    private static byte[] CreateChargingReport()
+    {
+        byte[] buffer = CreateReport();
+        buffer[53] = 0x17;
+        return buffer;
+    }
+
+    [Test]
+    public void SendOutputState_EffectOverridesGameColor_WhenPassthroughDisabled()
+    {
+        RecordingHidDevice hid = new RecordingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
+        using SpecialActionEngine engine = new SpecialActionEngine();
+        engine.Attach(device);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        device.ApplyProfile(AnimatedProfile());
+        hid.Clear();
+
+        outputs.SendOutputState(GameOutputWithMarker(0x01, 0x02, 0x03));
+
+        byte[] write = FindMergedWrite(hid);
+        Assert.Multiple(() =>
+        {
+            Assert.That(write[45], Is.EqualTo(10));
+            Assert.That(write[46], Is.EqualTo(20));
+            Assert.That(write[47], Is.EqualTo(30));
+            Assert.That(write[2] & (byte)ValidFlags.AllowLedColor, Is.Not.Zero);
+        });
+    }
+
+    [Test]
+    public void SendOutputState_PassthroughEnabled_PassesGameColorThrough()
+    {
+        RecordingHidDevice hid = new RecordingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
+        using SpecialActionEngine engine = new SpecialActionEngine();
+        engine.Attach(device);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        device.LightbarPassthroughEnabled = true;
+        device.ApplyProfile(AnimatedProfile());
+        hid.Clear();
+
+        outputs.SendOutputState(GameOutputWithMarker(0x01, 0x02, 0x03));
+
+        byte[] write = FindMergedWrite(hid);
+        Assert.Multiple(() =>
+        {
+            Assert.That(write[45], Is.EqualTo(0x01));
+            Assert.That(write[46], Is.EqualTo(0x02));
+            Assert.That(write[47], Is.EqualTo(0x03));
+        });
+    }
+
+    [Test]
+    public void SendOutputState_SpecialActionWinsOverEffect()
+    {
+        RecordingHidDevice hid = new RecordingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
+        using SpecialActionEngine engine = new SpecialActionEngine();
+        engine.Attach(device);
+        engine.UpdateActions([CreateSustainedLightbarAction(0xAA, 0xBB, 0xCC)]);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        device.ApplyProfile(AnimatedProfile());
+        HoldCombo(device);
+        hid.Clear();
+
+        outputs.SendOutputState(GameOutputWithMarker(0x01, 0x02, 0x03));
+
+        byte[] write = FindMergedWrite(hid);
+        Assert.Multiple(() =>
+        {
+            Assert.That(write[45], Is.EqualTo(0xAA));
+            Assert.That(write[46], Is.EqualTo(0xBB));
+            Assert.That(write[47], Is.EqualTo(0xCC));
+        });
+    }
+
+    [Test]
+    public void SendOutputState_ChargingChaseOverridesGamePlayerLeds()
+    {
+        RecordingHidDevice hid = new RecordingHidDevice(FirmwareReportGeneration2());
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
+        using SpecialActionEngine engine = new SpecialActionEngine();
+        engine.Attach(device);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        FeedReport(device, CreateChargingReport());
+        device.ApplyProfile(BatteryChaseProfile());
+        hid.Clear();
+
+        outputs.SendOutputState(GameOutputWithMarker(0x01, 0x02, 0x03, (PlayerLedMask)0x1F));
+
+        byte[] write = FindMergedWrite(hid);
+        Assert.Multiple(() =>
+        {
+            // The chase phase may advance during the test, so any single LED is valid.
+            Assert.That(write[44], Is.AnyOf(0x01, 0x02, 0x04, 0x08, 0x10));
+            Assert.That(write[2] & (byte)ValidFlags.AllowPlayerIndicators, Is.Not.Zero);
+        });
+    }
+
+    [Test]
+    public void SendOutputState_ChargingChaseSuppressed_WhenPlayerLedsPassthroughEnabled()
+    {
+        RecordingHidDevice hid = new RecordingHidDevice(FirmwareReportGeneration2());
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
+        using SpecialActionEngine engine = new SpecialActionEngine();
+        engine.Attach(device);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        FeedReport(device, CreateChargingReport());
+        device.ApplyProfile(BatteryChaseProfile());
+        device.PlayerLedPassthroughEnabled = true;
+        hid.Clear();
+
+        outputs.SendOutputState(GameOutputWithMarker(0x01, 0x02, 0x03, (PlayerLedMask)0x1F));
+
+        byte[] write = FindMergedWrite(hid);
+        Assert.That(write[44], Is.EqualTo(0x1F));
+    }
+
+    [Test]
+    public void NeedsOutputStateBlock_TracksActiveOverrides()
+    {
+        RecordingHidDevice hid = new RecordingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
+        using SpecialActionEngine engine = new SpecialActionEngine();
+        engine.Attach(device);
+        engine.UpdateActions([CreateSustainedLightbarAction(0xAA, 0xBB, 0xCC)]);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+
+        Assert.That(outputs.NeedsOutputStateBlock, Is.False);
+
+        device.ApplyProfile(AnimatedProfile());
+        Assert.That(outputs.NeedsOutputStateBlock, Is.True);
+
+        device.LightbarPassthroughEnabled = true;
+        device.PlayerLedPassthroughEnabled = true;
+        Assert.That(outputs.NeedsOutputStateBlock, Is.False);
+
+        HoldCombo(device);
+        Assert.That(outputs.NeedsOutputStateBlock, Is.True);
+    }
+
     [Test]
     public void SendOutputState_ActiveLightAction_OverridesLightbarColor()
     {
@@ -275,7 +528,7 @@ public class DualSenseDeviceOutputsTests
         // Fire the action by holding the combination.
         FeedReport(device, CreateReport());
         FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
-        hid.Writes.Clear();
+        hid.Clear();
 
         // The game's output state must carry the action's color, not the game's.
         outputs.SendOutputState(GameOutput(0x01, 0x02, 0x03));
@@ -290,7 +543,7 @@ public class DualSenseDeviceOutputsTests
         // Releasing the combination ends the action: the game's color passes through.
         FeedReport(device, CreateReport(ButtonType.L1));
         FeedReport(device, CreateReport());
-        hid.Writes.Clear();
+        hid.Clear();
         outputs.SendOutputState(GameOutput(0x01, 0x02, 0x03));
         Assert.Multiple(() =>
         {
@@ -336,7 +589,7 @@ public class DualSenseDeviceOutputsTests
         DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
 
         HoldCombo(device);
-        hid.Writes.Clear();
+        hid.Clear();
 
         // The game's player LEDs must be replaced by the action's mask; the game's
         // lightbar color passes through, since no action holds a color.
@@ -360,7 +613,7 @@ public class DualSenseDeviceOutputsTests
         // Releasing the combination ends the action: the game's mask passes through.
         // Releasing the combination ends the action: the game's mask passes through.
         ReleaseCombo(device);
-        hid.Writes.Clear();
+        hid.Clear();
         outputs.SendOutputState(game);
         Assert.That(hid.Writes[0][44], Is.EqualTo(0x02));
 
@@ -393,11 +646,11 @@ public class DualSenseDeviceOutputsTests
         // Fire the timed color action on L1+R1.
         FeedReport(device, CreateReport());
         FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
-        hid.Writes.Clear();
+        hid.Clear();
 
         // Fire the while-held player-LED action on Cross+Circle.
         FeedReport(device, CreateReport(ButtonType.Cross, ButtonType.Circle));
-        hid.Writes.Clear();
+        hid.Clear();
 
         // Both actions are active: the newer action's LEDs and the older action's
         // color must both override the game's output.
@@ -434,7 +687,7 @@ public class DualSenseDeviceOutputsTests
 
         FeedReport(device, CreateReport());
         FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
-        hid.Writes.Clear();
+        hid.Clear();
 
         SetStateData game = new SetStateData
         {
@@ -490,7 +743,7 @@ public class DualSenseDeviceOutputsTests
         });
         device.LightbarPassthroughEnabled = false;
         device.PlayerLedPassthroughEnabled = false;
-        hid.Writes.Clear();
+        hid.Clear();
 
         // The audio lane's state block clears the lightbar to release the game's color.
         outputs.SendOutputState(new SetStateData
@@ -540,7 +793,7 @@ public class DualSenseDeviceOutputsTests
         });
         device.LightbarPassthroughEnabled = false;
         device.PlayerLedPassthroughEnabled = true;
-        hid.Writes.Clear();
+        hid.Clear();
 
         outputs.SendOutputState(new SetStateData
         {
@@ -589,7 +842,7 @@ public class DualSenseDeviceOutputsTests
         });
         device.LightbarPassthroughEnabled = true;
         device.PlayerLedPassthroughEnabled = true;
-        hid.Writes.Clear();
+        hid.Clear();
 
         outputs.SendOutputState(new SetStateData
         {

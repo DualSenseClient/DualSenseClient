@@ -306,6 +306,59 @@ public class DualSenseAudioForwarderTests
     }
 
     [Test]
+    public void FeedPcm_OverrideClears_ReturnsToAudioOnlyReports()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth,
+            NeedsOutputStateBlock = true
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.HapticsEnabled = false;
+        forwarder.Start();
+
+        for (int i = 0; i < 3; i++)
+        {
+            forwarder.FeedPcm(AudioBlock);
+        }
+
+        WaitUntil(() => fake.CombinedReportCount >= 11, TimeSpan.FromSeconds(3));
+        Assert.That(fake.CombinedReportCount, Is.GreaterThanOrEqualTo(11), "every fed block must be consumed before the override clears");
+
+        fake.NeedsOutputStateBlock = false;
+        int combinedBefore = fake.CombinedReportCount;
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => fake.AudioOnlyReportCount == 1, TimeSpan.FromSeconds(3));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fake.AudioOnlyReportCount, Is.EqualTo(1));
+            Assert.That(fake.CombinedReportCount, Is.EqualTo(combinedBefore), "clearing the override must return to audio-only reports");
+        });
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void AudioLevel_TracksFedAudioAndResetsOnStop()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        Assert.That(forwarder.AudioLevel, Is.Zero, "no audio has been fed yet");
+
+        forwarder.FeedPcm(AudioBlock);
+        Assert.That(forwarder.AudioLevel, Is.GreaterThan(0f), "the fed audio must raise the level");
+
+        forwarder.Stop();
+        Assert.That(forwarder.AudioLevel, Is.Zero, "stopping must reset the level");
+    }
+
+    [Test]
     public void FeedPcm_PartialBlocksAreAccumulatedAndChunked()
     {
         FakeAudioOutputs fake = new FakeAudioOutputs
