@@ -436,8 +436,7 @@ public sealed class SpecialActionEngine : IDisposable
             _touchStart = null;
             _lastGesture = null;
             _outputOverrides.Clear();
-            _lightbarOverrideCode = -1;
-            _playerLedOverrideCode = -1;
+            RecomputeOutputOverride();
             if (_sustainedActive.Count > 0)
             {
                 foreach (Guid id in _sustainedActive.ToList())
@@ -1202,6 +1201,13 @@ public sealed class SpecialActionEngine : IDisposable
 
         _lightbarOverrideCode = bestColor < 0 ? -1 : (bestColorEntry.Red << 16) | (bestColorEntry.Green << 8) | bestColorEntry.Blue;
         _playerLedOverrideCode = bestLeds < 0 ? -1 : bestLedsEntry;
+
+        // An active light action owns the lightbar and player LEDs: freeze the profile
+        // effect so it cannot fight the action's output.
+        if (_device is not null)
+        {
+            _device.LightbarEffectSuspended = bestColor >= 0 || bestLeds >= 0;
+        }
     }
 
     /// <summary>
@@ -1220,6 +1226,7 @@ public sealed class SpecialActionEngine : IDisposable
             _device.ButtonPressed -= OnButtonPressed;
             _device.ButtonReleased -= OnButtonReleased;
             _device.TouchpadChanged -= OnTouchpadChanged;
+            _device.LightbarEffectSuspended = false;
         }
 
         _device = null;
