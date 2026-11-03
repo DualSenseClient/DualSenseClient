@@ -37,9 +37,6 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
     /// <summary>Shift of the power-state nibble in the persona's battery byte.</summary>
     private const int PowerStateShift = 4;
 
-    /// <summary>Bit of the second "use rumble not haptics" selector in valid-flag byte 2 (reference bit 38.3).</summary>
-    private const byte UseRumbleNotHaptics2Bit = 0x08;
-
     /// <summary>The ready persona device; owned by the service, never removed here.</summary>
     private readonly DualSenseDevice _device;
 
@@ -168,7 +165,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         if (!RumbleForwardingEnabled)
         {
             flag0 &= ~(ValidFlags.EnableRumbleEmulation | ValidFlags.UseRumbleNotHaptics);
-            flag2 &= ~(ValidFlags.EnableImprovedRumbleEmu | (ValidFlags)UseRumbleNotHaptics2Bit);
+            flag2 &= ~(ValidFlags.EnableImprovedRumbleEmu | ValidFlags.UseRumbleNotHaptics2);
             rumbleLeft = 0;
             rumbleRight = 0;
         }
@@ -387,9 +384,9 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
     /// Translates one mapped physical report into the persona's input state. This is the single
     /// translation point of the adapter: every field the persona's input state exposes is mapped
     /// here, the host mute-light echo is served from the adapter's cache (see
-    /// <see cref="_muteLightMode"/>), and fields the mapping pipeline does not produce (sensor
-    /// timestamp, temperature, trigger stop/status echo, host/device timestamps) stay at the
-    /// persona's defaults.
+    /// <see cref="_muteLightMode"/>), and the motion/sensor timestamps, temperature, trigger
+    /// status/effect nibbles and device timestamp are carried through from the physical report.
+    /// The persona overlays the host timestamp it received in the latest output report.
     /// </summary>
     /// <param name="report">Physical report being mirrored.</param>
     /// <param name="mapped">Result of the mode's mapping table.</param>
@@ -435,6 +432,18 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         state.AccelX = motion.AccelX;
         state.AccelY = motion.AccelY;
         state.AccelZ = motion.AccelZ;
+        state.SensorTimestamp = motion.Timestamp;
+        state.Temperature = motion.Temperature;
+
+        AdaptiveTriggerStatus triggers = report.AdaptiveTriggers;
+        state.TriggerRightStopLocation = (byte)(triggers.R2Status & 0x0F);
+        state.TriggerRightStatus = (byte)(triggers.R2Status >> 4);
+        state.TriggerLeftStopLocation = (byte)(triggers.L2Status & 0x0F);
+        state.TriggerLeftStatus = (byte)(triggers.L2Status >> 4);
+        state.TriggerRightEffect = (byte)(triggers.Status2 & 0x0F);
+        state.TriggerLeftEffect = (byte)(triggers.Status2 >> 4);
+        state.HostTimestamp = triggers.HostTimestamp;
+        state.DeviceTimestamp = report.DeviceTimestamp.Value;
         return state;
     }
 
@@ -719,7 +728,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
         byte value = (byte)flags;
         if (report.UseRumbleNotHaptics2)
         {
-            value |= UseRumbleNotHaptics2Bit;
+            value |= (byte)ValidFlags.UseRumbleNotHaptics2;
         }
 
         return value;

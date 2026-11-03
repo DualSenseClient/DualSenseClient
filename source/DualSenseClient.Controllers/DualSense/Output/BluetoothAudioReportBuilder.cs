@@ -18,13 +18,15 @@ namespace DualSenseClient.Controllers.DualSense.Output;
 /// a free-running byte that increments once per report.
 /// </para>
 /// <para>
-/// Layouts follow the vDS/DS5Dongle reference implementation: each report opens with
-/// the sized packet-<c>0x11</c> session block (<c>0x91 0x07</c>, mic-disabled sections,
-/// five 0x40 buffer-length bytes, interval counter), followed by typed sub-blocks in
-/// vDS order — <see cref="BuildCombinedReport"/> carries state, then haptics, then the
-/// speaker/headset Opus lane. The builder is not thread-safe:
-/// drive it from a single report-writer thread and reset <see cref="Reset"/> when a
-/// stream starts.
+/// Layouts follow the DualSense reference: the haptics-only <c>0x32</c> report uses the
+/// short four-byte control block and one two-byte-buffer haptics payload; the combined
+/// <c>0x36</c> report carries the longer seven-byte control block, an embedded state
+/// block, the haptics packet and the speaker/headset Opus lane. The state block is an
+/// extension of the documented <c>0x36</c> table that retail hardware accepts and applies.
+/// A standalone <c>0x31</c> report is also applied while the audio lane is active, but
+/// embedding the state keeps it ordered with the audio frame and avoids a second report.
+/// The builder is not thread-safe: drive it from a single report-writer thread and reset
+/// <see cref="Reset"/> when a stream starts.
 /// </para>
 /// <para>
 /// The per-tick builders (<see cref="BuildHapticsReport"/>, <see cref="BuildAudioReport"/>
@@ -131,22 +133,19 @@ public sealed class BluetoothAudioReportBuilder
         report[1] = (byte)((_reportSequence & 0x0F) << 4);
         _reportSequence = (byte)((_reportSequence + 1) & 0x0F);
 
-        // Packet 0x11 session block (sized flag set): mic-disabled sections and five
-        // 0x40 buffer-length bytes, per the vDS reference.
+        // Packet 0x11 session block (sized flag set): mic-disabled control mask and two
+        // buffer-length bytes, per the DualSense haptics-only 0x32 layout.
         report[2] = 0x91;
-        report[3] = 0x07;
-        report[4] = 0xFE;
+        report[3] = 4;
+        report[4] = 0x66;
         report[5] = 0x40;
         report[6] = 0x40;
-        report[7] = 0x40;
-        report[8] = 0x40;
-        report[9] = 0x40;
-        report[10] = _packetCounter++;
+        report[7] = _packetCounter++;
 
         // Packet 0x12 haptics block (sized flag set).
-        report[11] = 0x92;
-        report[12] = HapticsPayloadSize;
-        hapticsPcm.CopyTo(report.AsSpan(13));
+        report[8] = 0x92;
+        report[9] = HapticsPayloadSize;
+        hapticsPcm.CopyTo(report.AsSpan(10));
 
         WriteCrc(report);
         return report;

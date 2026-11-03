@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 using DualSenseClient.Hid;
 using DualSenseClient.Emulation;
 using DualSenseClient.Emulation.Devices.DualSense;
@@ -25,6 +26,9 @@ public sealed class DualSenseEndToEndTests
 
     /// <summary>Product id of the DualSense persona (the reference's base mode).</summary>
     private const ushort DualSenseProductId = 0x0CE6;
+
+    /// <summary>Product id of the DualSense Edge persona (the reference's Edge mode).</summary>
+    private const ushort DualSenseEdgeProductId = 0x0DF2;
 
     /// <summary>Product string the reference identity serves (DualSenseIdentity.Product default).</summary>
     private const string DualSenseProductName = "DualSense Wireless Controller";
@@ -182,6 +186,161 @@ public sealed class DualSenseEndToEndTests
         // Unreachable while the detach assertion above fails first; kept so a later edit cannot end
         // the test silently attached to the host.
         Assert.That(detached, Is.True, "The test ended without detaching the controller; a vhci port may still be held by bus id \"1-1\".");
+    }
+
+    [Test]
+    public void FeatureReports_EnumerateAndCommandWrite_UseThePersonaSurface()
+    {
+        using HidDeviceEnumerator enumerator = new HidDeviceEnumerator();
+        HashSet<string> baselinePaths = EmulationIntegrationSupport.CollectDevicePaths(enumerator, SonyVendorId, DualSenseProductId);
+
+        using EmulationServer server = new EmulationServer(new EmulationServerOptions
+        {
+            ListenEndPoint = new IPEndPoint(IPAddress.Loopback, 0)
+        });
+        server.Start();
+        DualSenseDevice device = server.AddDualSense(false, new DualSenseIdentity
+        {
+            SerialNumber = "ABC123"
+        });
+
+        Assert.That(server.TryAttach(device, out string? attachError), Is.True,
+            $"The DualSense could not be attached to this machine: {attachError}");
+
+        bool detached = false;
+        try
+        {
+            IHidDeviceInfo controller = EmulationIntegrationSupport.WaitForNewDevice(
+                                            enumerator, baselinePaths, SonyVendorId, DualSenseProductId, EmulationIntegrationSupport.DeviceEnumerationTimeout)
+                                        ?? throw new AssertionException(
+                                            $"No new DualSense enumerated within {EmulationIntegrationSupport.DeviceEnumerationTimeout.TotalSeconds:0} s; attach diagnostics: {attachError}");
+
+            using IHidDevice hid = enumerator.OpenDevice(controller.Path);
+
+            byte[] calibration = hid.GetFeatureReport(0x05, 41);
+            byte[] pairing = hid.GetFeatureReport(0x09, 20);
+            byte[] firmware = hid.GetFeatureReport(0x20, 64);
+            Assert.Multiple(() =>
+            {
+                Assert.That(calibration, Has.Length.EqualTo(41));
+                Assert.That(calibration[0], Is.EqualTo(0x05));
+                Assert.That(pairing, Has.Length.EqualTo(20));
+                Assert.That(pairing[0], Is.EqualTo(0x09));
+                Assert.That(firmware, Has.Length.EqualTo(64));
+                Assert.That(firmware[0], Is.EqualTo(0x20));
+            });
+
+            // HidD_SetFeature on Windows sends the report ID as the first data-stage byte.
+            // The persona must strip it, record sub-command 0x01, and answer 0x81 with the
+            // identity serial in the 18-byte ASCII region starting at report offset 3.
+            byte[] command = new byte[64];
+            command[0] = 0x80;
+            command[1] = 0x01;
+            hid.SendFeatureReport(command, 0, command.Length);
+
+            byte[] response = hid.GetFeatureReport(0x81, 64);
+            Assert.That(response[0], Is.EqualTo(0x81));
+            Assert.That(Encoding.ASCII.GetString(response, 3, 6), Is.EqualTo("ABC123"));
+
+            bool detachSucceeded = server.TryDetach(device, out string? detachError);
+            detached = detachSucceeded;
+            Assert.That(detachSucceeded, Is.True, $"Detach failed: {detachError}");
+        }
+        catch (Exception failure)
+        {
+            if (!detached && !server.TryDetach(device, out string? cleanupError))
+            {
+                Assert.Fail($"{failure.Message} Additionally, the cleanup detach failed: {cleanupError}");
+            }
+
+            throw;
+        }
+    }
+
+    [Test]
+    public void EdgePersona_ServesEdgeFeaturesAndAcceptsThe64ByteOutputTransfer()
+    {
+        using HidDeviceEnumerator enumerator = new HidDeviceEnumerator();
+        HashSet<string> baselinePaths = EmulationIntegrationSupport.CollectDevicePaths(enumerator, SonyVendorId, DualSenseEdgeProductId);
+
+        using EmulationServer server = new EmulationServer(new EmulationServerOptions
+        {
+            ListenEndPoint = new IPEndPoint(IPAddress.Loopback, 0)
+        });
+        server.Start();
+        DualSenseDevice device = server.AddDualSense(true, new DualSenseIdentity
+        {
+            SerialNumber = "EDGE123"
+        });
+
+        Assert.That(server.TryAttach(device, out string? attachError), Is.True,
+            $"The DualSense Edge could not be attached to this machine: {attachError}");
+
+        bool detached = false;
+        try
+        {
+            IHidDeviceInfo controller = EmulationIntegrationSupport.WaitForNewDevice(
+                                            enumerator, baselinePaths, SonyVendorId, DualSenseEdgeProductId,
+                                            EmulationIntegrationSupport.DeviceEnumerationTimeout)
+                                        ?? throw new AssertionException(
+                                            $"No new DualSense Edge enumerated within {EmulationIntegrationSupport.DeviceEnumerationTimeout.TotalSeconds:0} s; attach diagnostics: {attachError}");
+
+            using IHidDevice hid = enumerator.OpenDevice(controller.Path);
+
+            byte[] handshake = hid.GetFeatureReport(0x65, 64);
+            byte[] widenedReport = hid.GetFeatureReport(0xF2, 53);
+            Assert.Multiple(() =>
+            {
+                Assert.That(handshake, Has.Length.EqualTo(64));
+                Assert.That(handshake[0], Is.EqualTo(0x65));
+                Assert.That(widenedReport, Has.Length.EqualTo(53));
+                Assert.That(widenedReport[0], Is.EqualTo(0xF2));
+            });
+
+            // A full-length Edge handshake write carries the report ID in its data stage on
+            // Windows; the persona stores the 63 payload bytes and echoes them from 0x65.
+            byte[] handshakeWrite = new byte[64];
+            handshakeWrite[0] = 0x65;
+            for (int i = 1; i < handshakeWrite.Length; i++)
+            {
+                handshakeWrite[i] = (byte)i;
+            }
+
+            hid.SendFeatureReport(handshakeWrite, 0, handshakeWrite.Length);
+            byte[] echoed = hid.GetFeatureReport(0x65, 64);
+            Assert.That(echoed[1..64], Is.EqualTo(handshakeWrite[1..64]));
+
+            // The Edge descriptor declares 63 output payload bytes (64 wire bytes); Windows
+            // sends that descriptor-sized transfer and the persona decodes the common block.
+            byte[] output = new byte[64];
+            output[0] = OutputReportId;
+            output[OutputFlags1Offset] = LightbarColorAllowedBit;
+            output[RedOffset] = RedComponent;
+            output[GreenOffset] = GreenComponent;
+            output[BlueOffset] = BlueComponent;
+            EmulationIntegrationSupport.WriteOutputReportAndWait<DualSenseOutputReport>(
+                hid,
+                output,
+                OutputReportId,
+                handler => device.OutputReportReceived += handler,
+                handler => device.OutputReportReceived -= handler,
+                MatchesWrittenOutput,
+                DescribeOutput,
+                EmulationIntegrationSupport.OutputReportTimeout);
+
+            bool detachSucceeded = server.TryDetach(device, out string? detachError);
+            detached = detachSucceeded;
+            Assert.That(detachSucceeded, Is.True, $"Detach failed: {detachError}");
+        }
+        catch (Exception failure)
+        {
+            if (!detached && !server.TryDetach(device, out string? cleanupError))
+            {
+                Assert.Fail($"{failure.Message} Additionally, the cleanup detach failed: {cleanupError}");
+            }
+
+            throw;
+        }
     }
 
     /// <summary>

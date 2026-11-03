@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Diagnostics;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.DualSense.Triggers;
@@ -182,7 +183,20 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     private readonly byte[] _gameHapticsPcm = new byte[DualSenseBtAudioPipeline.HapticsBytes];
 
     /// <summary>
-    /// Stopwatch timestamp of the last accepted realtime-haptics update, or 0 when none
+    /// Accumulator for the game's rear voice-coil PCM. The callback delivers one 1 ms
+    /// packet at 48 kHz; the controller's haptics block is 512 frames (10.667 ms), so
+    /// packets are joined before the 512→32 decimation. Guarded by <see cref="_sync"/>.
+    /// </summary>
+    private readonly short[] _gameHapticsInput = new short[DualSenseBtAudioPipeline.FramesPerBlock * DualSenseBtAudioPipeline.Channels];
+
+    /// <summary>
+    /// Number of stereo frames currently held in <see cref="_gameHapticsInput"/>.
+    /// Guarded by <see cref="_sync"/>.
+    /// </summary>
+    private int _gameHapticsInputFrames;
+
+    /// <summary>
+    /// Stopwatch timestamp of the last accepted realtime-haptics block, or 0 when none
     /// was accepted yet. Guarded by <see cref="_sync"/>.
     /// </summary>
     private long _lastGameHapticsTimestamp;
@@ -437,6 +451,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// </summary>
     public bool Start()
     {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
         lock (_sync)
         {
             if (_cts is not null)
@@ -456,9 +471,21 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
 
             _btStreamPrimed = false;
             _appliedConfigSignature = -1;
+            _audioRing.Clear();
             _gameHapticsActive = false;
-            _cts = new CancellationTokenSource();
-            _loopTask = Task.Run(() => PumpLoop(_cts.Token));
+            _gameHapticsInputFrames = 0;
+            _gameHapticsInput.AsSpan().Clear();
+            _gameHapticsPcm.AsSpan().Clear();
+            _lastGameHapticsTimestamp = 0;
+            _rumbleLeftTarget = 0;
+            _rumbleRightTarget = 0;
+            _rumbleLeftMagnitude = 0;
+            _rumbleRightMagnitude = 0;
+            _rumbleLeftPhase = 0;
+            _rumbleRightPhase = 0;
+            CancellationTokenSource cts = new CancellationTokenSource();
+            _cts = cts;
+            _loopTask = Task.Run(() => PumpLoop(cts));
             _log.Info($"Audio forwarding started ({(bluetooth ? "bluetooth" : "usb")})");
             return true;
         }
@@ -485,7 +512,22 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         }
 
         cts.Cancel();
-        loopTask?.Wait(TimeSpan.FromSeconds(2));
+        bool completed = true;
+        try
+        {
+            completed = loopTask?.Wait(TimeSpan.FromSeconds(2)) ?? true;
+        }
+        catch (AggregateException)
+        {
+            // The pump already logged its failure; Stop stays idempotent so disposal
+            // cannot throw a second copy of the same exception at the caller.
+        }
+
+        if (completed)
+        {
+            cts.Dispose();
+        }
+
         _usbTarget?.Stop();
         _log.Info("Audio forwarding stopped");
     }
@@ -581,11 +623,12 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// Stores the game's actual haptics payload from the virtual controller's realtime-haptics
     /// lane (rear voice-coil pair, 2ch S16LE @48kHz), so the pump can embed it into the Bluetooth
     /// audio-lane reports instead of the audio-derived haptics. The Emulation DualSense adapter feeds
-    /// this lane. The S16LE stereo frames are decimated to the 32-frame s8 payload; malformed buffers
-    /// are rejected so the forwarder keeps the audio-derived fallback. All-zero payloads are treated
-    /// as intentional silence only after the game has delivered a nonzero payload; before that they
-    /// are ignored so the audio-derived haptics keep playing. Called from the engine's callback
-    /// thread; safe to call while stopped.
+    /// this lane one 1 ms packet per USB frame; the packets are accumulated into a 512-frame block
+    /// and decimated to the controller's 32-frame s8 payload. Malformed buffers are rejected so the
+    /// forwarder keeps the audio-derived fallback. All-zero blocks are treated as intentional
+    /// silence only after the game has delivered a nonzero payload; before that they are ignored
+    /// so the audio-derived haptics keep playing. Called from the engine's callback thread; safe to
+    /// call while stopped.
     /// </summary>
     public void UpdateGameHaptics(byte[] pcm)
     {
@@ -604,24 +647,49 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         }
 
         int frames = pcm.Length / 4;
+        bool producedBlock = false;
         lock (_sync)
         {
-            bool nonZero = false;
-            for (int i = 0; i < DualSenseBtAudioPipeline.HapticsFrames; i++)
+            int offset = 0;
+            while (offset < frames)
             {
-                int src = i * frames / DualSenseBtAudioPipeline.HapticsFrames;
-                byte left = pcm[src * 4 + 1];
-                byte right = pcm[src * 4 + 3];
-                _gameHapticsPcm[i * 2] = left;
-                _gameHapticsPcm[i * 2 + 1] = right;
-                nonZero |= left != 0 || right != 0;
-            }
+                int take = Math.Min(
+                    DualSenseBtAudioPipeline.FramesPerBlock - _gameHapticsInputFrames,
+                    frames - offset);
+                for (int i = 0; i < take; i++)
+                {
+                    int source = (offset + i) * 4;
+                    int destination = (_gameHapticsInputFrames + i) * DualSenseBtAudioPipeline.Channels;
+                    _gameHapticsInput[destination] = BinaryPrimitives.ReadInt16LittleEndian(pcm.AsSpan(source, 2));
+                    _gameHapticsInput[destination + 1] = BinaryPrimitives.ReadInt16LittleEndian(pcm.AsSpan(source + 2, 2));
+                }
 
-            _gameHapticsActive |= nonZero;
-            _lastGameHapticsTimestamp = Stopwatch.GetTimestamp();
+                _gameHapticsInputFrames += take;
+                offset += take;
+                if (_gameHapticsInputFrames < DualSenseBtAudioPipeline.FramesPerBlock)
+                {
+                    continue;
+                }
+
+                DualSenseBtAudioPipeline.ToHapticsPcm(_gameHapticsInput, _gameHapticsPcm, 1f);
+                bool nonZero = false;
+                foreach (byte sample in _gameHapticsPcm)
+                {
+                    if (sample != 0)
+                    {
+                        nonZero = true;
+                        break;
+                    }
+                }
+
+                _gameHapticsActive |= nonZero;
+                _lastGameHapticsTimestamp = Stopwatch.GetTimestamp();
+                _gameHapticsInputFrames = 0;
+                producedBlock = true;
+            }
         }
 
-        if (Interlocked.Exchange(ref _gameHapticsAcceptedLogged, 1) == 0)
+        if (producedBlock && _gameHapticsActive && Interlocked.Exchange(ref _gameHapticsAcceptedLogged, 1) == 0)
         {
             _log.Info("Game haptics active: the pad now reproduces the game's own haptics payload");
         }
@@ -641,6 +709,8 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         {
             _audioRing.Clear();
             _btStreamPrimed = false;
+            _gameHapticsInputFrames = 0;
+            _gameHapticsInput.AsSpan().Clear();
             _lastGameHapticsTimestamp = 0;
             _gameHapticsActive = false;
             _rumbleLeftTarget = 0;
@@ -662,8 +732,9 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// the lane, and after the lane has been idle beyond <see cref="RePrimeIdleTicks"/>
     /// the next session re-primes. When audio resumes, the deadline is re-anchored to now.
     /// </summary>
-    private void PumpLoop(CancellationToken ct)
+    private void PumpLoop(CancellationTokenSource cts)
     {
+        CancellationToken ct = cts.Token;
         _log.Debug("Pump loop started");
         TimerResolution.AddRef();
         try
@@ -735,6 +806,21 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         finally
         {
             TimerResolution.Release();
+            bool disposeSource = false;
+            lock (_sync)
+            {
+                if (ReferenceEquals(_cts, cts))
+                {
+                    _cts = null;
+                    _loopTask = null;
+                    disposeSource = true;
+                }
+            }
+
+            if (disposeSource)
+            {
+                cts.Dispose();
+            }
         }
 
         _log.Debug("Pump loop ended");
@@ -972,7 +1058,8 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
                            | ValidFlags.AllowSpeakerVolume | ValidFlags.AllowHeadphoneVolume
                            | ValidFlags.AllowAudioControl;
         ValidFlags flag1 = state.ValidFlag1 | ValidFlags.AllowAudioControl2;
-        ValidFlags flag2 = state.ValidFlag2 & ~ValidFlags.EnableImprovedRumbleEmu;
+        ValidFlags flag2 = state.ValidFlag2
+                           & ~(ValidFlags.EnableImprovedRumbleEmu | ValidFlags.UseRumbleNotHaptics2);
 
         if (!_gameTriggersEnabled)
         {
@@ -1008,6 +1095,13 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
             };
         }
 
+        // The forwarder owns only the output-path field. Preserve the game's microphone
+        // select, echo/noise cancellation and input-path bits so streaming audio does not
+        // silently reset them.
+        AudioControl audioControl = (AudioControl)(
+            ((byte)state.AudioControl & ~(byte)AudioControl.OutputPathMask)
+            | ((byte)OutputControl & (byte)AudioControl.OutputPathMask));
+
         return state with
         {
             ValidFlag0 = flag0,
@@ -1015,7 +1109,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
             ValidFlag2 = flag2,
             SpeakerVolume = _speakerVolume,
             HeadphoneVolume = HeadphoneVolume,
-            AudioControl = OutputControl,
+            AudioControl = audioControl,
             AudioControl2 = 0x02
         };
     }
@@ -1024,8 +1118,8 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// Mixes the game's classic rumble motors into the haptics PCM: each motor is
     /// synthesized as a sine wave (60 Hz for the left/strong motor, 180 Hz for the
     /// right/weak motor, matching the reference Gamepad haptics-PCM polyfill) and
-    /// summed into both haptics channels, clamped to the s8 range. The magnitudes are
-    /// exponentially smoothed (about 50 ms) so strength changes ramp instead of
+    /// added to its matching haptics channel, clamped to the s8 range. The magnitudes
+    /// are exponentially smoothed (about 50 ms) so strength changes ramp instead of
     /// clicking. While the audio lane is open the pad ignores the state block's motor
     /// bytes, so this is the only rumble path during streaming. Caller must hold
     /// <see cref="_sync"/>.
@@ -1066,12 +1160,13 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
             _rumbleLeftPhase += leftStep;
             _rumbleRightPhase += rightStep;
 
-            double wave = _rumbleLeftMagnitude * Math.Sin(twoPi * _rumbleLeftPhase)
-                          + _rumbleRightMagnitude * Math.Sin(twoPi * _rumbleRightPhase);
-            int sample = (int)Math.Round(wave * 127.0);
+            int leftSample = (int)Math.Round(
+                _rumbleLeftMagnitude * Math.Sin(twoPi * _rumbleLeftPhase) * 127.0);
+            int rightSample = (int)Math.Round(
+                _rumbleRightMagnitude * Math.Sin(twoPi * _rumbleRightPhase) * 127.0);
 
-            int left = (sbyte)haptics[i * 2] + sample;
-            int right = (sbyte)haptics[i * 2 + 1] + sample;
+            int left = (sbyte)haptics[i * 2] + leftSample;
+            int right = (sbyte)haptics[i * 2 + 1] + rightSample;
             haptics[i * 2] = (byte)Math.Clamp(left, -128, 127);
             haptics[i * 2 + 1] = (byte)Math.Clamp(right, -128, 127);
         }

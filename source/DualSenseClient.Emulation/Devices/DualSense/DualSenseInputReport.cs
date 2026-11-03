@@ -21,7 +21,7 @@ using System.Buffers.Binary;
 // - The battery path reads the power byte as percent bits 0-3 and power-state bits 4-7 with
 //   discharging = 0x0; the main path reads the headset bit 0 and the mic-mute echo bit 2 of the
 //   plug byte.
-// - The 321-byte HID report descriptor (report id 1 block) fixes
+// - The 273-byte retail HID report descriptor (report id 1 block) fixes
 //   the field widths: six 8-bit axes, one vendor byte, a 4-bit hat plus 15 button bits, a 13-bit
 //   vendor field and 52 further vendor bytes.
 

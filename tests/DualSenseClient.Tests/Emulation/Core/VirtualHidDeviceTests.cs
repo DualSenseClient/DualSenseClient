@@ -108,6 +108,40 @@ public sealed class VirtualHidDeviceTests
     }
 
     [Test]
+    public void HandleControlRequest_SetReportOutputWithReportIdInDataStage_IsNotPrefixedTwice()
+    {
+        TestHidDevice device = CreateDevice();
+        device.OutputPayloadLength = 32;
+        byte[] payload = CreateOutputPayload(32);
+        byte[] dataStage = new byte[33];
+        dataStage[0] = 0x05;
+        payload.CopyTo(dataStage, 1);
+
+        ControlResult result = Send(device, ClassInterfaceOut, RequestSetReport, 0x0205, length: 33, outData: dataStage);
+
+        Assert.That(result.Count, Is.Zero);
+        Assert.That(device.OutputReports, Has.Count.EqualTo(1));
+        Assert.That(device.OutputReports[0], Is.EqualTo(dataStage));
+    }
+
+    [Test]
+    public void HandleControlRequest_SetReportFeatureWithReportIdInDataStage_StripsTheId()
+    {
+        TestHidDevice device = CreateDevice();
+        device.FeaturePayloadLength = 4;
+        byte[] dataStage = [0x05, 0x11, 0x22, 0x33, 0x44];
+
+        ControlResult result = Send(device, ClassInterfaceOut, RequestSetReport, 0x0305, length: 5, outData: dataStage);
+
+        Assert.That(result.Count, Is.Zero);
+        Assert.That(device.FeatureWrites, Has.Count.EqualTo(1));
+        Assert.That(device.FeatureWrites[0].Data, Is.EqualTo(new byte[]
+        {
+            0x11, 0x22, 0x33, 0x44
+        }));
+    }
+
+    [Test]
     public void HandleControlRequest_SetReportOutputReportIdZero_PassesPayloadUnchanged()
     {
         TestHidDevice device = CreateDevice();
@@ -382,6 +416,16 @@ public sealed class VirtualHidDeviceTests
 
         /// <summary>Feature report writes the device accepted, in call order.</summary>
         public List<(byte ReportId, byte[] Data)> FeatureWrites { get; } = [];
+
+        /// <summary>Declared payload length of an output report, or -1 to let the base use its heuristic.</summary>
+        public int OutputPayloadLength { get; set; } = -1;
+
+        /// <summary>Declared payload length of a feature report, or -1 to let the base use its heuristic.</summary>
+        public int FeaturePayloadLength { get; set; } = -1;
+
+        protected override int GetOutputReportPayloadLength(byte reportId) => OutputPayloadLength;
+
+        protected override int GetFeatureReportPayloadLength(byte reportId) => FeaturePayloadLength;
 
         public override int ProvideInputReport(Span<byte> destination)
         {

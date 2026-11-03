@@ -38,4 +38,18 @@ public class BatteryStateTests
 
         Assert.That(report.Battery.DisplayPercentage, Is.EqualTo(100));
     }
+
+    [Test]
+    public void BatteryState_WhenCharging_ReportsBandMidpoint()
+    {
+        byte[] buffer = new byte[64];
+        buffer[0] = 0x01;
+        buffer[53] = 0x18; // level 8, charging
+
+        InputReport report = InputReportTestData.CreateReport(buffer);
+
+        // The protocol reports the midpoint of each 10% band for both charging and
+        // discharging: 8 * 10 + 5 = 85%.
+        Assert.That(report.Battery.Percentage, Is.EqualTo(85));
+    }
 }

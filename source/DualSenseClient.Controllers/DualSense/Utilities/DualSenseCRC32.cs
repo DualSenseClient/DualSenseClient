@@ -1,4 +1,4 @@
-﻿using DualSenseClient.Logging;
+using DualSenseClient.Logging;
 
 namespace DualSenseClient.Controllers.DualSense.Utilities;
 
@@ -16,6 +16,30 @@ namespace DualSenseClient.Controllers.DualSense.Utilities;
 /// </remarks>
 public static class DualSenseCRC32
 {
+    /// <summary>
+    /// Seed of a Bluetooth input report CRC: the finalized CRC-32 of the HIDP
+    /// <c>0xA1</c> DATA/input header byte.
+    /// </summary>
+    public const uint InputReportSeed = 0x73D37CF3;
+
+    /// <summary>
+    /// Seed of a Bluetooth output report CRC: the finalized CRC-32 of the HIDP
+    /// <c>0xA2</c> DATA/output header byte.
+    /// </summary>
+    public const uint OutputReportSeed = 0xEADA2D49;
+
+    /// <summary>
+    /// Seed of a Bluetooth feature GET reply CRC: the finalized CRC-32 of the HIDP
+    /// <c>0xA3</c> DATA/feature header byte.
+    /// </summary>
+    public const uint FeatureGetSeed = 0x9DDD1DDF;
+
+    /// <summary>
+    /// Seed of a Bluetooth feature SET frame CRC: the finalized CRC-32 of the HIDP
+    /// <c>0x53</c> SET_REPORT/feature header byte.
+    /// </summary>
+    public const uint FeatureSetSeed = 0x2060EFC3;
+
     /// <summary>
     /// Logger instance
     /// </summary>
@@ -65,25 +89,45 @@ public static class DualSenseCRC32
 
     /// <summary>
     /// Computes the DualSense Bluetooth output report CRC32 over a region of data.
-    /// Uses the seeded form with seed <c>0xEADA2D49</c> (HIDP prefix <c>0xA2</c>).
+    /// Uses the seeded form with <see cref="OutputReportSeed"/> (HIDP prefix <c>0xA2</c>).
     /// </summary>
     /// <param name="data">Buffer containing the report data (without HIDP prefix).</param>
     /// <param name="offset">Starting index within <paramref name="data"/>.</param>
     /// <param name="length">Number of bytes to include in the checksum (typically 74 for BT output).</param>
     /// <returns>Computed CRC32 value.</returns>
-    public static uint Compute(byte[] data, int offset, int length)
-    {
-        const uint HASH_SEED = 0xeada2d49;
-        uint hashResult = HASH_SEED;
+    public static uint Compute(byte[] data, int offset, int length) =>
+        Compute(data, offset, length, OutputReportSeed);
 
-        _log.Trace($"Computing CRC32: offset={offset}, length={length}");
+    /// <summary>
+    /// Computes a DualSense Bluetooth CRC32 over a region of data with the seed of the
+    /// HIDP transaction that carries it. The seed is the finalized CRC-32 of the single
+    /// HIDP header byte (<c>0xA1</c> input, <c>0xA2</c> output, <c>0xA3</c> feature GET,
+    /// <c>0x53</c> feature SET), so the caller hashes the report bytes without the header.
+    /// </summary>
+    /// <param name="data">Buffer containing the report data (without HIDP prefix).</param>
+    /// <param name="offset">Starting index within <paramref name="data"/>.</param>
+    /// <param name="length">Number of bytes to include in the checksum.</param>
+    /// <param name="seed">HIDP transaction seed, e.g. <see cref="InputReportSeed"/>.</param>
+    /// <returns>Computed CRC32 value.</returns>
+    public static uint Compute(byte[] data, int offset, int length, uint seed)
+    {
+        uint hashResult = seed;
+
+        if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
+        {
+            _log.Trace($"Computing CRC32: offset={offset}, length={length}, seed=0x{seed:X8}");
+        }
 
         for (int i = offset; i < offset + length; ++i)
         {
             hashResult = ChecksumTable[(hashResult & 0xFF) ^ data[i]] ^ (hashResult >> 8);
         }
 
-        _log.Trace($"CRC32 result: 0x{hashResult:X8}");
+        if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
+        {
+            _log.Trace($"CRC32 result: 0x{hashResult:X8}");
+        }
+
         return hashResult;
     }
 }

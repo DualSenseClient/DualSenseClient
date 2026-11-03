@@ -52,9 +52,25 @@ public readonly struct OutputReport
     /// Builds a USB output report (report ID 0x02, 48 bytes, no CRC).
     /// </summary>
     /// <param name="payload">The 47-byte output payload.</param>
-    public static OutputReport ForUsb(SetStateData payload)
+    public static OutputReport ForUsb(SetStateData payload) => ForUsb(payload, SetStateData.PayloadSize);
+
+    /// <summary>
+    /// Builds a USB output report (report ID 0x02, no CRC) sized to the controller's
+    /// descriptor. The DualSense declares a 47-byte output payload (48 wire bytes); the
+    /// DualSense Edge declares 63 (64 wire bytes). Bytes after the common block are zero.
+    /// </summary>
+    /// <param name="payload">The 47-byte output payload.</param>
+    /// <param name="payloadSize">Declared payload size in bytes (47 for DualSense, 63 for Edge).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="payloadSize"/> cannot hold the common block.</exception>
+    public static OutputReport ForUsb(SetStateData payload, int payloadSize)
     {
-        byte[] raw = new byte[1 + SetStateData.PayloadSize];
+        if (payloadSize < SetStateData.PayloadSize)
+        {
+            throw new ArgumentOutOfRangeException(nameof(payloadSize), payloadSize,
+                $"A USB output payload must hold at least the {SetStateData.PayloadSize}-byte common block.");
+        }
+
+        byte[] raw = new byte[1 + payloadSize];
         raw[0] = UsbReportId;
         payload.CopyTo(raw, 1);
         return new OutputReport(raw, raw.Length);

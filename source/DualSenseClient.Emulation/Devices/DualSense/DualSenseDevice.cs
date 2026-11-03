@@ -155,6 +155,18 @@ public sealed class DualSenseDevice : VirtualHidDevice
     private byte _touch2Counter;
 
     /// <summary>
+    /// Host timestamp of the last host output report, echoed in the input reports (input common
+    /// offset 43). Guarded by <see cref="_stateLock"/>.
+    /// </summary>
+    private uint _hostTimestamp;
+
+    /// <summary>
+    /// Whether a host output report has supplied a <see cref="_hostTimestamp"/> to echo.
+    /// Guarded by <see cref="_stateLock"/>.
+    /// </summary>
+    private bool _hasHostTimestamp;
+
+    /// <summary>
     /// Initializes the persona device with the descriptors of <paramref name="identity"/> and an
     /// explicitly neutral input state (centered sticks, released D-pad, released buttons and the
     /// identity's battery defaults: percent 0x0A and the Complete power state for the reference
@@ -380,6 +392,11 @@ public sealed class DualSenseDevice : VirtualHidDevice
         lock (_stateLock)
         {
             state = _inputState;
+            if (_hasHostTimestamp)
+            {
+                state.HostTimestamp = _hostTimestamp;
+            }
+
             packetCounter = _packetCounter;
             _packetCounter = (byte)(_packetCounter + 1);
             touch1Counter = _touch1Counter;
@@ -426,6 +443,14 @@ public sealed class DualSenseDevice : VirtualHidDevice
 
         return DualSenseFeatureReports.Write(reportId, state, destination);
     }
+
+    /// <inheritdoc/>
+    protected override int GetOutputReportPayloadLength(byte reportId) =>
+        reportId == DualSenseOutputReport.ReportId ? _edge ? 63 : 47 : -1;
+
+    /// <inheritdoc/>
+    protected override int GetFeatureReportPayloadLength(byte reportId) =>
+        DualSenseFeatureReports.GetPayloadLength(reportId, _edge);
 
     /// <summary>
     /// Handles a feature report write: a factory command 0x80 carrying at least two payload bytes
@@ -475,6 +500,12 @@ public sealed class DualSenseDevice : VirtualHidDevice
         if (!DualSenseOutputReport.TryParse(data, out DualSenseOutputReport report))
         {
             return;
+        }
+
+        lock (_stateLock)
+        {
+            _hostTimestamp = report.HostTimestamp;
+            _hasHostTimestamp = true;
         }
 
         Action<DualSenseOutputReport>? handlers = OutputReportReceived;
@@ -715,6 +746,8 @@ public sealed class DualSenseDevice : VirtualHidDevice
             RightStickX = NeutralStick,
             RightStickY = NeutralStick,
             Dpad = DualSenseDpadDirection.Released,
+            TriggerRightStopLocation = 9,
+            TriggerLeftStopLocation = 9,
             BatteryLevel = identity.BatteryLevel,
             PowerState = identity.ChargingState
         };

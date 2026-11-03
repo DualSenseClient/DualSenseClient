@@ -1,7 +1,7 @@
 // Feature-report ids, lengths and field layouts:
-// - The 321-byte DualSense descriptor declares report id 5 with "Report Count (40)", report id 9
+// - The 273-byte retail DualSense descriptor declares report id 5 with "Report Count (40)", report id 9
 //   with 19, report id 32 (0x20) with 63 and report id 129 (0x81) with 63. It declares no report id
-//   18 (0x12): that is the DualShock 4 pairing-info report ("Report ID (18)"). The 437-byte Edge
+//   18 (0x12): that is the DualShock 4 pairing-info report ("Report ID (18)"). The 389-byte Edge
 //   descriptor adds the profile and function reports 96-101, 104 and 112-123 and widens report id
 //   242 (0xF2) from count 15 to 52.
 // - GET_REPORT serves feature reads from the controller-backed cache and answers a read the cache
@@ -150,7 +150,7 @@ public static class DualSenseFeatureReports
     private const byte NonAsciiReplacement = (byte)'?';
 
     /// <summary>
-    /// Total lengths (report id plus payload) of the feature reports the base 321-byte descriptor
+    /// Total lengths (report id plus payload) of the feature reports the retail 273-byte descriptor
     /// declares, transcribed from its report list (<c>DualSenseDescriptorSet</c>): every "Report ID
     /// (n)" / "Report Count (c)" pair of the descriptor contributes n -> c + 1. The rows the table
     /// fills with real content are the calibration, pairing, firmware and command-response reports;
@@ -162,8 +162,6 @@ public static class DualSenseFeatureReports
         (0x08, 48), // "Report Count (47)" -- zero stub
         (0x09, 20), // "Report Count (19)" -- pairing body
         (0x0A, 27), // "Report Count (26)" -- zero stub
-        (0x0B, 42), // "Report Count (41)" -- zero stub
-        (0x0C, 42), // "Report Count (41)" -- zero stub
         (0x20, 64), // "Report Count (63)" -- firmware body
         (0x21, 5), // "Report Count (4)" -- zero stub
         (0x22, 64), // "Report Count (63)" -- second hardware-info page, zero stub
@@ -179,15 +177,11 @@ public static class DualSenseFeatureReports
         (0xF1, 64), // "Report Count (63)" -- zero stub
         (0xF2, 16), // "Report Count (15)" -- zero stub (53 bytes on the Edge descriptor)
         (0xF4, 64), // "Report Count (63)" -- zero stub
-        (0xF5, 4), // "Report Count (3)" -- zero stub
-        (0xF6, 64), // "Report Count (63)" -- zero stub
-        (0xF7, 64), // "Report Count (63)" -- zero stub
-        (0xF8, 64), // "Report Count (63)" -- zero stub
-        (0xF9, 64) // "Report Count (63)" -- zero stub
+        (0xF5, 4) // "Report Count (3)" -- zero stub
     ];
 
     /// <summary>
-    /// Total lengths (report id plus payload) the 437-byte Edge descriptor adds to or widens over
+    /// Total lengths (report id plus payload) the 389-byte Edge descriptor adds to or widens over
     /// the base list, transcribed from its report list (<c>DualSenseEdgeDescriptorSet</c>): the
     /// profile and function reports 0x60-0x65 and 0x68 (all count 63), the profile snapshot slots
     /// 0x70-0x7B (all count 63) and the widened lightbar-setup report 0xF2 (count 52). The Edge
@@ -281,12 +275,26 @@ public static class DualSenseFeatureReports
     }
 
     /// <summary>
+    /// Returns the declared payload length (excluding the report ID) of a feature report,
+    /// or -1 when no persona descriptor declares it. Used by the HID engine to recognize
+    /// a SET_REPORT data stage that already carries the report ID on the wire.
+    /// </summary>
+    /// <param name="reportId">Report id to look up.</param>
+    /// <param name="edgePersona">Whether the persona serves the Edge descriptor.</param>
+    /// <returns>The payload length in bytes, or -1 when undeclared.</returns>
+    public static int GetPayloadLength(byte reportId, bool edgePersona)
+    {
+        int size = DeclaredSize(reportId, edgePersona);
+        return size == 0 ? -1 : size - 1;
+    }
+
+    /// <summary>
     /// Returns the total declared length of <paramref name="reportId"/>, or zero when no persona
     /// descriptor declares it: the Edge list (additions and the widened 0xF2) wins on the Edge
     /// persona, the base list answers the rest, exactly like the reference's lookup.
     /// </summary>
     /// <param name="reportId">Report id to look up.</param>
-    /// <param name="edgePersona">Whether the persona serves the 437-byte Edge descriptor.</param>
+    /// <param name="edgePersona">Whether the persona serves the 389-byte Edge descriptor.</param>
     /// <returns>The declared length in bytes (report id plus payload), or zero.</returns>
     private static int DeclaredSize(byte reportId, bool edgePersona)
     {

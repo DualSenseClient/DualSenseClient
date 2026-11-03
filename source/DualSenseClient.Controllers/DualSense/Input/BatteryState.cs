@@ -48,7 +48,7 @@ public readonly struct BatteryState : IEquatable<BatteryState>
             return PowerState switch
             {
                 BatteryPowerState.Discharging => Math.Min(level * 10 + 5, 100),
-                BatteryPowerState.Charging => Math.Max((level - 1) * 10, 0),
+                BatteryPowerState.Charging => Math.Min(level * 10 + 5, 100),
                 BatteryPowerState.ChargingComplete => 100,
                 _ => null
             };

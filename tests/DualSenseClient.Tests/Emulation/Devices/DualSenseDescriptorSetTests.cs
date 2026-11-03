@@ -13,8 +13,11 @@ public sealed class DualSenseDescriptorSetTests
     /// </summary>
     private const byte HidInterruptInterval = 0x02;
 
-    /// <summary>Length of the reference HID report descriptor (wDescriptorLength 321, pinned by the reference's static_assert).</summary>
-    private const int HidReportDescriptorLength = 321;
+    /// <summary>
+    /// Length of the retail DualSense HID report descriptor (wDescriptorLength 273, the
+    /// Controllers Wiki capture).
+    /// </summary>
+    private const int HidReportDescriptorLength = 273;
 
     /// <summary>Length of the composite configuration descriptor: header + 186-byte audio block + 32-byte HID block.</summary>
     private const int ConfigurationDescriptorLength = 227;
@@ -112,7 +115,7 @@ public sealed class DualSenseDescriptorSetTests
         UsbDescriptorSet descriptors = DualSenseDescriptorSet.Create(new DualSenseIdentity());
 
         // The composite configuration is the 9-byte header (four interfaces), the 186-byte UAC1 audio
-        // block and the 32-byte HID function block (interface 3 with the reference's 321-byte report
+        // block and the 32-byte HID function block (interface 3 with the retail 273-byte report
         // descriptor declaration, endpoints 0x84/0x03 and the runtime interval 2). The expected blob is
         // composed independently from the audio builder's block and a transcribed HID block.
         byte[] audio = UsbAudioClass.CreateDualSenseAudioBlock();
@@ -240,7 +243,7 @@ public sealed class DualSenseDescriptorSetTests
 
         Assert.That(descriptors.HidReportDescriptor, Is.Not.Null);
         ReadOnlyMemory<byte> report = descriptors.HidReportDescriptor.Value;
-        Assert.That(report.Length, Is.EqualTo(HidReportDescriptorLength)); // the P3 bytes, not the 437-byte Edge descriptor
+        Assert.That(report.Length, Is.EqualTo(HidReportDescriptorLength)); // the retail bytes, not the 389-byte Edge descriptor
         Assert.That(report.Span[0], Is.EqualTo(0x05)); // Usage Page item
         Assert.That(report.Span[1], Is.EqualTo(0x01)); // Usage Page (Generic Desktop)
         Assert.That(report.Span[6], Is.EqualTo(0x85)); // Report ID item
@@ -254,6 +257,35 @@ public sealed class DualSenseDescriptorSetTests
         Assert.That(config[hidClassOffset], Is.EqualTo((byte)0x09)); // bLength
         Assert.That(config[hidClassOffset + 1], Is.EqualTo((byte)0x21)); // bDescriptorType: HID
         Assert.That(BinaryPrimitives.ReadUInt16LittleEndian(config[(hidClassOffset + 7)..]), Is.EqualTo((ushort)HidReportDescriptorLength));
+    }
+
+    [Test]
+    public void Create_HidReportDescriptor_DoesNotDeclareNonRetailFeatureReports()
+    {
+        UsbDescriptorSet descriptors = DualSenseDescriptorSet.Create(new DualSenseIdentity());
+        ReadOnlySpan<byte> report = descriptors.HidReportDescriptor!.Value.Span;
+
+        HashSet<byte> declared = [];
+        for (int i = 0; i + 1 < report.Length; i++)
+        {
+            if (report[i] == 0x85)
+            {
+                declared.Add(report[i + 1]);
+            }
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(declared, Does.Contain((byte)0x05));
+            Assert.That(declared, Does.Contain((byte)0x09));
+            Assert.That(declared, Does.Contain((byte)0x20));
+            Assert.That(declared, Does.Not.Contain((byte)0x0B));
+            Assert.That(declared, Does.Not.Contain((byte)0x0C));
+            Assert.That(declared, Does.Not.Contain((byte)0xF6));
+            Assert.That(declared, Does.Not.Contain((byte)0xF7));
+            Assert.That(declared, Does.Not.Contain((byte)0xF8));
+            Assert.That(declared, Does.Not.Contain((byte)0xF9));
+        });
     }
 
     [Test]

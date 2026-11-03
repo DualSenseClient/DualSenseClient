@@ -247,7 +247,8 @@ public readonly struct SetStateData
     }
 
     /// <summary>
-    /// Motor power reduction (byte 36): bits 0-3 trigger, bits 4-7 rumble.
+    /// Motor power reduction (byte 36): bits 0-3 rumble motor reduction, bits 4-7 trigger
+    /// motor reduction.
     /// </summary>
     public byte MotorPowerReduction
     {

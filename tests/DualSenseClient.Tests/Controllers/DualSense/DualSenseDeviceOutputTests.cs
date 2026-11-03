@@ -235,6 +235,41 @@ public class DualSenseDeviceOutputTests
     }
 
     [Test]
+    public void MaxOutputReportLength_FollowsTheActiveDescriptorAndTransport()
+    {
+        using DualSenseDevice usb = new DualSenseDevice(new CapturingHidDevice(), new StubHidDeviceInfo(ConnectionType.Usb));
+        using DualSenseEdgeDevice edge = new DualSenseEdgeDevice(new CapturingHidDevice(), new StubHidDeviceInfo(ConnectionType.Usb));
+        using DualSenseDevice bluetooth = new DualSenseDevice(new CapturingHidDevice(), new StubHidDeviceInfo(ConnectionType.Bluetooth));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(usb.MaxOutputReportLength, Is.EqualTo(48), "DualSense USB output report");
+            Assert.That(edge.MaxOutputReportLength, Is.EqualTo(64), "DualSense Edge USB output report");
+            Assert.That(bluetooth.MaxOutputReportLength, Is.EqualTo(78), "Bluetooth 0x31 state report");
+        });
+    }
+
+    [Test]
+    public void UsbEdge_SendOutputState_UsesTheDescriptorSized64ByteTransfer()
+    {
+        CapturingHidDevice hid = new CapturingHidDevice();
+        using DualSenseEdgeDevice device = new DualSenseEdgeDevice(hid, new StubHidDeviceInfo(ConnectionType.Usb));
+
+        device.SendOutputState(new SetStateData
+        {
+            RumbleRight = 0x77
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hid.LastWriteCount, Is.EqualTo(64));
+            Assert.That(hid.LastWrite![0], Is.EqualTo(0x02));
+            Assert.That(hid.LastWrite[1 + 2], Is.EqualTo(0x77));
+            Assert.That(hid.LastWrite[48..], Is.All.EqualTo(0));
+        });
+    }
+
+    [Test]
     public void Bluetooth_SendOutputState_IncludesSequenceTagFlagsAndCrc()
     {
         CapturingHidDevice hid = new CapturingHidDevice();

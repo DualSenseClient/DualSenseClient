@@ -26,7 +26,7 @@ public class OutputReportBuilderTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(payload.ValidFlag0, Is.EqualTo(ValidFlags.EnableRumbleEmulation));
+            Assert.That(payload.ValidFlag0, Is.EqualTo(ValidFlags.None));
             Assert.That(payload.ValidFlag1, Is.EqualTo(ValidFlags.AllowMuteLight | ValidFlags.AllowLedColor));
             Assert.That(payload.ValidFlag2,
                 Is.EqualTo(ValidFlags.AllowBrightnessChange | ValidFlags.AllowColorFadeAnim));
@@ -38,7 +38,7 @@ public class OutputReportBuilderTests
     }
 
     [Test]
-    public void Rumble_WritesMotorsAndKeepsRumbleFlag()
+    public void Rumble_WritesMotorsAndSelectsV1RumblePath()
     {
         SetStateData payload = new OutputReportBuilder
         {
@@ -51,8 +51,23 @@ public class OutputReportBuilderTests
         {
             Assert.That(raw[2], Is.EqualTo(100));
             Assert.That(raw[3], Is.EqualTo(50));
+            // v1 rumble is selected by flag 0 bit 0 plus the "use rumble not haptics"
+            // selector in bit 1; bit 0 alone leaves the motors untouched.
             AssertHasFlag(payload.ValidFlag0, ValidFlags.EnableRumbleEmulation);
+            AssertHasFlag(payload.ValidFlag0, ValidFlags.UseRumbleNotHaptics);
         });
+    }
+
+    [Test]
+    public void ZeroRumble_DoesNotTouchTheMotorState()
+    {
+        SetStateData payload = new OutputReportBuilder
+        {
+            PlayerLeds = PlayerLedMask.Led3
+        }.Build();
+
+        Assert.That(payload.ValidFlag0 & (ValidFlags.EnableRumbleEmulation | ValidFlags.UseRumbleNotHaptics),
+            Is.EqualTo(ValidFlags.None));
     }
 
     [Test]

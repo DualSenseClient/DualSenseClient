@@ -220,6 +220,25 @@ public abstract class VirtualHidDevice : VirtualUsbDevice
     protected virtual bool OnFeatureReport(byte reportId, ReadOnlySpan<byte> data) => false;
 
     /// <summary>
+    /// Returns the declared payload length (excluding the report ID) of an output report,
+    /// or -1 when the device does not model it. The length disambiguates a SET_REPORT data
+    /// stage that already starts with the report ID from one that does not: Windows HID
+    /// includes the ID, while some other HID stacks omit it.
+    /// </summary>
+    /// <param name="reportId">Report ID of the output report.</param>
+    /// <returns>The payload length in bytes, or -1 when unknown.</returns>
+    protected virtual int GetOutputReportPayloadLength(byte reportId) => -1;
+
+    /// <summary>
+    /// Returns the declared payload length (excluding the report ID) of a feature report,
+    /// or -1 when the device does not model it. Used to strip the report ID from a
+    /// SET_REPORT data stage that already carries it.
+    /// </summary>
+    /// <param name="reportId">Report ID of the feature report.</param>
+    /// <returns>The payload length in bytes, or -1 when unknown.</returns>
+    protected virtual int GetFeatureReportPayloadLength(byte reportId) => -1;
+
+    /// <summary>
     /// Serves GET_REPORT: an input report is pulled from <see cref="VirtualUsbDevice.ProvideInputReport"/>
     /// and stalls when the device has none to provide; a feature report is routed to
     /// <see cref="ProvideFeatureReport"/>. Requesting an output report stalls.
@@ -269,25 +288,52 @@ public abstract class VirtualHidDevice : VirtualUsbDevice
         switch (reportType)
         {
             case ReportTypeOutput:
-                // SET_REPORT carries the id in wValue; device decoders consume the interrupt-OUT shape.
+                ReadOnlySpan<byte> payload = RemoveReportIdIfPresent(reportId, data, GetOutputReportPayloadLength(reportId));
                 if (reportId == 0)
                 {
-                    OnOutputReport(data);
+                    OnOutputReport(payload);
                     return 0;
                 }
 
-                byte[] prefixed = new byte[data.Length + 1];
+                byte[] prefixed = new byte[payload.Length + 1];
                 prefixed[0] = reportId;
-                data.CopyTo(prefixed.AsSpan(1));
+                payload.CopyTo(prefixed.AsSpan(1));
                 OnOutputReport(prefixed);
                 return 0;
 
             case ReportTypeFeature:
-                return OnFeatureReport(reportId, data) ? 0 : Stall;
+                ReadOnlySpan<byte> featurePayload = RemoveReportIdIfPresent(reportId, data, GetFeatureReportPayloadLength(reportId));
+                return OnFeatureReport(reportId, featurePayload) ? 0 : Stall;
 
             default:
                 return Stall;
         }
+    }
+
+    /// <summary>
+    /// Removes the leading report ID from a SET_REPORT data stage when the stage carries
+    /// one. The HID specification puts the report ID in the data stage of numbered
+    /// reports, and Windows HIDCLASS does so; some HID stacks (notably Linux usbhid's
+    /// control-OUT path) pass the payload without it. When the device declares the
+    /// payload length, only a stage of exactly <c>payload + 1</c> bytes that starts with
+    /// the report ID is treated as ID-prefixed; without a declared length the first-byte
+    /// match is the best available discriminator.
+    /// </summary>
+    /// <param name="reportId">Report ID of the report; zero means the report is unnumbered.</param>
+    /// <param name="data">Data stage of the class request.</param>
+    /// <param name="declaredPayloadLength">Declared payload length, or -1 when unknown.</param>
+    /// <returns>The payload without the report ID.</returns>
+    private static ReadOnlySpan<byte> RemoveReportIdIfPresent(byte reportId, ReadOnlySpan<byte> data, int declaredPayloadLength)
+    {
+        if (reportId == 0 || data.Length == 0)
+        {
+            return data;
+        }
+
+        bool includesReportId = declaredPayloadLength >= 0
+            ? data.Length == declaredPayloadLength + 1 && data[0] == reportId
+            : data[0] == reportId;
+        return includesReportId ? data[1..] : data;
     }
 
     /// <summary>

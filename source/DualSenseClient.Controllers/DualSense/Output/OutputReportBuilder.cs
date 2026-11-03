@@ -77,7 +77,15 @@ public sealed class OutputReportBuilder
     /// </summary>
     public SetStateData Build()
     {
-        ValidFlags flag0 = ValidFlags.EnableRumbleEmulation;
+        ValidFlags flag0 = ValidFlags.None;
+        if (RumbleRight != 0 || RumbleLeft != 0)
+        {
+            // v1 rumble needs both the emulation enable bit and the rumble-path selector.
+            // Leaving the bits clear when no motor value is set keeps a caller that only
+            // changes LEDs/triggers from stopping the game's rumble.
+            flag0 |= ValidFlags.EnableRumbleEmulation | ValidFlags.UseRumbleNotHaptics;
+        }
+
         if (R2TriggerEffect.Mode != TriggerEffectType.Off)
         {
             flag0 |= ValidFlags.AllowRightTriggerFfb;

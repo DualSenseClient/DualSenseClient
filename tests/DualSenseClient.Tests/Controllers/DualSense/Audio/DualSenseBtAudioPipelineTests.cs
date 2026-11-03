@@ -60,6 +60,43 @@ public class DualSenseBtAudioPipelineTests
     }
 
     [Test]
+    public void PadOpusFrame_ShortFrameIsZeroPadded()
+    {
+        byte[] encoded = [0x11, 0x22, 0x33];
+        byte[] frame = new byte[DualSenseBtAudioPipeline.OpusBytes];
+
+        DualSenseBtAudioPipeline.PadOpusFrame(encoded, frame);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(frame[..3], Is.EqualTo(encoded));
+            Assert.That(frame[3..], Is.All.EqualTo(0));
+        });
+    }
+
+    [Test]
+    public void PadOpusFrame_FullFrameIsCopiedVerbatim()
+    {
+        byte[] encoded = new byte[DualSenseBtAudioPipeline.OpusBytes];
+        for (int i = 0; i < encoded.Length; i++)
+        {
+            encoded[i] = (byte)(i * 3 + 1);
+        }
+
+        byte[] frame = new byte[DualSenseBtAudioPipeline.OpusBytes];
+        DualSenseBtAudioPipeline.PadOpusFrame(encoded, frame);
+
+        Assert.That(frame, Is.EqualTo(encoded));
+    }
+
+    [Test]
+    public void PadOpusFrame_FrameThatCannotHoldThePayloadIsRejected()
+    {
+        Assert.Throws<InvalidOperationException>(() =>
+            DualSenseBtAudioPipeline.PadOpusFrame(new byte[DualSenseBtAudioPipeline.OpusBytes], new byte[10]));
+    }
+
+    [Test]
     public void EncodeOpus_ResetEncoderStillProducesValidFrames()
     {
         using DualSenseBtAudioPipeline pipeline = new DualSenseBtAudioPipeline();

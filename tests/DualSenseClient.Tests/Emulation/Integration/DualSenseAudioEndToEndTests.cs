@@ -6,8 +6,8 @@ namespace DualSenseClient.Tests.Emulation.Integration;
 
 /// <summary>
 /// End-to-end integration tests of the DualSense persona's UAC1 audio function over the whole
-/// Emulation path, parameterized for the base DualSense (Sony 054C:0CE6, 321-byte HID report
-/// descriptor) and the DualSense Edge (054C:0DF2, 437-byte report descriptor). The facade serves
+/// Emulation path, parameterized for the base DualSense (Sony 054C:0CE6, 273-byte HID report
+/// descriptor) and the DualSense Edge (054C:0DF2, 389-byte report descriptor). The facade serves
 /// the composite device (audio control interface 0, speaker
 /// streaming interface 1 with isochronous OUT endpoint 0x01, microphone streaming interface 2 with
 /// isochronous IN endpoint 0x82, HID interface 3) over USB/IP; the production attach strategy attaches

@@ -615,6 +615,20 @@ public sealed class DualSenseOutputReportTests
     }
 
     [Test]
+    public void OnOutputReport_HostTimestamp_IsEchoedInTheNextInputReport()
+    {
+        DualSenseDevice device = CreateDevice();
+        byte[] output = CreateOutputPayload();
+        BinaryPrimitives.WriteUInt32LittleEndian(output.AsSpan(33), 0x12345678);
+
+        device.OnOutputReport(output);
+
+        byte[] input = new byte[64];
+        Assert.That(device.ProvideInputReport(input), Is.EqualTo(64));
+        Assert.That(BinaryPrimitives.ReadUInt32LittleEndian(input.AsSpan(44)), Is.EqualTo(0x12345678));
+    }
+
+    [Test]
     public void OnOutputReport_UnknownReportId_RaisesNothingAndDoesNotThrow()
     {
         DualSenseDevice device = CreateDevice();

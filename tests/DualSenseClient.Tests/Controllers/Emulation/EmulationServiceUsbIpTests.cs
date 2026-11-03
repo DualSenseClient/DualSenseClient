@@ -726,14 +726,21 @@ public sealed class EmulationServiceUsbIpTests
         Assert.That(ReadField<long>(forwarder, "_lastGameHapticsTimestamp"), Is.Zero,
             "a freshly created forwarder has not seen game haptics yet");
 
-        // A 384-byte speaker packet carries 48 whole frames: the persona extracts their rear pair
-        // (192 bytes) into RealtimeHapticsReceived, which the adapter forwards to UpdateGameHaptics.
-        persona.OnIsoPacketReceived(0x01, CreateSpeakerPacket());
+        // Each 384-byte speaker packet carries 48 whole frames. Eleven packets fill the
+        // forwarder's 512-frame haptics block, so the timestamp proves the lane reached it.
+        for (int i = 0; i < 11; i++)
+        {
+            persona.OnIsoPacketReceived(0x01, CreateSpeakerPacket());
+        }
+
         long seenHaptics = ReadField<long>(forwarder, "_lastGameHapticsTimestamp");
         Assert.That(seenHaptics, Is.Not.Zero, "the haptics lane reached the forwarder");
 
         InvokeService(_service, "UnwireGameCallbacksLocked", entry);
-        persona.OnIsoPacketReceived(0x01, CreateSpeakerPacket());
+        for (int i = 0; i < 11; i++)
+        {
+            persona.OnIsoPacketReceived(0x01, CreateSpeakerPacket());
+        }
 
         Assert.Multiple(() =>
         {
@@ -857,7 +864,11 @@ public sealed class EmulationServiceUsbIpTests
 
         // The game keeps sending realtime haptics: with audio off they must still reach the forwarder.
         PersonaDualSense persona = (PersonaDualSense)_virtualFactory.Creations[0].Creation!.Persona;
-        persona.OnIsoPacketReceived(0x01, CreateSpeakerPacket());
+        for (int i = 0; i < 11; i++)
+        {
+            persona.OnIsoPacketReceived(0x01, CreateSpeakerPacket());
+        }
+
         Assert.That(ReadField<long>(forwarder, "_lastGameHapticsTimestamp"), Is.Not.Zero,
             "disabling audio passthrough must not unwire the game-haptics lane");
 

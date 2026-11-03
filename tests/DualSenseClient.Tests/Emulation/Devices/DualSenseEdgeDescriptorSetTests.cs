@@ -23,11 +23,11 @@ public sealed class DualSenseEdgeDescriptorSetTests
     /// </summary>
     private const byte HidInterruptInterval = 0x02;
 
-    /// <summary>Length of the Edge HID report descriptor (wDescriptorLength 437, pinned by the reference's static_assert).</summary>
-    private const int HidReportDescriptorLength = 437;
+    /// <summary>Length of the retail Edge HID report descriptor: retail base 273 + 116 Edge feature bytes.</summary>
+    private const int HidReportDescriptorLength = 389;
 
-    /// <summary>Length of the base HID report descriptor, served by the base persona instead.</summary>
-    private const int BaseHidReportDescriptorLength = 321;
+    /// <summary>Length of the retail base HID report descriptor, served by the base persona instead.</summary>
+    private const int BaseHidReportDescriptorLength = 273;
 
     /// <summary>Length of the composite configuration descriptor: header + 186-byte audio block + 32-byte HID block.</summary>
     private const int ConfigurationDescriptorLength = 227;
@@ -66,15 +66,15 @@ public sealed class DualSenseEdgeDescriptorSetTests
     private const int BaseOutputReportCountIndex = 109;
 
     /// <summary>Index in the base report descriptor of report 0xF2's feature Report Count, 0x0F (15) to 0x34 (52) in the Edge descriptor.</summary>
-    private const int BaseFeatureReportCountIndex = 269;
+    private const int BaseFeatureReportCountIndex = 253;
 
     /// <summary>
     /// Index in the base report descriptor where the Edge descriptor inserts its 116 bytes of Edge-only
-    /// feature reports: right after report 0xF5's attribute, at the start of the report 0xF6 block.
+    /// feature reports: directly after report 0xF5's attribute and before the End Collection.
     /// </summary>
-    private const int EdgeFeatureReportsIndex = 288;
+    private const int EdgeFeatureReportsIndex = 272;
 
-    /// <summary>Number of bytes the Edge report descriptor inserts at <see cref="EdgeFeatureReportsIndex"/> (437 - 321).</summary>
+    /// <summary>Number of bytes the Edge report descriptor inserts at <see cref="EdgeFeatureReportsIndex"/> (389 - 273).</summary>
     private const int EdgeFeatureReportsLength = 116;
 
     [Test]
@@ -123,7 +123,7 @@ public sealed class DualSenseEdgeDescriptorSetTests
 
         // The composite configuration is shared with the base persona: the same 9-byte header, the same
         // 186-byte UAC1 audio block and a 32-byte HID block that differs only in the declared Edge report
-        // length (437 instead of 321) at the same offset.
+        // length (389 instead of 273) at the same offset.
         byte[] audio = UsbAudioClass.CreateDualSenseAudioBlock();
         byte[] hid = CreateExpectedHidBlock(HidReportDescriptorLength);
         byte[] expected = new byte[ConfigurationDescriptorLength];
@@ -249,7 +249,7 @@ public sealed class DualSenseEdgeDescriptorSetTests
 
         Assert.That(descriptors.HidReportDescriptor, Is.Not.Null);
         ReadOnlyMemory<byte> report = descriptors.HidReportDescriptor.Value;
-        Assert.That(report.Length, Is.EqualTo(HidReportDescriptorLength)); // the P3 Edge bytes, not the 321-byte base descriptor
+        Assert.That(report.Length, Is.EqualTo(HidReportDescriptorLength)); // the retail Edge bytes, not the 273-byte base descriptor
         Assert.That(report.Span[0], Is.EqualTo(0x05)); // Usage Page item
         Assert.That(report.Span[1], Is.EqualTo(0x01)); // Usage Page (Generic Desktop)
         Assert.That(report.Span[6], Is.EqualTo(0x85)); // Report ID item
@@ -288,10 +288,10 @@ public sealed class DualSenseEdgeDescriptorSetTests
         byte[] baseReport = DualSenseDescriptorSet.Create(new DualSenseIdentity()).HidReportDescriptor!.Value.ToArray();
         byte[] edgeReport = DualSenseEdgeDescriptorSet.Create(new DualSenseIdentity()).HidReportDescriptor!.Value.ToArray();
 
-        // desc_hid_report_dse differs from desc_hid_report_ds in exactly three places (derived from the
-        // reference arrays with comments stripped): the two report counts below are changed in place, and
-        // 116 bytes of Edge-only feature reports are inserted at EdgeFeatureReportsIndex. Every other byte
-        // of the 321-byte prefix and of the trailing 33 bytes is shared with the base persona.
+        // desc_hid_report_dse differs from the retail DualSense descriptor in exactly three places:
+        // the two report counts below are changed in place, and 116 bytes of Edge-only feature reports
+        // are inserted at EdgeFeatureReportsIndex. The 288-byte prefix and the final End Collection byte
+        // are shared with the base persona.
         Assert.That(baseReport, Has.Length.EqualTo(BaseHidReportDescriptorLength));
         Assert.That(edgeReport, Has.Length.EqualTo(HidReportDescriptorLength));
 
@@ -310,9 +310,10 @@ public sealed class DualSenseEdgeDescriptorSetTests
         Assert.That(baseReport[BaseFeatureReportCountIndex], Is.EqualTo(0x0F)); // report 0xF2 feature count: 15
         Assert.That(edgeReport[BaseFeatureReportCountIndex], Is.EqualTo(0x34)); // report 0xF2 feature count: 52 (Edge)
 
-        // The insertion anchor: the shared suffix starts with the report 0xF6 block in both descriptors.
-        Assert.That(baseReport[EdgeFeatureReportsIndex], Is.EqualTo(0x85));
-        Assert.That(baseReport[EdgeFeatureReportsIndex + 1], Is.EqualTo(0xF6));
+        // The insertion anchor: both descriptors reach the End Collection byte directly after the
+        // shared 0xF5 feature report.
+        Assert.That(baseReport[EdgeFeatureReportsIndex], Is.EqualTo(0xC0));
+        Assert.That(edgeReport[EdgeFeatureReportsIndex + EdgeFeatureReportsLength], Is.EqualTo(0xC0));
 
         // The 116 inserted bytes: the Edge-only profile and function feature reports, report IDs 0x60-0x65,
         // 0x68 and 0x70-0x7B. Only the first block restates the Report Count (63); the following blocks keep
@@ -388,7 +389,7 @@ public sealed class DualSenseEdgeDescriptorSetTests
     public void Create_NonEdgeIdentity_CannotProduceANonEdgeDescriptorWithTheEdgeProductId()
     {
         // The reference selects the product id, the HID report descriptor and the product string from
-        // ds_mode() alone, so the Edge product id 0x0DF2 never travels with the base persona's 321-byte
+        // ds_mode() alone, so the Edge product id 0x0DF2 never travels with the base persona's 273-byte
         // report descriptor or base product string: handing the Edge factory a plain base identity
         // (idProduct 0x0CE6, base product string) must still serve the complete Edge descriptor set.
         DualSenseIdentity baseIdentity = new DualSenseIdentity();
@@ -456,7 +457,7 @@ public sealed class DualSenseEdgeDescriptorSetTests
             0x00, // bCountryCode: not localized
             0x01, // bNumDescriptors: 1 report descriptor
             0x22, // bDescriptorType: REPORT
-            (byte)reportLength, (byte)(reportLength >> 8), // wDescriptorLength: 437 (0x01B5) for the Edge persona
+            (byte)reportLength, (byte)(reportLength >> 8), // wDescriptorLength: 389 (0x0185) for the Edge persona
             0x07, // bLength: 7
             0x05, // bDescriptorType: ENDPOINT
             0x84, // bEndpointAddress: IN EP4

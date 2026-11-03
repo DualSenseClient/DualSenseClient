@@ -37,6 +37,34 @@ public class DualSenseCRC32Tests
     }
 
     [Test]
+    public void Compute_InputReportSeed_MatchesCrcOfHeaderPlusReport()
+    {
+        // Bluetooth input reports are checksummed over the HIDP header 0xA1 and the
+        // report. Folding the header into the seed must equal a plain CRC32 over
+        // 0xA1 followed by the 74 report bytes (zlib.crc32(header + report)).
+        byte[] report = new byte[74];
+        report[0] = 0x31;
+
+        uint result = DualSenseCRC32.Compute(report, 0, report.Length, DualSenseCRC32.InputReportSeed);
+
+        Assert.That(result, Is.EqualTo(0x1C9C519D));
+    }
+
+    [Test]
+    public void Compute_FeatureGetSeed_MatchesCrcOfHeaderPlusReport()
+    {
+        // The feature GET reply carries the 0xA3 HIDP header. A 64-byte 0x20 reply
+        // checksums the header plus the first 60 bytes; this is the vector for the
+        // trailing CRC field at 60.
+        byte[] report = new byte[60];
+        report[0] = 0x20;
+
+        uint result = DualSenseCRC32.Compute(report, 0, report.Length, DualSenseCRC32.FeatureGetSeed);
+
+        Assert.That(result, Is.EqualTo(0x5D4CD5CF));
+    }
+
+    [Test]
     public void Compute_Subrange_OnlyHashesRequestedBytes()
     {
         byte[] data = [0x00, 0x31, 0x00];

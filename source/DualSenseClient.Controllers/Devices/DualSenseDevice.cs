@@ -4,6 +4,7 @@ using DualSenseClient.Controllers.DualSense.Feature;
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.DualSense.Triggers;
+using DualSenseClient.Controllers.DualSense.Utilities;
 using DualSenseClient.Hid;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings.Sections;
@@ -203,12 +204,18 @@ public class DualSenseDevice : ControllerDevice
             return ConnectionType switch
             {
                 ConnectionType.Bluetooth => 78,
-                ConnectionType.Usb => 63,
+                ConnectionType.Usb => IsEdge ? 64 : 48,
                 ConnectionType.Unknown => throw new ArgumentOutOfRangeException($"Unknown connection type: {ConnectionType}"),
                 _ => throw new ArgumentOutOfRangeException($"Unknown connection type: {ConnectionType}")
             };
         }
     }
+
+    /// <summary>
+    /// Motion-sensor calibration read from feature report 0x05 on connect.
+    /// Null when the report could not be read.
+    /// </summary>
+    public CalibrationInfo? CalibrationInfo { get; private set; }
 
     /// <summary>
     /// Firmware and hardware information read from feature report 0x20 on connect.
@@ -391,8 +398,12 @@ public class DualSenseDevice : ControllerDevice
     /// <param name="info">The device info that was used to discover and open the device.</param>
     public DualSenseDevice(IHidDevice device, IHidDeviceInfo info) : base(device, info)
     {
-        FirmwareInfo = FeatureReader.ReadFirmwareInfo(this);
+        // Probe order follows the Linux driver: pairing MAC, firmware/update version,
+        // then calibration. The calibration GET is also what moves a Bluetooth
+        // controller from the minimal 0x01 report to the full 0x31 report.
         PairingInfo = FeatureReader.ReadPairingInfo(this);
+        FirmwareInfo = FeatureReader.ReadFirmwareInfo(this);
+        CalibrationInfo = FeatureReader.ReadCalibration(this);
         _readThread = new Thread(() => ReadLoop(_cts.Token))
         {
             IsBackground = true,
@@ -411,9 +422,9 @@ public class DualSenseDevice : ControllerDevice
     private void ReadLoop(CancellationToken ct)
     {
         _log.Debug("Read Loop Start");
-        // Size by input, not output: USB 0x01 is 64B while MaxOutputReportLength
-        // is 63 on USB; BT 0x31 fills 78B. A 63B buffer would truncate the USB
-        // AES tail needed for verbatim raw passthrough.
+        // Size by input, not output: USB 0x01 is 64B while the USB output report is
+        // 48B (DualSense) or 64B (Edge); BT 0x31 fills 78B. A 63B buffer would truncate
+        // the USB AES tail needed for verbatim raw passthrough.
         byte[] buffer = new byte[Math.Max(MaxOutputReportLength, 78)];
         while (!ct.IsCancellationRequested)
         {
@@ -473,7 +484,7 @@ public class DualSenseDevice : ControllerDevice
     /// </summary>
     /// <param name="data">Raw HID input report buffer.</param>
     /// <param name="bytesRead">Valid bytes in <paramref name="data"/>.</param>
-    private void ProcessInputReport(byte[] data, int bytesRead)
+    internal void ProcessInputReport(byte[] data, int bytesRead)
     {
         byte reportId = data[0];
         int offset;
@@ -482,6 +493,28 @@ public class DualSenseDevice : ControllerDevice
             switch (reportId)
             {
                 case 0x31:
+                    if (bytesRead < 2 + 63)
+                    {
+                        _log.Warning($"Dropping truncated Bluetooth input report ({bytesRead} byte(s))");
+                        return;
+                    }
+
+                    // The full Bluetooth report is CRC-signed over the HIDP 0xA1 header
+                    // and report bytes 0-73; reject a corrupt report instead of feeding
+                    // stale or mangled state to the application.
+                    if (bytesRead >= 78 && !HasValidBluetoothInputCrc(data))
+                    {
+                        _log.Warning("Dropping Bluetooth input report with an invalid CRC");
+                        return;
+                    }
+
+                    if ((data[1] & 0x01) == 0)
+                    {
+                        // Bit 0 is HasHID: a 0x31 packet without it carries microphone
+                        // data (HasMic), not controller state.
+                        return;
+                    }
+
                     offset = 2;
                     break;
                 case 0x01:
@@ -494,9 +527,9 @@ public class DualSenseDevice : ControllerDevice
         }
         else
         {
-            if (reportId != 0x01)
+            if (reportId != 0x01 || bytesRead < 1 + 63)
             {
-                _log.Warning($"Invalid USB report ID: 0x{reportId:X2} (expected 0x01)");
+                _log.Warning($"Invalid USB input report ID 0x{reportId:X2} or truncated length {bytesRead}");
                 return;
             }
 
@@ -506,7 +539,11 @@ public class DualSenseDevice : ControllerDevice
         byte[]? usbRaw = null;
         DualSenseRawReport.TryBuildUsbRaw64(data, bytesRead, ConnectionType, out usbRaw);
         InputReport report = new InputReport(data, offset, usbRaw);
-        _log.Trace($"Input report 0x{reportId:X2} ({data.Length} byte(s)): {BitConverter.ToString(data, 0, data.Length)}");
+        if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
+        {
+            _log.Trace($"Input report 0x{reportId:X2} ({bytesRead} byte(s)): {BitConverter.ToString(data, 0, bytesRead)}");
+        }
+
         if (_previousInputReport is { } prev)
         {
             DetectChanges(prev, report);
@@ -516,6 +553,21 @@ public class DualSenseDevice : ControllerDevice
         InputReport = report;
         TrackPollingRate();
         InputReportReceived?.Invoke(this, report);
+    }
+
+    /// <summary>
+    /// Validates the CRC32 of a Bluetooth input report 0x31. The checksum covers the
+    /// HIDP 0xA1 header plus report bytes 0-73 and is stored little-endian at 74.
+    /// </summary>
+    /// <param name="report">Wire report starting with report ID 0x31.</param>
+    private static bool HasValidBluetoothInputCrc(byte[] report)
+    {
+        uint expected = (uint)(report[74]
+                               | (report[75] << 8)
+                               | (report[76] << 16)
+                               | (report[77] << 24));
+        uint actual = DualSenseCRC32.Compute(report, 0, 74, DualSenseCRC32.InputReportSeed);
+        return expected == actual;
     }
 
     /// <summary>
@@ -568,10 +620,14 @@ public class DualSenseDevice : ControllerDevice
             {
                 OutputReport report = bluetooth
                     ? OutputReport.ForBluetooth(payload, (byte)(_outputSequence & 0x0F))
-                    : OutputReport.ForUsb(payload);
+                    : OutputReport.ForUsb(payload, IsEdge ? 63 : SetStateData.PayloadSize);
                 _outputSequence = (byte)((_outputSequence + 1) & 0x0F);
 
-                _log.Debug($"Sending output report 0x{report.Raw[0]:X2} ({report.Length} byte(s))");
+                if (DualSenseClientLogger.MinimumLevel <= LogLevel.Debug)
+                {
+                    _log.Debug($"Sending output report 0x{report.Raw[0]:X2} ({report.Length} byte(s))");
+                }
+
                 SendOutput(report.Raw, 0, report.Length);
 
                 // Recorded only after a successful write so a failed send is retried

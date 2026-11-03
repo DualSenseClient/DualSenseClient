@@ -19,6 +19,8 @@ public class DualSenseAudioForwarderTests
 
         public bool NeedsOutputStateBlock { get; set; }
 
+        public bool ThrowOnCombinedReport { get; set; }
+
         public int ResetCount { get; private set; }
         public int PrimeCount { get; private set; }
         public int CombinedReportCount { get; private set; }
@@ -60,6 +62,11 @@ public class DualSenseAudioForwarderTests
 
         public void SendBluetoothAudioAndHaptics(SetStateData state, ReadOnlySpan<byte> opusFrame, ReadOnlySpan<byte> hapticsPcm, BluetoothAudioRoute route)
         {
+            if (ThrowOnCombinedReport)
+            {
+                throw new InvalidOperationException("synthetic send failure");
+            }
+
             CombinedReportCount++;
             state.CopyTo(LastStateBlock, 0);
             LastOpusFrameLength = (byte)opusFrame.Length;
@@ -87,8 +94,9 @@ public class DualSenseAudioForwarderTests
     /// <summary>
     /// Builds rear voice-coil PCM (2ch S16LE @48kHz) whose decimated s8 payload is
     /// the given value on both channels: each frame is [0x00, value, 0x00, value].
+    /// The default is one whole 512-frame haptics block.
     /// </summary>
-    private static byte[] MakeRearPcm(byte s8value, int frames = 48)
+    private static byte[] MakeRearPcm(byte s8value, int frames = DualSenseBtAudioPipeline.FramesPerBlock)
     {
         byte[] pcm = new byte[frames * 4];
         for (int f = 0; f < frames; f++)
@@ -358,6 +366,48 @@ public class DualSenseAudioForwarderTests
     }
 
     [Test]
+    public void Start_AfterStop_DoesNotReplayBufferedAudio()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        for (int i = 0; i < 8; i++)
+        {
+            forwarder.FeedPcm(AudioBlock);
+        }
+
+        WaitUntil(() => fake.ReportCount >= 12, TimeSpan.FromSeconds(3));
+        forwarder.Stop();
+        int reportsAtStop = fake.ReportCount;
+
+        forwarder.Start();
+        Thread.Sleep(200);
+
+        Assert.That(fake.ReportCount, Is.EqualTo(reportsAtStop),
+            "a restarted forwarder must not replay audio buffered before Stop");
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void Start_AfterDispose_Throws()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+        forwarder.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => forwarder.Start());
+    }
+
+    [Test]
     public void Stop_NoFurtherReportsAreSent()
     {
         FakeAudioOutputs fake = new FakeAudioOutputs
@@ -377,6 +427,24 @@ public class DualSenseAudioForwarderTests
         Thread.Sleep(150);
 
         Assert.That(fake.ReportCount, Is.EqualTo(countAtStop), "feeding after stop must be ignored");
+    }
+
+    [Test]
+    public void PumpFailure_MarksForwarderInactive()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth,
+            ThrowOnCombinedReport = true
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => !forwarder.IsActive, TimeSpan.FromSeconds(3));
+
+        Assert.That(forwarder.IsActive, Is.False,
+            "a pump that exits on an exception must not keep reporting itself active");
     }
 
     [Test]
@@ -492,6 +560,55 @@ public class DualSenseAudioForwarderTests
             Assert.That(state[0] & 0x0C, Is.Zero, "the game's cleared trigger allow bits must pass through unchanged");
             Assert.That(state[10], Is.EqualTo(0x26), "the block bytes still ride the state block");
         });
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void UpdateGameOutputState_PreservesNonOutputAudioControlBits()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+        forwarder.UpdateGameOutputState(new SetStateData
+        {
+            ValidFlag0 = ValidFlags.AllowAudioControl,
+            AudioControl = AudioControl.MicSelectInternal | AudioControl.NoiseCancelEnable
+        });
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => fake.ReportCount >= 8 && fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
+
+        Assert.That(
+            fake.LastStateBlock[7],
+            Is.EqualTo((byte)(AudioControl.MicSelectInternal
+                              | AudioControl.NoiseCancelEnable
+                              | AudioControl.OutputPathSpeaker)),
+            "the forwarder must override only the output path and keep the game's mic/noise bits");
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void UpdateGameOutputState_UseRumbleNotHaptics2Bit_IsClearedInTheEmbeddedState()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+        forwarder.UpdateGameOutputState(new SetStateData
+        {
+            ValidFlag2 = (ValidFlags)0x08
+        });
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => fake.ReportCount >= 8 && fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
+
+        Assert.That(fake.LastStateBlock[38] & 0x08, Is.Zero,
+            "the embedded state must not retain the v2 rumble selector while haptics are active");
 
         forwarder.Stop();
     }
@@ -664,6 +781,52 @@ public class DualSenseAudioForwarderTests
         {
             Assert.That(frame.Distinct().Count(), Is.GreaterThan(8), "the 60 Hz rumble sine must make the haptics vary across the frame");
             Assert.That(frame.Max(b => (sbyte)b), Is.GreaterThan(20), "the rumble must drive the voice coils");
+        });
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void UpdateGameOutputState_LeftRumbleOnly_DoesNotDriveTheRightChannel()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        forwarder.UpdateGameOutputState(new SetStateData
+        {
+            ValidFlag0 = ValidFlags.EnableRumbleEmulation,
+            RumbleLeft = 0xFF,
+            RumbleRight = 0x00
+        });
+
+        for (int i = 0; i < 16; i++)
+        {
+            forwarder.FeedPcm(MakeAudioBlock(0f));
+        }
+
+        WaitUntil(
+            () => fake.LastHapticsFrame is { Length: DualSenseBtAudioPipeline.HapticsBytes }
+                  && Enumerable.Range(0, DualSenseBtAudioPipeline.HapticsFrames)
+                      .Any(i => fake.LastHapticsFrame[i * 2] != 0),
+            TimeSpan.FromSeconds(3));
+
+        byte[] frame = fake.LastHapticsFrame;
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                Enumerable.Range(0, DualSenseBtAudioPipeline.HapticsFrames)
+                    .Any(i => frame[i * 2] != 0),
+                Is.True,
+                "the left motor must drive the left haptics channel");
+            Assert.That(
+                Enumerable.Range(0, DualSenseBtAudioPipeline.HapticsFrames)
+                    .All(i => frame[i * 2 + 1] == 0),
+                Is.True,
+                "a left-only rumble must not drive the right haptics channel");
         });
 
         forwarder.Stop();
@@ -997,10 +1160,54 @@ public class DualSenseAudioForwarderTests
     }
 
     [Test]
+    public void UpdateGameHaptics_AccumulatesConsecutiveOneMillisecondPacketsIntoOneBlock()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        for (int i = 0; i < 8; i++)
+        {
+            forwarder.FeedPcm(MakeAudioBlock(0f));
+        }
+
+        WaitUntil(() => fake.ReportCount >= 8 && fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
+
+        // The persona raises one rear-pair packet per 1 ms USB frame. Eleven packets
+        // make 528 frames, so the first 512-frame haptics block must contain content
+        // from every packet, not just the last one.
+        for (int packet = 1; packet <= 11; packet++)
+        {
+            forwarder.UpdateGameHaptics(MakeRearPcm((byte)packet, 48));
+        }
+
+        WaitUntil(
+            () => fake.LastHapticsFrame is { Length: DualSenseBtAudioPipeline.HapticsBytes }
+                  && fake.LastHapticsFrame.Distinct().Count() > 1,
+            TimeSpan.FromSeconds(3));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fake.LastHapticsFrame, Has.Length.EqualTo(DualSenseBtAudioPipeline.HapticsBytes));
+            Assert.That(fake.LastHapticsFrame.Distinct().Count(), Is.GreaterThan(1),
+                "a 1 ms packet must not be stretched into the whole 10.667 ms haptics block");
+            Assert.That(fake.LastHapticsFrame, Does.Contain((byte)1),
+                "the first packet must contribute to the accumulated block");
+            Assert.That(fake.LastHapticsFrame, Does.Contain((byte)11),
+                "the last packet must contribute to the accumulated block");
+        });
+
+        forwarder.Stop();
+    }
+
+    [Test]
     public void UpdateGameHaptics_AcceptsVariableFrameCounts()
     {
         // The realtime-haptics lane delivers the rear pair per host write, so frame counts vary.
-        // A 49-frame (392B 4ch -> 196B rear) write must still decimate to 0x10.
+        // A 49-frame (392B 4ch -> 196B rear) write must still accumulate and decimate to 0x10.
         byte[] gamePcm = MakeRearPcm(0x10, 49);
 
         FakeAudioOutputs fake = new FakeAudioOutputs
@@ -1017,11 +1224,15 @@ public class DualSenseAudioForwarderTests
 
         WaitUntil(() => fake.ReportCount >= 8 && fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
 
-        forwarder.UpdateGameHaptics(gamePcm);
+        for (int i = 0; i < 11; i++)
+        {
+            forwarder.UpdateGameHaptics(gamePcm);
+        }
+
         WaitUntil(() => fake.LastHapticsFrame is { Length: 64 } && fake.LastHapticsFrame.All(b => b == 0x10), TimeSpan.FromSeconds(3));
 
         Assert.That(fake.LastHapticsFrame.All(b => b == 0x10), Is.True,
-            "variable-length rear PCM must decimate to the s8 payload");
+            "variable-length rear PCM must accumulate and decimate to the s8 payload");
 
         forwarder.Stop();
     }

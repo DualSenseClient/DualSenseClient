@@ -175,17 +175,17 @@ public sealed class DualSenseFeatureReportTests
     /// <summary>Report id of the lightbar-setup feature report the Edge descriptor widens (0xF2).</summary>
     private const byte LightbarSetupReportId = 0xF2;
 
-    /// <summary>Declared length of the lightbar-setup report on the 321-byte base descriptor (report count 15).</summary>
+    /// <summary>Declared length of the lightbar-setup report on the 273-byte retail base descriptor (report count 15).</summary>
     private const int BaseLightbarSetupSize = 16;
 
-    /// <summary>Declared length of the lightbar-setup report on the 437-byte Edge descriptor (report count 52).</summary>
+    /// <summary>Declared length of the lightbar-setup report on the 389-byte Edge descriptor (report count 52).</summary>
     private const int EdgeLightbarSetupSize = 53;
 
-    /// <summary>Number of feature reports the 321-byte base descriptor declares.</summary>
-    private const int BaseDeclaredReportCount = 26;
+    /// <summary>Number of feature reports the 273-byte retail base descriptor declares.</summary>
+    private const int BaseDeclaredReportCount = 20;
 
-    /// <summary>Number of feature reports the 437-byte Edge descriptor declares.</summary>
-    private const int EdgeDeclaredReportCount = 45;
+    /// <summary>Number of feature reports the 389-byte Edge descriptor declares.</summary>
+    private const int EdgeDeclaredReportCount = 39;
 
     /// <summary>Report offset of the input report's report sequence counter (the T5 packet counter).</summary>
     private const int OffsetInputPacketCounter = 7;
@@ -340,8 +340,6 @@ public sealed class DualSenseFeatureReportTests
 
     [TestCase(0x08, 48)]
     [TestCase(0x0A, 27)]
-    [TestCase(0x0B, 42)]
-    [TestCase(0x0C, 42)]
     [TestCase(0x21, 5)]
     [TestCase(HardwareInfoPage2ReportId, 64)] // the second hardware-info page: 64-byte zero stub
     [TestCase(CommandReportId, 64)] // the write-only factory command reads back as a zero stub
@@ -356,10 +354,6 @@ public sealed class DualSenseFeatureReportTests
     [TestCase(LightbarSetupReportId, BaseLightbarSetupSize)]
     [TestCase(0xF4, 64)]
     [TestCase(0xF5, 4)]
-    [TestCase(0xF6, 64)]
-    [TestCase(0xF7, 64)]
-    [TestCase(0xF8, 64)]
-    [TestCase(0xF9, 64)]
     public void GetReport_DeclaredButUnfilledIds_ServeZeroStubs(byte reportId, int size)
     {
         DualSenseDevice device = CreateDevice();
@@ -499,6 +493,25 @@ public sealed class DualSenseFeatureReportTests
         Assert.That(result.Data[1], Is.EqualTo(CommandResponseMarker));
         Assert.That(result.Data[OffsetCommandResponseStatus], Is.EqualTo(CommandResponseStatus));
         Assert.That(result.Data[5..CommandResponseSize], Is.EqualTo(new byte[CommandResponseSize - 5]));
+    }
+
+    [Test]
+    public void SetReport_CommandDataStageWithReportId_StripsTheIdBeforeRecordingTheSubcommand()
+    {
+        DualSenseDevice device = CreateDevice(new DualSenseIdentity
+        {
+            SerialNumber = IdentitySerial
+        });
+        byte[] dataStage = new byte[64];
+        dataStage[0] = CommandReportId;
+        dataStage[1] = SerialSubcommand;
+
+        int acknowledged = SetFeature(device, CommandReportId, dataStage);
+        ControlResult result = GetFeature(device, CommandResponseReportId, CommandResponseSize);
+
+        Assert.That(acknowledged, Is.Zero);
+        Assert.That(result.Data[OffsetCommandResponseSerial..(OffsetCommandResponseSerial + CommandResponseSerialLength)],
+            Is.EqualTo(IdentitySerialRegion));
     }
 
     [Test]

@@ -35,6 +35,22 @@ public class OutputReportTests
     }
 
     [Test]
+    public void ForUsb_EdgePayloadSize_FramesTheDeclared63BytePayload()
+    {
+        OutputReport report = OutputReport.ForUsb(SamplePayload(), 63);
+        byte[] payloadRaw = new byte[SetStateData.PayloadSize];
+        SamplePayload().CopyTo(payloadRaw, 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(report.Length, Is.EqualTo(64));
+            Assert.That(report.Raw[0], Is.EqualTo(0x02));
+            Assert.That(report.Raw[1..48], Is.EqualTo(payloadRaw));
+            Assert.That(report.Raw[48..], Is.All.EqualTo(0));
+        });
+    }
+
+    [Test]
     public void ForBluetooth_ReportIdPayloadAndLength()
     {
         OutputReport report = OutputReport.ForBluetooth(SamplePayload(), 3);

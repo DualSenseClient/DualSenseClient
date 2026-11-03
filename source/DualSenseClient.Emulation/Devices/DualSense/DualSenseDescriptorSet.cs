@@ -1,7 +1,7 @@
 using DualSenseClient.Emulation.Core;
 
-// Descriptor data of the reference device: the device descriptor, the HID block of the configuration
-// descriptor and the 321-byte HID report descriptor.
+// Descriptor data of the retail DualSense: the device descriptor, the HID block of the configuration
+// descriptor and the 273-byte HID report descriptor.
 
 namespace DualSenseClient.Emulation.Devices.DualSense;
 
@@ -9,7 +9,7 @@ namespace DualSenseClient.Emulation.Devices.DualSense;
 /// Descriptor set of the DualSense persona (Sony 054C:0CE6): the composite configuration with the
 /// UAC1 audio function (audio control interface 0, speaker streaming interface 1, microphone streaming
 /// interface 2) and one HID interface (interface 3) with an interrupt IN and an interrupt OUT endpoint
-/// plus the reference 321-byte HID report descriptor. The 186-byte audio block is the reference block
+/// plus the retail 273-byte HID report descriptor. The 186-byte audio block is the reference block
 /// of <see cref="UsbAudioClass"/>; the HID block keeps the P3 bytes and the reference's interface
 /// number 3 (the composite builder does not renumber it).
 /// The descriptor bytes are transcribed from the reference.
@@ -153,11 +153,9 @@ public static class DualSenseDescriptorSet
     }
 
     /// <summary>
-    /// Creates the reference HID report descriptor: the 321-byte report descriptor the reference serves for a
-    /// DualSense in DualSense mode (<c>desc_hid_report_ds</c>; report IDs 1, 2, 5, 8-12, 32-34, 128-133, 160,
-    /// 224 and 240-242 plus 244-249), transcribed byte-for-byte from the reference (its
-    /// static_assert pins the length at 321). The 437-byte Edge descriptor (<c>desc_hid_report_dse</c>) is
-    /// served by the Edge persona instead.
+    /// Creates the retail DualSense HID report descriptor: the 273-byte report descriptor captured from
+    /// retail hardware (report IDs 1, 2, 5, 8-10, 32-34, 128-133, 160, 224, 240-242 and 244-245). The
+    /// 389-byte Edge descriptor is served by the Edge persona instead.
     /// </summary>
     /// <returns>The HID report descriptor bytes.</returns>
     private static byte[] CreateHidReportDescriptor()
@@ -233,14 +231,6 @@ public static class DualSenseDescriptorSet
             0x09, 0x25, // Usage (0x25)
             0x95, 0x1A, // Report Count (26)
             0xB1, 0x02, // Feature (Data,Var)
-            0x85, 0x0B, // Report ID (11)
-            0x09, 0x41, // Usage (0x41)
-            0x95, 0x29, // Report Count (41)
-            0xB1, 0x02, // Feature (Data,Var)
-            0x85, 0x0C, // Report ID (12)
-            0x09, 0x42, // Usage (0x42)
-            0x95, 0x29, // Report Count (41)
-            0xB1, 0x02, // Feature (Data,Var)
             0x85, 0x20, // Report ID (32)
             0x09, 0x26, // Usage (0x26)
             0x95, 0x3F, // Report Count (63)
@@ -304,22 +294,6 @@ public static class DualSenseDescriptorSet
             0x85, 0xF5, // Report ID (245)
             0x09, 0x36, // Usage (0x36)
             0x95, 0x03, // Report Count (3)
-            0xB1, 0x02, // Feature (Data,Var)
-            0x85, 0xF6, // Report ID (246)
-            0x09, 0x37, // Usage (0x37)
-            0x95, 0x3F, // Report Count (63)
-            0xB1, 0x02, // Feature (Data,Var)
-            0x85, 0xF7, // Report ID (247)
-            0x09, 0x38, // Usage (0x38)
-            0x95, 0x3F, // Report Count (63)
-            0xB1, 0x02, // Feature (Data,Var)
-            0x85, 0xF8, // Report ID (248)
-            0x09, 0x39, // Usage (0x39)
-            0x95, 0x3F, // Report Count (63)
-            0xB1, 0x02, // Feature (Data,Var)
-            0x85, 0xF9, // Report ID (249)
-            0x09, 0x3A, // Usage (0x3A)
-            0x95, 0x3F, // Report Count (63)
             0xB1, 0x02, // Feature (Data,Var)
             0xC0 // End Collection
         ];

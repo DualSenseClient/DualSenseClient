@@ -288,6 +288,60 @@ public sealed class VirtualDualSenseControllerTests
     }
 
     [Test]
+    public void PushInput_TriggerStatusTimestampsAndTemperature_MapFieldForField()
+    {
+        DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
+        VirtualDualSenseController controller = CreateController(device, new RecordingDualSenseOutputs());
+        byte[] payload = EmulationAdapterTestSupport.NeutralPayload();
+
+        payload[41] = 0x14; // R2: stop location 4, status 1
+        payload[42] = 0x27; // L2: stop location 7, status 2
+        payload[47] = 0x32; // right effect 2, left effect 3
+
+        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(27), 0x11223344); // sensor timestamp
+        payload[31] = 0xFE; // temperature (-2)
+        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(43), 0x55667788); // host timestamp echo
+        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(48), 0x99AABBCC); // device timestamp
+
+        controller.PushInput(EmulationAdapterTestSupport.Report(payload));
+
+        byte[] report = EmulationAdapterTestSupport.Pull(device, 64);
+        Assert.Multiple(() =>
+        {
+            Assert.That(report[42], Is.EqualTo(0x14), "R2 stop location/status");
+            Assert.That(report[43], Is.EqualTo(0x27), "L2 stop location/status");
+            Assert.That(report[48], Is.EqualTo(0x32), "trigger effect nibbles");
+            Assert.That(report[28], Is.EqualTo(0x44), "sensor timestamp low byte");
+            Assert.That(report[29], Is.EqualTo(0x33));
+            Assert.That(report[30], Is.EqualTo(0x22));
+            Assert.That(report[31], Is.EqualTo(0x11));
+            Assert.That(report[32], Is.EqualTo(0xFE), "temperature");
+            Assert.That(report[44], Is.EqualTo(0x88), "host timestamp echo low byte");
+            Assert.That(report[45], Is.EqualTo(0x77));
+            Assert.That(report[46], Is.EqualTo(0x66));
+            Assert.That(report[47], Is.EqualTo(0x55));
+            Assert.That(report[49], Is.EqualTo(0xCC), "device timestamp low byte");
+            Assert.That(report[50], Is.EqualTo(0xBB));
+            Assert.That(report[51], Is.EqualTo(0xAA));
+            Assert.That(report[52], Is.EqualTo(0x99));
+        });
+    }
+
+    [Test]
+    public void NeutralDevice_ReportsAtRestTriggerStopLocations()
+    {
+        DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());
+
+        byte[] report = EmulationAdapterTestSupport.Pull(device, 64);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(report[42] & 0x0F, Is.EqualTo(9), "R2 stop location at rest");
+            Assert.That(report[43] & 0x0F, Is.EqualTo(9), "L2 stop location at rest");
+        });
+    }
+
+    [Test]
     public void PushInput_RawReport_IsServedVerbatimUntilASynthesisedPushFollows()
     {
         DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity());

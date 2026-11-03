@@ -114,5 +114,10 @@ public enum ValidFlags : byte
     /// <summary>
     /// Enable improved rumble emulation.
     /// </summary>
-    EnableImprovedRumbleEmu = 1 << 2
+    EnableImprovedRumbleEmu = 1 << 2,
+
+    /// <summary>
+    /// Select the rumble path instead of haptics for the v2 encoding.
+    /// </summary>
+    UseRumbleNotHaptics2 = 1 << 3
 }

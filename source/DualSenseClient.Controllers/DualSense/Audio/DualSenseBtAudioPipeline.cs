@@ -75,13 +75,43 @@ public sealed class DualSenseBtAudioPipeline : IDisposable
     public void EncodeOpus(ReadOnlySpan<short> pcm, Span<byte> frame)
     {
         _opusEncoder ??= CreateOpusEncoder();
-        int written = _opusEncoder.Encode(pcm, OpusFrameSamples, frame, frame.Length);
-        if (written != OpusBytes)
+        Span<byte> encoded = stackalloc byte[OpusBytes];
+        int written = _opusEncoder.Encode(pcm, OpusFrameSamples, encoded, encoded.Length);
+        if (written < 0)
+        {
+            throw new InvalidOperationException($"Opus encoder failed with error {written}.");
+        }
+
+        PadOpusFrame(encoded[..written], frame);
+    }
+
+    /// <summary>
+    /// Copies one encoded Opus packet into the controller's fixed 200-byte payload and
+    /// zero-pads the remainder. The controller's block length is always 200 regardless of
+    /// the encoder's real output size, so short packets must be padded rather than
+    /// rejected; a packet that does not fit cannot be sent.
+    /// </summary>
+    /// <param name="encoded">Encoded Opus packet (at most 200 bytes).</param>
+    /// <param name="frame">Destination payload of at least 200 bytes.</param>
+    /// <exception cref="InvalidOperationException">
+    /// <paramref name="encoded"/> is longer than 200 bytes or <paramref name="frame"/> is shorter.
+    /// </exception>
+    internal static void PadOpusFrame(ReadOnlySpan<byte> encoded, Span<byte> frame)
+    {
+        if (encoded.Length > OpusBytes)
         {
             throw new InvalidOperationException(
-                $"Opus encoder produced {written} bytes for a {OpusFrameSamples}-frame block (required {OpusBytes}); " +
-                "validate the 48 kHz / 10 ms / 160 kbps CBR settings against a real controller.");
+                $"An Opus packet of {encoded.Length} bytes does not fit the controller's {OpusBytes}-byte payload.");
         }
+
+        if (frame.Length < OpusBytes)
+        {
+            throw new InvalidOperationException(
+                $"The Opus payload buffer must hold {OpusBytes} bytes; got {frame.Length}.");
+        }
+
+        encoded.CopyTo(frame);
+        frame[encoded.Length..OpusBytes].Clear();
     }
 
     /// <summary>
@@ -161,7 +191,8 @@ public sealed class DualSenseBtAudioPipeline : IDisposable
     /// </summary>
     private static IOpusEncoder CreateOpusEncoder()
     {
-        IOpusEncoder encoder = OpusCodecFactory.CreateEncoder(SampleRate, Channels, OpusApplication.OPUS_APPLICATION_AUDIO);
+        IOpusEncoder encoder = OpusCodecFactory.CreateEncoder(SampleRate, Channels, OpusApplication.OPUS_APPLICATION_RESTRICTED_LOWDELAY);
+        encoder.ForceMode = OpusMode.MODE_CELT_ONLY;
         encoder.ExpertFrameDuration = OpusFramesize.OPUS_FRAMESIZE_10_MS;
         encoder.Bitrate = 200 * 8 * 100;
         encoder.UseVBR = false;
