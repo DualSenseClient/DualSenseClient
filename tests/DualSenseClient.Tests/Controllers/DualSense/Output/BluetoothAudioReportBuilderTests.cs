@@ -9,6 +9,14 @@ public class BluetoothAudioReportBuilderTests
 
     private static byte[] HapticsPcm() => Enumerable.Repeat((byte)0x7F, BluetoothAudioReportBuilder.HapticsPayloadSize).ToArray();
 
+    private static byte[] FramePair(int frameSize, byte first, byte second)
+    {
+        byte[] data = new byte[frameSize * 2];
+        data.AsSpan(0, frameSize).Fill(first);
+        data.AsSpan(frameSize, frameSize).Fill(second);
+        return data;
+    }
+
     private static SetStateData SampleState()
     {
         return new SetStateData
@@ -95,12 +103,17 @@ public class BluetoothAudioReportBuilderTests
         byte[] haptics = builder.BuildHapticsReport(HapticsPcm());
         byte[] audio = builder.BuildAudioReport(OpusFrame(), BluetoothAudioRoute.Speaker);
         byte[] combined = builder.BuildCombinedReport(SampleState(), OpusFrame(), HapticsPcm(), BluetoothAudioRoute.Speaker);
+        byte[] doubleCombined = builder.BuildDoubleCombinedReport(
+            FramePair(BluetoothAudioReportBuilder.AudioPayloadSize, 0xA1, 0xA2),
+            FramePair(BluetoothAudioReportBuilder.HapticsPayloadSize, 0x71, 0x72),
+            BluetoothAudioRoute.Speaker);
 
         Assert.Multiple(() =>
         {
             Assert.That(haptics[5..7], Is.All.EqualTo((byte)48));
             Assert.That(audio[5..10], Is.All.EqualTo((byte)48));
             Assert.That(combined[5..10], Is.All.EqualTo((byte)48));
+            Assert.That(doubleCombined[5..9], Is.All.EqualTo((byte)48));
         });
     }
 
@@ -115,12 +128,17 @@ public class BluetoothAudioReportBuilderTests
         byte[] haptics = builder.BuildHapticsReport(HapticsPcm());
         byte[] audio = builder.BuildAudioReport(OpusFrame(), BluetoothAudioRoute.Speaker);
         byte[] combined = builder.BuildCombinedReport(SampleState(), OpusFrame(), HapticsPcm(), BluetoothAudioRoute.Speaker);
+        byte[] doubleCombined = builder.BuildDoubleCombinedReport(
+            FramePair(BluetoothAudioReportBuilder.AudioPayloadSize, 0xA1, 0xA2),
+            FramePair(BluetoothAudioReportBuilder.HapticsPayloadSize, 0x71, 0x72),
+            BluetoothAudioRoute.Speaker);
 
         Assert.Multiple(() =>
         {
             Assert.That(haptics[5..7], Is.All.EqualTo((byte)64));
             Assert.That(audio[5..10], Is.All.EqualTo((byte)64));
             Assert.That(combined[5..10], Is.All.EqualTo((byte)64));
+            Assert.That(doubleCombined[5..9], Is.All.EqualTo((byte)64));
         });
 
         builder.AudioBufferLength = 1;
@@ -276,6 +294,101 @@ public class BluetoothAudioReportBuilderTests
         {
             Assert.Throws<ArgumentException>(() => builder.BuildCombinedReport(SampleState(), new byte[10], HapticsPcm(), BluetoothAudioRoute.Speaker));
             Assert.Throws<ArgumentException>(() => builder.BuildCombinedReport(SampleState(), OpusFrame(), new byte[10], BluetoothAudioRoute.Speaker));
+        });
+    }
+
+    [Test]
+    public void BuildDoubleCombinedReport_ReportIdSessionAndTwoFrameLayout()
+    {
+        byte[] opusFrames = FramePair(BluetoothAudioReportBuilder.AudioPayloadSize, 0xA1, 0xA2);
+        byte[] hapticsFrames = FramePair(BluetoothAudioReportBuilder.HapticsPayloadSize, 0x71, 0x72);
+        byte[] report = new BluetoothAudioReportBuilder().BuildDoubleCombinedReport(
+            opusFrames,
+            hapticsFrames,
+            BluetoothAudioRoute.Speaker);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(report, Has.Length.EqualTo(547));
+            Assert.That(report[0], Is.EqualTo(0x39));
+
+            // Six-byte session block with the mic-disabled mask and four buffer bytes;
+            // the counter counts both frames carried by this report.
+            Assert.That(report[2], Is.EqualTo(0x91));
+            Assert.That(report[3], Is.EqualTo(6));
+            Assert.That(report[4], Is.EqualTo(0x7E));
+            Assert.That(report[5..9], Is.All.EqualTo((byte)48));
+            Assert.That(report[9], Is.EqualTo(2));
+
+            // Two haptics frames in one D2 block.
+            Assert.That(report[10], Is.EqualTo(0xD2));
+            Assert.That(report[11], Is.EqualTo(64));
+            Assert.That(report[12..140], Is.EqualTo(hapticsFrames));
+
+            // Two Opus frames in one D3 block: the reference tag with the two-frame bit.
+            Assert.That(report[140], Is.EqualTo(0xD3));
+            Assert.That(report[141], Is.EqualTo(200));
+            Assert.That(report[142..542], Is.EqualTo(opusFrames));
+            Assert.That(report[542], Is.Zero, "the last byte before the CRC is zero padding");
+        });
+    }
+
+    [Test]
+    public void BuildDoubleCombinedReport_HeadsetRouteUses0xD6()
+    {
+        byte[] report = new BluetoothAudioReportBuilder().BuildDoubleCombinedReport(
+            FramePair(BluetoothAudioReportBuilder.AudioPayloadSize, 0xA1, 0xA2),
+            FramePair(BluetoothAudioReportBuilder.HapticsPayloadSize, 0x71, 0x72),
+            BluetoothAudioRoute.Headset);
+
+        Assert.That(report[140], Is.EqualTo(0xD6));
+    }
+
+    [Test]
+    public void BuildDoubleCombinedReport_CrcCoversWholeReport()
+    {
+        byte[] report = new BluetoothAudioReportBuilder().BuildDoubleCombinedReport(
+            FramePair(BluetoothAudioReportBuilder.AudioPayloadSize, 0xA1, 0xA2),
+            FramePair(BluetoothAudioReportBuilder.HapticsPayloadSize, 0x71, 0x72),
+            BluetoothAudioRoute.Speaker);
+
+        uint expected = DualSenseCRC32.Compute(report, 0, 543);
+        Assert.That(ReadCrc(report, 543), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void BuildDoubleCombinedReport_AdvancesSequenceOnceAndCounterByTwo()
+    {
+        BluetoothAudioReportBuilder builder = new BluetoothAudioReportBuilder();
+        byte[] opusFrames = FramePair(BluetoothAudioReportBuilder.AudioPayloadSize, 0xA1, 0xA2);
+        byte[] hapticsFrames = FramePair(BluetoothAudioReportBuilder.HapticsPayloadSize, 0x71, 0x72);
+
+        // Snapshot each report: the builder reuses one buffer per report type.
+        byte[] a = builder.BuildDoubleCombinedReport(opusFrames, hapticsFrames, BluetoothAudioRoute.Speaker).ToArray();
+        byte[] b = builder.BuildDoubleCombinedReport(opusFrames, hapticsFrames, BluetoothAudioRoute.Headset).ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(a[1], Is.EqualTo(0x00));
+            Assert.That(a[9], Is.EqualTo(2));
+            Assert.That(b[1], Is.EqualTo(0x10), "one report must advance the sequence tag once");
+            Assert.That(b[9], Is.EqualTo(4), "the interval counter must advance by two per report");
+        });
+    }
+
+    [Test]
+    public void BuildDoubleCombinedReport_RejectsWrongPayloadSize()
+    {
+        BluetoothAudioReportBuilder builder = new BluetoothAudioReportBuilder();
+        byte[] opusFrames = FramePair(BluetoothAudioReportBuilder.AudioPayloadSize, 0xA1, 0xA2);
+        byte[] hapticsFrames = FramePair(BluetoothAudioReportBuilder.HapticsPayloadSize, 0x71, 0x72);
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() => builder.BuildDoubleCombinedReport(new byte[399], hapticsFrames, BluetoothAudioRoute.Speaker));
+            Assert.Throws<ArgumentException>(() => builder.BuildDoubleCombinedReport(new byte[401], hapticsFrames, BluetoothAudioRoute.Speaker));
+            Assert.Throws<ArgumentException>(() => builder.BuildDoubleCombinedReport(opusFrames, new byte[127], BluetoothAudioRoute.Speaker));
+            Assert.Throws<ArgumentException>(() => builder.BuildDoubleCombinedReport(opusFrames, new byte[129], BluetoothAudioRoute.Speaker));
         });
     }
 

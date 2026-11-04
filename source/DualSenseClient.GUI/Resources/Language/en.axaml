@@ -346,6 +346,10 @@
     <sys:String x:Key="EmulationPage.Emulation.ForceAudioHaptics.Description">Derive vibration from the forwarded audio instead of the game's own haptics. The haptic strength slider always applies to audio-based haptics. Only applies to DualSense emulation over Bluetooth.</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.ForwardAudioBufferLength">Forwarded Audio Buffer Length</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.ForwardAudioBufferLength.Description">Controller-side buffer size for forwarded Bluetooth audio. Lower values reduce latency; higher values tolerate more jitter.</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.ForwardAudioPacketMode">Forwarded Audio Packet Mode</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.ForwardAudioPacketMode.Description">Bluetooth report shape. Single sends one frame per 0x36 report; double batches two frames per 0x39 report and falls back to 0x36 while output-state overrides are active.</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.AudioPacketMode.Single">Single (0x36)</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.AudioPacketMode.Double">Double (0x39)</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.ForwardHaptics">Forwarded Haptic Strength</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.ForwardHaptics.Description">Strength of the vibration generated from forwarded desktop sounds. Only applies while the virtual audio output is selected as the default playback device.</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.ForwardVolume">Forwarded Audio Volume</sys:String>

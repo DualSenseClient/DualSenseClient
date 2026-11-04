@@ -75,6 +75,13 @@ public interface IDualSenseAudioOutputs : IDualSenseOutputs
     void SendBluetoothAudioAndHaptics(SetStateData state, ReadOnlySpan<byte> opusFrame, ReadOnlySpan<byte> hapticsPcm, BluetoothAudioRoute route);
 
     /// <summary>
+    /// Sends a double combined report <c>0x39</c> carrying two 200-byte Opus frames and
+    /// two 64-byte voice-coil haptics frames in a single report. This report carries no
+    /// output-state block.
+    /// </summary>
+    void SendBluetoothAudioAndHapticsDouble(ReadOnlySpan<byte> opusFrames, ReadOnlySpan<byte> hapticsPcm, BluetoothAudioRoute route);
+
+    /// <summary>
     /// Sends an audio-only report <c>0x35</c> carrying one 200-byte Opus frame.
     /// </summary>
     void SendBluetoothAudio(ReadOnlySpan<byte> opusFrame, BluetoothAudioRoute route);
@@ -296,6 +303,15 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
         lock (_writeLock)
         {
             _device.SendBluetoothAudioAndHaptics(ApplyOutputOverride(state), opusFrame, hapticsPcm, route);
+        }
+    }
+
+    /// <inheritdoc/>
+    public void SendBluetoothAudioAndHapticsDouble(ReadOnlySpan<byte> opusFrames, ReadOnlySpan<byte> hapticsPcm, BluetoothAudioRoute route)
+    {
+        lock (_writeLock)
+        {
+            _device.SendBluetoothAudioAndHapticsDouble(opusFrames, hapticsPcm, route);
         }
     }
 

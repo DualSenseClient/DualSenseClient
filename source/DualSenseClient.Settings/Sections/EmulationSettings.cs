@@ -62,6 +62,22 @@ public enum DualShock4Variant
 }
 
 /// <summary>
+/// Bluetooth audio report shape used when forwarding host audio.
+/// </summary>
+public enum BluetoothAudioPacketMode
+{
+    /// <summary>
+    /// One audio and haptics frame per <c>0x36</c> report.
+    /// </summary>
+    Single = 0,
+
+    /// <summary>
+    /// Two audio and haptics frames per <c>0x39</c> report.
+    /// </summary>
+    Double = 1
+}
+
+/// <summary>
 /// The physical controller output used when forwarding host audio.
 /// </summary>
 public enum EmulationAudioOutput
@@ -181,6 +197,13 @@ public class ForwardSettings
     /// </summary>
     [JsonPropertyName("audio_buffer_length")]
     public int AudioBufferLength { get; set; } = 48;
+
+    /// <summary>
+    /// Gets or sets the Bluetooth audio report shape: one frame per <c>0x36</c> report
+    /// or two frames per <c>0x39</c> report.
+    /// </summary>
+    [JsonPropertyName("packet_mode")]
+    public BluetoothAudioPacketMode PacketMode { get; set; } = BluetoothAudioPacketMode.Single;
 
     /// <summary>
     /// Gets or sets the haptic vibration strength when forwarding host audio, as a

@@ -28,6 +28,7 @@ public class DualSenseAudioForwarderTests
         public int ResetCount { get; private set; }
         public int PrimeCount { get; private set; }
         public int CombinedReportCount { get; private set; }
+        public int DoubleReportCount { get; private set; }
         public int AudioOnlyReportCount { get; private set; }
         public int AudioOutputApplyCount { get; private set; }
         public byte? LastAppliedSpeakerVolume { get; private set; }
@@ -36,12 +37,17 @@ public class DualSenseAudioForwarderTests
         public byte LastHapticsLength { get; private set; }
         public byte[] LastHapticsFrame { get; private set; } = [];
         public bool AnyHapticsNonZero { get; private set; }
+        public int LastDoubleOpusFramesLength { get; private set; }
+        public int LastDoubleHapticsLength { get; private set; }
+        public byte[] LastDoubleHapticsFrame { get; private set; } = [];
+        public bool AnyDoubleHapticsNonZero { get; private set; }
+        public BluetoothAudioRoute? LastDoubleRoute { get; private set; }
 
         public int ReportCount
         {
             get
             {
-                return CombinedReportCount + AudioOnlyReportCount;
+                return CombinedReportCount + DoubleReportCount + AudioOnlyReportCount;
             }
         }
 
@@ -83,6 +89,16 @@ public class DualSenseAudioForwarderTests
         {
             AudioOnlyReportCount++;
             LastOpusFrameLength = (byte)opusFrame.Length;
+        }
+
+        public void SendBluetoothAudioAndHapticsDouble(ReadOnlySpan<byte> opusFrames, ReadOnlySpan<byte> hapticsPcm, BluetoothAudioRoute route)
+        {
+            DoubleReportCount++;
+            LastDoubleRoute = route;
+            LastDoubleOpusFramesLength = opusFrames.Length;
+            LastDoubleHapticsLength = hapticsPcm.Length;
+            LastDoubleHapticsFrame = hapticsPcm.ToArray();
+            AnyDoubleHapticsNonZero |= LastDoubleHapticsFrame.Any(b => b != 0);
         }
 
         public void SetAudioOutput(AudioControl outputControl, byte speakerVolume, byte headphoneVolume)
@@ -313,6 +329,127 @@ public class DualSenseAudioForwarderTests
             Assert.That(fake.LastHapticsLength, Is.EqualTo(64));
             Assert.That(fake.LastHapticsFrame, Is.All.Zero, "haptics stay silent while disabled");
         });
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void PacketMode_Double_BatchesTwoAudioFramesPerReport()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.PacketMode = BluetoothAudioPacketMode.Double;
+        forwarder.Start();
+
+        for (int i = 0; i < 4; i++)
+        {
+            forwarder.FeedPcm(AudioBlock);
+        }
+
+        WaitUntil(() => fake.DoubleReportCount >= 6, TimeSpan.FromSeconds(3));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fake.DoubleReportCount, Is.EqualTo(6),
+                "8 preroll frames plus 4 fed blocks must arrive as six 0x39 reports");
+            Assert.That(fake.CombinedReportCount, Is.Zero);
+            Assert.That(fake.AudioOnlyReportCount, Is.Zero);
+            Assert.That(fake.LastDoubleOpusFramesLength, Is.EqualTo(400));
+            Assert.That(fake.LastDoubleHapticsLength, Is.EqualTo(128));
+            Assert.That(fake.AnyDoubleHapticsNonZero, Is.True, "a constant audio block must produce non-zero haptics");
+            Assert.That(fake.LastDoubleRoute, Is.EqualTo(BluetoothAudioRoute.Speaker));
+        });
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void PacketMode_Double_HapticsDisabledSendsSilentDoubleReports()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.HapticsEnabled = false;
+        forwarder.PacketMode = BluetoothAudioPacketMode.Double;
+        forwarder.Start();
+
+        for (int i = 0; i < 2; i++)
+        {
+            forwarder.FeedPcm(AudioBlock);
+        }
+
+        WaitUntil(() => fake.DoubleReportCount >= 5, TimeSpan.FromSeconds(3));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fake.DoubleReportCount, Is.GreaterThanOrEqualTo(5),
+                "8 preroll frames plus 2 fed blocks must arrive as five 0x39 reports");
+            Assert.That(fake.CombinedReportCount, Is.Zero);
+            Assert.That(fake.AudioOnlyReportCount, Is.Zero);
+            Assert.That(fake.LastDoubleHapticsFrame, Is.All.Zero, "haptics stay silent while disabled");
+        });
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void PacketMode_Double_StateBlockNeededFallsBackToSingleReports()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth,
+            NeedsOutputStateBlock = true
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.PacketMode = BluetoothAudioPacketMode.Double;
+        forwarder.Start();
+
+        for (int i = 0; i < 3; i++)
+        {
+            forwarder.FeedPcm(AudioBlock);
+        }
+
+        WaitUntil(() => fake.CombinedReportCount >= 11, TimeSpan.FromSeconds(3));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fake.CombinedReportCount, Is.GreaterThanOrEqualTo(11),
+                "a pending state override must fall back to the single report");
+            Assert.That(fake.DoubleReportCount, Is.Zero);
+            Assert.That(fake.AudioOnlyReportCount, Is.Zero);
+            Assert.That(fake.LastStateBlock[0] & 0xB0, Is.EqualTo(0xB0),
+                "the fallback reports must still carry the embedded output state");
+        });
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void PacketMode_Double_UsesTheSelectedHeadsetRoute()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth,
+            HeadphonesConnected = true
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.AudioOutput = EmulationAudioOutput.Headset;
+        forwarder.PacketMode = BluetoothAudioPacketMode.Double;
+        forwarder.Start();
+
+        for (int i = 0; i < 2; i++)
+        {
+            forwarder.FeedPcm(AudioBlock);
+        }
+
+        WaitUntil(() => fake.DoubleReportCount >= 5, TimeSpan.FromSeconds(3));
+
+        Assert.That(fake.LastDoubleRoute, Is.EqualTo(BluetoothAudioRoute.Headset));
 
         forwarder.Stop();
     }
@@ -672,13 +809,15 @@ public class DualSenseAudioForwarderTests
 
         forwarder.ApplyForwardingSettings(new ForwardSettings
         {
-            AudioBufferLength = 64
+            AudioBufferLength = 64,
+            PacketMode = BluetoothAudioPacketMode.Double
         });
 
         Assert.Multiple(() =>
         {
             Assert.That(forwarder.AudioBufferLength, Is.EqualTo(64));
             Assert.That(fake.AudioBufferLength, Is.EqualTo(64));
+            Assert.That(forwarder.PacketMode, Is.EqualTo(BluetoothAudioPacketMode.Double));
         });
     }
 

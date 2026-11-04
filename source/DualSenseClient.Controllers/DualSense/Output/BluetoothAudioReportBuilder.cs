@@ -7,12 +7,14 @@ namespace DualSenseClient.Controllers.DualSense.Output;
 /// Builds Bluetooth-only audio and haptics reports for a DualSense:
 /// the report <c>0x35</c> speaker/headset lane (334 bytes, Opus payload), the combined
 /// report <c>0x36</c> that carries state, audio and haptics packets together (398 bytes),
-/// the report <c>0x32</c> voice-coil haptics lane (142 bytes, s8 stereo PCM), plus the
-/// <c>0x32</c> init-prime report used to open the audio stream.
+/// the double combined report <c>0x39</c> that carries two audio and two haptics frames
+/// without a state block (547 bytes), the report <c>0x32</c> voice-coil haptics lane
+/// (142 bytes, s8 stereo PCM), plus the <c>0x32</c> init-prime report used to open the
+/// audio stream.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Both report families end in a 4-byte CRC32 using the seeded form (seed
+/// Every report family ends in a 4-byte CRC32 using the seeded form (seed
 /// <c>0xA2</c>, see <see cref="DualSenseCRC32"/>). The sequence tag advances with a
 /// stride of 16 (only the low nibble is transmitted) and the interval packet counter is
 /// a free-running byte that increments once per report.
@@ -29,11 +31,12 @@ namespace DualSenseClient.Controllers.DualSense.Output;
 /// <see cref="Reset"/> when a stream starts.
 /// </para>
 /// <para>
-/// The per-tick builders (<see cref="BuildHapticsReport"/>, <see cref="BuildAudioReport"/>
-/// and <see cref="BuildCombinedReport"/>) write into a reusable buffer per report type, so
-/// the streaming path allocates nothing. Callers must not retain the returned array across
-/// builds — it is only valid until the next call. <see cref="BuildInitPrime"/> is excluded
-/// (once per stream) and still allocates a fresh report.
+/// The per-tick builders (<see cref="BuildHapticsReport"/>, <see cref="BuildAudioReport"/>,
+/// <see cref="BuildCombinedReport"/> and <see cref="BuildDoubleCombinedReport"/>) write into
+/// a reusable buffer per report type, so the streaming path allocates nothing. Callers must
+/// not retain the returned array across builds — it is only valid until the next call.
+/// <see cref="BuildInitPrime"/> is excluded (once per stream) and still allocates a fresh
+/// report.
 /// </para>
 /// </remarks>
 public sealed class BluetoothAudioReportBuilder
@@ -52,6 +55,11 @@ public sealed class BluetoothAudioReportBuilder
     /// Total size of the combined report <c>0x36</c> including the report ID and CRC.
     /// </summary>
     public const int CombinedReportSize = 398;
+
+    /// <summary>
+    /// Total size of the double combined report <c>0x39</c> including the report ID and CRC.
+    /// </summary>
+    public const int DoubleCombinedReportSize = 547;
 
     /// <summary>
     /// Haptics payload size: 64 bytes = 32 stereo s8 frames at 3 kHz (10.67 ms).
@@ -116,6 +124,12 @@ public sealed class BluetoothAudioReportBuilder
     /// <see cref="BuildCombinedReport"/>. See the class remarks for the reuse contract.
     /// </summary>
     private readonly byte[] _combinedReport = new byte[CombinedReportSize];
+
+    /// <summary>
+    /// Reusable buffer for the <c>0x39</c> double combined report, returned by
+    /// <see cref="BuildDoubleCombinedReport"/>. See the class remarks for the reuse contract.
+    /// </summary>
+    private readonly byte[] _doubleCombinedReport = new byte[DoubleCombinedReportSize];
 
     /// <summary>
     /// Controller-side audio buffer length written into every Bluetooth audio control
@@ -293,6 +307,67 @@ public sealed class BluetoothAudioReportBuilder
         opusFrame.CopyTo(report.AsSpan(144));
 
         // Bytes 344-393 remain zero padding.
+        WriteCrc(report);
+        return report;
+    }
+
+    /// <summary>
+    /// Builds a double combined report <c>0x39</c> (547 bytes) carrying two 200-byte Opus
+    /// frames and two 64-byte voice-coil haptics frames in a single report. This variant
+    /// has no embedded output-state block; callers that need one must use
+    /// <see cref="BuildCombinedReport"/> instead.
+    /// </summary>
+    /// <remarks>
+    /// Layout follows the reference double-packet report: [session][haptics][speaker].
+    /// The session body is the six-byte packet-<c>0x11</c> form
+    /// (<c>0x91 0x06 0x7E 40 40 40 40</c>) followed by a counter advanced by two; the
+    /// haptics packet uses the two-frame flag (<c>0xD2</c>) and the speaker packet the
+    /// same flag on its route tag (<c>0xD3</c> speaker, <c>0xD6</c> headset).
+    /// </remarks>
+    /// <param name="opusFrames">Two contiguous 200-byte Opus frames.</param>
+    /// <param name="hapticsPcm">Two contiguous 64-byte s8 stereo haptics frames.</param>
+    /// <param name="route">The output route: <see cref="BluetoothAudioRoute.Speaker"/> or
+    /// <see cref="BluetoothAudioRoute.Headset"/>.</param>
+    public byte[] BuildDoubleCombinedReport(ReadOnlySpan<byte> opusFrames, ReadOnlySpan<byte> hapticsPcm, BluetoothAudioRoute route)
+    {
+        if (opusFrames.Length != AudioPayloadSize * 2)
+        {
+            throw new ArgumentException($"Double Opus payload must be {AudioPayloadSize * 2} bytes.", nameof(opusFrames));
+        }
+
+        if (hapticsPcm.Length != HapticsPayloadSize * 2)
+        {
+            throw new ArgumentException($"Double haptics payload must be {HapticsPayloadSize * 2} bytes.", nameof(hapticsPcm));
+        }
+
+        byte[] report = _doubleCombinedReport;
+        report[0] = 0x39;
+        report[1] = (byte)((_reportSequence & 0x0F) << 4);
+        _reportSequence = (byte)((_reportSequence + 1) & 0x0F);
+
+        // Packet 0x11 session block (sized flag set): mic-disabled mask and four
+        // controller buffer-length bytes. The counter counts the two frames carried.
+        report[2] = 0x91;
+        report[3] = 0x06;
+        report[4] = 0x7E;
+        report[5] = AudioBufferLength;
+        report[6] = AudioBufferLength;
+        report[7] = AudioBufferLength;
+        report[8] = AudioBufferLength;
+        _packetCounter = (byte)(_packetCounter + 2);
+        report[9] = _packetCounter;
+
+        // Packet 0x12 haptics block (sized and two-frame flags set).
+        report[10] = 0xD2;
+        report[11] = HapticsPayloadSize;
+        hapticsPcm.CopyTo(report.AsSpan(12));
+
+        // Packet 0x13/0x16 route block (sized and two-frame flags set).
+        report[140] = (byte)((byte)route | 0x40);
+        report[141] = AudioPayloadSize;
+        opusFrames.CopyTo(report.AsSpan(142));
+
+        // Byte 542 remains zero padding.
         WriteCrc(report);
         return report;
     }

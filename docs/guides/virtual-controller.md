@@ -77,8 +77,10 @@ Host audio can be forwarded to your **physical controller's speaker or headset**
 
 ![Audio Forwarding settings on the Customization page](../assets/images/audio-forwarding-customization.png)
 
-- **Forwarded Audio Output** — `Speaker` or `Headset`.
+- **Forwarded Audio Output** — `Auto` (follows the controller's headset jack), `Speaker`, or `Headset`.
 - **Forwarded Audio Volume** — 0 – 255.
+- **Forwarded Audio Buffer Length** — 16 – 128. Lower values reduce latency; higher values tolerate more jitter.
+- **Forwarded Audio Packet Mode** — `Single (0x36)` sends one audio frame per report; `Double (0x39)` batches two frames per report. Double falls back to the single report while an output-state override (lightbar or player LEDs) is active.
 - **Forwarded Haptic Strength** — 0 – 200.
 - **Audio-based haptics** — derive vibration from the forwarded audio instead of the game's own haptics. The haptic-strength slider always applies to audio-based haptics. Only applies to DualSense emulation over Bluetooth.
 

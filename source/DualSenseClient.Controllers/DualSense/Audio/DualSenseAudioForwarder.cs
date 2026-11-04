@@ -176,6 +176,16 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     private readonly byte[] _hapticsPcm = new byte[DualSenseBtAudioPipeline.HapticsBytes];
 
     /// <summary>
+    /// Scratch buffer holding the two contiguous Opus frames of a <c>0x39</c> report.
+    /// </summary>
+    private readonly byte[] _doubleOpusFrames = new byte[BluetoothAudioReportBuilder.AudioPayloadSize * 2];
+
+    /// <summary>
+    /// Scratch buffer holding the two contiguous haptics frames of a <c>0x39</c> report.
+    /// </summary>
+    private readonly byte[] _doubleHapticsPcm = new byte[BluetoothAudioReportBuilder.HapticsPayloadSize * 2];
+
+    /// <summary>
     /// Latest haptics payload delivered by the virtual controller's realtime-haptics callback (the
     /// game's own voice-coil data), valid while <see cref="_lastGameHapticsTimestamp"/>
     /// is within <see cref="GameHapticsFreshWindowTicks"/>. Guarded by <see cref="_sync"/>.
@@ -280,6 +290,24 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     private volatile EmulationAudioOutput _audioOutput = EmulationAudioOutput.Auto;
 
     /// <summary>
+    /// Bluetooth audio report shape used while forwarding: one frame per <c>0x36</c>
+    /// report or two frames per <c>0x39</c> report.
+    /// </summary>
+    private volatile BluetoothAudioPacketMode _packetMode = BluetoothAudioPacketMode.Single;
+
+    /// <summary>
+    /// The packet mode the pump last applied, so a live mode change discards a partially
+    /// batched double frame. Guarded by <see cref="_sync"/>; pump-thread only.
+    /// </summary>
+    private BluetoothAudioPacketMode _lastPacketMode = BluetoothAudioPacketMode.Single;
+
+    /// <summary>
+    /// Whether the first frame of a double <c>0x39</c> report is buffered and awaiting
+    /// its pair. Guarded by <see cref="_sync"/>; pump-thread only.
+    /// </summary>
+    private bool _doubleFramePending;
+
+    /// <summary>
     /// Last volume/route signature applied to the controller, so the pump only issues
     /// <see cref="IDualSenseAudioOutputs.SetAudioOutput"/> when the configuration changed.
     /// </summary>
@@ -374,6 +402,22 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     }
 
     /// <summary>
+    /// Bluetooth audio report shape used while forwarding: one frame per <c>0x36</c>
+    /// report or two frames per <c>0x39</c> report.
+    /// </summary>
+    public BluetoothAudioPacketMode PacketMode
+    {
+        get
+        {
+            return _packetMode;
+        }
+        set
+        {
+            _packetMode = value;
+        }
+    }
+
+    /// <summary>
     /// Whether the haptic actuators follow the audio.
     /// </summary>
     public bool HapticsEnabled
@@ -436,6 +480,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         _gameHapticsEnabled = settings.HapticsEnabled;
         AudioBufferLength = (byte)settings.AudioBufferLength;
         AudioOutput = settings.AudioOutput;
+        PacketMode = settings.PacketMode;
     }
 
     /// <summary>
@@ -778,6 +823,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         {
             _audioRing.Clear();
             _btStreamPrimed = false;
+            _doubleFramePending = false;
             _gameHapticsInputFrames = 0;
             _gameHapticsInput.AsSpan().Clear();
             _lastGameHapticsTimestamp = 0;
@@ -1028,33 +1074,75 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     }
 
     /// <summary>
-    /// Sends the Bluetooth audio frame to the configured route, folding the haptics
-    /// packet into the combined <c>0x36</c> report when haptics are enabled — or when a
-    /// lightbar/player-LED override needs the output-state block carried — with a
-    /// cleared haptics payload.
+    /// Sends the Bluetooth audio frame to the configured route. In double mode a
+    /// <c>0x39</c> report carries two consecutive audio/haptics frames; otherwise the
+    /// haptics packet is folded into the combined <c>0x36</c> report when haptics are
+    /// enabled — or when a lightbar/player-LED override needs the output-state block
+    /// carried — with a cleared haptics payload, and a <c>0x35</c> report is used when
+    /// neither is needed. The double report has no state block, so a pending state
+    /// override falls back to the single report.
     /// </summary>
     private void SendBluetoothReports()
     {
-        SetStateData state = CreateAudioState();
         BluetoothAudioRoute route = UseHeadset ? BluetoothAudioRoute.Headset : BluetoothAudioRoute.Speaker;
         bool stateBlock = _outputs!.NeedsOutputStateBlock;
-        if (_hapticsEnabled || stateBlock)
+        if (_hapticsEnabled)
         {
-            if (_hapticsEnabled)
-            {
-                MixRumbleIntoHaptics();
-            }
-            else
-            {
-                _hapticsPcm.AsSpan().Clear();
-            }
-
-            _outputs!.SendBluetoothAudioAndHaptics(state, _opusFrame, _hapticsPcm, route);
+            MixRumbleIntoHaptics();
         }
         else
         {
-            _outputs!.SendBluetoothAudio(_opusFrame, route);
+            _hapticsPcm.AsSpan().Clear();
         }
+
+        // A live mode switch invalidates a half-batched pair: its first frame was
+        // encoded under the previous mode and must not be paired with a later block.
+        if (_packetMode != _lastPacketMode)
+        {
+            _doubleFramePending = false;
+            _lastPacketMode = _packetMode;
+        }
+
+        if (_packetMode == BluetoothAudioPacketMode.Double && !stateBlock)
+        {
+            SendBluetoothDoubleReport(route);
+            return;
+        }
+
+        // The double report cannot carry the state block, so drop any half-batched pair
+        // while overriding state and let the single path resume cleanly afterwards.
+        _doubleFramePending = false;
+
+        if (_hapticsEnabled || stateBlock)
+        {
+            _outputs.SendBluetoothAudioAndHaptics(CreateAudioState(), _opusFrame, _hapticsPcm, route);
+        }
+        else
+        {
+            _outputs.SendBluetoothAudio(_opusFrame, route);
+        }
+    }
+
+    /// <summary>
+    /// Buffers the current frame into the pending half of a <c>0x39</c> report and sends
+    /// the report once both halves are present. Batching one pump tick delays the first
+    /// frame by one interval, so two frames reach the controller at the same cadence.
+    /// Caller must hold <see cref="_sync"/>.
+    /// </summary>
+    private void SendBluetoothDoubleReport(BluetoothAudioRoute route)
+    {
+        if (!_doubleFramePending)
+        {
+            _opusFrame.CopyTo(_doubleOpusFrames, 0);
+            _hapticsPcm.CopyTo(_doubleHapticsPcm, 0);
+            _doubleFramePending = true;
+            return;
+        }
+
+        _opusFrame.CopyTo(_doubleOpusFrames, BluetoothAudioReportBuilder.AudioPayloadSize);
+        _hapticsPcm.CopyTo(_doubleHapticsPcm, BluetoothAudioReportBuilder.HapticsPayloadSize);
+        _outputs!.SendBluetoothAudioAndHapticsDouble(_doubleOpusFrames, _doubleHapticsPcm, route);
+        _doubleFramePending = false;
     }
 
     /// <summary>
@@ -1272,6 +1360,8 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     {
         _outputs!.ResetBluetoothAudioStream();
         _pipeline.ResetEncoder();
+        _doubleFramePending = false;
+        _lastPacketMode = _packetMode;
 
         // Capture the values actually sent: the configuration may change while the
         // ~85 ms prime blocks the lock, so the applied-signature must reflect what

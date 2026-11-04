@@ -858,6 +858,24 @@ public class DualSenseDevice : ControllerDevice
     }
 
     /// <summary>
+    /// Sends a double combined report <c>0x39</c> carrying two 200-byte Opus frames and
+    /// two 64-byte voice-coil haptics frames in a single report. This variant carries no
+    /// output-state block; use <see cref="SendBluetoothAudioAndHaptics"/> when state must
+    /// be embedded.
+    /// </summary>
+    /// <param name="opusFrames">Two contiguous 200-byte Opus frames.</param>
+    /// <param name="hapticsPcm">128 bytes of interleaved s8 stereo material (two frames).</param>
+    /// <param name="route">Which output both audio frames target.</param>
+    public void SendBluetoothAudioAndHapticsDouble(ReadOnlySpan<byte> opusFrames, ReadOnlySpan<byte> hapticsPcm, BluetoothAudioRoute route)
+    {
+        EnsureBluetoothAudio();
+        lock (_audioWriteLock)
+        {
+            TrySendAudioReport(_bluetoothAudioReports.BuildDoubleCombinedReport(opusFrames, hapticsPcm, route));
+        }
+    }
+
+    /// <summary>
     /// Sends a report <c>0x35</c> speaker/headset audio frame (one 200-byte Opus frame).
     /// </summary>
     /// <param name="opusFrame">A 200-byte Opus frame.</param>

@@ -856,6 +856,14 @@
                                               Value="{Binding ForwardAudioBufferLength, Mode=TwoWay}" />
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.ForwardAudioPacketMode}"
+                                           Description="{DynamicResource EmulationPage.Emulation.ForwardAudioPacketMode.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ComboBox ItemsSource="{Binding EmulationAudioPacketModes}"
+                                  SelectedIndex="{Binding ForwardAudioPacketModeIndex}"
+                                  MinWidth="200" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
                 <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.ForwardHaptics}"
                                            Description="{DynamicResource EmulationPage.Emulation.ForwardHaptics.Description}">
                     <ui:FASettingsExpanderItem.Footer>

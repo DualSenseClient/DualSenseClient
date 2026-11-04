@@ -66,6 +66,15 @@ public interface IEmulationService : IDisposable
     void SetForwardingAudioBufferLength(DualSenseDevice device, byte audioBufferLength);
 
     /// <summary>
+    /// Applies the Bluetooth audio report shape (single <c>0x36</c> or double
+    /// <c>0x39</c>) used by the forwarded audio without recreating the virtual
+    /// controller.
+    /// </summary>
+    /// <param name="device">Controller whose forwarder is updated.</param>
+    /// <param name="packetMode">The report shape to use.</param>
+    void SetForwardingAudioPacketMode(DualSenseDevice device, BluetoothAudioPacketMode packetMode);
+
+    /// <summary>
     /// Sets the given controller's forwarded host audio route without recreating the
     /// virtual controller. No-op when audio forwarding is not active for that controller.
     /// </summary>
@@ -415,6 +424,18 @@ public sealed class EmulationService : IEmulationService
             if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Forwarder is { } forwarder)
             {
                 forwarder.AudioBufferLength = audioBufferLength;
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    public void SetForwardingAudioPacketMode(DualSenseDevice device, BluetoothAudioPacketMode packetMode)
+    {
+        lock (_sync)
+        {
+            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Forwarder is { } forwarder)
+            {
+                forwarder.PacketMode = packetMode;
             }
         }
     }
@@ -1110,6 +1131,8 @@ public sealed class EmulationService : IEmulationService
         {
             AudioOutput = source.AudioOutput,
             Volume = source.Volume,
+            AudioBufferLength = source.AudioBufferLength,
+            PacketMode = source.PacketMode,
             Haptics = source.Haptics,
             ForceAudioHaptics = source.ForceAudioHaptics,
             Rumble = source.Rumble,

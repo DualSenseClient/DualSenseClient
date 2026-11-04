@@ -673,6 +673,16 @@ public partial class CustomizationPageViewModel : ObservableObject
     ];
 
     /// <summary>
+    /// Forwarded Bluetooth audio packet modes for the dropdown, in
+    /// <see cref="BluetoothAudioPacketMode"/> order (single, double).
+    /// </summary>
+    public ObservableCollection<string> EmulationAudioPacketModes { get; } =
+    [
+        LocalizationService.GetText("EmulationPage.Emulation.AudioPacketMode.Single"),
+        LocalizationService.GetText("EmulationPage.Emulation.AudioPacketMode.Double")
+    ];
+
+    /// <summary>
     /// Forwarded-audio source options for the dropdown, in <see cref="EmulationAudioSource"/>
     /// order (virtual controller endpoint, system output, a single application).
     /// </summary>
@@ -818,6 +828,44 @@ public partial class CustomizationPageViewModel : ObservableObject
             if (CurrentDualSenseDevice is { } device)
             {
                 _emulation.SetForwardingAudioBufferLength(device, (byte)clamped);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The Bluetooth audio report shape used when forwarding host audio
+    /// (<see cref="BluetoothAudioPacketMode"/> value, two-way, persisted).
+    /// </summary>
+    public int ForwardAudioPacketModeIndex
+    {
+        get
+        {
+            return !HasDevice ? (int)BluetoothAudioPacketMode.Single : (int)GetEmulationSettings().Forward.PacketMode;
+        }
+        set
+        {
+            if (!HasDevice)
+            {
+                return;
+            }
+
+            BluetoothAudioPacketMode mode = (BluetoothAudioPacketMode)Math.Clamp(
+                value,
+                (int)BluetoothAudioPacketMode.Single,
+                (int)BluetoothAudioPacketMode.Double);
+            EmulationSettings settings = GetEmulationSettings();
+            if (settings.Forward.PacketMode == mode)
+            {
+                return;
+            }
+
+            _log.Info($"Setting forwarded audio packet mode of {CurrentMac} to {mode}");
+            settings.Forward.PacketMode = mode;
+            ScheduleEmulationSave();
+            OnPropertyChanged(nameof(ForwardAudioPacketModeIndex));
+            if (CurrentDualSenseDevice is { } device)
+            {
+                _emulation.SetForwardingAudioPacketMode(device, mode);
             }
         }
     }
@@ -1302,6 +1350,7 @@ public partial class CustomizationPageViewModel : ObservableObject
         OnPropertyChanged(nameof(ForwardAudioOutputIndex));
         OnPropertyChanged(nameof(ForwardVolume));
         OnPropertyChanged(nameof(ForwardAudioBufferLength));
+        OnPropertyChanged(nameof(ForwardAudioPacketModeIndex));
         OnPropertyChanged(nameof(ForwardHapticStrength));
         OnPropertyChanged(nameof(ForceAudioHaptics));
         OnPropertyChanged(nameof(ForwardAudioSourceIndex));
@@ -1335,6 +1384,7 @@ public partial class CustomizationPageViewModel : ObservableObject
         OnPropertyChanged(nameof(ForwardAudioOutputIndex));
         OnPropertyChanged(nameof(ForwardVolume));
         OnPropertyChanged(nameof(ForwardAudioBufferLength));
+        OnPropertyChanged(nameof(ForwardAudioPacketModeIndex));
         OnPropertyChanged(nameof(ForwardHapticStrength));
         OnPropertyChanged(nameof(ForceAudioHaptics));
         OnPropertyChanged(nameof(ForwardAudioSourceIndex));
