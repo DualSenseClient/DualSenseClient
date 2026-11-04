@@ -299,8 +299,8 @@ public class LightbarEffectEvaluatorTests
                 battery: new BatteryState(0x17),
                 batteryChargingAnimation: false));
 
-        AssertFrame(result, 180, 235, 50);
-        Assert.That(result.BatteryBand, Is.EqualTo(6));
+        AssertFrame(result, 110, 220, 60);
+        Assert.That(result.BatteryBand, Is.EqualTo(7));
     }
 
     [Test]
@@ -363,19 +363,19 @@ public class LightbarEffectEvaluatorTests
     public void Battery_LevelPlayerLeds_LightCumulativeGates()
     {
         Assert.That(
-            EvaluateBatteryFrame(0, new BatteryState(0x12), fullPlayerLedSupport: true, batteryLevelPlayerLeds: true).PlayerLeds,
+            EvaluateBatteryFrame(0, new BatteryState(0x11), fullPlayerLedSupport: true, batteryLevelPlayerLeds: true).PlayerLeds,
             Is.EqualTo(PlayerLedMask.Led1));
         Assert.That(
-            EvaluateBatteryFrame(0, new BatteryState(0x14), fullPlayerLedSupport: true, batteryLevelPlayerLeds: true).PlayerLeds,
+            EvaluateBatteryFrame(0, new BatteryState(0x13), fullPlayerLedSupport: true, batteryLevelPlayerLeds: true).PlayerLeds,
             Is.EqualTo(PlayerLedMask.Led1 | PlayerLedMask.Led2));
         Assert.That(
-            EvaluateBatteryFrame(0, new BatteryState(0x16), fullPlayerLedSupport: true, batteryLevelPlayerLeds: true).PlayerLeds,
+            EvaluateBatteryFrame(0, new BatteryState(0x15), fullPlayerLedSupport: true, batteryLevelPlayerLeds: true).PlayerLeds,
             Is.EqualTo((PlayerLedMask)0x07));
         Assert.That(
-            EvaluateBatteryFrame(0, new BatteryState(0x18), fullPlayerLedSupport: true, batteryLevelPlayerLeds: true).PlayerLeds,
+            EvaluateBatteryFrame(0, new BatteryState(0x17), fullPlayerLedSupport: true, batteryLevelPlayerLeds: true).PlayerLeds,
             Is.EqualTo((PlayerLedMask)0x0F));
         Assert.That(
-            EvaluateBatteryFrame(0, new BatteryState(0x1A), fullPlayerLedSupport: true, batteryLevelPlayerLeds: true).PlayerLeds,
+            EvaluateBatteryFrame(0, new BatteryState(0x19), fullPlayerLedSupport: true, batteryLevelPlayerLeds: true).PlayerLeds,
             Is.EqualTo(PlayerLedMask.All));
     }
 
