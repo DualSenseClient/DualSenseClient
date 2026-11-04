@@ -3,6 +3,7 @@ using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.DualSense.Events;
 using DualSenseClient.Controllers.DualSense.Input;
+using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.SpecialActions;
 using DualSenseClient.Hid;
 using DualSenseClient.Logging;
@@ -55,6 +56,14 @@ public interface IEmulationService : IDisposable
     /// when audio forwarding is not active for that controller.
     /// </summary>
     void SetForwardingAudioOptions(DualSenseDevice device, byte speakerVolume, float hapticStrength);
+
+    /// <summary>
+    /// Applies the controller-side audio buffer length used by the forwarded Bluetooth
+    /// audio reports without recreating the virtual controller.
+    /// </summary>
+    /// <param name="device">Controller whose forwarder is updated.</param>
+    /// <param name="audioBufferLength">Buffer length in bytes (16-128).</param>
+    void SetForwardingAudioBufferLength(DualSenseDevice device, byte audioBufferLength);
 
     /// <summary>
     /// Routes the given controller's forwarded host audio to its headset jack instead
@@ -400,6 +409,17 @@ public sealed class EmulationService : IEmulationService
     }
 
     /// <inheritdoc/>
+    public void SetForwardingAudioBufferLength(DualSenseDevice device, byte audioBufferLength)
+    {
+        lock (_sync)
+        {
+            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Forwarder is { } forwarder)
+            {
+                forwarder.AudioBufferLength = audioBufferLength;
+            }
+        }
+    }
+
     public void SetForwardingAudioOutput(DualSenseDevice device, bool headset)
     {
         lock (_sync)
@@ -1122,6 +1142,10 @@ public sealed class EmulationService : IEmulationService
         if (emulation is not null)
         {
             forwarder.SpeakerVolume = (byte)Math.Clamp(emulation.Forward.Volume, 0, 255);
+            forwarder.AudioBufferLength = (byte)Math.Clamp(
+                emulation.Forward.AudioBufferLength,
+                BluetoothAudioReportBuilder.MinAudioBufferLength,
+                BluetoothAudioReportBuilder.MaxAudioBufferLength);
             forwarder.HapticStrength = Math.Clamp(emulation.Forward.Haptics, 0, 200) / 100f;
             forwarder.ForceAudioHaptics = emulation.Forward.ForceAudioHaptics;
             forwarder.PlayToHeadset = emulation.Forward.AudioOutput == EmulationAudioOutput.Headset;

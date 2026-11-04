@@ -788,6 +788,40 @@ public partial class CustomizationPageViewModel : ObservableObject
     }
 
     /// <summary>
+    /// The controller-side audio buffer length used by forwarded Bluetooth audio
+    /// (16-128, two-way, persisted).
+    /// </summary>
+    public int ForwardAudioBufferLength
+    {
+        get
+        {
+            return !HasDevice ? 48 : GetEmulationSettings().Forward.AudioBufferLength;
+        }
+        set
+        {
+            if (!HasDevice)
+            {
+                return;
+            }
+
+            int clamped = Math.Clamp(value, 16, 128);
+            EmulationSettings settings = GetEmulationSettings();
+            if (settings.Forward.AudioBufferLength == clamped)
+            {
+                return;
+            }
+
+            settings.Forward.AudioBufferLength = clamped;
+            ScheduleEmulationSave();
+            OnPropertyChanged(nameof(ForwardAudioBufferLength));
+            if (CurrentDualSenseDevice is { } device)
+            {
+                _emulation.SetForwardingAudioBufferLength(device, (byte)clamped);
+            }
+        }
+    }
+
+    /// <summary>
     /// The haptic vibration strength when forwarding host audio, as a percentage
     /// (0-200, two-way, persisted).
     /// </summary>
@@ -1266,6 +1300,7 @@ public partial class CustomizationPageViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDualSenseEmulation));
         OnPropertyChanged(nameof(ForwardAudioOutputIndex));
         OnPropertyChanged(nameof(ForwardVolume));
+        OnPropertyChanged(nameof(ForwardAudioBufferLength));
         OnPropertyChanged(nameof(ForwardHapticStrength));
         OnPropertyChanged(nameof(ForceAudioHaptics));
         OnPropertyChanged(nameof(ForwardAudioSourceIndex));
@@ -1298,6 +1333,7 @@ public partial class CustomizationPageViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDualSenseEmulation));
         OnPropertyChanged(nameof(ForwardAudioOutputIndex));
         OnPropertyChanged(nameof(ForwardVolume));
+        OnPropertyChanged(nameof(ForwardAudioBufferLength));
         OnPropertyChanged(nameof(ForwardHapticStrength));
         OnPropertyChanged(nameof(ForceAudioHaptics));
         OnPropertyChanged(nameof(ForwardAudioSourceIndex));

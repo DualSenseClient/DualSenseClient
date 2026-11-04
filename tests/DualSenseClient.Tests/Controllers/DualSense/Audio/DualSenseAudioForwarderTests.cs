@@ -21,6 +21,8 @@ public class DualSenseAudioForwarderTests
 
         public bool ThrowOnCombinedReport { get; set; }
 
+        public byte AudioBufferLength { get; set; } = BluetoothAudioReportBuilder.DefaultAudioBufferLength;
+
         public int ResetCount { get; private set; }
         public int PrimeCount { get; private set; }
         public int CombinedReportCount { get; private set; }
@@ -611,6 +613,27 @@ public class DualSenseAudioForwarderTests
             "the embedded state must not retain the v2 rumble selector while haptics are active");
 
         forwarder.Stop();
+    }
+
+    [Test]
+    public void ApplyForwardingSettings_AudioBufferLength_IsAppliedToOutputs()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+
+        forwarder.ApplyForwardingSettings(new ForwardSettings
+        {
+            AudioBufferLength = 64
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(forwarder.AudioBufferLength, Is.EqualTo(64));
+            Assert.That(fake.AudioBufferLength, Is.EqualTo(64));
+        });
     }
 
     [Test]

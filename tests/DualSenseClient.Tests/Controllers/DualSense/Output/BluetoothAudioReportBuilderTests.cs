@@ -77,12 +77,56 @@ public class BluetoothAudioReportBuilderTests
             Assert.That(report[4], Is.EqualTo(0x66));
             Assert.That(report[5..7], Is.EqualTo(new byte[]
             {
-                0x40, 0x40
+                0x30, 0x30
             }));
             Assert.That(report[8], Is.EqualTo(0x92));
             Assert.That(report[9], Is.EqualTo(64));
             Assert.That(report[10..74], Is.EqualTo(HapticsPcm()));
         });
+    }
+
+    [Test]
+    public void AudioBufferLength_DefaultsTo48AndAppliesToEveryReport()
+    {
+        BluetoothAudioReportBuilder builder = new BluetoothAudioReportBuilder();
+
+        Assert.That(builder.AudioBufferLength, Is.EqualTo(48));
+
+        byte[] haptics = builder.BuildHapticsReport(HapticsPcm());
+        byte[] audio = builder.BuildAudioReport(OpusFrame(), BluetoothAudioRoute.Speaker);
+        byte[] combined = builder.BuildCombinedReport(SampleState(), OpusFrame(), HapticsPcm(), BluetoothAudioRoute.Speaker);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(haptics[5..7], Is.All.EqualTo((byte)48));
+            Assert.That(audio[5..10], Is.All.EqualTo((byte)48));
+            Assert.That(combined[5..10], Is.All.EqualTo((byte)48));
+        });
+    }
+
+    [Test]
+    public void AudioBufferLength_ConfigurableAndClamped()
+    {
+        BluetoothAudioReportBuilder builder = new BluetoothAudioReportBuilder
+        {
+            AudioBufferLength = 64
+        };
+
+        byte[] haptics = builder.BuildHapticsReport(HapticsPcm());
+        byte[] audio = builder.BuildAudioReport(OpusFrame(), BluetoothAudioRoute.Speaker);
+        byte[] combined = builder.BuildCombinedReport(SampleState(), OpusFrame(), HapticsPcm(), BluetoothAudioRoute.Speaker);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(haptics[5..7], Is.All.EqualTo((byte)64));
+            Assert.That(audio[5..10], Is.All.EqualTo((byte)64));
+            Assert.That(combined[5..10], Is.All.EqualTo((byte)64));
+        });
+
+        builder.AudioBufferLength = 1;
+        Assert.That(builder.AudioBufferLength, Is.EqualTo(BluetoothAudioReportBuilder.MinAudioBufferLength));
+        builder.AudioBufferLength = 255;
+        Assert.That(builder.AudioBufferLength, Is.EqualTo(BluetoothAudioReportBuilder.MaxAudioBufferLength));
     }
 
     [Test]
@@ -116,7 +160,7 @@ public class BluetoothAudioReportBuilderTests
             Assert.That(report[4], Is.EqualTo(0xFE));
             Assert.That(report[5..10], Is.EqualTo(new byte[]
             {
-                0x40, 0x40, 0x40, 0x40, 0x40
+                0x30, 0x30, 0x30, 0x30, 0x30
             }));
             Assert.That(report[11], Is.EqualTo((byte)BluetoothAudioRoute.Speaker));
             Assert.That(report[12], Is.EqualTo(200));
@@ -165,7 +209,7 @@ public class BluetoothAudioReportBuilderTests
             Assert.That(report[4], Is.EqualTo(0xFE));
             Assert.That(report[5..10], Is.EqualTo(new byte[]
             {
-                0x40, 0x40, 0x40, 0x40, 0x40
+                0x30, 0x30, 0x30, 0x30, 0x30
             }));
             Assert.That(report[11], Is.EqualTo(0x90));
             Assert.That(report[12], Is.EqualTo(0x3F));

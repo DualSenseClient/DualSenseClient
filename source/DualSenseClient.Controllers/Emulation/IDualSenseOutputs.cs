@@ -47,6 +47,12 @@ public interface IDualSenseAudioOutputs : IDualSenseOutputs
     ConnectionType ConnectionType { get; }
 
     /// <summary>
+    /// Controller-side audio buffer length written into the Bluetooth audio control
+    /// blocks (16-128).
+    /// </summary>
+    byte AudioBufferLength { get; set; }
+
+    /// <summary>
     /// Restarts the Bluetooth audio/haptics report sequence and packet counters.
     /// </summary>
     void ResetBluetoothAudioStream();
@@ -231,6 +237,25 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
         }
 
         return copy;
+    }
+
+    /// <inheritdoc/>
+    public byte AudioBufferLength
+    {
+        get
+        {
+            lock (_writeLock)
+            {
+                return _device.BluetoothAudioBufferLength;
+            }
+        }
+        set
+        {
+            lock (_writeLock)
+            {
+                _device.BluetoothAudioBufferLength = value;
+            }
+        }
     }
 
     /// <inheritdoc/>

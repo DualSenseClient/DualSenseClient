@@ -343,6 +343,8 @@
     <sys:String x:Key="EmulationPage.Emulation.Ds4Variant.V2">V2 (CUH-ZCT2)</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.ForceAudioHaptics">Audio-based haptics</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.ForceAudioHaptics.Description">Derive vibration from the forwarded audio instead of the game's own haptics. The haptic strength slider always applies to audio-based haptics. Only applies to DualSense emulation over Bluetooth.</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.ForwardAudioBufferLength">Forwarded Audio Buffer Length</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.ForwardAudioBufferLength.Description">Controller-side buffer size for forwarded Bluetooth audio. Lower values reduce latency; higher values tolerate more jitter.</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.ForwardHaptics">Forwarded Haptic Strength</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.ForwardHaptics.Description">Strength of the vibration generated from forwarded desktop sounds. Only applies while the virtual audio output is selected as the default playback device.</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.ForwardVolume">Forwarded Audio Volume</sys:String>

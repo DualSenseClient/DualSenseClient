@@ -72,6 +72,7 @@ public sealed class ControllerEmulationTests
                 {
                     AudioOutput = EmulationAudioOutput.Headset,
                     Volume = 149,
+                    AudioBufferLength = 53,
                     Haptics = 150,
                     ForceAudioHaptics = true,
                     Rumble = false,
@@ -89,13 +90,14 @@ public sealed class ControllerEmulationTests
 
         Assert.That(json, Does.Contain("\"variant\":{\"dualsense\":\"Edge\",\"dualshock4\":\"V1\"}"));
         Assert.That(json, Does.Contain(
-            "\"forward\":{\"audio_output\":\"Headset\",\"volume\":149,\"haptics\":150,\"haptics_audio_only\":true,\"rumble\":false,\"triggers\":false,\"lightbar\":false,\"player_leds\":false,\"haptics_enabled\":false,\"audio_enabled\":false,\"audio_from_output\":true,\"audio_source\":\"SystemOutput\",\"audio_app\":\"\",\"audio_app_mode\":\"ExecutableFile\"}"));
+            "\"forward\":{\"audio_output\":\"Headset\",\"volume\":149,\"audio_buffer_length\":53,\"haptics\":150,\"haptics_audio_only\":true,\"rumble\":false,\"triggers\":false,\"lightbar\":false,\"player_leds\":false,\"haptics_enabled\":false,\"audio_enabled\":false,\"audio_from_output\":true,\"audio_source\":\"SystemOutput\",\"audio_app\":\"\",\"audio_app_mode\":\"ExecutableFile\"}"));
 
         ControllerInfo? roundTripped = JsonSerializer.Deserialize<ControllerInfo>(json, Options);
         Assert.That(roundTripped?.Emulation.Variant.DualSense, Is.EqualTo(DualSenseVariant.Edge));
         Assert.That(roundTripped?.Emulation.Variant.DualShock4, Is.EqualTo(DualShock4Variant.V1));
         Assert.That(roundTripped?.Emulation.Forward.AudioOutput, Is.EqualTo(EmulationAudioOutput.Headset));
         Assert.That(roundTripped?.Emulation.Forward.Volume, Is.EqualTo(149));
+        Assert.That(roundTripped?.Emulation.Forward.AudioBufferLength, Is.EqualTo(53));
         Assert.That(roundTripped?.Emulation.Forward.Haptics, Is.EqualTo(150));
         Assert.That(roundTripped?.Emulation.Forward.ForceAudioHaptics, Is.True);
         Assert.That(roundTripped?.Emulation.Forward.Rumble, Is.False);
@@ -156,6 +158,7 @@ public sealed class ControllerEmulationTests
         ControllerInfo? info = JsonSerializer.Deserialize<ControllerInfo>(legacyJson, Options);
         Assert.That(info?.Emulation.Variant.DualSense, Is.EqualTo(DualSenseVariant.Standard));
         Assert.That(info?.Emulation.Forward.AudioOutput, Is.EqualTo(EmulationAudioOutput.Speaker));
+        Assert.That(info?.Emulation.Forward.AudioBufferLength, Is.EqualTo(48));
         Assert.That(info?.Emulation.Forward.Rumble, Is.True);
         Assert.That(info?.Emulation.Forward.Triggers, Is.True);
         Assert.That(info?.Emulation.Forward.Lightbar, Is.True);

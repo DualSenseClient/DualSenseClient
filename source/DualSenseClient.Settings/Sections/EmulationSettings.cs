@@ -169,6 +169,14 @@ public class ForwardSettings
     public int Volume { get; set; } = 0x50;
 
     /// <summary>
+    /// Gets or sets the controller-side audio buffer length written to the Bluetooth
+    /// audio control blocks (16-128, default 48). Lower values reduce latency; higher
+    /// values tolerate more jitter.
+    /// </summary>
+    [JsonPropertyName("audio_buffer_length")]
+    public int AudioBufferLength { get; set; } = 48;
+
+    /// <summary>
     /// Gets or sets the haptic vibration strength when forwarding host audio, as a
     /// percentage (0-200, same range as the audio player tester).
     /// </summary>

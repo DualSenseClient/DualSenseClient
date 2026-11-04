@@ -777,6 +777,28 @@ public class DualSenseDevice : ControllerDevice
     }
 
     /// <summary>
+    /// Controller-side audio buffer length written into the Bluetooth audio control
+    /// blocks (16-128). Applies to the next generated report.
+    /// </summary>
+    public byte BluetoothAudioBufferLength
+    {
+        get
+        {
+            lock (_audioWriteLock)
+            {
+                return _bluetoothAudioReports.AudioBufferLength;
+            }
+        }
+        set
+        {
+            lock (_audioWriteLock)
+            {
+                _bluetoothAudioReports.AudioBufferLength = value;
+            }
+        }
+    }
+
+    /// <summary>
     /// Restarts the Bluetooth audio/haptics report sequence and packet counters.
     /// Call this before starting a stream.
     /// </summary>

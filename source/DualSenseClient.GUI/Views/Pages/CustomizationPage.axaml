@@ -848,6 +848,14 @@
                                               Value="{Binding ForwardVolume, Mode=TwoWay}" />
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.ForwardAudioBufferLength}"
+                                           Description="{DynamicResource EmulationPage.Emulation.ForwardAudioBufferLength.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <controls:SliderInput Minimum="16"
+                                              Maximum="128"
+                                              Value="{Binding ForwardAudioBufferLength, Mode=TwoWay}" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
                 <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.ForwardHaptics}"
                                            Description="{DynamicResource EmulationPage.Emulation.ForwardHaptics.Description}">
                     <ui:FASettingsExpanderItem.Footer>

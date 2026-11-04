@@ -64,9 +64,29 @@ public sealed class BluetoothAudioReportBuilder
     public const int AudioPayloadSize = 200;
 
     /// <summary>
+    /// Default controller-side audio buffer length.
+    /// </summary>
+    public const byte DefaultAudioBufferLength = 48;
+
+    /// <summary>
+    /// Smallest controller-side audio buffer length accepted by the configuration.
+    /// </summary>
+    public const byte MinAudioBufferLength = 16;
+
+    /// <summary>
+    /// Largest controller-side audio buffer length accepted by the configuration.
+    /// </summary>
+    public const byte MaxAudioBufferLength = 128;
+
+    /// <summary>
     /// CRC covers everything before the trailing 4 bytes in both report families.
     /// </summary>
     private const int CrcSize = 4;
+
+    /// <summary>
+    /// Controller-side audio buffer length written into the session control blocks.
+    /// </summary>
+    private byte _audioBufferLength = DefaultAudioBufferLength;
 
     /// <summary>
     /// Rolling report sequence tag. Only the low nibble is transmitted, so it advances
@@ -96,6 +116,22 @@ public sealed class BluetoothAudioReportBuilder
     /// <see cref="BuildCombinedReport"/>. See the class remarks for the reuse contract.
     /// </summary>
     private readonly byte[] _combinedReport = new byte[CombinedReportSize];
+
+    /// <summary>
+    /// Controller-side audio buffer length written into every Bluetooth audio control
+    /// block (16-128). Defaults to 48.
+    /// </summary>
+    public byte AudioBufferLength
+    {
+        get
+        {
+            return _audioBufferLength;
+        }
+        set
+        {
+            _audioBufferLength = Math.Clamp(value, MinAudioBufferLength, MaxAudioBufferLength);
+        }
+    }
 
     /// <summary>
     /// Builds the init-prime report <c>0x32</c> (142 bytes) that opens the audio/haptics
@@ -138,8 +174,8 @@ public sealed class BluetoothAudioReportBuilder
         report[2] = 0x91;
         report[3] = 4;
         report[4] = 0x66;
-        report[5] = 0x40;
-        report[6] = 0x40;
+        report[5] = AudioBufferLength;
+        report[6] = AudioBufferLength;
         report[7] = _packetCounter++;
 
         // Packet 0x12 haptics block (sized flag set).
@@ -171,15 +207,15 @@ public sealed class BluetoothAudioReportBuilder
         _reportSequence = (byte)((_reportSequence + 1) & 0x0F);
 
         // Packet 0x11 session block (sized flag set): mic-disabled sections and five
-        // 0x40 buffer-length bytes, per the vDS reference.
+        // controller buffer-length bytes.
         report[2] = 0x91;
         report[3] = 0x07;
         report[4] = 0xFE;
-        report[5] = 0x40;
-        report[6] = 0x40;
-        report[7] = 0x40;
-        report[8] = 0x40;
-        report[9] = 0x40;
+        report[5] = AudioBufferLength;
+        report[6] = AudioBufferLength;
+        report[7] = AudioBufferLength;
+        report[8] = AudioBufferLength;
+        report[9] = AudioBufferLength;
         report[10] = _packetCounter++;
 
         // Packet 0x13/0x16 route block (sized flag set).
@@ -230,15 +266,15 @@ public sealed class BluetoothAudioReportBuilder
         _reportSequence = (byte)((_reportSequence + 1) & 0x0F);
 
         // Packet 0x11 session block first, per the vDS reference (sized flag set):
-        // mic-disabled sections and five 0x40 buffer-length bytes.
+        // mic-disabled sections and five controller buffer-length bytes.
         report[2] = 0x91;
         report[3] = 0x07;
         report[4] = 0xFE;
-        report[5] = 0x40;
-        report[6] = 0x40;
-        report[7] = 0x40;
-        report[8] = 0x40;
-        report[9] = 0x40;
+        report[5] = AudioBufferLength;
+        report[6] = AudioBufferLength;
+        report[7] = AudioBufferLength;
+        report[8] = AudioBufferLength;
+        report[9] = AudioBufferLength;
         report[10] = _packetCounter++;
 
         // Packet 0x10 state block (63 bytes: 47-byte output state + zeroed tail).

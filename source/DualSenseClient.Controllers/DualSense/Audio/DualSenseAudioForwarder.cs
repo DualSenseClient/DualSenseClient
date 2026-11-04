@@ -240,6 +240,11 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     private volatile byte _speakerVolume = 0x50;
 
     /// <summary>
+    /// Controller-side audio buffer length written into the Bluetooth control blocks.
+    /// </summary>
+    private volatile byte _audioBufferLength = BluetoothAudioReportBuilder.DefaultAudioBufferLength;
+
+    /// <summary>
     /// Whether the haptic actuators follow the audio.
     /// </summary>
     private volatile bool _hapticsEnabled = true;
@@ -346,6 +351,29 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     }
 
     /// <summary>
+    /// Controller-side audio buffer length written into the Bluetooth audio control
+    /// blocks (16-128).
+    /// </summary>
+    public byte AudioBufferLength
+    {
+        get
+        {
+            return _audioBufferLength;
+        }
+        set
+        {
+            _audioBufferLength = Math.Clamp(
+                value,
+                BluetoothAudioReportBuilder.MinAudioBufferLength,
+                BluetoothAudioReportBuilder.MaxAudioBufferLength);
+            if (_outputs is not null)
+            {
+                _outputs.AudioBufferLength = _audioBufferLength;
+            }
+        }
+    }
+
+    /// <summary>
     /// Whether the haptic actuators follow the audio.
     /// </summary>
     public bool HapticsEnabled
@@ -406,6 +434,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         _gameLightbarEnabled = settings.Lightbar;
         _gamePlayerLedsEnabled = settings.PlayerLeds;
         _gameHapticsEnabled = settings.HapticsEnabled;
+        AudioBufferLength = (byte)settings.AudioBufferLength;
     }
 
     /// <summary>
@@ -467,6 +496,11 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
             {
                 _log.Info("No forwarding transport available (neither Bluetooth audio lane nor USB render endpoint)");
                 return false;
+            }
+
+            if (_outputs is not null)
+            {
+                _outputs.AudioBufferLength = _audioBufferLength;
             }
 
             _btStreamPrimed = false;
