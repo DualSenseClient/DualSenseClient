@@ -663,10 +663,11 @@ public partial class CustomizationPageViewModel : ObservableObject
 
     /// <summary>
     /// Forwarded audio output options for the dropdown, in
-    /// <see cref="EmulationAudioOutput"/> order (speaker, headset).
+    /// <see cref="EmulationAudioOutput"/> order (auto, speaker, headset).
     /// </summary>
     public ObservableCollection<string> EmulationAudioOutputs { get; } =
     [
+        LocalizationService.GetText("EmulationPage.Emulation.AudioOutput.Auto"),
         LocalizationService.GetText("EmulationPage.Emulation.AudioOutput.Speaker"),
         LocalizationService.GetText("EmulationPage.Emulation.AudioOutput.Headset")
     ];
@@ -726,7 +727,7 @@ public partial class CustomizationPageViewModel : ObservableObject
     {
         get
         {
-            return !HasDevice ? 0 : (int)GetEmulationSettings().Forward.AudioOutput;
+            return !HasDevice ? (int)EmulationAudioOutput.Auto : (int)GetEmulationSettings().Forward.AudioOutput;
         }
         set
         {
@@ -735,7 +736,7 @@ public partial class CustomizationPageViewModel : ObservableObject
                 return;
             }
 
-            EmulationAudioOutput output = (EmulationAudioOutput)Math.Clamp(value, 0, (int)EmulationAudioOutput.Headset);
+            EmulationAudioOutput output = (EmulationAudioOutput)Math.Clamp(value, (int)EmulationAudioOutput.Auto, (int)EmulationAudioOutput.Headset);
             EmulationSettings settings = GetEmulationSettings();
             if (settings.Forward.AudioOutput == output)
             {
@@ -748,7 +749,7 @@ public partial class CustomizationPageViewModel : ObservableObject
             OnPropertyChanged(nameof(ForwardAudioOutputIndex));
             if (CurrentDualSenseDevice is { } device)
             {
-                _emulation.SetForwardingAudioOutput(device, output == EmulationAudioOutput.Headset);
+                _emulation.SetForwardingAudioOutput(device, output);
             }
         }
     }

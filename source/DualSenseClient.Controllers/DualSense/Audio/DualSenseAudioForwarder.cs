@@ -275,9 +275,9 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     private volatile bool _gameHapticsEnabled = true;
 
     /// <summary>
-    /// Whether audio is routed to the headset jack instead of the internal speaker.
+    /// Requested output route for forwarded audio: auto, speaker, or headset.
     /// </summary>
-    private volatile bool _playToHeadset;
+    private volatile EmulationAudioOutput _audioOutput = EmulationAudioOutput.Auto;
 
     /// <summary>
     /// Last volume/route signature applied to the controller, so the pump only issues
@@ -435,20 +435,55 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         _gamePlayerLedsEnabled = settings.PlayerLeds;
         _gameHapticsEnabled = settings.HapticsEnabled;
         AudioBufferLength = (byte)settings.AudioBufferLength;
+        AudioOutput = settings.AudioOutput;
+    }
+
+    /// <summary>
+    /// Requested output route for forwarded audio. <see cref="EmulationAudioOutput.Auto"/>
+    /// follows the controller's headset jack.
+    /// </summary>
+    public EmulationAudioOutput AudioOutput
+    {
+        get
+        {
+            return _audioOutput;
+        }
+        set
+        {
+            _audioOutput = value;
+        }
     }
 
     /// <summary>
     /// Whether audio is routed to the headset jack instead of the internal speaker.
+    /// Kept as a convenience over <see cref="AudioOutput"/>.
     /// </summary>
     public bool PlayToHeadset
     {
         get
         {
-            return _playToHeadset;
+            return _audioOutput == EmulationAudioOutput.Headset;
         }
         set
         {
-            _playToHeadset = value;
+            _audioOutput = value ? EmulationAudioOutput.Headset : EmulationAudioOutput.Speaker;
+        }
+    }
+
+    /// <summary>
+    /// Resolves the active route, including the headset-jack check for
+    /// <see cref="EmulationAudioOutput.Auto"/>.
+    /// </summary>
+    private bool UseHeadset
+    {
+        get
+        {
+            return _audioOutput switch
+            {
+                EmulationAudioOutput.Headset => true,
+                EmulationAudioOutput.Speaker => false,
+                _ => _outputs?.HeadphonesConnected == true
+            };
         }
     }
 
@@ -1001,7 +1036,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     private void SendBluetoothReports()
     {
         SetStateData state = CreateAudioState();
-        BluetoothAudioRoute route = _playToHeadset ? BluetoothAudioRoute.Headset : BluetoothAudioRoute.Speaker;
+        BluetoothAudioRoute route = UseHeadset ? BluetoothAudioRoute.Headset : BluetoothAudioRoute.Speaker;
         bool stateBlock = _outputs!.NeedsOutputStateBlock;
         if (_hapticsEnabled || stateBlock)
         {
@@ -1028,7 +1063,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// </summary>
     private void ApplyAudioStateIfChanged()
     {
-        bool headset = _playToHeadset;
+        bool headset = UseHeadset;
         byte volume = _speakerVolume;
         int signature = volume | (headset ? 1 << 8 : 0);
         if (signature == _appliedConfigSignature)
@@ -1041,13 +1076,13 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     }
 
     /// <summary>
-    /// The controller's output path selected by <see cref="PlayToHeadset"/>.
+    /// The controller's output path selected by <see cref="AudioOutput"/>.
     /// </summary>
     private AudioControl OutputControl
     {
         get
         {
-            return _playToHeadset ? AudioControl.OutputPathHeadphones : AudioControl.OutputPathSpeaker;
+            return UseHeadset ? AudioControl.OutputPathHeadphones : AudioControl.OutputPathSpeaker;
         }
     }
 
@@ -1059,7 +1094,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     {
         get
         {
-            return _playToHeadset ? _speakerVolume : (byte)0x3F;
+            return UseHeadset ? _speakerVolume : (byte)0x3F;
         }
     }
 
@@ -1241,7 +1276,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         // Capture the values actually sent: the configuration may change while the
         // ~85 ms prime blocks the lock, so the applied-signature must reflect what
         // was written, not the live value.
-        bool headset = _playToHeadset;
+        bool headset = UseHeadset;
         byte volume = _speakerVolume;
         _outputs.SetAudioOutput(headset ? AudioControl.OutputPathHeadphones : AudioControl.OutputPathSpeaker, volume, headset ? volume : (byte)0x3F);
 

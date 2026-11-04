@@ -324,6 +324,7 @@
     <!-- Emulation -->
     <sys:String x:Key="EmulationPage.Emulation.AudioOutput">Forwarded Audio Output</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.AudioOutput.Description">Where host audio is played back on the physical controller.</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.AudioOutput.Auto">Auto (follow headset jack)</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.AudioOutput.Headset">Headset</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.AudioOutput.Speaker">Speaker</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.AudioSource">Audio source</sys:String>

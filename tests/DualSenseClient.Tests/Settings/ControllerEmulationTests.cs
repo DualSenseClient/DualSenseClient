@@ -157,7 +157,7 @@ public sealed class ControllerEmulationTests
         string legacyJson = """{"mac_address":"AA:BB:CC:DD:EE:FF","emulation":{"mode":"DualSense"}}""";
         ControllerInfo? info = JsonSerializer.Deserialize<ControllerInfo>(legacyJson, Options);
         Assert.That(info?.Emulation.Variant.DualSense, Is.EqualTo(DualSenseVariant.Standard));
-        Assert.That(info?.Emulation.Forward.AudioOutput, Is.EqualTo(EmulationAudioOutput.Speaker));
+        Assert.That(info?.Emulation.Forward.AudioOutput, Is.EqualTo(EmulationAudioOutput.Auto));
         Assert.That(info?.Emulation.Forward.AudioBufferLength, Is.EqualTo(48));
         Assert.That(info?.Emulation.Forward.Rumble, Is.True);
         Assert.That(info?.Emulation.Forward.Triggers, Is.True);

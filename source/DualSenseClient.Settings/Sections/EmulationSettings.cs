@@ -67,14 +67,20 @@ public enum DualShock4Variant
 public enum EmulationAudioOutput
 {
     /// <summary>
+    /// Follow the controller's headset jack: use the headset when one is connected,
+    /// otherwise the internal speaker.
+    /// </summary>
+    Auto = 0,
+
+    /// <summary>
     /// The controller's internal speaker.
     /// </summary>
-    Speaker = 0,
+    Speaker = 1,
 
     /// <summary>
     /// A headset plugged into the controller's jack.
     /// </summary>
-    Headset = 1
+    Headset = 2
 }
 
 /// <summary>
@@ -156,10 +162,10 @@ public class ForwardSettings
 {
     /// <summary>
     /// Gets or sets the physical controller output used when forwarding host audio
-    /// (<see cref="EmulationAudioOutput.Speaker"/> by default).
+    /// (<see cref="EmulationAudioOutput.Auto"/> by default).
     /// </summary>
     [JsonPropertyName("audio_output")]
-    public EmulationAudioOutput AudioOutput { get; set; } = EmulationAudioOutput.Speaker;
+    public EmulationAudioOutput AudioOutput { get; set; } = EmulationAudioOutput.Auto;
 
     /// <summary>
     /// Gets or sets the volume applied to the physical controller's speaker when

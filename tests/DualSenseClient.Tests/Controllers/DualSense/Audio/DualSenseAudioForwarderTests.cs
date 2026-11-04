@@ -23,6 +23,8 @@ public class DualSenseAudioForwarderTests
 
         public byte AudioBufferLength { get; set; } = BluetoothAudioReportBuilder.DefaultAudioBufferLength;
 
+        public bool HeadphonesConnected { get; set; }
+
         public int ResetCount { get; private set; }
         public int PrimeCount { get; private set; }
         public int CombinedReportCount { get; private set; }
@@ -612,6 +614,50 @@ public class DualSenseAudioForwarderTests
         Assert.That(fake.LastStateBlock[38] & 0x08, Is.Zero,
             "the embedded state must not retain the v2 rumble selector while haptics are active");
 
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void AudioOutput_AutoFollowsTheHeadsetJack()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth,
+            HeadphonesConnected = false
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.AudioOutput = EmulationAudioOutput.Auto;
+        forwarder.Start();
+
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => fake.AudioOutputApplyCount >= 1, TimeSpan.FromSeconds(3));
+        Assert.That(fake.LastAppliedControl, Is.EqualTo(AudioControl.OutputPathSpeaker));
+
+        fake.HeadphonesConnected = true;
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => fake.LastAppliedControl == AudioControl.OutputPathHeadphones, TimeSpan.FromSeconds(3));
+
+        Assert.That(fake.LastAppliedControl, Is.EqualTo(AudioControl.OutputPathHeadphones));
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void AudioOutput_AutoFallsBackToTheSpeaker()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth,
+            HeadphonesConnected = true
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.AudioOutput = EmulationAudioOutput.Auto;
+        forwarder.Start();
+
+        fake.HeadphonesConnected = false;
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => fake.AudioOutputApplyCount >= 1, TimeSpan.FromSeconds(3));
+
+        Assert.That(fake.LastAppliedControl, Is.EqualTo(AudioControl.OutputPathSpeaker));
         forwarder.Stop();
     }
 

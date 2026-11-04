@@ -53,6 +53,11 @@ public interface IDualSenseAudioOutputs : IDualSenseOutputs
     byte AudioBufferLength { get; set; }
 
     /// <summary>
+    /// Whether the physical controller currently has headphones connected.
+    /// </summary>
+    bool HeadphonesConnected { get; }
+
+    /// <summary>
     /// Restarts the Bluetooth audio/haptics report sequence and packet counters.
     /// </summary>
     void ResetBluetoothAudioStream();
@@ -255,6 +260,15 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
             {
                 _device.BluetoothAudioBufferLength = value;
             }
+        }
+    }
+
+    /// <inheritdoc/>
+    public bool HeadphonesConnected
+    {
+        get
+        {
+            return _device.InputReport?.Connection.Headphone == true;
         }
     }
 

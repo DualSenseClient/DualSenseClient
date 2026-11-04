@@ -66,11 +66,10 @@ public interface IEmulationService : IDisposable
     void SetForwardingAudioBufferLength(DualSenseDevice device, byte audioBufferLength);
 
     /// <summary>
-    /// Routes the given controller's forwarded host audio to its headset jack instead
-    /// of its internal speaker without recreating the virtual controller. No-op when
-    /// audio forwarding is not active for that controller.
+    /// Sets the given controller's forwarded host audio route without recreating the
+    /// virtual controller. No-op when audio forwarding is not active for that controller.
     /// </summary>
-    void SetForwardingAudioOutput(DualSenseDevice device, bool headset);
+    void SetForwardingAudioOutput(DualSenseDevice device, EmulationAudioOutput output);
 
     /// <summary>
     /// Switches the given controller's forwarded haptics between the game's own payload
@@ -420,13 +419,13 @@ public sealed class EmulationService : IEmulationService
         }
     }
 
-    public void SetForwardingAudioOutput(DualSenseDevice device, bool headset)
+    public void SetForwardingAudioOutput(DualSenseDevice device, EmulationAudioOutput output)
     {
         lock (_sync)
         {
             if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Forwarder is { } forwarder)
             {
-                forwarder.PlayToHeadset = headset;
+                forwarder.AudioOutput = output;
             }
         }
     }
@@ -1148,7 +1147,6 @@ public sealed class EmulationService : IEmulationService
                 BluetoothAudioReportBuilder.MaxAudioBufferLength);
             forwarder.HapticStrength = Math.Clamp(emulation.Forward.Haptics, 0, 200) / 100f;
             forwarder.ForceAudioHaptics = emulation.Forward.ForceAudioHaptics;
-            forwarder.PlayToHeadset = emulation.Forward.AudioOutput == EmulationAudioOutput.Headset;
             forwarder.ApplyForwardingSettings(emulation.Forward);
         }
 
