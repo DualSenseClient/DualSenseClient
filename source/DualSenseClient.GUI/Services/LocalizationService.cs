@@ -56,6 +56,8 @@ public static class LocalizationService
     [
         new CultureInfo(DefaultLanguageCode) // English
         // Add Languages here
+        ,
+        new CultureInfo("zh-CN") // Simplified Chinese
     ];
 
     // Functions
