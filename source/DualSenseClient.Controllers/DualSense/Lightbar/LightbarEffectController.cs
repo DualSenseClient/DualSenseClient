@@ -33,13 +33,6 @@ public sealed class LightbarEffectController : IDisposable
     private LightbarSettings? _settings;
     private int _batteryBand = 5;
     private int _randomSeed;
-    private PlayerLedMask _playerLedMask;
-
-    /// <summary>
-    /// The chase mask currently shown, or null when the effect is not driving player LEDs.
-    /// </summary>
-    private PlayerLedMask? _chaseMask;
-
     private bool _disposed;
 
     /// <summary>
@@ -92,8 +85,7 @@ public sealed class LightbarEffectController : IDisposable
     /// so callers must pass a snapshot they do not mutate afterwards.
     /// </summary>
     /// <param name="settings">Snapshot of the lightbar settings.</param>
-    /// <param name="playerLedMask">Profile player LED mask to restore when a chase ends.</param>
-    public void Apply(LightbarSettings settings, byte playerLedMask)
+    public void Apply(LightbarSettings settings)
     {
         lock (_lock)
         {
@@ -115,13 +107,11 @@ public sealed class LightbarEffectController : IDisposable
                 long now = Stopwatch.GetTimestamp();
                 _clock.Reset(now);
                 _batteryBand = 5;
-                _chaseMask = null;
                 _randomSeed = Random.Shared.Next();
                 _log.Debug($"Lightbar effect {settings.Mode} started");
             }
 
             _settings = settings;
-            _playerLedMask = (PlayerLedMask)playerLedMask;
 
             if (_timer is null)
             {
@@ -131,6 +121,11 @@ public sealed class LightbarEffectController : IDisposable
             {
                 _timer.Change(TimeSpan.Zero, TimeSpan.FromMilliseconds(TickPeriodMs));
             }
+
+            // Publish the first frame before the profile commit, so an animated profile
+            // never flashes its fallback color and the authority has a frame available
+            // immediately after Apply returns.
+            SubmitFrame(EvaluateLocked());
         }
     }
 
@@ -220,9 +215,9 @@ public sealed class LightbarEffectController : IDisposable
         }
 
         _settings = null;
-        _chaseMask = null;
         _clock.Reset(Stopwatch.GetTimestamp());
         _batteryBand = 5;
+        _device.Lighting.Clear(LightingOwner.LightbarEffect);
         _timer?.Change(Timeout.Infinite, Timeout.Infinite);
     }
 
@@ -284,46 +279,16 @@ public sealed class LightbarEffectController : IDisposable
     }
 
     /// <summary>
-    /// Sends one effect frame, adding the player LEDs only while the effect drives them
-    /// and restores the profile mask once after a chase ends.
+    /// Submits one effect frame and commits the resolved state. The authority decides
+    /// whether the effect still owns the lightbar and player LEDs.
     /// </summary>
     private void SendFrame(LightbarEffectFrame frame)
     {
-        ValidFlags flag1 = ValidFlags.AllowLedColor;
-        PlayerLedMask playerLeds = _playerLedMask;
-
-        // While the game owns the player LEDs the chase state is left untouched, so
-        // releasing them restores the chase or the profile mask on the next tick.
-        if (!GameOwnsPlayerLeds)
-        {
-            if (frame.PlayerLeds is PlayerLedMask chase)
-            {
-                _chaseMask = chase;
-                flag1 |= ValidFlags.AllowPlayerIndicators;
-                playerLeds = chase;
-            }
-            else if (_chaseMask is not null)
-            {
-                _chaseMask = null;
-                flag1 |= ValidFlags.AllowPlayerIndicators;
-            }
-        }
-
-        SetStateData payload = new SetStateData
-        {
-            ValidFlag1 = flag1,
-            ValidFlag2 = ValidFlags.AllowBrightnessChange | ValidFlags.AllowColorFadeAnim,
-            LightFadeAnimation = 0x02,
-            LightBrightness = 0,
-            PlayerLeds = playerLeds,
-            LedRed = frame.Red,
-            LedGreen = frame.Green,
-            LedBlue = frame.Blue
-        };
+        SubmitFrame(frame);
 
         try
         {
-            _device.SendOutputState(payload);
+            _device.Lighting.Commit();
         }
         catch (HidException ex)
         {
@@ -334,5 +299,15 @@ public sealed class LightbarEffectController : IDisposable
             // Disposing stops the timer first; this only covers a send already in flight.
             _log.Debug("Lightbar effect send skipped: device disposed");
         }
+    }
+
+    /// <summary>
+    /// Publishes one frame to the authority without sending it.
+    /// </summary>
+    private void SubmitFrame(LightbarEffectFrame frame)
+    {
+        _device.Lighting.Submit(LightingOwner.LightbarEffect, new LightingSnapshot(
+            (frame.Red, frame.Green, frame.Blue),
+            frame.PlayerLeds));
     }
 }

@@ -1,8 +1,10 @@
 ﻿using DualSenseClient.Controllers.DualSense.Enum;
 using DualSenseClient.Controllers.DualSense.Events;
 using DualSenseClient.Controllers.DualSense.Input;
+using DualSenseClient.Controllers.DualSense.Lightbar;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Devices;
+using DualSenseClient.Hid;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
 using DualSenseClient.Settings.Sections;
@@ -842,14 +844,34 @@ public sealed class SpecialActionEngine : IDisposable
                 }
             }
 
-            // While the action stays active, its output fields override the emulated
-            // output forwarded from a virtual controller (the most recent fire wins
-            // per field).
-            if ((applied.LightbarColor is not null || applied.PlayerLeds is not null)
-                && (_sustainedActive.Contains(action.Id) || _timedActive.ContainsKey(action.Id)))
+            if (applied.LightbarColor is not null || applied.PlayerLeds is not null)
             {
-                _outputOverrides[action.Id] = (applied, ++_overrideSequence);
-                RecomputeOutputOverride();
+                if (_sustainedActive.Contains(action.Id) || _timedActive.ContainsKey(action.Id))
+                {
+                    // While the action stays active, its output fields override the
+                    // forwarded output (the most recent fire wins per field).
+                    _outputOverrides[action.Id] = (applied, ++_overrideSequence);
+                    RecomputeOutputOverride();
+                }
+                else if (_device is not null)
+                {
+                    // A one-shot light action is visible immediately but does not hold
+                    // the channel, so the next game or effect frame can take it back.
+                    _device.Lighting.Submit(LightingOwner.SpecialAction, new LightingSnapshot(
+                        applied.LightbarColor,
+                        applied.PlayerLeds is { } leds ? (PlayerLedMask)leds : null));
+
+                    try
+                    {
+                        _device.Lighting.Commit();
+                    }
+                    catch (HidException ex)
+                    {
+                        _log.Error($"Failed to apply special-action lighting: {ex.Message}");
+                    }
+
+                    _device.Lighting.Clear(LightingOwner.SpecialAction);
+                }
             }
 
             ActionExecuted?.Invoke(this, new SpecialActionExecutedEventArgs(action));
@@ -977,40 +999,16 @@ public sealed class SpecialActionEngine : IDisposable
     }
 
     /// <summary>
-    /// Sets the lightbar color, including the fade animation setup byte needed to take
-    /// over the lightbar from the controller's default state (mirrors
-    /// <see cref="DualSenseDevice.ApplyProfile"/>).
+    /// Returns the lightbar color applied by the effect. The authority resolves and
+    /// sends it after every active action has been combined.
     /// </summary>
-    private (byte Red, byte Green, byte Blue) SendLightbarColor(byte red, byte green, byte blue)
-    {
-        SetStateData payload = new SetStateData
-        {
-            ValidFlag1 = ValidFlags.AllowLedColor,
-            ValidFlag2 = ValidFlags.AllowColorFadeAnim,
-            LightFadeAnimation = 0x02,
-            LedRed = red,
-            LedGreen = green,
-            LedBlue = blue
-        };
-
-        _device!.SendOutputState(payload);
-        return (red, green, blue);
-    }
+    private static (byte Red, byte Green, byte Blue) SendLightbarColor(byte red, byte green, byte blue) => (red, green, blue);
 
     /// <summary>
-    /// Sets the player LED layout from the raw byte mask (bit 0 = LED 1, ... bit 4 = LED 5).
+    /// Returns the player LED layout applied by the effect (bit 0 = LED 1, ... bit 4 = LED 5).
+    /// The authority resolves and sends it after every active action has been combined.
     /// </summary>
-    private byte SendPlayerLeds(byte mask)
-    {
-        SetStateData payload = new SetStateData
-        {
-            ValidFlag1 = ValidFlags.AllowPlayerIndicators,
-            PlayerLeds = (PlayerLedMask)mask
-        };
-
-        _device!.SendOutputState(payload);
-        return mask;
-    }
+    private static byte SendPlayerLeds(byte mask) => mask;
 
     /// <summary>
     /// Shows the controller's current battery charge: on the lightbar (unless disabled via
@@ -1202,10 +1200,32 @@ public sealed class SpecialActionEngine : IDisposable
         _lightbarOverrideCode = bestColor < 0 ? -1 : (bestColorEntry.Red << 16) | (bestColorEntry.Green << 8) | bestColorEntry.Blue;
         _playerLedOverrideCode = bestLeds < 0 ? -1 : bestLedsEntry;
 
-        // An active light action owns the lightbar and player LEDs: freeze the profile
-        // effect so it cannot fight the action's output.
         if (_device is not null)
         {
+            if (bestColor < 0 && bestLeds < 0)
+            {
+                // Clearing does not send: the caller either restores the profile or lets
+                // the next game/effect frame reveal the lower-precedence owner.
+                _device.Lighting.Clear(LightingOwner.SpecialAction);
+            }
+            else
+            {
+                _device.Lighting.Submit(LightingOwner.SpecialAction, new LightingSnapshot(
+                    bestColor < 0 ? null : bestColorEntry,
+                    bestLeds < 0 ? null : (PlayerLedMask)bestLedsEntry));
+
+                try
+                {
+                    _device.Lighting.Commit();
+                }
+                catch (HidException ex)
+                {
+                    _log.Error($"Failed to apply special-action lighting: {ex.Message}");
+                }
+            }
+
+            // An active light action owns the lightbar and player LEDs: freeze the profile
+            // effect so it cannot fight the action's output.
             _device.LightbarEffectSuspended = bestColor >= 0 || bestLeds >= 0;
         }
     }

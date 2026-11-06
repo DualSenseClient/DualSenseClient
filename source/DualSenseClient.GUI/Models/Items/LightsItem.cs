@@ -1,6 +1,7 @@
 using System;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
+using DualSenseClient.Controllers.DualSense.Lightbar;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Hid;
@@ -317,28 +318,16 @@ public sealed partial class LightsItem : ObservableObject, IDisposable
             playerLeds |= PlayerLedMask.Led5;
         }
 
-        // The RGB bytes are gated by ValidFlag1.AllowLedColor, but taking over the
-        // lightbar from the controller's default (BT-connect blue) additionally requires
-        // ValidFlag2.AllowColorFadeAnim plus the lightbar-setup byte (payload offset 41)
-        // written to 0x02 ("light out"). This mirrors the hid-playstation driver.
-        // SetStateData.LightFadeAnimation targets that setup byte despite its name.
-        SetStateData payload = new SetStateData
-        {
-            ValidFlag1 = ValidFlags.AllowMuteLight | ValidFlags.AllowLedColor | ValidFlags.AllowPlayerIndicators,
-            ValidFlag2 = ValidFlags.AllowColorFadeAnim,
-            MuteLedMode = (byte)MuteLedMode,
-            LightFadeAnimation = 0x02,
-            PlayerLeds = playerLeds,
-            LedRed = Channel(LedRed),
-            LedGreen = Channel(LedGreen),
-            LedBlue = Channel(LedBlue)
-        };
-
         _log.Debug($"Sending light state: RGB({Channel(LedRed)}, {Channel(LedGreen)}, {Channel(LedBlue)}), mic LED {MuteLedMode}, player LEDs {playerLeds}");
+
+        _device.Lighting.Submit(LightingOwner.Manual, new LightingSnapshot(
+            (Channel(LedRed), Channel(LedGreen), Channel(LedBlue)),
+            playerLeds,
+            (byte)MuteLedMode));
 
         try
         {
-            _device.SendOutputState(payload);
+            _device.Lighting.Commit();
         }
         catch (HidException ex)
         {

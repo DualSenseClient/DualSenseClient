@@ -16,7 +16,7 @@ namespace DualSenseClient.Controllers.Devices;
 /// Concrete controller implementation for the Sony DualSense (PS5) controller.
 /// Opens and communicates with the DualSense over USB or Bluetooth via HIDAPI.
 /// </summary>
-public class DualSenseDevice : ControllerDevice
+public class DualSenseDevice : ControllerDevice, ILightSink
 {
     // Fields
     /// <summary>
@@ -77,43 +77,20 @@ public class DualSenseDevice : ControllerDevice
     private readonly object _audioWriteLock = new object();
 
     /// <summary>
+    /// Owns the precedence between the game output, profile lights, effects, manual edits
+    /// and special-action overrides.
+    /// </summary>
+    private readonly LightingAuthority _lighting;
+
+    /// <summary>
     /// Runs the profile's animated lightbar effect.
     /// </summary>
     private readonly LightbarEffectController _lightbarEffect;
 
     /// <summary>
-    /// Whether the game currently owns the lightbar.
-    /// </summary>
-    private volatile bool _lightbarPassthrough;
-
-    /// <summary>
-    /// Whether the game currently owns the player LEDs.
-    /// </summary>
-    private volatile bool _playerLedPassthrough;
-
-    /// <summary>
-    /// The applied profile's light values, or null before a profile is applied. The values
-    /// are also kept when the profile does not force them, so the audio lane can restore
-    /// the profile's static lights whenever the game does not own them.
-    /// </summary>
-    private volatile ProfileLights? _profileLights;
-
-    /// <summary>
     /// Whether effects must stop sending frames (e.g. while the settings UI previews).
     /// </summary>
     private volatile bool _lightbarEffectSuspended;
-
-    /// <summary>
-    /// The light values an applied profile writes. Immutable so the output thread sees
-    /// a consistent snapshot.
-    /// </summary>
-    private sealed record ProfileLights(
-        byte Red,
-        byte Green,
-        byte Blue,
-        PlayerLedMask PlayerLeds,
-        byte MuteLedMode,
-        bool ForceOverGame);
 
     /// <summary>
     /// Last raw battery byte, or -1 before the first input report.
@@ -364,11 +341,11 @@ public class DualSenseDevice : ControllerDevice
     {
         get
         {
-            return _lightbarPassthrough;
+            return _lighting.LightbarPassthroughEnabled;
         }
         set
         {
-            _lightbarPassthrough = value;
+            _lighting.LightbarPassthroughEnabled = value;
             if (!value)
             {
                 _lightbarEffect.RequestImmediateFrame();
@@ -384,11 +361,11 @@ public class DualSenseDevice : ControllerDevice
     {
         get
         {
-            return _playerLedPassthrough;
+            return _lighting.PlayerLedPassthroughEnabled;
         }
         set
         {
-            _playerLedPassthrough = value;
+            _lighting.PlayerLedPassthroughEnabled = value;
             if (!value)
             {
                 _lightbarEffect.RequestImmediateFrame();
@@ -404,41 +381,20 @@ public class DualSenseDevice : ControllerDevice
     {
         get
         {
-            return _profileLights is { ForceOverGame: true };
+            return _lighting.ProfileForcesLights;
         }
     }
 
     /// <summary>
-    /// Gets the applied profile's light values and whether it forces them over the
-    /// virtual controller's forwarded lighting.
+    /// The controller's lighting authority, through which every light owner submits and
+    /// commits state.
     /// </summary>
-    /// <returns><c>true</c> when a profile has been applied.</returns>
-    internal bool TryGetProfileLights(
-        out byte red,
-        out byte green,
-        out byte blue,
-        out PlayerLedMask playerLeds,
-        out byte muteLedMode,
-        out bool forceOverGame)
+    public LightingAuthority Lighting
     {
-        if (_profileLights is { } value)
+        get
         {
-            red = value.Red;
-            green = value.Green;
-            blue = value.Blue;
-            playerLeds = value.PlayerLeds;
-            muteLedMode = value.MuteLedMode;
-            forceOverGame = value.ForceOverGame;
-            return true;
+            return _lighting;
         }
-
-        red = 0;
-        green = 0;
-        blue = 0;
-        playerLeds = PlayerLedMask.None;
-        muteLedMode = 0;
-        forceOverGame = false;
-        return false;
     }
 
     /// <summary>
@@ -493,6 +449,7 @@ public class DualSenseDevice : ControllerDevice
         PairingInfo = FeatureReader.ReadPairingInfo(this);
         FirmwareInfo = FeatureReader.ReadFirmwareInfo(this);
         CalibrationInfo = FeatureReader.ReadCalibration(this);
+        _lighting = new LightingAuthority(this);
         _lightbarEffect = new LightbarEffectController(this);
         _readThread = new Thread(() => ReadLoop(_cts.Token))
         {
@@ -661,6 +618,9 @@ public class DualSenseDevice : ControllerDevice
         return expected == actual;
     }
 
+    /// <inheritdoc/>
+    void ILightSink.Send(SetStateData payload) => SendOutputState(payload);
+
     /// <summary>
     /// Sends output state (rumble, lightbar, player LEDs, trigger effects) to the
     /// controller, framed for the active transport (USB report ID 0x02 or Bluetooth
@@ -759,57 +719,28 @@ public class DualSenseDevice : ControllerDevice
     public void ApplyProfile(Profile profile)
     {
         LightbarSettings lightbar = profile.Lightbar.Clone();
-        bool animated = lightbar.Mode != LightbarMode.SingleColor;
-
         (byte baseRed, byte baseGreen, byte baseBlue) =
             LightbarEffectEvaluator.ApplyBrightness(lightbar.Red, lightbar.Green, lightbar.Blue, lightbar.Brightness);
-        (byte red, byte green, byte blue) = animated ? ((byte)0, (byte)0, (byte)0) : (baseRed, baseGreen, baseBlue);
 
-        // Publish the profile lights before starting the effect, so its first tick already
-        // ignores an active passthrough instead of sending nothing. The base color is the
-        // fallback while the effect frame is unavailable (e.g. a special action suspends
-        // the animation) and the static color the audio lane restores when the game does
-        // not own the lightbar.
-        _profileLights = new ProfileLights(
-            baseRed,
-            baseGreen,
-            baseBlue,
+        // The profile owns the static lights until another owner supersedes it. A manual
+        // edit is a direct user action, so applying a profile ends that manual hold.
+        _lighting.Clear(LightingOwner.Manual);
+        _lighting.Submit(LightingOwner.Profile, new LightingSnapshot(
+            (baseRed, baseGreen, baseBlue),
             (PlayerLedMask)profile.PlayerLeds.Mask,
             profile.MicLed.Mode,
-            profile.OverrideVirtualLights);
+            profile.OverrideVirtualLights));
 
-        // Start the effect before the base write: a Single Color apply stops an old
-        // animation first, so no in-flight tick can overwrite the one-shot color.
-        _lightbarEffect.Apply(lightbar, profile.PlayerLeds.Mask);
-
-        SetStateData payload = new SetStateData
-        {
-            // The RGB bytes are gated by ValidFlag1.AllowLedColor, but taking over the
-            // lightbar from the controller's default (BT-connect blue) additionally requires
-            // ValidFlag2.AllowColorFadeAnim plus the lightbar-setup byte (payload offset 41)
-            // written to 0x02 ("light out"). This mirrors the hid-playstation driver.
-            // Animated modes omit the light fields entirely: the effect timer owns them, so a
-            // profile switch cannot flash a stale color over the game.
-            ValidFlag1 = ValidFlags.AllowMuteLight | ValidFlags.AllowPlayerIndicators
-                                                   | (animated ? ValidFlags.None : ValidFlags.AllowLedColor),
-            ValidFlag2 = animated
-                ? ValidFlags.None
-                : ValidFlags.AllowColorFadeAnim | ValidFlags.AllowBrightnessChange,
-            MuteLedMode = profile.MicLed.Mode,
-            LightFadeAnimation = animated ? (byte)0 : (byte)0x02,
-            LightBrightness = 0,
-            PlayerLeds = (PlayerLedMask)profile.PlayerLeds.Mask,
-            LedRed = red,
-            LedGreen = green,
-            LedBlue = blue
-        };
+        // Start the effect before committing the profile so its first frame is part of the
+        // first resolved state and an animated profile never flashes its fallback color.
+        _lightbarEffect.Apply(lightbar);
 
         _log.Debug(
-            $"Applying profile: {lightbar.Mode} RGB({red}, {green}, {blue}), mic LED {profile.MicLed.Mode}, player LEDs {profile.PlayerLeds.Mask}");
+            $"Applying profile: {lightbar.Mode} RGB({baseRed}, {baseGreen}, {baseBlue}), mic LED {profile.MicLed.Mode}, player LEDs {profile.PlayerLeds.Mask}");
 
         try
         {
-            SendOutputState(payload);
+            _lighting.Commit();
         }
         catch (HidException ex)
         {
@@ -824,7 +755,7 @@ public class DualSenseDevice : ControllerDevice
     public void StopLightbarAnimation()
     {
         _lightbarEffect.Stop();
-        _profileLights = null;
+        _lighting.Clear(LightingOwner.Profile);
     }
 
     /// <summary>

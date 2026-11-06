@@ -820,7 +820,6 @@ public sealed class EmulationService : IEmulationService
         bool audioEnabled = emulation?.Forward.AudioEnabled ?? true;
         ForwardSettings forwarding = emulation?.Forward ?? new ForwardSettings();
         (ushort vid, ushort pid) = GetDeviceIds(mode, edge, ds4Variant);
-        SpecialActionEngine specialActions;
         DualSenseDeviceOutputs outputs;
         lock (_sync)
         {
@@ -830,10 +829,12 @@ public sealed class EmulationService : IEmulationService
                 return;
             }
 
-            specialActions = _specialActions.GetOrCreate(entry.Device);
+            // Ensure the controller's special-action engine is attached; its light
+            // overrides now go through the device's lighting authority.
+            _specialActions.GetOrCreate(entry.Device);
             // One shared outputs lane per entry: the virtual controller and the
             // audio forwarder must serialize writes to the physical device.
-            entry.Outputs ??= new DualSenseDeviceOutputs(entry.Device, specialActions);
+            entry.Outputs ??= new DualSenseDeviceOutputs(entry.Device);
             outputs = entry.Outputs;
         }
 
@@ -1487,7 +1488,7 @@ public sealed class EmulationService : IEmulationService
             entry.Forwarder = null;
         }
 
-        entry.Outputs ??= new DualSenseDeviceOutputs(entry.Device, _specialActions.GetOrCreate(entry.Device));
+        entry.Outputs ??= new DualSenseDeviceOutputs(entry.Device);
         DualSenseAudioForwarder forwarder = CreateAudioForwarder(entry.Outputs, emulation);
         entry.Forwarder = forwarder;
         entry.Device.AudioLevelProvider = () => forwarder.AudioLevel;

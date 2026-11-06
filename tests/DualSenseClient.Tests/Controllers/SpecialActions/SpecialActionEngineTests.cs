@@ -1767,11 +1767,11 @@ public class SpecialActionEngineTests
         Assert.Multiple(() =>
         {
             Assert.That(executions, Is.EqualTo(1));
-            Assert.That(hid.Writes, Has.Count.EqualTo(2));
+            Assert.That(hid.Writes, Has.Count.EqualTo(1));
             Assert.That(hid.Writes[0][45], Is.EqualTo(0xAA));
             Assert.That(hid.Writes[0][47], Is.EqualTo(0xCC));
-            Assert.That(hid.Writes[1][2], Is.EqualTo((byte)ValidFlags.AllowPlayerIndicators));
-            Assert.That(hid.Writes[1][44], Is.EqualTo(0x05));
+            Assert.That(hid.Writes[0][2] & (byte)ValidFlags.AllowPlayerIndicators, Is.Not.Zero);
+            Assert.That(hid.Writes[0][44], Is.EqualTo(0x05));
         });
 
         engine.Dispose();
