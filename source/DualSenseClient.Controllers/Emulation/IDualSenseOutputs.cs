@@ -1,3 +1,4 @@
+using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Hid;
@@ -89,6 +90,11 @@ public interface IDualSenseAudioOutputs : IDualSenseOutputs
     /// Routes audio output and applies speaker/headphone volume.
     /// </summary>
     void SetAudioOutput(AudioControl outputControl, byte speakerVolume, byte headphoneVolume);
+
+    /// <summary>
+    /// The physical controller's shared audio lane.
+    /// </summary>
+    ControllerAudioLane AudioLane { get; }
 }
 
 /// <summary>
@@ -120,6 +126,15 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
     public DualSenseDeviceOutputs(DualSenseDevice device)
     {
         _device = device;
+    }
+
+    /// <inheritdoc/>
+    public ControllerAudioLane AudioLane
+    {
+        get
+        {
+            return _device.AudioLane;
+        }
     }
 
     /// <inheritdoc/>

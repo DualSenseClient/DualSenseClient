@@ -319,6 +319,12 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     private int _appliedConfigSignature = -1;
 
     /// <summary>
+    /// The lane activation version observed by the last pump tick, so a preemption and
+    /// subsequent resume invalidate the cached route even while the pump was idle.
+    /// </summary>
+    private long _laneActivation = -1;
+
+    /// <summary>
     /// Whether the Bluetooth audio lane is currently open on the controller. Guarded by
     /// <see cref="_sync"/>; only the pump (and <see cref="Start"/>) mutate it.
     /// </summary>
@@ -600,6 +606,8 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
             if (_outputs is not null)
             {
                 _outputs.AudioBufferLength = _audioBufferLength;
+                _outputs.AudioLane.TryEnter(this, AudioPriority.Forwarder);
+                _laneActivation = _outputs.AudioLane.ActivationVersion;
             }
 
             _btStreamPrimed = false;
@@ -629,6 +637,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// </summary>
     public void Stop()
     {
+        _outputs?.AudioLane.Leave(this);
         CancellationTokenSource? cts;
         Task? loopTask;
         lock (_sync)
@@ -705,6 +714,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
             }
 
             _levelMeter.Process(stereo, stereo.Length / 2.0 / 48000.0);
+            _outputs?.AudioLane.SetAudioLevel(this, _levelMeter.Level);
 
             int offset = 0;
             int partial = _audioRing.PartialCount;
@@ -917,6 +927,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
 
                 lock (_sync)
                 {
+                    RefreshLaneActivationLocked();
                     if (_outputs is not null && _outputs.ConnectionType == ConnectionType.Bluetooth && !_btStreamPrimed)
                     {
                         PrimeBluetoothStream();
@@ -1107,8 +1118,19 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// </summary>
     private void SendBluetoothReports()
     {
+        if (_outputs is null || !_outputs.AudioLane.IsActive(this))
+        {
+            // Preempted by the player or a special action: drop this frame, forget the
+            // applied route so the next tick restores it, and re-prime the stream when
+            // the lane comes back.
+            _btStreamPrimed = false;
+            _doubleFramePending = false;
+            _appliedConfigSignature = -1;
+            return;
+        }
+
         BluetoothAudioRoute route = UseHeadset ? BluetoothAudioRoute.Headset : BluetoothAudioRoute.Speaker;
-        bool stateBlock = _outputs!.NeedsOutputStateBlock;
+        bool stateBlock = _outputs.NeedsOutputStateBlock;
         if (_hapticsEnabled)
         {
             MixRumbleIntoHaptics();
@@ -1138,11 +1160,11 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
 
         if (_hapticsEnabled || stateBlock)
         {
-            _outputs.SendBluetoothAudioAndHaptics(CreateAudioState(), _opusFrame, _hapticsPcm, route);
+            _outputs.AudioLane.SendAudioAndHaptics(this, CreateAudioState(), _opusFrame, _hapticsPcm, route);
         }
         else
         {
-            _outputs.SendBluetoothAudio(_opusFrame, route);
+            _outputs.AudioLane.SendAudio(this, _opusFrame, route);
         }
     }
 
@@ -1164,8 +1186,33 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
 
         _opusFrame.CopyTo(_doubleOpusFrames, BluetoothAudioReportBuilder.AudioPayloadSize);
         _hapticsPcm.CopyTo(_doubleHapticsPcm, BluetoothAudioReportBuilder.HapticsPayloadSize);
-        _outputs!.SendBluetoothAudioAndHapticsDouble(_doubleOpusFrames, _doubleHapticsPcm, route);
+        _outputs!.AudioLane.SendDouble(this, _doubleOpusFrames, _doubleHapticsPcm, route);
         _doubleFramePending = false;
+    }
+
+    /// <summary>
+    /// Invalidates the cached route and stream state whenever the lane's active owner
+    /// changed. Caller must hold <see cref="_sync"/>.
+    /// </summary>
+    private void RefreshLaneActivationLocked()
+    {
+        if (_outputs is null)
+        {
+            return;
+        }
+
+        long activation = _outputs.AudioLane.ActivationVersion;
+        if (activation == _laneActivation)
+        {
+            return;
+        }
+
+        _laneActivation = activation;
+        if (_outputs.AudioLane.IsActive(this))
+        {
+            _appliedConfigSignature = -1;
+            _btStreamPrimed = false;
+        }
     }
 
     /// <summary>
@@ -1182,8 +1229,12 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
             return;
         }
 
-        _appliedConfigSignature = signature;
-        _outputs!.SetAudioOutput(headset ? AudioControl.OutputPathHeadphones : AudioControl.OutputPathSpeaker, volume, headset ? volume : (byte)0x3F);
+        if (_outputs is not null
+            && _outputs.AudioLane.SetAudioOutput(this, headset ? AudioControl.OutputPathHeadphones : AudioControl.OutputPathSpeaker,
+                volume, headset ? volume : (byte)0x3F))
+        {
+            _appliedConfigSignature = signature;
+        }
     }
 
     /// <summary>
@@ -1381,7 +1432,11 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// </summary>
     private void PrimeBluetoothStream()
     {
-        _outputs!.ResetBluetoothAudioStream();
+        if (_outputs is null || !_outputs.AudioLane.ResetBluetoothStream(this))
+        {
+            return;
+        }
+
         _pipeline.ResetEncoder();
         _doubleFramePending = false;
         _lastPacketMode = _packetMode;
@@ -1391,10 +1446,27 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         // was written, not the live value.
         bool headset = UseHeadset;
         byte volume = _speakerVolume;
-        _outputs.SetAudioOutput(headset ? AudioControl.OutputPathHeadphones : AudioControl.OutputPathSpeaker, volume, headset ? volume : (byte)0x3F);
+        if (!_outputs.AudioLane.SetAudioOutput(this,
+                headset ? AudioControl.OutputPathHeadphones : AudioControl.OutputPathSpeaker, volume, headset ? volume : (byte)0x3F))
+        {
+            return;
+        }
 
-        _outputs.SendBluetoothAudioPrime(CreateAudioState());
+        if (!_outputs.AudioLane.Prime(this, CreateAudioState()))
+        {
+            return;
+        }
+
         SendBtPreroll();
+        if (_outputs is null || !_outputs.AudioLane.IsActive(this))
+        {
+            // A higher-priority source preempted the lane during the ~85 ms preroll:
+            // none of those packets opened the stream, so do not mark it primed.
+            _appliedConfigSignature = -1;
+            _btStreamPrimed = false;
+            return;
+        }
+
         _appliedConfigSignature = volume | (headset ? 1 << 8 : 0);
         _btStreamPrimed = true;
         _log.Debug("Bluetooth audio stream primed");

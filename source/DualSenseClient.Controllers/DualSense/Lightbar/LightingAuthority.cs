@@ -62,12 +62,15 @@ public readonly record struct LightingSnapshot(
 public sealed class LightingAuthority
 {
     private readonly ILightSink _sink;
+    private readonly Lock _lock = new Lock();
     private SetStateData _gameOutput;
     private LightingSnapshot? _profile;
     private bool _profileMutePending;
     private LightingSnapshot? _lightbarEffect;
     private LightingSnapshot? _manual;
     private LightingSnapshot? _specialAction;
+    private bool _lightbarPassthroughEnabled;
+    private bool _playerLedPassthroughEnabled;
 
     /// <summary>
     /// Creates an authority that writes resolved payloads through the given sink.
@@ -82,19 +85,58 @@ public sealed class LightingAuthority
     /// Replaces the game output payload every override is layered over.
     /// </summary>
     /// <param name="payload">The host's latest output state.</param>
-    public void SubmitGameOutput(SetStateData payload) => _gameOutput = Clone(payload);
+    public void SubmitGameOutput(SetStateData payload)
+    {
+        SetStateData clone = Clone(payload);
+        lock (_lock)
+        {
+            _gameOutput = clone;
+        }
+    }
 
     /// <summary>
     /// Gets or sets whether the game owns the lightbar. While set, profile and effect
     /// lightbar values are ignored unless the profile forces them.
     /// </summary>
-    public bool LightbarPassthroughEnabled { get; set; }
+    public bool LightbarPassthroughEnabled
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _lightbarPassthroughEnabled;
+            }
+        }
+        set
+        {
+            lock (_lock)
+            {
+                _lightbarPassthroughEnabled = value;
+            }
+        }
+    }
 
     /// <summary>
     /// Gets or sets whether the game owns the player LEDs. While set, profile and effect
     /// player LED values are ignored unless the profile forces them.
     /// </summary>
-    public bool PlayerLedPassthroughEnabled { get; set; }
+    public bool PlayerLedPassthroughEnabled
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _playerLedPassthroughEnabled;
+            }
+        }
+        set
+        {
+            lock (_lock)
+            {
+                _playerLedPassthroughEnabled = value;
+            }
+        }
+    }
 
     /// <summary>
     /// Gets whether the profile forces its lights over the game's output.
@@ -103,7 +145,10 @@ public sealed class LightingAuthority
     {
         get
         {
-            return _profile is { ForceOverGame: true };
+            lock (_lock)
+            {
+                return _profile is { ForceOverGame: true };
+            }
         }
     }
 
@@ -111,7 +156,7 @@ public sealed class LightingAuthority
     {
         get
         {
-            return _profile?.ForceOverGame == true || !LightbarPassthroughEnabled;
+            return _profile?.ForceOverGame == true || !_lightbarPassthroughEnabled;
         }
     }
 
@@ -119,7 +164,7 @@ public sealed class LightingAuthority
     {
         get
         {
-            return _profile?.ForceOverGame == true || !PlayerLedPassthroughEnabled;
+            return _profile?.ForceOverGame == true || !_playerLedPassthroughEnabled;
         }
     }
 
@@ -131,16 +176,21 @@ public sealed class LightingAuthority
     {
         get
         {
-            bool profileLightbar = _profile?.LightbarColor is not null && CanOwnLightbar;
-            bool profilePlayerLeds = _profile?.PlayerLeds is not null && CanOwnPlayerLeds;
-            bool profileMuteLed = _profile?.MuteLedMode is not null
-                                  && (_profile.Value.ForceOverGame || _profileMutePending);
-            bool effectLightbar = _lightbarEffect?.LightbarColor is not null && CanOwnLightbar;
-            bool effectPlayerLeds = _lightbarEffect?.PlayerLeds is not null && CanOwnPlayerLeds;
-            bool manual = _manual?.LightbarColor is not null || _manual?.PlayerLeds is not null || _manual?.MuteLedMode is not null;
-            bool specialAction = _specialAction?.LightbarColor is not null || _specialAction?.PlayerLeds is not null
-                                                                           || _specialAction?.MuteLedMode is not null;
-            return profileLightbar || profilePlayerLeds || profileMuteLed || effectLightbar || effectPlayerLeds || manual || specialAction;
+            lock (_lock)
+            {
+                bool profileLightbar = _profile?.LightbarColor is not null && CanOwnLightbar;
+                bool profilePlayerLeds = _profile?.PlayerLeds is not null && CanOwnPlayerLeds;
+                bool profileMuteLed = _profile?.MuteLedMode is not null
+                                      && (_profile.Value.ForceOverGame || _profileMutePending);
+                bool effectLightbar = _lightbarEffect?.LightbarColor is not null && CanOwnLightbar;
+                bool effectPlayerLeds = _lightbarEffect?.PlayerLeds is not null && CanOwnPlayerLeds;
+                bool manual = _manual?.LightbarColor is not null || _manual?.PlayerLeds is not null
+                                                                 || _manual?.MuteLedMode is not null;
+                bool specialAction = _specialAction?.LightbarColor is not null || _specialAction?.PlayerLeds is not null
+                                                                               || _specialAction?.MuteLedMode is not null;
+                return profileLightbar || profilePlayerLeds || profileMuteLed || effectLightbar || effectPlayerLeds
+                       || manual || specialAction;
+            }
         }
     }
 
@@ -151,23 +201,26 @@ public sealed class LightingAuthority
     /// <param name="snapshot">The owner's latest lighting state.</param>
     public void Submit(LightingOwner owner, LightingSnapshot snapshot)
     {
-        switch (owner)
+        lock (_lock)
         {
-            case LightingOwner.Profile:
-                _profile = snapshot;
-                _profileMutePending = snapshot.MuteLedMode is not null && !snapshot.ForceOverGame;
-                break;
-            case LightingOwner.LightbarEffect:
-                _lightbarEffect = snapshot;
-                break;
-            case LightingOwner.Manual:
-                _manual = snapshot;
-                break;
-            case LightingOwner.SpecialAction:
-                _specialAction = snapshot;
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(owner), owner, "The owner is not supported yet.");
+            switch (owner)
+            {
+                case LightingOwner.Profile:
+                    _profile = snapshot;
+                    _profileMutePending = snapshot.MuteLedMode is not null && !snapshot.ForceOverGame;
+                    break;
+                case LightingOwner.LightbarEffect:
+                    _lightbarEffect = snapshot;
+                    break;
+                case LightingOwner.Manual:
+                    _manual = snapshot;
+                    break;
+                case LightingOwner.SpecialAction:
+                    _specialAction = snapshot;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(owner), owner, "The owner is not supported yet.");
+            }
         }
     }
 
@@ -178,23 +231,26 @@ public sealed class LightingAuthority
     /// <param name="owner">The owner whose contribution is removed.</param>
     public void Clear(LightingOwner owner)
     {
-        switch (owner)
+        lock (_lock)
         {
-            case LightingOwner.Profile:
-                _profile = null;
-                _profileMutePending = false;
-                break;
-            case LightingOwner.LightbarEffect:
-                _lightbarEffect = null;
-                break;
-            case LightingOwner.Manual:
-                _manual = null;
-                break;
-            case LightingOwner.SpecialAction:
-                _specialAction = null;
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(owner), owner, "The owner is not supported.");
+            switch (owner)
+            {
+                case LightingOwner.Profile:
+                    _profile = null;
+                    _profileMutePending = false;
+                    break;
+                case LightingOwner.LightbarEffect:
+                    _lightbarEffect = null;
+                    break;
+                case LightingOwner.Manual:
+                    _manual = null;
+                    break;
+                case LightingOwner.SpecialAction:
+                    _specialAction = null;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(owner), owner, "The owner is not supported.");
+            }
         }
     }
 
@@ -203,15 +259,29 @@ public sealed class LightingAuthority
     /// </summary>
     public void Commit()
     {
-        _sink.Send(Resolve());
-        _profileMutePending = false;
+        SetStateData resolved;
+        lock (_lock)
+        {
+            resolved = ResolveCore(_gameOutput);
+            _profileMutePending = false;
+        }
+
+        // Send outside the lock so an in-flight audio report can publish its resolved
+        // snapshot without waiting for the HID write.
+        _sink.Send(resolved);
     }
 
     /// <summary>
     /// Resolves the stored game output and every submitted override into one output state.
     /// </summary>
     /// <returns>The resolved output state.</returns>
-    public SetStateData Resolve() => Resolve(_gameOutput);
+    public SetStateData Resolve()
+    {
+        lock (_lock)
+        {
+            return ResolveCore(_gameOutput);
+        }
+    }
 
     /// <summary>
     /// Layers every submitted override over the given output payload without changing
@@ -221,6 +291,14 @@ public sealed class LightingAuthority
     /// <param name="gameOutput">The base payload to resolve over.</param>
     /// <returns>The resolved output state.</returns>
     public SetStateData Resolve(SetStateData gameOutput)
+    {
+        lock (_lock)
+        {
+            return ResolveCore(gameOutput);
+        }
+    }
+
+    private SetStateData ResolveCore(SetStateData gameOutput)
     {
         SetStateData resolved = Clone(gameOutput);
         if (_profile is { } profile)

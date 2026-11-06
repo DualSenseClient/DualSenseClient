@@ -170,6 +170,17 @@ public sealed class DualSenseAudioPlayer : IDisposable
     private bool _restartRequested;
 
     /// <summary>
+    /// Whether this player owned the lane on the last tick.
+    /// </summary>
+    private bool _laneActive;
+
+    /// <summary>
+    /// The lane activation version observed by the last tick, so a preemption and
+    /// subsequent resume re-applies the route and re-primes the stream.
+    /// </summary>
+    private long _laneActivation = -1;
+
+    /// <summary>
     /// The background task running the writer loop.
     /// </summary>
     private Task? _loopTask;
@@ -319,7 +330,12 @@ public sealed class DualSenseAudioPlayer : IDisposable
     }
 
     /// <summary>
-    /// Whether the writer loop is currently consuming the source.
+    /// The lane priority this player claims while playing.
+    /// </summary>
+    public AudioPriority Priority { get; set; } = AudioPriority.Player;
+
+    /// <summary>
+    /// Whether playback is currently running.
     /// </summary>
     public bool IsPlaying
     {
@@ -442,7 +458,10 @@ public sealed class DualSenseAudioPlayer : IDisposable
 
             if (_device is not null)
             {
-                _device.SetAudioOutput(OutputControl, _speakerVolume, HeadphoneVolume);
+                _device.AudioLane.TryEnter(this, Priority);
+                _laneActive = _device.AudioLane.IsActive(this);
+                _laneActivation = _device.AudioLane.ActivationVersion;
+                _device.AudioLane.SetAudioOutput(this, OutputControl, _speakerVolume, HeadphoneVolume);
             }
 
             _cts = new CancellationTokenSource();
@@ -469,6 +488,8 @@ public sealed class DualSenseAudioPlayer : IDisposable
         cts?.Cancel();
         if (cts is not null)
         {
+            _device?.AudioLane.Leave(this);
+            _laneActive = false;
             TimerResolution.Release();
             OnStateChanged();
             _log.Debug("Playback paused");
@@ -556,7 +577,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
                 // gap after the silence lets the controller's buffer underrun and
                 // crackle when audio resumes.
                 RebuildRenderTargets();
-                if (_device is not null && IsBluetooth)
+                if (_device is not null && IsBluetooth && _laneActive)
                 {
                     RestartBluetoothStream();
                 }
@@ -647,6 +668,11 @@ public sealed class DualSenseAudioPlayer : IDisposable
                     RestartBluetoothStream();
                 }
             }
+            else if (RefreshLaneActivationLocked())
+            {
+                restartOccurred = true;
+                return true;
+            }
 
             read = _source.Read(_floatBlock, 0, BlockSamples);
             Position = _source.CurrentTime;
@@ -694,7 +720,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
                 else
                 {
                     DualSenseBtAudioPipeline.ToHapticsPcm(_pcmBlock, _hapticsPcm, _hapticStrength);
-                    _device!.SendBluetoothHaptics(_hapticsPcm);
+                    _device!.AudioLane.SendHaptics(this, _hapticsPcm);
                 }
             }
         }
@@ -724,7 +750,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
             return;
         }
 
-        _device.SetAudioOutput(OutputControl, _speakerVolume, HeadphoneVolume);
+        _device.AudioLane.SetAudioOutput(this, OutputControl, _speakerVolume, HeadphoneVolume);
         if (IsPlaying && IsBluetooth)
         {
             SendBluetoothPrime();
@@ -737,7 +763,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
     private void SendBluetoothPrime()
     {
         _log.Debug("Sending Bluetooth audio stream init-prime");
-        _device!.SendBluetoothAudioPrime(CreateAudioState());
+        _device!.AudioLane.Prime(this, CreateAudioState());
     }
 
     /// <summary>
@@ -749,10 +775,51 @@ public sealed class DualSenseAudioPlayer : IDisposable
     /// </summary>
     private void RestartBluetoothStream()
     {
-        _device!.ResetBluetoothAudioStream();
+        if (_device is null || !IsBluetooth || !_device.AudioLane.IsActive(this))
+        {
+            return;
+        }
+
+        _device.AudioLane.ResetBluetoothStream(this);
         _btPipeline.ResetEncoder();
         SendBluetoothPrime();
         SendBtPreroll();
+    }
+
+    /// <summary>
+    /// Re-arms the route and Bluetooth stream when the lane returns to this player after
+    /// a higher-priority source used it. Returns <c>true</c> when a re-prime happened.
+    /// Caller must hold <see cref="_sync"/>.
+    /// </summary>
+    private bool RefreshLaneActivationLocked()
+    {
+        if (_device is null)
+        {
+            return false;
+        }
+
+        long activation = _device.AudioLane.ActivationVersion;
+        if (activation == _laneActivation)
+        {
+            return false;
+        }
+
+        _laneActivation = activation;
+        if (!_device.AudioLane.IsActive(this))
+        {
+            _laneActive = false;
+            return false;
+        }
+
+        _laneActive = true;
+        _device.AudioLane.SetAudioOutput(this, OutputControl, _speakerVolume, HeadphoneVolume);
+        if (!IsBluetooth)
+        {
+            return false;
+        }
+
+        RestartBluetoothStream();
+        return true;
     }
 
     /// <summary>
@@ -780,6 +847,11 @@ public sealed class DualSenseAudioPlayer : IDisposable
     /// </summary>
     private void SendBluetoothAudioReports(ReadOnlySpan<byte> opusFrame)
     {
+        if (_device is null || !_device.AudioLane.IsActive(this))
+        {
+            return;
+        }
+
         SetStateData state = CreateAudioState();
         bool first = true;
         if (_playToSpeaker)
@@ -802,11 +874,11 @@ public sealed class DualSenseAudioPlayer : IDisposable
     {
         if (first && _playToHaptics)
         {
-            _device!.SendBluetoothAudioAndHaptics(state, opusFrame, _hapticsPcm, route);
+            _device!.AudioLane.SendAudioAndHaptics(this, state, opusFrame, _hapticsPcm, route);
         }
         else
         {
-            _device!.SendBluetoothAudio(opusFrame, route);
+            _device!.AudioLane.SendAudio(this, opusFrame, route);
         }
     }
 
@@ -1057,7 +1129,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
                 SendBluetoothAudioReports(_opusFrame);
                 if (_playToHaptics && !(_playToSpeaker || _playToHeadset))
                 {
-                    _device.SendBluetoothHaptics(_hapticsPcm);
+                    _device.AudioLane.SendHaptics(this, _hapticsPcm);
                 }
 
                 next += prerollTicks;

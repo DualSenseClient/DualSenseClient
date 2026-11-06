@@ -13,8 +13,15 @@ public class DualSenseAudioForwarderTests
     /// <summary>
     /// Fake physical-controller audio lane recording every call.
     /// </summary>
-    private sealed class FakeAudioOutputs : IDualSenseAudioOutputs
+    private sealed class FakeAudioOutputs : IDualSenseAudioOutputs, IControllerAudioSink
     {
+        public FakeAudioOutputs()
+        {
+            AudioLane = new ControllerAudioLane(this);
+        }
+
+        public ControllerAudioLane AudioLane { get; }
+
         public ConnectionType ConnectionType { get; init; } = ConnectionType.Bluetooth;
 
         public bool NeedsOutputStateBlock { get; set; }
@@ -90,6 +97,14 @@ public class DualSenseAudioForwarderTests
             AudioOnlyReportCount++;
             LastOpusFrameLength = (byte)opusFrame.Length;
         }
+
+        public void SendBluetoothHaptics(ReadOnlySpan<byte> hapticsPcm)
+        {
+            HapticsOnlyReportCount++;
+            LastHapticsFrame = hapticsPcm.ToArray();
+        }
+
+        public int HapticsOnlyReportCount { get; private set; }
 
         public void SendBluetoothAudioAndHapticsDouble(ReadOnlySpan<byte> opusFrames, ReadOnlySpan<byte> hapticsPcm, BluetoothAudioRoute route)
         {
@@ -183,6 +198,35 @@ public class DualSenseAudioForwarderTests
             Assert.That(fake.LastAppliedSpeakerVolume, Is.EqualTo(0x50));
             Assert.That(fake.ReportCount, Is.GreaterThanOrEqualTo(8), "the first block must warm up the stream with the 8 silence reports");
         });
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void Preemption_ReappliesForwarderRouteOnResume()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => fake.PrimeCount == 1 && fake.LastAppliedControl == AudioControl.OutputPathSpeaker,
+            TimeSpan.FromSeconds(3));
+
+        object player = new object();
+        Assert.That(fake.AudioLane.TryEnter(player, AudioPriority.Player), Is.True);
+        fake.AudioLane.SetAudioOutput(player, AudioControl.OutputPathHeadphones, 0x20, 0x20);
+        Thread.Sleep(50);
+        fake.AudioLane.Leave(player);
+
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => fake.LastAppliedControl == AudioControl.OutputPathSpeaker, TimeSpan.FromSeconds(3));
+
+        Assert.That(fake.LastAppliedControl, Is.EqualTo(AudioControl.OutputPathSpeaker),
+            "the forwarder must restore its speaker route after a higher-priority source releases the lane");
 
         forwarder.Stop();
     }

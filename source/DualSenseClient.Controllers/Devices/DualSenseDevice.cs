@@ -1,3 +1,4 @@
+using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.DualSense.Enum;
 using DualSenseClient.Controllers.DualSense.Events;
 using DualSenseClient.Controllers.DualSense.Feature;
@@ -17,7 +18,7 @@ namespace DualSenseClient.Controllers.Devices;
 /// Concrete controller implementation for the Sony DualSense (PS5) controller.
 /// Opens and communicates with the DualSense over USB or Bluetooth via HIDAPI.
 /// </summary>
-public class DualSenseDevice : ControllerDevice, ILightSink
+public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSink
 {
     // Fields
     /// <summary>
@@ -82,6 +83,11 @@ public class DualSenseDevice : ControllerDevice, ILightSink
     /// and special-action overrides.
     /// </summary>
     private readonly LightingAuthority _lighting;
+
+    /// <summary>
+    /// Arbitrates which source drives the controller's audio reports.
+    /// </summary>
+    private readonly ControllerAudioLane _audioLane;
 
     /// <summary>
     /// Runs the profile's animated lightbar effect.
@@ -410,6 +416,18 @@ public class DualSenseDevice : ControllerDevice, ILightSink
     }
 
     /// <summary>
+    /// The controller's shared audio lane, which arbitrates the Forwarder, player, and
+    /// Special Action sounds.
+    /// </summary>
+    public ControllerAudioLane AudioLane
+    {
+        get
+        {
+            return _audioLane;
+        }
+    }
+
+    /// <summary>
     /// Gets or sets whether effect frames are suppressed, e.g. while a settings preview
     /// writes directly to the lightbar.
     /// </summary>
@@ -462,6 +480,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink
         FirmwareInfo = FeatureReader.ReadFirmwareInfo(this);
         CalibrationInfo = FeatureReader.ReadCalibration(this);
         _lighting = new LightingAuthority(this);
+        _audioLane = new ControllerAudioLane(this);
         _lightbarEffect = new LightbarEffectController(this);
         _readThread = new Thread(() => ReadLoop(_cts.Token))
         {
@@ -632,6 +651,52 @@ public class DualSenseDevice : ControllerDevice, ILightSink
 
     /// <inheritdoc/>
     void ILightSink.Send(SetStateData payload) => SendOutputState(payload);
+
+    /// <inheritdoc/>
+    ConnectionType IControllerAudioSink.ConnectionType
+    {
+        get
+        {
+            return ConnectionType;
+        }
+    }
+
+    /// <inheritdoc/>
+    bool IControllerAudioSink.HeadphonesConnected
+    {
+        get
+        {
+            return InputReport?.Connection.Headphone == true;
+        }
+    }
+
+    /// <inheritdoc/>
+    void IControllerAudioSink.SetAudioOutput(AudioControl outputControl, byte speakerVolume, byte headphoneVolume) =>
+        SetAudioOutput(outputControl, speakerVolume, headphoneVolume);
+
+    /// <inheritdoc/>
+    void IControllerAudioSink.ResetBluetoothAudioStream() => ResetBluetoothAudioStream();
+
+    /// <inheritdoc/>
+    void IControllerAudioSink.SendBluetoothAudioPrime(SetStateData state) =>
+        SendBluetoothAudioPrime(Lighting.Resolve(state));
+
+    /// <inheritdoc/>
+    void IControllerAudioSink.SendBluetoothAudioAndHaptics(SetStateData state, ReadOnlySpan<byte> opusFrame,
+        ReadOnlySpan<byte> hapticsPcm, BluetoothAudioRoute route) =>
+        SendBluetoothAudioAndHaptics(Lighting.Resolve(state), opusFrame, hapticsPcm, route);
+
+    /// <inheritdoc/>
+    void IControllerAudioSink.SendBluetoothAudioAndHapticsDouble(ReadOnlySpan<byte> opusFrames, ReadOnlySpan<byte> hapticsPcm,
+        BluetoothAudioRoute route) => SendBluetoothAudioAndHapticsDouble(opusFrames, hapticsPcm, route);
+
+    /// <inheritdoc/>
+    void IControllerAudioSink.SendBluetoothAudio(ReadOnlySpan<byte> opusFrame, BluetoothAudioRoute route) =>
+        SendBluetoothAudio(opusFrame, route);
+
+    /// <inheritdoc/>
+    void IControllerAudioSink.SendBluetoothHaptics(ReadOnlySpan<byte> hapticsPcm) =>
+        SendBluetoothHaptics(hapticsPcm);
 
     /// <summary>
     /// Sends output state (rumble, lightbar, player LEDs, trigger effects) to the
@@ -1023,7 +1088,12 @@ public class DualSenseDevice : ControllerDevice, ILightSink
                 _log.Trace($"Sending audio report 0x{report[0]:X2} ({report.Length} byte(s)): {BitConverter.ToString(report, 0, report.Length)}");
             }
 
-            SendOutput(report, 0, report.Length);
+            // Audio and state reports share the interrupt channel; serialize them on the
+            // same lock so an output-state report can never interleave with an audio report.
+            lock (_outputSync)
+            {
+                SendOutput(report, 0, report.Length);
+            }
         }
         catch (HidException ex)
         {

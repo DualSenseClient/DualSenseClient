@@ -48,7 +48,10 @@ public sealed class DualSenseSpecialActionSoundPlayer : ISpecialActionSoundPlaye
     public DualSenseSpecialActionSoundPlayer(DualSenseDevice device, AudioEngine engine)
     {
         _device = device;
-        _player = new DualSenseAudioPlayer(device, new DualSenseAudioEndpointFinder(engine), engine);
+        _player = new DualSenseAudioPlayer(device, new DualSenseAudioEndpointFinder(engine), engine)
+        {
+            Priority = AudioPriority.SpecialAction
+        };
         _player.PlaybackEnded += OnPlaybackEnded;
         _player.WriterExited += OnWriterExited;
     }
