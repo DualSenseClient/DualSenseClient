@@ -60,6 +60,29 @@ public sealed class ControllerAudioLaneTests
     }
 
     [Test]
+    public void ManualRumble_PreemptsTheAudioLane_AndReleasesIt()
+    {
+        RecordingAudioSink sink = new RecordingAudioSink();
+        ControllerAudioLane lane = new ControllerAudioLane(sink);
+        object forwarder = new object();
+        object manual = new object();
+        lane.TryEnter(forwarder, AudioPriority.Forwarder);
+
+        Assert.That(lane.TryEnter(manual, AudioPriority.ManualRumble), Is.True);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(lane.IsActive(manual), Is.True);
+            Assert.That(lane.SendAudio(forwarder, new byte[200], BluetoothAudioRoute.Speaker), Is.False,
+                "the forwarder must stop streaming while manual rumble owns the lane");
+            Assert.That(sink.AudioReports, Is.Zero);
+        });
+
+        lane.Leave(manual);
+        Assert.That(lane.IsActive(forwarder), Is.True);
+    }
+
+    [Test]
     public void SamePriority_LatestOwnerWins()
     {
         RecordingAudioSink sink = new RecordingAudioSink();

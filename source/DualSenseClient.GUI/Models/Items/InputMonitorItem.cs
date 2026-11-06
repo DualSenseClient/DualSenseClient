@@ -1988,7 +1988,7 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
 
         byte left = LeftMotorEnabled ? (byte)LeftMotorStrength : (byte)0;
         byte right = RightMotorEnabled ? (byte)RightMotorStrength : (byte)0;
-        _device.SetVibration(left, right);
+        _device.SetManualVibration(left, right);
     }
 
     /// <summary>

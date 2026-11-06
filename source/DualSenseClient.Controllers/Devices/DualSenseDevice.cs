@@ -882,6 +882,35 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     }
 
     /// <summary>
+    /// Sets the classic rumble motors for manual (Output Test) vibration. While either
+    /// motor is on, the manual claim preempts every audio owner so the pad stops
+    /// receiving audio reports and accepts the classic rumble report; releasing both
+    /// motors returns the lane to the previous owner.
+    /// </summary>
+    /// <remarks>
+    /// The Bluetooth audio stream puts the pad into its haptics path, where the motor
+    /// bytes of a <c>0x31</c> report are ignored. Forwarded game rumble therefore rides
+    /// the haptics PCM instead. Manual testing still needs the classic encoding, so it
+    /// takes the lane rather than synthesizing haptics frames.
+    /// </remarks>
+    /// <param name="left">Left (low-frequency) motor strength (0-255).</param>
+    /// <param name="right">Right (high-frequency) motor strength (0-255).</param>
+    public void SetManualVibration(byte left, byte right)
+    {
+        if (left != 0 || right != 0)
+        {
+            _audioLane.TryEnter(this, AudioPriority.ManualRumble);
+        }
+
+        SetVibration(left, right);
+
+        if (left == 0 && right == 0)
+        {
+            _audioLane.Leave(this);
+        }
+    }
+
+    /// <summary>
     /// Applies adaptive trigger effects to both triggers. Pass <see cref="TriggerEffectBuilder.Off"/>
     /// to clear an effect.
     /// </summary>
@@ -911,7 +940,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     /// </summary>
     public void ResetOutputs()
     {
-        SetVibration(0, 0);
+        SetManualVibration(0, 0);
         SetTriggerEffects(TriggerEffectBuilder.Off(), TriggerEffectBuilder.Off());
     }
 

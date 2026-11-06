@@ -21,7 +21,13 @@ public enum AudioPriority
     /// <summary>
     /// A special action's sound, which preempts other playback.
     /// </summary>
-    SpecialAction = 2
+    SpecialAction = 2,
+
+    /// <summary>
+    /// Manual motor testing. The pad ignores classic rumble motor bytes while an
+    /// audio stream is open, so manual vibration must preempt every audio owner.
+    /// </summary>
+    ManualRumble = 3
 }
 
 /// <summary>
