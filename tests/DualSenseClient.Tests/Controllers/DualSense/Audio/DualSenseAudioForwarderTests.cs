@@ -875,6 +875,33 @@ public class DualSenseAudioForwarderTests
     }
 
     [Test]
+    public void ApplyForwardingSettings_AudioOptions_AreAppliedToTheRunningLane()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+
+        forwarder.ApplyForwardingSettings(new ForwardSettings
+        {
+            Volume = 0x20,
+            Haptics = 150,
+            ForceAudioHaptics = true
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(forwarder.SpeakerVolume, Is.EqualTo((byte)0x20),
+                "the forwarded volume slider must reach a running forwarder");
+            Assert.That(forwarder.HapticStrength, Is.EqualTo(1.5f).Within(0.001f),
+                "the forwarded haptic strength slider must reach a running forwarder");
+            Assert.That(forwarder.ForceAudioHaptics, Is.True,
+                "the audio-based-haptics toggle must reach a running forwarder");
+        });
+    }
+
+    [Test]
     public void ApplyForwardingSettings_DisabledGameChannels_AreClearedInTheEmbeddedState()
     {
         byte[] right = new byte[11];

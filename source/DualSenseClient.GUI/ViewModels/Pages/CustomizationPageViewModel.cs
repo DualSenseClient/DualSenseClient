@@ -683,13 +683,6 @@ public partial class CustomizationPageViewModel : ObservableObject
     private readonly List<AudioApplicationInfo> _forwardAudioAppItems = [];
 
     /// <summary>
-    /// Serializes background audio-source applies: each queued apply waits for the
-    /// previous one, so rapid source or application changes reach the emulation service
-    /// in the order the UI made them.
-    /// </summary>
-    private Task _audioSourceApply = Task.CompletedTask;
-
-    /// <summary>
     /// Forwarded audio output options for the dropdown, in
     /// <see cref="EmulationAudioOutput"/> order (auto, speaker, headset).
     /// </summary>
@@ -785,10 +778,6 @@ public partial class CustomizationPageViewModel : ObservableObject
             settings.Forward.AudioOutput = output;
             _controllerService.SaveEmulationSettings(CurrentKey, settings);
             OnPropertyChanged(nameof(ForwardAudioOutputIndex));
-            if (CurrentDualSenseDevice is { } device)
-            {
-                _emulation.SetForwardingAudioOutput(device, output);
-            }
         }
     }
 
@@ -819,10 +808,6 @@ public partial class CustomizationPageViewModel : ObservableObject
             settings.Forward.Volume = clamped;
             ScheduleEmulationSave();
             OnPropertyChanged(nameof(ForwardVolume));
-            if (CurrentDualSenseDevice is { } device)
-            {
-                _emulation.SetForwardingAudioOptions(device, (byte)clamped, settings.Forward.Haptics / 100f);
-            }
         }
     }
 
@@ -853,10 +838,6 @@ public partial class CustomizationPageViewModel : ObservableObject
             settings.Forward.AudioBufferLength = clamped;
             ScheduleEmulationSave();
             OnPropertyChanged(nameof(ForwardAudioBufferLength));
-            if (CurrentDualSenseDevice is { } device)
-            {
-                _emulation.SetForwardingAudioBufferLength(device, (byte)clamped);
-            }
         }
     }
 
@@ -891,10 +872,6 @@ public partial class CustomizationPageViewModel : ObservableObject
             settings.Forward.PacketMode = mode;
             ScheduleEmulationSave();
             OnPropertyChanged(nameof(ForwardAudioPacketModeIndex));
-            if (CurrentDualSenseDevice is { } device)
-            {
-                _emulation.SetForwardingAudioPacketMode(device, mode);
-            }
         }
     }
 
@@ -925,10 +902,6 @@ public partial class CustomizationPageViewModel : ObservableObject
             settings.Forward.Haptics = clamped;
             ScheduleEmulationSave();
             OnPropertyChanged(nameof(ForwardHapticStrength));
-            if (CurrentDualSenseDevice is { } device)
-            {
-                _emulation.SetForwardingAudioOptions(device, (byte)settings.Forward.Volume, clamped / 100f);
-            }
         }
     }
 
@@ -960,10 +933,6 @@ public partial class CustomizationPageViewModel : ObservableObject
             settings.Forward.ForceAudioHaptics = value;
             _controllerService.SaveEmulationSettings(CurrentKey, settings);
             OnPropertyChanged(nameof(ForceAudioHaptics));
-            if (CurrentDualSenseDevice is { } device)
-            {
-                _emulation.SetForwardingHapticsSource(device, value);
-            }
         }
     }
 
@@ -1008,11 +977,6 @@ public partial class CustomizationPageViewModel : ObservableObject
             else
             {
                 ClearForwardAudioApps();
-            }
-
-            if (CurrentDualSenseDevice is { } device)
-            {
-                ApplyForwardAudioSource(device, source, settings.Forward.AudioApp);
             }
         }
     }
@@ -1236,28 +1200,6 @@ public partial class CustomizationPageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Applies a forwarded-audio source change off the UI thread: resolving the stored
-    /// application can scan every running process and starting the capture can wait
-    /// seconds for activation.
-    /// </summary>
-    private void ApplyForwardAudioSource(DualSenseDevice device, EmulationAudioSource source, string audioApp)
-    {
-        _audioSourceApply = _audioSourceApply.ContinueWith(
-            _ =>
-            {
-                try
-                {
-                    _emulation.SetForwardingAudioSource(device, source, audioApp);
-                }
-                catch (Exception ex)
-                {
-                    _log.Error($"Applying the forwarded audio source failed: {ex.Message}");
-                }
-            },
-            TaskScheduler.Default);
-    }
-
-    /// <summary>
     /// Persists the chosen application and applies it to the active forwarder. No-op when
     /// the selection did not change.
     /// </summary>
@@ -1274,10 +1216,6 @@ public partial class CustomizationPageViewModel : ObservableObject
         _controllerService.SaveEmulationSettings(CurrentKey, settings);
         OnPropertyChanged(nameof(ForwardAudioAppIndex));
         OnPropertyChanged(nameof(ForwardAudioAppPath));
-        if (CurrentDualSenseDevice is { } device)
-        {
-            ApplyForwardAudioSource(device, settings.Forward.AudioSource, applicationPath);
-        }
     }
 
     /// <summary>

@@ -262,7 +262,6 @@ public sealed class AutoProfileCoordinator : IDisposable
                     ApplyTriggers(device, rule?.LeftTrigger, rule?.RightTrigger);
                 }
 
-                _emulation.SetForwardingAudioSource(device, effectiveAudioSource, effectiveAudioApp);
                 ApplyHiding(device, hide);
                 _applied[device] = (profileName, mode, dsVariant, ds4Variant, leftTrigger, rightTrigger, hide, effectiveAudioSource, effectiveAudioApp);
                 if (mode != previousMode || dsVariant != previousDsVariant || ds4Variant != previousDs4Variant)
@@ -305,7 +304,12 @@ public sealed class AutoProfileCoordinator : IDisposable
             _log.Warning($"Auto profile '{profileName}' not found; leaving lights unchanged");
         }
 
-        _emulation.SetTemporaryEmulationMode(device, mode, dsVariant, ds4Variant, audioSource, audioApp);
+        _emulation.SetTemporaryOverride(device, new EmulationOverride(
+            mode,
+            dsVariant,
+            ds4Variant,
+            audioSource,
+            audioApp));
     }
 
     /// <summary>

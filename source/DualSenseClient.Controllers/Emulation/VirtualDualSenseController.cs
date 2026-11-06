@@ -129,7 +129,7 @@ public sealed class VirtualDualSenseController : VirtualControllerBase
     }
 
     /// <inheritdoc/>
-    public override void ApplyForwardingSettings(ForwardSettings settings)
+    public override void ApplyForwardingSettings(ForwardingSnapshot settings)
     {
         base.ApplyForwardingSettings(settings);
         _hapticsForwarding = settings.HapticsEnabled;

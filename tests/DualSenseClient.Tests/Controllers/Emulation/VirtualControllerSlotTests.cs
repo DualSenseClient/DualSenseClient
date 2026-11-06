@@ -122,7 +122,7 @@ public sealed class VirtualControllerSlotTests
         public InputReport? LastInput { get; private set; }
         public BatteryState? LastBattery { get; private set; }
 
-        public void ApplyForwardingSettings(ForwardSettings settings)
+        public void ApplyForwardingSettings(ForwardingSnapshot settings)
         {
         }
 

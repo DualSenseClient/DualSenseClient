@@ -481,20 +481,23 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     }
 
     /// <summary>
-    /// Applies the host-feedback forwarding options to the game-output lane. Disabled
-    /// channels are cleared from the state embedded in the Bluetooth audio reports and
-    /// from the rumble mix on the next pump tick; audio-derived haptics are unaffected.
+    /// Applies the host-feedback and audio options to a running lane. Disabled channels
+    /// are cleared from the state embedded in the Bluetooth audio reports and from the
+    /// rumble mix on the next pump tick; volume and haptics changes take effect on that
+    /// same tick.
     /// </summary>
-    /// <param name="settings">The forwarding options to apply.</param>
-    public void ApplyForwardingSettings(ForwardSettings settings)
+    /// <param name="settings">The normalized forwarding options to apply.</param>
+    public void ApplyForwardingSettings(ForwardingSnapshot settings)
     {
-        ArgumentNullException.ThrowIfNull(settings);
         _gameRumbleEnabled = settings.Rumble;
         _gameTriggersEnabled = settings.Triggers;
         _gameLightbarEnabled = settings.Lightbar;
         _gamePlayerLedsEnabled = settings.PlayerLeds;
         _gameHapticsEnabled = settings.HapticsEnabled;
-        AudioBufferLength = (byte)settings.AudioBufferLength;
+        SpeakerVolume = settings.Volume;
+        HapticStrength = settings.Haptics / 100f;
+        ForceAudioHaptics = settings.ForceAudioHaptics;
+        AudioBufferLength = settings.AudioBufferLength;
         AudioOutput = settings.AudioOutput;
         PacketMode = settings.PacketMode;
     }

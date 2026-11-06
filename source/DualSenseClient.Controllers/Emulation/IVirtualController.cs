@@ -32,8 +32,8 @@ public interface IVirtualController : IDisposable
     /// Applies the host-feedback forwarding options without recreating the device.
     /// Channels switched off stop being forwarded and their current effect is cleared.
     /// </summary>
-    /// <param name="settings">The forwarding options to apply.</param>
-    void ApplyForwardingSettings(ForwardSettings settings);
+    /// <param name="settings">The normalized forwarding options to apply.</param>
+    void ApplyForwardingSettings(ForwardingSnapshot settings);
 
     /// <summary>
     /// Pushes the latest physical input report to the virtual controller. Called on
@@ -116,9 +116,8 @@ public abstract class VirtualControllerBase : IVirtualController
     }
 
     /// <inheritdoc/>
-    public virtual void ApplyForwardingSettings(ForwardSettings settings)
+    public virtual void ApplyForwardingSettings(ForwardingSnapshot settings)
     {
-        ArgumentNullException.ThrowIfNull(settings);
         UpdateForwarding(ref _rumbleForwarding, settings.Rumble, ClearRumble);
         UpdateForwarding(ref _triggerForwarding, settings.Triggers, ClearTriggers);
         UpdateForwarding(ref _lightbarForwarding, settings.Lightbar, ClearLightbar);
