@@ -163,7 +163,7 @@ public sealed class SpecialActionCoordinator : IDisposable
     /// </summary>
     private void OnBatteryNotificationShown(object? sender, SpecialActionBatteryNotificationShownEventArgs e)
     {
-        string displayName = _controllerService.GetDisplayName(e.Device.PairingInfo?.ClientMac, e.Device.Info.Path, e.Device.Info.ProductName);
+        string displayName = _controllerService.GetDisplayName(e.Device.Key, e.Device.Info.ProductName);
         string title = LocalizationService.GetText("Notification.Battery.Title");
         string message = string.Format(LocalizationService.GetText("Notification.Battery.Message"), displayName, e.Percentage);
 
@@ -208,9 +208,7 @@ public sealed class SpecialActionCoordinator : IDisposable
     /// </summary>
     private Profile? ResolveProfile(DualSenseDevice device)
     {
-        string? mac = device.PairingInfo?.ClientMac;
-        string? path = device.Info.Path;
-        string? profileName = _controllerService.GetBoundProfileName(mac, path) ?? ProfileService.DefaultProfileName;
+        string? profileName = _controllerService.GetBoundProfileName(device.Key) ?? ProfileService.DefaultProfileName;
         return _profileService.GetProfile(profileName);
     }
 

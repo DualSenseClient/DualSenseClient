@@ -173,6 +173,22 @@ public class DualSenseDeviceProfileTests
     }
 
     [Test]
+    public void Key_ExposesPairingMacAndPath()
+    {
+        CapturingHidDevice hid = new CapturingHidDevice
+        {
+            PairingReport = CreatePairingReport(ClientMac)
+        };
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Usb));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(device.Key.Mac, Is.EqualTo(ClientMac));
+            Assert.That(device.Key.Path, Is.EqualTo("test"));
+        });
+    }
+
+    [Test]
     public void ApplyProfile_WritesProfileStateToController()
     {
         CapturingHidDevice hid = new CapturingHidDevice();

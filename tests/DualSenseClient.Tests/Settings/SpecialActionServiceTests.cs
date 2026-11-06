@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DualSenseClient.Core.Models;
 using DualSenseClient.Settings;
 using DualSenseClient.Settings.Sections;
 
@@ -197,6 +198,18 @@ public class SpecialActionServiceTests
     {
         SpecialActionService service = CreateService();
         Assert.That(service.SetEnabledForController(Guid.NewGuid(), "AA:BB", true), Is.False);
+    }
+
+    [Test]
+    public void GetControllerId_WithKey_PrefersMacOverPath()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SpecialActionService.GetControllerId(ControllerKey.From(" aa:bb:cc:dd:ee:ff ", "/path/1")),
+                Is.EqualTo("AA:BB:CC:DD:EE:FF"));
+            Assert.That(SpecialActionService.GetControllerId(ControllerKey.From(null, " /path/1 ")), Is.EqualTo("/path/1"));
+            Assert.That(SpecialActionService.GetControllerId(ControllerKey.From(null, null)), Is.Null);
+        });
     }
 
     [Test]

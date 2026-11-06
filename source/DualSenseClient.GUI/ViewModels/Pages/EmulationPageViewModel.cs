@@ -6,8 +6,10 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Enum;
+using DualSenseClient.Core.Models;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Controls;
@@ -138,6 +140,19 @@ public partial class EmulationPageViewModel : ObservableObject
     }
 
     /// <summary>
+    /// The key of the selected controller, or an empty key when none is selected.
+    /// </summary>
+    private ControllerKey CurrentKey
+    {
+        get
+        {
+            return CurrentDevice is null
+                ? ControllerKey.From(null, null)
+                : ControllerKeyFactory.From(CurrentDevice.Controller.Device);
+        }
+    }
+
+    /// <summary>
     /// The concrete DualSense device of the selected controller, or <c>null</c> for
     /// non-DualSense devices.
     /// </summary>
@@ -193,7 +208,7 @@ public partial class EmulationPageViewModel : ObservableObject
 
             string skin = Skins[value];
             _skinIndex = value;
-            _controllerService.SetSkin(CurrentMac, CurrentDevicePath, skin);
+            _controllerService.SetSkin(CurrentKey, skin);
             OnPropertyChanged();
             OnPropertyChanged(nameof(SkinName));
         }
@@ -239,7 +254,7 @@ public partial class EmulationPageViewModel : ObservableObject
     /// <see cref="ControllerInfoService.SaveEmulationSettings"/> persists the change.
     /// </summary>
     private EmulationSettings GetEmulationSettings()
-        => _controllerService.GetEmulationSettings(CurrentMac, CurrentDevicePath);
+        => _controllerService.GetEmulationSettings(CurrentKey);
 
     /// <summary>
     /// The virtual controller emulation mode (<see cref="EmulationMode"/> value) of the
@@ -274,7 +289,7 @@ public partial class EmulationPageViewModel : ObservableObject
 
             _log.Info($"Setting emulation mode of {CurrentMac} to {mode}");
             settings.Mode = mode;
-            _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+            _controllerService.SaveEmulationSettings(CurrentKey, settings);
             OnPropertyChanged(nameof(EmulationModeIndex));
             OnPropertyChanged(nameof(IsEmulationEnabled));
             OnPropertyChanged(nameof(IsDualSenseEmulation));
@@ -462,7 +477,7 @@ public partial class EmulationPageViewModel : ObservableObject
 
         _log.Info($"Setting {propertyName} of {CurrentMac} to {value}");
         setter(settings.Forward, value);
-        _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+        _controllerService.SaveEmulationSettings(CurrentKey, settings);
         OnPropertyChanged(propertyName);
         _emulation.Refresh();
     }
@@ -533,7 +548,7 @@ public partial class EmulationPageViewModel : ObservableObject
 
             _log.Info($"Setting DualSense variant of {CurrentMac} to {variant}");
             settings.Variant.DualSense = variant;
-            _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+            _controllerService.SaveEmulationSettings(CurrentKey, settings);
             OnPropertyChanged(nameof(DualSenseVariantIndex));
             RefreshMappingTargets();
             RefreshBindings();
@@ -568,7 +583,7 @@ public partial class EmulationPageViewModel : ObservableObject
 
             _log.Info($"Setting DualShock 4 variant of {CurrentMac} to {variant}");
             settings.Variant.DualShock4 = variant;
-            _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+            _controllerService.SaveEmulationSettings(CurrentKey, settings);
             OnPropertyChanged(nameof(DualShock4VariantIndex));
             _emulation.Refresh();
         }
@@ -1079,7 +1094,7 @@ public partial class EmulationPageViewModel : ObservableObject
     /// </summary>
     private void SaveAndApply(EmulationSettings settings)
     {
-        _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+        _controllerService.SaveEmulationSettings(CurrentKey, settings);
         if (CurrentDualSenseDevice is { } device)
         {
             _emulation.ApplyButtonMappings(device);
@@ -1457,7 +1472,7 @@ public partial class EmulationPageViewModel : ObservableObject
         MonitorState = selected is not null ? new InputMonitorItem(selected, _audioEngine) : null;
         _previousMonitorState = MonitorState;
 
-        string storedSkin = selected is null ? string.Empty : _controllerService.GetSkin(CurrentMac, CurrentDevicePath) ?? string.Empty;
+        string storedSkin = selected is null ? string.Empty : _controllerService.GetSkin(CurrentKey) ?? string.Empty;
         int storedIndex = Skins.IndexOf(storedSkin);
         _skinIndex = storedIndex >= 0 ? storedIndex : 0;
 

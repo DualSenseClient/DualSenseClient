@@ -4,8 +4,10 @@ using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Feature;
+using DualSenseClient.Core.Models;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.HidHide;
@@ -119,14 +121,14 @@ public partial class DeviceInfoPageViewModel : ObservableObject
             _controllerName = trimmed;
             if (CurrentDevice is not null && !string.IsNullOrEmpty(trimmed))
             {
-                bool renamed = _controllerService.RenameController(CurrentMac, CurrentDevicePath, trimmed);
+                bool renamed = _controllerService.RenameController(CurrentKey, trimmed);
                 if (renamed)
                 {
                     _log.Info($"Renamed controller '{CurrentMac}' to '{trimmed}'");
                 }
                 else
                 {
-                    _controllerName = _controllerService.GetDisplayName(CurrentMac, CurrentDevicePath, CurrentDevice.DisplayName);
+                    _controllerName = _controllerService.GetDisplayName(CurrentKey, CurrentDevice.DisplayName);
                 }
             }
 
@@ -158,6 +160,19 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         get
         {
             return CurrentDevice?.Controller.Device.Info.Path ?? string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// The key of the selected controller, or an empty key when none is selected.
+    /// </summary>
+    private ControllerKey CurrentKey
+    {
+        get
+        {
+            return CurrentDevice is null
+                ? ControllerKey.From(null, null)
+                : ControllerKeyFactory.From(CurrentDevice.Controller.Device);
         }
     }
 
@@ -235,7 +250,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
             string skin = Skins[value];
             _log.Info($"Setting illustration skin of {CurrentMac} to '{skin}'");
             _skinIndex = value;
-            _controllerService.SetSkin(CurrentMac, CurrentDevicePath, skin);
+            _controllerService.SetSkin(CurrentKey, skin);
             OnPropertyChanged();
             OnPropertyChanged(nameof(SkinName));
         }
@@ -262,7 +277,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     {
         get
         {
-            return _controllerService.GetBoundProfileName(CurrentMac, CurrentDevicePath) ?? ProfileService.DefaultProfileName;
+            return _controllerService.GetBoundProfileName(CurrentKey) ?? ProfileService.DefaultProfileName;
         }
     }
 
@@ -286,7 +301,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
                 return -1;
             }
 
-            string? bound = _controllerService.GetBoundProfileName(CurrentMac, CurrentDevicePath);
+            string? bound = _controllerService.GetBoundProfileName(CurrentKey);
             if (bound is null)
             {
                 return -1;
@@ -310,14 +325,14 @@ public partial class DeviceInfoPageViewModel : ObservableObject
             }
 
             string? profileName = AssignedProfileOptions[value].Name;
-            string? current = _controllerService.GetBoundProfileName(CurrentMac, CurrentDevicePath);
+            string? current = _controllerService.GetBoundProfileName(CurrentKey);
             if (string.Equals(profileName, current, StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
 
             _log.Info($"Binding controller {CurrentMac} to profile '{profileName}'");
-            _controllerService.SetControllerProfile(CurrentMac, CurrentDevicePath, profileName);
+            _controllerService.SetControllerProfile(CurrentKey, profileName);
             ApplyBoundProfileToController();
         }
     }
@@ -354,7 +369,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// </summary>
     private Profile? GetCurrentControllerProfile()
     {
-        string? bound = _controllerService.GetBoundProfileName(CurrentMac, CurrentDevicePath);
+        string? bound = _controllerService.GetBoundProfileName(CurrentKey);
         return _profileService.GetProfile(bound ?? ProfileService.DefaultProfileName);
     }
 
@@ -580,9 +595,9 @@ public partial class DeviceInfoPageViewModel : ObservableObject
 
         _controllerName = selected is null
             ? string.Empty
-            : _controllerService.GetDisplayName(CurrentMac, CurrentDevicePath, selected.DisplayName);
+            : _controllerService.GetDisplayName(CurrentKey, selected.DisplayName);
 
-        string storedSkin = selected is null ? string.Empty : _controllerService.GetSkin(CurrentMac, CurrentDevicePath) ?? string.Empty;
+        string storedSkin = selected is null ? string.Empty : _controllerService.GetSkin(CurrentKey) ?? string.Empty;
         int storedIndex = Skins.IndexOf(storedSkin);
         _skinIndex = storedIndex >= 0 ? storedIndex : 0;
 

@@ -376,7 +376,7 @@ public sealed class SpecialActionEngine : IDisposable
             DetachCore();
 
             _device = device;
-            _controllerId = SpecialActionService.GetControllerId(device.PairingInfo?.ClientMac, device.Info.Path);
+            _controllerId = SpecialActionService.GetControllerId(device.Key);
             _held.Clear();
             _fired.Clear();
             _pending.Clear();

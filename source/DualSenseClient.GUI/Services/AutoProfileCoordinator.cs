@@ -7,6 +7,7 @@ using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Triggers;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Core.Foreground;
+using DualSenseClient.Core.Models;
 using DualSenseClient.HidHide;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
@@ -200,15 +201,14 @@ public sealed class AutoProfileCoordinator : IDisposable
 
             foreach (DualSenseDevice device in devices)
             {
-                string? mac = device.PairingInfo?.ClientMac;
-                string? path = device.Info.Path;
+                ControllerKey key = device.Key;
                 AutoProfileRule? rule = app is { } foreground
-                    ? _rules.FindMatch(foreground.ExePath, foreground.WindowTitle, mac, path)
+                    ? _rules.FindMatch(foreground.ExePath, foreground.WindowTitle, key)
                     : null;
 
                 string profileName = !string.IsNullOrEmpty(rule?.ProfileName)
                     ? rule.ProfileName
-                    : _controllers.GetBoundProfileName(mac, path) ?? ProfileService.DefaultProfileName;
+                    : _controllers.GetBoundProfileName(key) ?? ProfileService.DefaultProfileName;
                 EmulationMode? mode = rule?.EmulationMode;
                 DualSenseVariant? dsVariant = mode == EmulationMode.DualSense ? rule?.DualSenseVariant : null;
                 DualShock4Variant? ds4Variant = mode == EmulationMode.DualShock4 ? rule?.DualShock4Variant : null;
@@ -219,7 +219,7 @@ public sealed class AutoProfileCoordinator : IDisposable
                 bool? hide = rule?.HideController;
                 EmulationAudioSource? ruleAudioSource = rule?.AudioSource;
                 string? ruleAudioApp = rule?.AudioApp;
-                EmulationSettings storedEmulation = _controllers.GetEmulationSettings(mac, path);
+                EmulationSettings storedEmulation = _controllers.GetEmulationSettings(key);
                 EmulationAudioSource effectiveAudioSource = ruleAudioSource ?? storedEmulation.Forward.AudioSource;
                 string effectiveAudioApp = ruleAudioApp ?? storedEmulation.Forward.AudioApp;
 
@@ -293,8 +293,7 @@ public sealed class AutoProfileCoordinator : IDisposable
             device.ApplyProfile(profile);
             if (notify)
             {
-                string displayName = _controllers.GetDisplayName(device.PairingInfo?.ClientMac, device.Info.Path,
-                    device.Info.ProductName);
+                string displayName = _controllers.GetDisplayName(device.Key, device.Info.ProductName);
                 string title = LocalizationService.GetText("Notification.AutoProfile.Title");
                 string message = string.Format(LocalizationService.GetText("Notification.AutoProfile.Message"),
                     displayName, profile.Name);

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DualSenseClient.Core.Models;
 using DualSenseClient.Core.Utilities;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings.Sections;
@@ -208,7 +209,18 @@ public sealed class AutoProfileService
     /// <param name="foregroundTitle">Title of the foreground window.</param>
     /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>
     /// <param name="devicePath">The controller's HID device path, or <c>null</c>/empty when unavailable.</param>
-    public AutoProfileRule? FindMatch(string? foregroundExe, string? foregroundTitle, string? mac, string? devicePath)
+    public AutoProfileRule? FindMatch(string? foregroundExe, string? foregroundTitle, string? mac, string? devicePath) =>
+        FindMatch(foregroundExe, foregroundTitle, ControllerKey.From(mac, devicePath));
+
+    /// <summary>
+    /// Finds the first actionable rule matching the foreground program for a controller
+    /// identified by its key.
+    /// </summary>
+    /// <param name="foregroundExe">Full executable path of the foreground process.</param>
+    /// <param name="foregroundTitle">Title of the foreground window.</param>
+    /// <param name="key">The controller key.</param>
+    /// <returns>The first matching rule, or <c>null</c> when nothing matches.</returns>
+    public AutoProfileRule? FindMatch(string? foregroundExe, string? foregroundTitle, ControllerKey key)
     {
         if (!Settings.Enabled)
         {
@@ -217,7 +229,7 @@ public sealed class AutoProfileService
 
         foreach (AutoProfileRule rule in GetSnapshot())
         {
-            if (!rule.IsActionless && rule.MatchesController(mac, devicePath) && rule.IsMatch(foregroundExe, foregroundTitle))
+            if (!rule.IsActionless && rule.MatchesController(key) && rule.IsMatch(foregroundExe, foregroundTitle))
             {
                 return rule;
             }

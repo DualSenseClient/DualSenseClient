@@ -587,7 +587,7 @@ public sealed class NotificationPopupService : INotificationPopupService
             return;
         }
 
-        string displayName = _controllerInfoService.GetDisplayName(device.PairingInfo?.ClientMac, device.Info.Path, device.Info.ProductName);
+        string displayName = _controllerInfoService.GetDisplayName(device.Key, device.Info.ProductName);
         if (notifyLow)
         {
             ShowLowBattery(displayName, percentage);

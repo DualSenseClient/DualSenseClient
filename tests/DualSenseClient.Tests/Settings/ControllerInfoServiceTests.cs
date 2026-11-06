@@ -1,3 +1,4 @@
+using DualSenseClient.Core.Models;
 using DualSenseClient.Settings;
 using DualSenseClient.Settings.Sections;
 
@@ -71,6 +72,20 @@ public class ControllerInfoServiceTests
             Assert.That(info.DevicePath, Is.EqualTo(@"\\?\HID#VID_054C#1"));
         });
         Assert.That(File.Exists(ControllersPath), Is.True);
+    }
+
+    [Test]
+    public void GetControllerInfo_WithKey_UsesMacThenPathFallback()
+    {
+        ControllerInfoService service = CreateService();
+        service.RegisterController("AA:BB:CC:DD:EE:FF", @"\\?\HID#VID_054C#1", "DualSense");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.GetControllerInfo(ControllerKey.From("aa:bb:cc:dd:ee:ff", "other")), Is.Not.Null);
+            Assert.That(service.GetControllerInfo(ControllerKey.From("11:22:33:44:55:66", @"\\?\HID#VID_054C#1")), Is.Not.Null);
+            Assert.That(service.GetControllerInfo(ControllerKey.From("11:22:33:44:55:66", "other")), Is.Null);
+        });
     }
 
     [Test]

@@ -326,11 +326,7 @@ public sealed class TrayIconService
     /// Gets the emulation settings stored for a controller, defaulting to emulation off,
     /// matching the emulation service's resolution.
     /// </summary>
-    private EmulationSettings GetEmulationSettings(ControllerItem item)
-    {
-        string? mac = (item.Device as DualSenseDevice)?.PairingInfo?.ClientMac;
-        return _controllerInfoService.GetEmulationSettings(mac, item.Device.Info.Path);
-    }
+    private EmulationSettings GetEmulationSettings(ControllerItem item) => _controllerInfoService.GetEmulationSettings(ControllerKeyFactory.From(item.Device));
 
     /// <summary>
     /// Sets the emulation mode on the controller's own emulation settings, persists it,
@@ -351,7 +347,7 @@ public sealed class TrayIconService
         }
 
         settings.Mode = mode;
-        _controllerInfoService.SaveEmulationSettings(device.PairingInfo?.ClientMac, device.Info.Path, settings);
+        _controllerInfoService.SaveEmulationSettings(device.Key, settings);
         _emulation.Refresh();
     }
 
@@ -363,9 +359,8 @@ public sealed class TrayIconService
     private NativeMenu BuildProfilesMenu(ControllerItem item)
     {
         NativeMenu menu = new NativeMenu();
-        string? mac = (item.Device as DualSenseDevice)?.PairingInfo?.ClientMac;
-        string path = item.Device.Info.Path;
-        string usedProfile = _controllerInfoService.GetBoundProfileName(mac, path) ?? ProfileService.DefaultProfileName;
+        string usedProfile = _controllerInfoService.GetBoundProfileName(ControllerKeyFactory.From(item.Device))
+                             ?? ProfileService.DefaultProfileName;
 
         foreach (Profile profile in _profileService.Settings.Profiles)
         {
@@ -392,7 +387,7 @@ public sealed class TrayIconService
             return;
         }
 
-        _controllerInfoService.SetControllerProfile(device.PairingInfo?.ClientMac, device.Info.Path, profile.Name);
+        _controllerInfoService.SetControllerProfile(device.Key, profile.Name);
         device.ApplyProfile(profile);
     }
 

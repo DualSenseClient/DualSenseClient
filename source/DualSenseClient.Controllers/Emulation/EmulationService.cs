@@ -1090,7 +1090,7 @@ public sealed class EmulationService : IEmulationService
     /// </summary>
     private EmulationSettings GetEmulationSettings(DualSenseDevice device)
     {
-        EmulationSettings stored = _controllerInfo.GetEmulationSettings(device.PairingInfo?.ClientMac, device.Info.Path);
+        EmulationSettings stored = _controllerInfo.GetEmulationSettings(device.Key);
         if (_temporaryModes.TryGetValue(device,
                 out (EmulationMode? Mode, DualSenseVariant? Ds, DualShock4Variant? Ds4, EmulationAudioSource? AudioSource, string? AudioApp) temp))
         {

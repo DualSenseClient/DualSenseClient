@@ -6,6 +6,7 @@ using DualSenseClient.Controllers.DualSense.Lightbar;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.DualSense.Triggers;
 using DualSenseClient.Controllers.DualSense.Utilities;
+using DualSenseClient.Core.Models;
 using DualSenseClient.Hid;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings.Sections;
@@ -228,6 +229,17 @@ public class DualSenseDevice : ControllerDevice, ILightSink
     /// Null when the report could not be read.
     /// </summary>
     public PairingInfo? PairingInfo { get; private set; }
+
+    /// <summary>
+    /// The normalized identity used to key settings and Auto-profile rules.
+    /// </summary>
+    public ControllerKey Key
+    {
+        get
+        {
+            return ControllerKeyFactory.From(this);
+        }
+    }
 
     /// <inheritdoc/>
     protected override string? BluetoothMacAddress
