@@ -13,6 +13,7 @@ using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Events;
 using DualSenseClient.Controllers.Emulation;
+using DualSenseClient.Controllers.Profiles;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.ViewModels;
 using DualSenseClient.GUI.Views;
@@ -59,6 +60,8 @@ public sealed class TrayIconService
     /// Profile service listing the profiles offered in each controller's tray menu.
     /// </summary>
     private readonly ProfileService _profileService;
+
+    private readonly IProfileActivation _profileActivation;
 
     /// <summary>
     /// Service storing each controller's display name and bound profile.
@@ -133,12 +136,14 @@ public sealed class TrayIconService
     /// Creates the tray icon and wires it to the application's controller state.
     /// </summary>
     public TrayIconService(MainWindow mainWindow, MainViewModel mainViewModel, IControllerTracker tracker, ProfileService profileService,
-        ControllerInfoService controllerInfoService, SettingsService settingsService, IEmulationService emulation, ThemeService themeService)
+        IProfileActivation profileActivation, ControllerInfoService controllerInfoService, SettingsService settingsService,
+        IEmulationService emulation, ThemeService themeService)
     {
         _mainWindow = mainWindow;
         _mainViewModel = mainViewModel;
         _tracker = tracker;
         _profileService = profileService;
+        _profileActivation = profileActivation;
         _controllerInfoService = controllerInfoService;
         _settingsService = settingsService;
         _emulation = emulation;
@@ -359,8 +364,12 @@ public sealed class TrayIconService
     private NativeMenu BuildProfilesMenu(ControllerItem item)
     {
         NativeMenu menu = new NativeMenu();
-        string usedProfile = _controllerInfoService.GetBoundProfileName(ControllerKeyFactory.From(item.Device))
-                             ?? ProfileService.DefaultProfileName;
+        if (item.Device is not DualSenseDevice device)
+        {
+            return menu;
+        }
+
+        string usedProfile = _profileActivation.GetActiveProfile(device)?.Name ?? ProfileService.DefaultProfileName;
 
         foreach (Profile profile in _profileService.Settings.Profiles)
         {
@@ -387,8 +396,7 @@ public sealed class TrayIconService
             return;
         }
 
-        _controllerInfoService.SetControllerProfile(device.Key, profile.Name);
-        device.ApplyProfile(profile);
+        _profileActivation.Bind(device, profile);
     }
 
     /// <summary>

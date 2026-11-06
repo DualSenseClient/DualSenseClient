@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Feature;
+using DualSenseClient.Controllers.Profiles;
 using DualSenseClient.Core.Models;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Services;
@@ -54,6 +55,8 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// Service used to read and persist profiles, backing the assigned-profile picker.
     /// </summary>
     private readonly ProfileService _profileService;
+
+    private readonly IProfileActivation _profileActivation;
 
     /// <summary>
     /// Platform backend for hiding physical controllers from other applications
@@ -331,9 +334,15 @@ public partial class DeviceInfoPageViewModel : ObservableObject
                 return;
             }
 
+            Profile? profile = _profileService.GetProfile(profileName);
+            if (profile is null || CurrentDevice?.Controller.Device is not DualSenseDevice device)
+            {
+                return;
+            }
+
             _log.Info($"Binding controller {CurrentMac} to profile '{profileName}'");
-            _controllerService.SetControllerProfile(CurrentKey, profileName);
-            ApplyBoundProfileToController();
+            _profileActivation.Bind(device, profile);
+            Lights?.SetPreview(profile.Lightbar.Red, profile.Lightbar.Green, profile.Lightbar.Blue);
         }
     }
 
@@ -369,8 +378,9 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// </summary>
     private Profile? GetCurrentControllerProfile()
     {
-        string? bound = _controllerService.GetBoundProfileName(CurrentKey);
-        return _profileService.GetProfile(bound ?? ProfileService.DefaultProfileName);
+        return CurrentDevice?.Controller.Device is DualSenseDevice device
+            ? _profileActivation.GetActiveProfile(device)
+            : null;
     }
 
     /// <summary>
@@ -384,7 +394,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         }
 
         _log.Info($"Applying profile '{profile.Name}' to {CurrentMac}");
-        device.ApplyProfile(profile);
+        _profileActivation.Activate(device, profile);
         Lights?.SetPreview(profile.Lightbar.Red, profile.Lightbar.Green, profile.Lightbar.Blue);
     }
 
@@ -517,6 +527,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         _illustrationService = App.Services.GetRequiredService<ControllerIllustrationService>();
         _hiding = App.Services.GetRequiredService<IControllerHidingService>();
         _profileService = App.Services.GetRequiredService<ProfileService>();
+        _profileActivation = App.Services.GetRequiredService<IProfileActivation>();
         foreach (string skin in _illustrationService.GetSkins())
         {
             Skins.Add(skin);

@@ -5,6 +5,7 @@ using DualSenseClient.Bluetooth;
 using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.Emulation;
+using DualSenseClient.Controllers.Profiles;
 using DualSenseClient.Controllers.SpecialActions;
 using DualSenseClient.Core.Foreground;
 using DualSenseClient.GUI.ViewModels;
@@ -43,6 +44,7 @@ public abstract class ServiceConfigurator
         services.AddSingleton<ControllerInfoService>();
         services.AddSingleton<SpecialActionService>();
         services.AddSingleton<AutoProfileService>();
+        services.AddSingleton<IProfileActivation, ProfileActivation>();
 
         // Services
         services.AddSingleton<IMessageBoxService, MessageBoxService>();

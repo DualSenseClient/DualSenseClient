@@ -14,6 +14,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
+using DualSenseClient.Controllers.Profiles;
 using DualSenseClient.Core.Models;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Services;
@@ -54,6 +55,8 @@ public partial class CustomizationPageViewModel : ObservableObject
     /// Service used to read and persist profiles.
     /// </summary>
     private readonly ProfileService _profileService;
+
+    private readonly IProfileActivation _profileActivation;
 
     /// <summary>
     /// Service storing controller info and controller-to-profile assignments.
@@ -240,7 +243,9 @@ public partial class CustomizationPageViewModel : ObservableObject
     {
         get
         {
-            return _controllerService.GetBoundProfileName(CurrentKey) ?? ProfileService.DefaultProfileName;
+            return CurrentDevice?.Controller.Device is DualSenseDevice device
+                ? _profileActivation.GetActiveProfile(device)?.Name ?? ProfileService.DefaultProfileName
+                : ProfileService.DefaultProfileName;
         }
     }
 
@@ -334,8 +339,7 @@ public partial class CustomizationPageViewModel : ObservableObject
         }
 
         bool controllerWasUsing = HasDevice && string.Equals(CurrentUsedProfileName, name, StringComparison.OrdinalIgnoreCase);
-        _profileService.DeleteProfile(name);
-        _controllerService.RemoveProfileReferences(name);
+        _profileActivation.DeleteProfile(name);
         _autoProfileService.RemoveProfileReferences(name);
         SelectedProfile = null;
         RebuildProfiles();
@@ -562,17 +566,18 @@ public partial class CustomizationPageViewModel : ObservableObject
             return;
         }
 
-        string applied = CurrentUsedProfileName;
-        if (!string.Equals(item.Name, applied, StringComparison.OrdinalIgnoreCase))
+        if (CurrentDevice?.Controller.Device is not DualSenseDevice device)
         {
             return;
         }
 
-        Profile? profile = GetCurrentControllerProfile();
-        if (profile is not null)
+        Profile? applied = _profileActivation.GetActiveProfile(device);
+        if (applied is null || !string.Equals(item.Name, applied.Name, StringComparison.OrdinalIgnoreCase))
         {
-            ApplyProfileToController(profile);
+            return;
         }
+
+        _profileActivation.Activate(device, applied);
     }
 
     /// <summary>
@@ -582,40 +587,13 @@ public partial class CustomizationPageViewModel : ObservableObject
     /// </summary>
     private void ApplyBoundProfileToController()
     {
-        if (!HasDevice)
-        {
-            return;
-        }
-
-        Profile? profile = GetCurrentControllerProfile();
-        if (profile is not null)
-        {
-            ApplyProfileToController(profile);
-        }
-    }
-
-    /// <summary>
-    /// Gets the profile the selected controller is currently using: the bound profile, or
-    /// the default profile when unbound or the bound profile no longer exists.
-    /// </summary>
-    private Profile? GetCurrentControllerProfile()
-    {
-        string? bound = _controllerService.GetBoundProfileName(CurrentKey);
-        return _profileService.GetProfile(bound ?? ProfileService.DefaultProfileName);
-    }
-
-    /// <summary>
-    /// Applies a profile to the selected controller.
-    /// </summary>
-    private void ApplyProfileToController(Profile profile)
-    {
         if (CurrentDevice?.Controller.Device is not DualSenseDevice device)
         {
             return;
         }
 
-        _log.Info($"Applying profile '{profile.Name}' to {CurrentMac}");
-        device.ApplyProfile(profile);
+        _log.Info($"Applying the bound profile to {CurrentMac}");
+        _profileActivation.Activate(device);
     }
 
     /// <summary>
@@ -1267,6 +1245,7 @@ public partial class CustomizationPageViewModel : ObservableObject
     {
         _mainViewModel = App.Services.GetRequiredService<MainViewModel>();
         _profileService = App.Services.GetRequiredService<ProfileService>();
+        _profileActivation = App.Services.GetRequiredService<IProfileActivation>();
         _controllerService = App.Services.GetRequiredService<ControllerInfoService>();
         _autoProfileService = App.Services.GetRequiredService<AutoProfileService>();
         _specialActionService = App.Services.GetRequiredService<SpecialActionService>();

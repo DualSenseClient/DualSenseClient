@@ -6,6 +6,7 @@ using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Triggers;
 using DualSenseClient.Controllers.Emulation;
+using DualSenseClient.Controllers.Profiles;
 using DualSenseClient.Core.Foreground;
 using DualSenseClient.Core.Models;
 using DualSenseClient.HidHide;
@@ -53,6 +54,8 @@ public sealed class AutoProfileCoordinator : IDisposable
     /// Stores the controller profiles.
     /// </summary>
     private readonly ProfileService _profiles;
+
+    private readonly IProfileActivation _profileActivation;
 
     /// <summary>
     /// Applies temporary emulation mode overrides.
@@ -117,13 +120,14 @@ public sealed class AutoProfileCoordinator : IDisposable
     /// Creates the coordinator and starts polling the focused program on supported platforms.
     /// </summary>
     public AutoProfileCoordinator(IControllerTracker tracker, AutoProfileService rules, ControllerInfoService controllers,
-        ProfileService profiles, IEmulationService emulation, IForegroundAppProvider foreground, INotificationPopupService popups,
-        IControllerHidingService hiding)
+        ProfileService profiles, IProfileActivation profileActivation, IEmulationService emulation, IForegroundAppProvider foreground,
+        INotificationPopupService popups, IControllerHidingService hiding)
     {
         _tracker = tracker;
         _rules = rules;
         _controllers = controllers;
         _profiles = profiles;
+        _profileActivation = profileActivation;
         _emulation = emulation;
         _foreground = foreground;
         _popups = popups;
@@ -289,7 +293,7 @@ public sealed class AutoProfileCoordinator : IDisposable
         if (profile is not null)
         {
             _log.Info($"Applying auto profile '{profile.Name}' to {device.Info.ProductName}");
-            device.ApplyProfile(profile);
+            _profileActivation.Activate(device, profile);
             if (notify)
             {
                 string displayName = _controllers.GetDisplayName(device.Key, device.Info.ProductName);
