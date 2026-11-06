@@ -790,6 +790,43 @@ public partial class CustomizationPageViewModel : ObservableObject
     }
 
     /// <summary>
+    /// The software gain applied to every audio source sent to the selected controller
+    /// (1-8, 1 = unchanged, two-way, persisted). Values above 1 are soft-limited.
+    /// </summary>
+    public double ForwardSoftwareVolumeScale
+    {
+        get
+        {
+            return !HasDevice ? 1.0 : GetEmulationSettings().Forward.SoftwareVolumeScale;
+        }
+        set
+        {
+            if (!HasDevice)
+            {
+                return;
+            }
+
+            double clamped = Math.Clamp(Math.Round(value, 1, MidpointRounding.AwayFromZero), 1.0, 8.0);
+            EmulationSettings settings = GetEmulationSettings();
+            if (Math.Abs(settings.Forward.SoftwareVolumeScale - clamped) < 0.0001)
+            {
+                return;
+            }
+
+            settings.Forward.SoftwareVolumeScale = clamped;
+            if (CurrentDevice?.Controller.Device is DualSenseDevice device)
+            {
+                // Apply the gain immediately so the audio player and special actions hear
+                // the change before the debounced save reaches the emulation service.
+                device.AudioLane.SoftwareGain = (float)clamped;
+            }
+
+            ScheduleEmulationSave();
+            OnPropertyChanged(nameof(ForwardSoftwareVolumeScale));
+        }
+    }
+
+    /// <summary>
     /// The controller-side audio buffer length used by forwarded Bluetooth audio
     /// (16-128, two-way, persisted).
     /// </summary>
@@ -1294,6 +1331,7 @@ public partial class CustomizationPageViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDualSenseEmulation));
         OnPropertyChanged(nameof(ForwardAudioOutputIndex));
         OnPropertyChanged(nameof(ForwardVolume));
+        OnPropertyChanged(nameof(ForwardSoftwareVolumeScale));
         OnPropertyChanged(nameof(ForwardAudioBufferLength));
         OnPropertyChanged(nameof(ForwardAudioPacketModeIndex));
         OnPropertyChanged(nameof(ForwardHapticStrength));
@@ -1328,6 +1366,7 @@ public partial class CustomizationPageViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDualSenseEmulation));
         OnPropertyChanged(nameof(ForwardAudioOutputIndex));
         OnPropertyChanged(nameof(ForwardVolume));
+        OnPropertyChanged(nameof(ForwardSoftwareVolumeScale));
         OnPropertyChanged(nameof(ForwardAudioBufferLength));
         OnPropertyChanged(nameof(ForwardAudioPacketModeIndex));
         OnPropertyChanged(nameof(ForwardHapticStrength));

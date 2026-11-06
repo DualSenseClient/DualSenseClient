@@ -96,6 +96,7 @@ public sealed class ControllerAudioLane
     private long _activationVersion;
     private object? _active;
     private float _audioLevel;
+    private volatile float _softwareGain = 1f;
 
     /// <summary>
     /// Creates the lane around the given report sink.
@@ -133,6 +134,23 @@ public sealed class ControllerAudioLane
             {
                 return _activationVersion;
             }
+        }
+    }
+
+    /// <summary>
+    /// The software gain applied to every audio source on this lane (0-8, unity by
+    /// default). Producers read it when they render a block so a change applies without
+    /// restarting the stream.
+    /// </summary>
+    public float SoftwareGain
+    {
+        get
+        {
+            return _softwareGain;
+        }
+        set
+        {
+            _softwareGain = float.IsFinite(value) ? Math.Clamp(value, 0f, 8f) : 1f;
         }
     }
 

@@ -32,4 +32,7 @@ Open the **Emulation** page and expand **Audio Player**.
 !!! note
     Haptic playback works best with sound effects and music with strong bass — the haptics are essentially two high-quality actuators, one per grip. The controller outputs are only usable when a controller is connected.
 
+!!! note
+    The per-controller **Software Volume Scale** under **Customization → Audio Forwarding** also applies to the audio player. It is shared with forwarded audio and special-action sounds; `1x` leaves the audio unchanged, and values above `1x` are soft-limited to prevent clipping.
+
 Audio played by other applications can also be forwarded to the controller's speaker or headset. That is configured separately under [Audio Forwarding](virtual-controller.md#audio-forwarding).

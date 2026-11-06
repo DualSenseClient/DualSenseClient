@@ -537,6 +537,8 @@ public sealed class EmulationService : IEmulationService
                 entry.StatusChanged += OnSlotStatusChanged;
                 _entries.Add(device, entry);
                 DeviceSubscribe(device);
+                EmulationSettings settings = GetEmulationSettings(device);
+                entry.Device.AudioLane.SoftwareGain = (float)Math.Clamp(settings.Forward.SoftwareVolumeScale, 1.0, 8.0);
                 if (StartCreationLocked(entry))
                 {
                     toCreate.Add(entry);
@@ -545,8 +547,7 @@ public sealed class EmulationService : IEmulationService
                 {
                     // No virtual device (emulation off or unsupported platform), but a
                     // direct (system-output or application) source forwards without one.
-                    EmulationSettings direct = GetEmulationSettings(device);
-                    SyncAudioLocked(entry, direct.Forward.AudioSource, direct.Forward.AudioApp, direct.Forward.AudioEnabled);
+                    SyncAudioLocked(entry, settings.Forward.AudioSource, settings.Forward.AudioApp, settings.Forward.AudioEnabled);
                 }
             }
         }
@@ -1025,6 +1026,9 @@ public sealed class EmulationService : IEmulationService
         ForwardingSnapshot snapshot = ForwardingSnapshot.From(forwarding);
         entry.Virtual?.ApplyForwardingSettings(snapshot);
         entry.Forwarder?.ApplyForwardingSettings(snapshot);
+        // The software volume applies to every audio owner on this device, including the
+        // local player and special-action sounds that never touch the forwarder.
+        entry.Device.AudioLane.SoftwareGain = (float)snapshot.SoftwareVolumeScale;
         ApplyPassthroughLocked(entry, forwarding);
     }
 

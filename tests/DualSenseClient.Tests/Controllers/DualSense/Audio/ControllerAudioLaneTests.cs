@@ -136,6 +136,43 @@ public sealed class ControllerAudioLaneTests
         });
     }
 
+    [Test]
+    public void SoftwareGain_DefaultsToUnity()
+    {
+        ControllerAudioLane lane = new ControllerAudioLane(new RecordingAudioSink());
+
+        Assert.That(lane.SoftwareGain, Is.EqualTo(1f));
+    }
+
+    [TestCase(-0.5f, 0f)]
+    [TestCase(0f, 0f)]
+    [TestCase(0.5f, 0.5f)]
+    [TestCase(1f, 1f)]
+    [TestCase(1.1f, 1.1f)]
+    [TestCase(2.5f, 2.5f)]
+    [TestCase(8f, 8f)]
+    [TestCase(10f, 8f)]
+    public void SoftwareGain_ClampsToSupportedRange(float requested, float expected)
+    {
+        ControllerAudioLane lane = new ControllerAudioLane(new RecordingAudioSink());
+
+        lane.SoftwareGain = requested;
+
+        Assert.That(lane.SoftwareGain, Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void SoftwareGain_NonFiniteValueResetsToUnity()
+    {
+        ControllerAudioLane lane = new ControllerAudioLane(new RecordingAudioSink());
+
+        lane.SoftwareGain = float.NaN;
+        Assert.That(lane.SoftwareGain, Is.EqualTo(1f));
+
+        lane.SoftwareGain = float.PositiveInfinity;
+        Assert.That(lane.SoftwareGain, Is.EqualTo(1f));
+    }
+
     private sealed class RecordingAudioSink : IControllerAudioSink
     {
         public int AudioReports { get; private set; }

@@ -533,6 +533,117 @@ public class DualSenseAudioForwarderTests
     }
 
     [Test]
+    public void AudioLevel_ScalesWithTheLaneSoftwareGain()
+    {
+        FakeAudioOutputs fullOutputs = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        FakeAudioOutputs halfOutputs = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder full = new DualSenseAudioForwarder(fullOutputs, null);
+        using DualSenseAudioForwarder half = new DualSenseAudioForwarder(halfOutputs, null);
+        full.Start();
+        half.Start();
+        fullOutputs.AudioLane.SoftwareGain = 1f;
+        halfOutputs.AudioLane.SoftwareGain = 0.5f;
+
+        full.FeedPcm(AudioBlock);
+        half.FeedPcm(AudioBlock);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(full.AudioLevel, Is.GreaterThan(0f));
+            Assert.That(half.AudioLevel, Is.GreaterThan(0f));
+            Assert.That(half.AudioLevel, Is.LessThan(full.AudioLevel));
+            Assert.That(half.AudioLevel, Is.EqualTo(full.AudioLevel * 0.5f).Within(0.002f));
+        });
+
+        full.Stop();
+        half.Stop();
+    }
+
+    [Test]
+    public void SoftwareGain_DoesNotAlterAudioDerivedHaptics()
+    {
+        FakeAudioOutputs fullOutputs = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        FakeAudioOutputs halfOutputs = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder full = new DualSenseAudioForwarder(fullOutputs, null);
+        using DualSenseAudioForwarder half = new DualSenseAudioForwarder(halfOutputs, null);
+        full.Start();
+        half.Start();
+        fullOutputs.AudioLane.SoftwareGain = 1f;
+        halfOutputs.AudioLane.SoftwareGain = 0.5f;
+
+        full.FeedPcm(AudioBlock);
+        half.FeedPcm(AudioBlock);
+
+        WaitUntil(() => fullOutputs.AnyHapticsNonZero && halfOutputs.AnyHapticsNonZero, TimeSpan.FromSeconds(3));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fullOutputs.AnyHapticsNonZero, Is.True);
+            Assert.That(halfOutputs.AnyHapticsNonZero, Is.True);
+            Assert.That(halfOutputs.LastHapticsFrame, Is.EqualTo(fullOutputs.LastHapticsFrame),
+                "software volume must scale the speaker audio, not the audio-derived haptics");
+        });
+
+        full.Stop();
+        half.Stop();
+    }
+
+    [TestCase(1.0, 1f)]
+    [TestCase(1.1, 1.1f)]
+    [TestCase(2.5, 2.5f)]
+    [TestCase(8.0, 8f)]
+    public void ApplyForwardingSettings_AppliesSoftwareVolumeScaleToTheLane(double scale, float expectedGain)
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+
+        forwarder.ApplyForwardingSettings(new ForwardSettings
+        {
+            SoftwareVolumeScale = scale
+        });
+
+        Assert.That(fake.AudioLane.SoftwareGain, Is.EqualTo(expectedGain));
+    }
+
+    [Test]
+    public void ToUsbQuadS16_AppliesSoftwareGainToAudioOnly()
+    {
+        short[] stereo = new short[DualSenseBtAudioPipeline.FramesPerBlock * 2];
+        for (int i = 0; i < DualSenseBtAudioPipeline.FramesPerBlock; i++)
+        {
+            stereo[i * 2] = 1000;
+            stereo[i * 2 + 1] = -1000;
+        }
+
+        short[] quad = new short[DualSenseBtAudioPipeline.FramesPerBlock * 4];
+
+        DualSenseAudioForwarder.ToUsbQuadS16(stereo, quad, 0.5f, 1f);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(quad[0], Is.EqualTo(500), "the front-left audio channel must be scaled");
+            Assert.That(quad[1], Is.EqualTo(-500), "the front-right audio channel must be scaled");
+            Assert.That(quad[2], Is.EqualTo(1000), "the rear-left haptics channel must stay unscaled");
+            Assert.That(quad[3], Is.EqualTo(-1000), "the rear-right haptics channel must stay unscaled");
+        });
+    }
+
+    [Test]
     public void AudioLevel_TracksFedAudioAndResetsOnStop()
     {
         FakeAudioOutputs fake = new FakeAudioOutputs

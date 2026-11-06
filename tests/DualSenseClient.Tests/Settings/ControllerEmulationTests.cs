@@ -72,6 +72,7 @@ public sealed class ControllerEmulationTests
                 {
                     AudioOutput = EmulationAudioOutput.Headset,
                     Volume = 149,
+                    SoftwareVolumeScale = 2.5,
                     AudioBufferLength = 53,
                     PacketMode = BluetoothAudioPacketMode.Double,
                     Haptics = 150,
@@ -91,13 +92,14 @@ public sealed class ControllerEmulationTests
 
         Assert.That(json, Does.Contain("\"variant\":{\"dualsense\":\"Edge\",\"dualshock4\":\"V1\"}"));
         Assert.That(json, Does.Contain(
-            "\"forward\":{\"audio_output\":\"Headset\",\"volume\":149,\"audio_buffer_length\":53,\"packet_mode\":\"Double\",\"haptics\":150,\"haptics_audio_only\":true,\"rumble\":false,\"triggers\":false,\"lightbar\":false,\"player_leds\":false,\"haptics_enabled\":false,\"audio_enabled\":false,\"audio_from_output\":true,\"audio_source\":\"SystemOutput\",\"audio_app\":\"\",\"audio_app_mode\":\"ExecutableFile\"}"));
+            "\"forward\":{\"audio_output\":\"Headset\",\"volume\":149,\"software_volume_scale\":2.5,\"audio_buffer_length\":53,\"packet_mode\":\"Double\",\"haptics\":150,\"haptics_audio_only\":true,\"rumble\":false,\"triggers\":false,\"lightbar\":false,\"player_leds\":false,\"haptics_enabled\":false,\"audio_enabled\":false,\"audio_from_output\":true,\"audio_source\":\"SystemOutput\",\"audio_app\":\"\",\"audio_app_mode\":\"ExecutableFile\"}"));
 
         ControllerInfo? roundTripped = JsonSerializer.Deserialize<ControllerInfo>(json, Options);
         Assert.That(roundTripped?.Emulation.Variant.DualSense, Is.EqualTo(DualSenseVariant.Edge));
         Assert.That(roundTripped?.Emulation.Variant.DualShock4, Is.EqualTo(DualShock4Variant.V1));
         Assert.That(roundTripped?.Emulation.Forward.AudioOutput, Is.EqualTo(EmulationAudioOutput.Headset));
         Assert.That(roundTripped?.Emulation.Forward.Volume, Is.EqualTo(149));
+        Assert.That(roundTripped?.Emulation.Forward.SoftwareVolumeScale, Is.EqualTo(2.5));
         Assert.That(roundTripped?.Emulation.Forward.AudioBufferLength, Is.EqualTo(53));
         Assert.That(roundTripped?.Emulation.Forward.PacketMode, Is.EqualTo(BluetoothAudioPacketMode.Double));
         Assert.That(roundTripped?.Emulation.Forward.Haptics, Is.EqualTo(150));

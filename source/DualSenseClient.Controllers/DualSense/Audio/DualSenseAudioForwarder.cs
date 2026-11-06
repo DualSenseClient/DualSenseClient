@@ -381,7 +381,8 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     {
         get
         {
-            return _levelMeter.Level;
+            float gain = _outputs?.AudioLane.SoftwareGain ?? 1f;
+            return Math.Clamp(_levelMeter.Level * gain, 0f, 1f);
         }
     }
 
@@ -506,6 +507,10 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         AudioBufferLength = settings.AudioBufferLength;
         AudioOutput = settings.AudioOutput;
         PacketMode = settings.PacketMode;
+        if (_outputs is not null)
+        {
+            _outputs.AudioLane.SoftwareGain = (float)settings.SoftwareVolumeScale;
+        }
     }
 
     /// <summary>
@@ -714,7 +719,8 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
             }
 
             _levelMeter.Process(stereo, stereo.Length / 2.0 / 48000.0);
-            _outputs?.AudioLane.SetAudioLevel(this, _levelMeter.Level);
+            float gain = _outputs?.AudioLane.SoftwareGain ?? 1f;
+            _outputs?.AudioLane.SetAudioLevel(this, Math.Clamp(_levelMeter.Level * gain, 0f, 1f));
 
             int offset = 0;
             int partial = _audioRing.PartialCount;
@@ -1005,10 +1011,11 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
                 ApplyAudioStateIfChanged();
             }
 
+            float softwareGain = _outputs?.AudioLane.SoftwareGain ?? 1f;
             bool bluetooth = _outputs is not null && _outputs.ConnectionType == ConnectionType.Bluetooth;
             if (bluetooth)
             {
-                DualSenseBtAudioPipeline.ResampleToOpusBlock(_pcmBlock, _opusBlock);
+                DualSenseBtAudioPipeline.ResampleToOpusBlock(_pcmBlock, _opusBlock, softwareGain);
                 _pipeline.EncodeOpus(_opusBlock, _opusFrame);
                 if (_hapticsEnabled)
                 {
@@ -1020,7 +1027,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
 
             if (_usbTarget is { IsActive: true })
             {
-                ToUsbQuadS16(_pcmBlock, _usbQuadBlock);
+                ToUsbQuadS16(_pcmBlock, _usbQuadBlock, softwareGain, _hapticsEnabled ? _hapticStrength : 0f);
                 _usbTarget.Feed(_usbQuadBlock);
             }
         }
@@ -1405,21 +1412,24 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
 
     /// <summary>
     /// Expands a stereo PCM block into the quad S16 USB representation: channels 1/2
-    /// carry the audio, channels 3/4 carry the audio scaled by the haptic strength —
-    /// or silence when haptics are disabled.
+    /// carry the audio at the lane's software gain, channels 3/4 carry the unmodified
+    /// audio scaled by the haptic strength — or silence when haptics are disabled.
     /// </summary>
-    private void ToUsbQuadS16(ReadOnlySpan<short> stereo, Span<short> quad)
+    /// <param name="stereo">The 512-frame stereo source block.</param>
+    /// <param name="quad">The 512-frame four-channel target block.</param>
+    /// <param name="gain">The lane's software gain (0-8).</param>
+    /// <param name="hapticStrength">The haptic strength multiplier, or zero when disabled.</param>
+    internal static void ToUsbQuadS16(ReadOnlySpan<short> stereo, Span<short> quad, float gain, float hapticStrength)
     {
-        float strength = _hapticsEnabled ? _hapticStrength : 0f;
         for (int f = 0; f < DualSenseBtAudioPipeline.FramesPerBlock; f++)
         {
             int o = f * 4;
             short left = stereo[f * 2];
             short right = stereo[f * 2 + 1];
-            quad[o] = left;
-            quad[o + 1] = right;
-            quad[o + 2] = (short)Math.Clamp(left * strength, short.MinValue, short.MaxValue);
-            quad[o + 3] = (short)Math.Clamp(right * strength, short.MinValue, short.MaxValue);
+            quad[o] = DualSenseBtAudioPipeline.ApplySoftwareGain(left, gain);
+            quad[o + 1] = DualSenseBtAudioPipeline.ApplySoftwareGain(right, gain);
+            quad[o + 2] = (short)Math.Clamp(left * hapticStrength, short.MinValue, short.MaxValue);
+            quad[o + 3] = (short)Math.Clamp(right * hapticStrength, short.MinValue, short.MaxValue);
         }
     }
 

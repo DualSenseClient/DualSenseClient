@@ -26,6 +26,27 @@ public sealed class ForwardingSnapshotTests
     }
 
     [Test]
+    public void SoftwareVolumeScale_DefaultsToUnity() => Assert.That(new ForwardSettings().SoftwareVolumeScale, Is.EqualTo(1.0));
+
+    [TestCase(0.5, 1.0)]
+    [TestCase(1.0, 1.0)]
+    [TestCase(1.1, 1.1)]
+    [TestCase(2.5, 2.5)]
+    [TestCase(8.0, 8.0)]
+    [TestCase(10.0, 8.0)]
+    public void From_ClampsSoftwareVolumeScale(double requested, double expected)
+    {
+        ForwardSettings settings = new ForwardSettings
+        {
+            SoftwareVolumeScale = requested
+        };
+
+        ForwardingSnapshot snapshot = ForwardingSnapshot.From(settings);
+
+        Assert.That(snapshot.SoftwareVolumeScale, Is.EqualTo(expected));
+    }
+
+    [Test]
     public void From_ClampsUpperAudioBufferAndKeepsValidValues()
     {
         ForwardSettings settings = new ForwardSettings

@@ -247,6 +247,11 @@ public sealed class DualSenseAudioPlayer : IDisposable
     private readonly float[] _usbFloatBlock4 = new float[BlockSamples * 2];
 
     /// <summary>
+    /// Scratch buffer for the stereo USB fallback when the endpoint has no haptics pair.
+    /// </summary>
+    private readonly float[] _usbFloatBlock2 = new float[BlockSamples];
+
+    /// <summary>
     /// Scratch buffer for one 480-frame Opus block.
     /// </summary>
     private readonly short[] _opusBlock = new short[OpusBlockSamples];
@@ -690,16 +695,18 @@ public sealed class DualSenseAudioPlayer : IDisposable
 
             _desktopQueue?.AddSamples(_floatBlock);
 
+            float softwareGain = _device?.AudioLane.SoftwareGain ?? 1f;
             if (_usbQueue is not null)
             {
                 if (_usbFourChannel)
                 {
-                    ToUsbFourChannel(_floatBlock, _usbFloatBlock4);
+                    ToUsbFourChannel(_floatBlock, _usbFloatBlock4, softwareGain, _playToHaptics ? _hapticStrength : 0f);
                     _usbQueue.AddSamples(_usbFloatBlock4);
                 }
                 else
                 {
-                    _usbQueue.AddSamples(_floatBlock);
+                    ApplySoftwareGain(_floatBlock, _usbFloatBlock2, softwareGain);
+                    _usbQueue.AddSamples(_usbFloatBlock2);
                 }
             }
 
@@ -708,7 +715,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
                 DualSenseBtAudioPipeline.ConvertToPcm16(_floatBlock, _pcmBlock);
                 if (_playToSpeaker || _playToHeadset)
                 {
-                    DualSenseBtAudioPipeline.ResampleToOpusBlock(_pcmBlock, _opusBlock);
+                    DualSenseBtAudioPipeline.ResampleToOpusBlock(_pcmBlock, _opusBlock, softwareGain);
                     _btPipeline.EncodeOpus(_opusBlock, _opusFrame);
                     if (_playToHaptics)
                     {
@@ -902,7 +909,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
             if (_playToDesktop)
             {
                 (_desktopDevice, _desktopQueue, _desktopPlayer) = CreateRenderTarget(_engine, null, StereoFormat, null);
-                PrimeQueue(_desktopQueue, false);
+                PrimeQueue(_desktopQueue, false, false);
                 _desktopPlayer.Play();
                 _desktopDevice.Start();
             }
@@ -986,7 +993,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
     private void OpenUsbDevice(DeviceInfo endpoint, AudioFormat format, MiniAudioDeviceConfig? config, bool fourChannel)
     {
         (_usbDevice, _usbQueue, _usbPlayer) = CreateRenderTarget(_engine, endpoint, format, config);
-        PrimeQueue(_usbQueue, fourChannel);
+        PrimeQueue(_usbQueue, fourChannel, true);
         _usbPlayer.Play();
         _usbDevice.Start();
     }
@@ -1012,8 +1019,9 @@ public sealed class DualSenseAudioPlayer : IDisposable
     /// decoded audio so the device starts with real data instead of silence. Advances the
     /// source cursor, so it is only used while the writer loop is not running.
     /// </summary>
-    private void PrimeQueue(QueueDataProvider queue, bool fourChannel)
+    private void PrimeQueue(QueueDataProvider queue, bool fourChannel, bool controllerAudio)
     {
+        float softwareGain = controllerAudio ? _device?.AudioLane.SoftwareGain ?? 1f : 1f;
         for (int i = 0; i < PrerollBlocks && _source is not null; i++)
         {
             int read = _source.Read(_floatBlock, 0, BlockSamples);
@@ -1029,8 +1037,13 @@ public sealed class DualSenseAudioPlayer : IDisposable
 
             if (fourChannel)
             {
-                ToUsbFourChannel(_floatBlock, _usbFloatBlock4);
+                ToUsbFourChannel(_floatBlock, _usbFloatBlock4, softwareGain, _playToHaptics ? _hapticStrength : 0f);
                 queue.AddSamples(_usbFloatBlock4);
+            }
+            else if (controllerAudio)
+            {
+                ApplySoftwareGain(_floatBlock, _usbFloatBlock2, softwareGain);
+                queue.AddSamples(_usbFloatBlock2);
             }
             else
             {
@@ -1144,19 +1157,33 @@ public sealed class DualSenseAudioPlayer : IDisposable
 
     /// <summary>
     /// Expands a stereo float block into a 4-channel float USB stream: channels 1/2 carry
-    /// the audio, channels 3/4 carry the haptics scaled by the current strength — or
-    /// silence when haptics are disabled.
+    /// the audio at the lane's software gain, channels 3/4 carry the unmodified audio
+    /// scaled by the current strength — or silence when haptics are disabled.
     /// </summary>
-    private void ToUsbFourChannel(ReadOnlySpan<float> stereo, Span<float> quad)
+    /// <param name="stereo">The 512-frame stereo source block.</param>
+    /// <param name="quad">The 512-frame four-channel target block.</param>
+    /// <param name="gain">The lane's software gain (0-8).</param>
+    /// <param name="hapticStrength">The haptic strength multiplier, or zero when disabled.</param>
+    internal static void ToUsbFourChannel(ReadOnlySpan<float> stereo, Span<float> quad, float gain, float hapticStrength)
     {
-        float haptic = _playToHaptics ? _hapticStrength : 0f;
         for (int f = 0; f < FramesPerBlock; f++)
         {
             int o = f * 4;
-            quad[o] = stereo[f * 2];
-            quad[o + 1] = stereo[f * 2 + 1];
-            quad[o + 2] = stereo[f * 2] * haptic;
-            quad[o + 3] = stereo[f * 2 + 1] * haptic;
+            quad[o] = DualSenseBtAudioPipeline.ApplySoftwareGain(stereo[f * 2], gain);
+            quad[o + 1] = DualSenseBtAudioPipeline.ApplySoftwareGain(stereo[f * 2 + 1], gain);
+            quad[o + 2] = stereo[f * 2] * hapticStrength;
+            quad[o + 3] = stereo[f * 2 + 1] * hapticStrength;
+        }
+    }
+
+    /// <summary>
+    /// Copies a stereo float block through the lane's software gain.
+    /// </summary>
+    private static void ApplySoftwareGain(ReadOnlySpan<float> source, Span<float> target, float gain)
+    {
+        for (int i = 0; i < source.Length; i++)
+        {
+            target[i] = DualSenseBtAudioPipeline.ApplySoftwareGain(source[i], gain);
         }
     }
 

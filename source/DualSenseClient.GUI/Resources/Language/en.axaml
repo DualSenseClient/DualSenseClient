@@ -383,6 +383,8 @@
     <sys:String x:Key="EmulationPage.Emulation.ForwardHaptics.Description">Strength of the vibration generated from forwarded desktop sounds. Only applies while the virtual audio output is selected as the default playback device.</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.ForwardVolume">Forwarded Audio Volume</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.ForwardVolume.Description">Volume of the desktop sounds forwarded to the controller. Only applies while the virtual audio output is selected as the default playback device.</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.ForwardSoftwareVolumeScale">Software Volume Scale</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.ForwardSoftwareVolumeScale.Description">Software gain applied to all audio sent to this controller, including forwarded audio, the audio player, and special-action sounds. 1x leaves the audio unchanged; values above 1x are soft-limited to prevent clipping.</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.Mode">Emulation Mode</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.Mode.Description">Creates a virtual controller that mirrors this controller's input to the host. Feedback (rumble, lightbar, triggers) is forwarded back. These settings are stored per controller.</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.Mode.DualSense">DualSense</sys:String>

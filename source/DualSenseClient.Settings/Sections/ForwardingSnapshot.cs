@@ -19,6 +19,10 @@ namespace DualSenseClient.Settings.Sections;
 /// <param name="AudioEnabled">Whether controller-endpoint audio is forwarded.</param>
 /// <param name="AudioSource">The forwarded audio source.</param>
 /// <param name="AudioApp">The captured application executable path.</param>
+/// <param name="SoftwareVolumeScale">
+/// The software volume scale applied to every audio source sent to the controller
+/// (1-8, 1 = unchanged).
+/// </param>
 public readonly record struct ForwardingSnapshot(
     EmulationAudioOutput AudioOutput,
     byte Volume,
@@ -33,7 +37,8 @@ public readonly record struct ForwardingSnapshot(
     bool HapticsEnabled,
     bool AudioEnabled,
     EmulationAudioSource AudioSource,
-    string AudioApp)
+    string AudioApp,
+    double SoftwareVolumeScale = 1.0)
 {
     /// <summary>
     /// Creates a normalized snapshot from the persisted forwarding settings.
@@ -58,6 +63,7 @@ public readonly record struct ForwardingSnapshot(
             settings.HapticsEnabled,
             settings.AudioEnabled,
             Enum.IsDefined(settings.AudioSource) ? settings.AudioSource : EmulationAudioSource.ControllerEndpoint,
-            settings.AudioApp?.Trim() ?? string.Empty);
+            settings.AudioApp?.Trim() ?? string.Empty,
+            Math.Clamp(settings.SoftwareVolumeScale, 1.0, 8.0));
     }
 }

@@ -1104,6 +1104,18 @@
                                               Value="{Binding ForwardVolume, Mode=TwoWay}" />
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.ForwardSoftwareVolumeScale}"
+                                           Description="{DynamicResource EmulationPage.Emulation.ForwardSoftwareVolumeScale.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <NumericUpDown Minimum="1"
+                                       Maximum="8"
+                                       Increment="0.1"
+                                       FormatString="0.#'x'"
+                                       ClipValueToMinMax="True"
+                                       Value="{Binding ForwardSoftwareVolumeScale, Mode=TwoWay}"
+                                       Width="160" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
                 <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.ForwardAudioBufferLength}"
                                            Description="{DynamicResource EmulationPage.Emulation.ForwardAudioBufferLength.Description}">
                     <ui:FASettingsExpanderItem.Footer>
