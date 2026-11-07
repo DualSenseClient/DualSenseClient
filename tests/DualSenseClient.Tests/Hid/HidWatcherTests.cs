@@ -6,7 +6,45 @@ namespace DualSenseClient.Tests.Hid;
 [TestFixture]
 public sealed class HidWatcherTests
 {
+    /// <summary>
+    /// Generous upper bound for something that should happen within a few hundred milliseconds.
+    /// </summary>
+    private static readonly TimeSpan WaitLimit = TimeSpan.FromSeconds(5);
+
     private static readonly (ushort VendorId, ushort ProductId)[] SonyIds = [(0x054C, 0x0CE6), (0x054C, 0x0DF2)];
+
+    [Test]
+    public void Polling_DetectsNewDevice()
+    {
+        FakeHid hid = new FakeHid();
+        using HidDeviceEnumerator enumerator = new HidDeviceEnumerator(hid.Enumerate);
+        using ManualResetEventSlim connected = new ManualResetEventSlim();
+        enumerator.DeviceConnected += (_, _) => connected.Set();
+
+        enumerator.StartWatching(SonyIds, 50);
+        hid.Add("usb-1", 0x054C, 0x0CE6, ConnectionType.Usb);
+
+        Assert.That(connected.Wait(WaitLimit), Is.True, "polling fallback never saw the device");
+    }
+
+    [Test]
+    public void Removal_RaisesDisconnectedEvent()
+    {
+        FakeHid hid = new FakeHid();
+        hid.Add("usb-1", 0x054C, 0x0CE6, ConnectionType.Usb);
+        using HidDeviceEnumerator enumerator = new HidDeviceEnumerator(hid.Enumerate);
+        using ManualResetEventSlim disconnected = new ManualResetEventSlim();
+        enumerator.DeviceDisconnected += (_, e) =>
+        {
+            Assert.That(e.Device.Path, Is.EqualTo("usb-1"));
+            disconnected.Set();
+        };
+
+        enumerator.StartWatching(SonyIds, 50);
+        hid.Remove("usb-1");
+
+        Assert.That(disconnected.Wait(WaitLimit), Is.True);
+    }
 
     [Test]
     public void Watcher_NeverEnumeratesEveryDevice()
@@ -40,6 +78,63 @@ public sealed class HidWatcherTests
         }));
         Assert.That(hid.Queries, Has.Count.EqualTo(1));
         Assert.That(hid.Queries[0], Is.EqualTo(((ushort?)0x054C, (ushort?)null)));
+    }
+
+    [Test]
+    public void Handler_CanStopWatching_WithoutDeadlock()
+    {
+        FakeHid hid = new FakeHid();
+        using HidDeviceEnumerator enumerator = new HidDeviceEnumerator(hid.Enumerate);
+        using ManualResetEventSlim stopped = new ManualResetEventSlim();
+        enumerator.DeviceConnected += (_, _) =>
+        {
+            // Raised on the watcher thread itself, which must not wait for itself to finish.
+            enumerator.StopWatching();
+            stopped.Set();
+        };
+
+        enumerator.StartWatching(SonyIds, 50);
+        hid.Add("usb-1", 0x054C, 0x0CE6, ConnectionType.Usb);
+
+        Assert.That(stopped.Wait(WaitLimit), Is.True, "StopWatching from a handler hung");
+    }
+
+    [Test]
+    public void StopWatching_StopsScanning_AndAllowsRestart()
+    {
+        FakeHid hid = new FakeHid();
+        using HidDeviceEnumerator enumerator = new HidDeviceEnumerator(hid.Enumerate);
+
+        enumerator.StartWatching(SonyIds, 20);
+        Thread.Sleep(150);
+        enumerator.StopWatching();
+        int callsAtStop = hid.Calls;
+        Thread.Sleep(200);
+
+        Assert.That(hid.Calls, Is.EqualTo(callsAtStop), "kept scanning after StopWatching returned");
+
+        enumerator.StartWatching(SonyIds, 20);
+        Thread.Sleep(150);
+        Assert.That(hid.Calls, Is.GreaterThan(callsAtStop), "did not resume after restart");
+    }
+
+    [Test]
+    public void ThrowingHandler_DoesNotKillTheWatcher()
+    {
+        FakeHid hid = new FakeHid();
+        using HidDeviceEnumerator enumerator = new HidDeviceEnumerator(hid.Enumerate);
+        using CountdownEvent connected = new CountdownEvent(2);
+        enumerator.DeviceConnected += (_, _) =>
+        {
+            connected.Signal();
+            throw new InvalidOperationException("subscriber bug");
+        };
+
+        enumerator.StartWatching(SonyIds, 50);
+        hid.Add("usb-1", 0x054C, 0x0CE6, ConnectionType.Usb);
+        hid.Add("usb-2", 0x054C, 0x0DF2, ConnectionType.Usb);
+
+        Assert.That(connected.Wait(WaitLimit), Is.True, "second device was lost after the first handler threw");
     }
 
     /// <summary>

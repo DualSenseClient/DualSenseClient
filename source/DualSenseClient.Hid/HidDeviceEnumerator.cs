@@ -103,18 +103,14 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     public event EventHandler<DeviceConnectionEventArgs>? DeviceDisconnected;
 
     /// <summary>
-    /// The background polling timer, or <c>null</c> while not watching.
+    /// The watcher thread, or <c>null</c> while not watching.
     /// </summary>
-    private Timer? _watcher;
+    private Thread? _watchThread;
 
     /// <summary>
-    /// VID/PID pairs the watcher is limited to, or <c>null</c> to watch every device.
+    /// Cancels the watcher thread. Disposed by the thread itself when it exits.
     /// </summary>
-    /// <remarks>
-    /// Deliberately not cleared by <see cref="StopWatching"/>: a tick that is already running would otherwise
-    /// read <c>null</c> and fall back to enumerating every HID device in the system.
-    /// </remarks>
-    private HashSet<(ushort VendorId, ushort ProductId)>? _watchFilter;
+    private CancellationTokenSource? _watchCts;
 
     /// <summary>
     /// Queries HIDAPI. A field only so tests can supply devices without native hardware or a native library.
@@ -208,7 +204,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
         => StartWatchingCore(new HashSet<(ushort VendorId, ushort ProductId)>(deviceIds), intervalMs);
 
     /// <summary>
-    /// Starts the polling timer, optionally limited to the given VID/PID pairs.
+    /// Starts the watcher thread, optionally limited to the given VID/PID pairs.
     /// </summary>
     /// <param name="filter">Pairs to watch, or <c>null</c> for every device.</param>
     /// <param name="intervalMs">Polling interval.</param>
@@ -216,61 +212,120 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     {
         lock (_watchLock)
         {
-            if (_watcher != null)
+            if (_watchThread != null)
             {
                 return;
             }
 
             _log.Debug($"Starting device watcher (interval={intervalMs}ms, filter={(filter == null ? "none" : $"{filter.Count} VID/PID pair(s)")})");
-            _watchFilter = filter;
             _previousSnapshot = [.. EnumerateCore(filter)];
-            _watcher = new Timer(WatchTick, null, intervalMs, intervalMs);
+
+            CancellationTokenSource cts = new CancellationTokenSource();
+            _watchCts = cts;
+            _watchThread = new Thread(() => WatchLoop(cts, filter, intervalMs))
+            {
+                IsBackground = true,
+                Name = "HidDeviceWatcher"
+            };
+            _watchThread.Start();
         }
     }
 
     /// <inheritdoc/>
     public void StopWatching()
     {
+        CancellationTokenSource? cts;
+        Thread? thread;
+
         lock (_watchLock)
         {
-            if (_watcher == null)
+            if (_watchThread == null)
             {
                 return;
             }
 
             _log.Debug("Stopping device watcher");
-            _watcher.Dispose();
-            _watcher = null;
+            cts = _watchCts;
+            thread = _watchThread;
+            _watchCts = null;
+            _watchThread = null;
             _previousSnapshot = null;
             _pendingConnected.Clear();
+        }
+
+        try
+        {
+            cts?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The watcher thread already exited and disposed it.
+        }
+
+        // Joining keeps Dispose() from shutting HIDAPI down underneath a running scan. It is skipped when a
+        // handler raised by the watcher thread itself ends up here, because a thread cannot join itself.
+        if (thread != null && thread != Thread.CurrentThread)
+        {
+            thread.Join(TimeSpan.FromSeconds(5));
         }
     }
 
     /// <summary>
-    /// Timer callback. Re-enumerates active devices and fires <see cref="DeviceConnected"/>
-    /// or <see cref="DeviceDisconnected"/> when the set of reachable devices changes.
+    /// Body of the watcher thread: one scan at a time, so scans can never overlap.
+    /// </summary>
+    private void WatchLoop(CancellationTokenSource cts, HashSet<(ushort VendorId, ushort ProductId)>? filter, int intervalMs)
+    {
+        CancellationToken token = cts.Token;
+
+        try
+        {
+            // WaitOne returns true as soon as the token is cancelled, so stopping does not wait out the interval.
+            while (!token.WaitHandle.WaitOne(intervalMs))
+            {
+                // Nothing may escape: if this thread died, device detection would silently stop for good.
+                try
+                {
+                    ScanOnce(filter);
+                }
+                catch (Exception ex)
+                {
+                    _log.Warning($"Device scan failed: {ex.Message}");
+                }
+            }
+        }
+        finally
+        {
+            cts.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Re-enumerates the watched devices and raises <see cref="DeviceConnected"/> or
+    /// <see cref="DeviceDisconnected"/> when the set of reachable devices changed.
     /// USB devices are trusted at face value; Bluetooth devices are probed in parallel
     /// to confirm they are still responding. Newly seen devices are only reported as
-    /// connected once they have been observed on two consecutive polls, so devices the
+    /// connected once they have been observed on two consecutive scans, so devices the
     /// app itself created and excluded (virtual controllers) never fire
     /// <see cref="DeviceConnected"/>.
     /// </summary>
-    private void WatchTick(object? state)
+    private void ScanOnce(HashSet<(ushort VendorId, ushort ProductId)>? filter)
     {
-        List<IHidDeviceInfo> current = [.. EnumerateCore(_watchFilter)];
+        // Outside the lock: this can open Bluetooth devices and take a while.
+        List<IHidDeviceInfo> current = [.. EnumerateCore(filter)];
+        List<(bool Connected, IHidDeviceInfo Device)> changes = [];
 
         lock (_watchLock)
         {
-            if (_previousSnapshot == null)
+            if (_watchThread == null || _previousSnapshot == null)
             {
-                _previousSnapshot = current;
+                // Stopped while enumerating.
                 return;
             }
 
             HashSet<string> prevPaths = new HashSet<string>(_previousSnapshot.Select(d => d.Path));
             HashSet<string> currPaths = new HashSet<string>(current.Select(d => d.Path));
 
-            // Confirm devices pending from the previous poll that are still present;
+            // Confirm devices pending from the previous scan that are still present;
             // devices that vanished are left for the disconnect pass below.
             foreach (KeyValuePair<string, IHidDeviceInfo> pair in _pendingConnected.ToList())
             {
@@ -281,18 +336,11 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
 
                 _pendingConnected.Remove(pair.Key);
                 _log.Info($"Device connected: {pair.Value.ProductName} (VID=0x{pair.Value.VendorId:X4}, PID=0x{pair.Value.ProductId:X4})");
-                try
-                {
-                    DeviceConnected?.Invoke(this, new DeviceConnectionEventArgs(DeviceChangeType.Connected, pair.Value));
-                }
-                catch (Exception ex)
-                {
-                    _log.Warning($"DeviceConnected handler threw: {ex.Message}");
-                }
+                changes.Add((true, pair.Value));
             }
 
             // First observation of a device: remember it, but only report it after it
-            // is seen again on the next poll, so devices the app itself created and
+            // is seen again on the next scan, so devices the app itself created and
             // then excluded (virtual controllers) never surface as connections.
             foreach (IHidDeviceInfo device in current.Where(device => !prevPaths.Contains(device.Path)))
             {
@@ -310,17 +358,38 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                 }
 
                 _log.Info($"Device disconnected: {device.ProductName} (VID=0x{device.VendorId:X4}, PID=0x{device.ProductId:X4})");
-                try
-                {
-                    DeviceDisconnected?.Invoke(this, new DeviceConnectionEventArgs(DeviceChangeType.Disconnected, device));
-                }
-                catch (Exception ex)
-                {
-                    _log.Warning($"DeviceDisconnected handler threw: {ex.Message}");
-                }
+                changes.Add((false, device));
             }
 
             _previousSnapshot = current;
+        }
+
+        // Raised outside the lock: handlers open devices, which is slow, and may call back into this class.
+        foreach ((bool connected, IHidDeviceInfo device) in changes)
+        {
+            RaiseChange(connected, device);
+        }
+    }
+
+    /// <summary>
+    /// Raises one connection event, keeping a throwing handler from affecting the others.
+    /// </summary>
+    private void RaiseChange(bool connected, IHidDeviceInfo device)
+    {
+        try
+        {
+            if (connected)
+            {
+                DeviceConnected?.Invoke(this, new DeviceConnectionEventArgs(DeviceChangeType.Connected, device));
+            }
+            else
+            {
+                DeviceDisconnected?.Invoke(this, new DeviceConnectionEventArgs(DeviceChangeType.Disconnected, device));
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.Warning($"{(connected ? "DeviceConnected" : "DeviceDisconnected")} handler threw: {ex.Message}");
         }
     }
 
