@@ -41,6 +41,16 @@ public interface IHidDeviceEnumerator : IDisposable
     void StartWatching(int intervalMs = 1000);
 
     /// <summary>
+    /// Starts a background watcher that only looks at devices matching the given vendor/product
+    /// ID pairs. Unrelated HID devices (mice, keyboards) are never opened or queried, which
+    /// matters because some firmware resets when its string descriptors are read repeatedly.
+    /// </summary>
+    /// <remarks>
+    /// The default implementation ignores the filter so existing implementations keep compiling.
+    /// </remarks>
+    void StartWatching(IEnumerable<(ushort VendorId, ushort ProductId)> deviceIds, int intervalMs = 1000) => StartWatching(intervalMs);
+
+    /// <summary>
     /// Stops the background watcher.
     /// </summary>
     void StopWatching();
@@ -98,6 +108,20 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     private Timer? _watcher;
 
     /// <summary>
+    /// VID/PID pairs the watcher is limited to, or <c>null</c> to watch every device.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not cleared by <see cref="StopWatching"/>: a tick that is already running would otherwise
+    /// read <c>null</c> and fall back to enumerating every HID device in the system.
+    /// </remarks>
+    private HashSet<(ushort VendorId, ushort ProductId)>? _watchFilter;
+
+    /// <summary>
+    /// Queries HIDAPI. A field only so tests can supply devices without native hardware or a native library.
+    /// </summary>
+    private readonly Func<ushort?, ushort?, List<IHidDeviceInfo>> _enumerateNative;
+
+    /// <summary>
     /// The last observed set of devices, used to detect connections and disconnections.
     /// </summary>
     private List<IHidDeviceInfo>? _previousSnapshot;
@@ -124,6 +148,22 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     /// Device paths hidden from enumeration results.
     /// </summary>
     private readonly HashSet<string> _excludedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Creates an enumerator that queries HIDAPI.
+    /// </summary>
+    public HidDeviceEnumerator() : this(null)
+    {
+    }
+
+    /// <summary>
+    /// Creates an enumerator with a replacement HIDAPI query, so tests can supply devices.
+    /// </summary>
+    /// <param name="enumerateNative">Replaces the HIDAPI query, or <c>null</c> to use HIDAPI.</param>
+    internal HidDeviceEnumerator(Func<ushort?, ushort?, List<IHidDeviceInfo>>? enumerateNative)
+    {
+        _enumerateNative = enumerateNative ?? new Func<ushort?, ushort?, List<IHidDeviceInfo>>(NativeEnumerate);
+    }
 
     /// <inheritdoc/>
     public void ExcludeDevice(string path)
@@ -161,7 +201,18 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     }
 
     /// <inheritdoc/>
-    public void StartWatching(int intervalMs = 1000)
+    public void StartWatching(int intervalMs = 1000) => StartWatchingCore(null, intervalMs);
+
+    /// <inheritdoc/>
+    public void StartWatching(IEnumerable<(ushort VendorId, ushort ProductId)> deviceIds, int intervalMs = 1000)
+        => StartWatchingCore(new HashSet<(ushort VendorId, ushort ProductId)>(deviceIds), intervalMs);
+
+    /// <summary>
+    /// Starts the polling timer, optionally limited to the given VID/PID pairs.
+    /// </summary>
+    /// <param name="filter">Pairs to watch, or <c>null</c> for every device.</param>
+    /// <param name="intervalMs">Polling interval.</param>
+    private void StartWatchingCore(HashSet<(ushort VendorId, ushort ProductId)>? filter, int intervalMs)
     {
         lock (_watchLock)
         {
@@ -170,8 +221,9 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                 return;
             }
 
-            _log.Debug($"Starting device watcher (interval={intervalMs}ms)");
-            _previousSnapshot = [.. Enumerate()];
+            _log.Debug($"Starting device watcher (interval={intervalMs}ms, filter={(filter == null ? "none" : $"{filter.Count} VID/PID pair(s)")})");
+            _watchFilter = filter;
+            _previousSnapshot = [.. EnumerateCore(filter)];
             _watcher = new Timer(WatchTick, null, intervalMs, intervalMs);
         }
     }
@@ -205,7 +257,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     /// </summary>
     private void WatchTick(object? state)
     {
-        List<IHidDeviceInfo> current = [.. Enumerate()];
+        List<IHidDeviceInfo> current = [.. EnumerateCore(_watchFilter)];
 
         lock (_watchLock)
         {
@@ -272,11 +324,41 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
         }
     }
 
+    /// <summary>
+    /// Shared enumeration: everything when <paramref name="filter"/> is <c>null</c>, otherwise only the given pairs.
+    /// </summary>
+    private IReadOnlyList<IHidDeviceInfo> EnumerateCore(HashSet<(ushort VendorId, ushort ProductId)>? filter)
+    {
+        if (filter == null)
+        {
+            List<IHidDeviceInfo> everything = _enumerateNative(null, null);
+            everything.RemoveAll(device => IsExcluded(device.Path));
+            return FilterConnected(everything);
+        }
+
+        if (filter.Count == 0)
+        {
+            return [];
+        }
+
+        // One native call per vendor instead of enumerating everything: with a non-zero VID HIDAPI only reads
+        // the attributes of other vendors' devices and skips them, rather than opening each one and requesting
+        // its string descriptors. That request stream is what resets some cheap mouse firmware.
+        List<IHidDeviceInfo> all = [];
+        foreach (ushort vendorId in filter.Select(pair => pair.VendorId).Distinct())
+        {
+            all.AddRange(_enumerateNative(vendorId, null));
+        }
+
+        all.RemoveAll(device => IsExcluded(device.Path) || !filter.Contains((device.VendorId, device.ProductId)));
+        return FilterConnected(all);
+    }
+
     /// <inheritdoc/>
     public IReadOnlyList<IHidDeviceInfo> Enumerate(ushort? vendorId = null, ushort? productId = null)
     {
         _log.Debug($"Enumerating devices (vendorId=0x{vendorId:X4}, productId=0x{productId:X4})");
-        List<IHidDeviceInfo> all = NativeEnumerate(vendorId, productId);
+        List<IHidDeviceInfo> all = _enumerateNative(vendorId, productId);
         all.RemoveAll(device => IsExcluded(device.Path));
         return FilterConnected(all);
     }
@@ -285,7 +367,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     public IReadOnlyList<IHidDeviceInfo> EnumerateIncludingExcluded(ushort? vendorId = null, ushort? productId = null)
     {
         _log.Debug($"Enumerating devices including excluded (vendorId=0x{vendorId:X4}, productId=0x{productId:X4})");
-        return FilterConnected(NativeEnumerate(vendorId, productId));
+        return FilterConnected(_enumerateNative(vendorId, productId));
     }
 
     /// <summary>
@@ -347,7 +429,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
             return [];
         }
 
-        List<IHidDeviceInfo> result = Enumerate().Where(d => filter.Contains((d.VendorId, d.ProductId))).ToList();
+        IReadOnlyList<IHidDeviceInfo> result = EnumerateCore(new HashSet<(ushort VendorId, ushort ProductId)>(filter));
         _log.Debug($"Filtered enumerate returned {result.Count} device(s)");
         return result;
     }

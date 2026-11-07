@@ -105,7 +105,8 @@ public sealed class ControllerScanner : IControllerScanner
         _log.Debug($"Starting controller watcher (interval={intervalMs}ms)");
         _enumerator.DeviceConnected += OnDeviceConnected;
         _enumerator.DeviceDisconnected += OnDeviceDisconnected;
-        _enumerator.StartWatching(intervalMs);
+        // Restricted to known controllers so unrelated HID devices (mice, keyboards) are never opened or queried.
+        _enumerator.StartWatching(ControllerFactory.KnownDeviceIds, intervalMs);
         _watching = true;
     }
 
