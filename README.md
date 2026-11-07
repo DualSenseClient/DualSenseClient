@@ -126,14 +126,21 @@ DualSense Client
 
 1. Download `DualSenseClient-linux.zip` or the `DualSenseClient.AppImage` from the [releases page](https://github.com/DualSenseClient/DualSenseClient/releases)
 2. For the zip: extract and run the `DualSenseClient` binary. For the AppImage: mark it executable and run it
-3. To access the controller without root, install a udev rule based on the official [hidapi udev rules](https://github.com/libusb/hidapi/blob/master/udev/69-hid.rules). For the DualSense (VID `054c`), drop a file like `70-dualsense.rules` into `/etc/udev/rules.d/`:
+3. To access the controller without root, install a udev rule based on the official [hidapi udev rules](https://github.com/libusb/hidapi/blob/master/udev/69-hid.rules). The rules below cover the DualSense (`054c:0ce6`) and DualSense Edge (`054c:0df2`) over USB and Bluetooth, and are also available as [`assets/linux/70-dualsense.rules`](assets/linux/70-dualsense.rules). Drop them into `/etc/udev/rules.d/70-dualsense.rules`:
 
 ```
 # HIDAPI/libusb
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0ce6", TAG+="uaccess"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0df2", TAG+="uaccess"
 
-# HIDAPI/hidraw
+# HIDAPI/hidraw over USB
 KERNEL=="hidraw*", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0ce6", TAG+="uaccess"
+KERNEL=="hidraw*", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0df2", TAG+="uaccess"
+
+# HIDAPI/hidraw over Bluetooth. The hidraw node's parent is a HID device named like
+# "0005:054C:0CE6.0003" rather than a USB device, so idVendor/idProduct never match; match the name instead.
+KERNEL=="hidraw*", KERNELS=="*054C:0CE6*", TAG+="uaccess"
+KERNEL=="hidraw*", KERNELS=="*054C:0DF2*", TAG+="uaccess"
 ```
 
 Then replug the controller or run:
