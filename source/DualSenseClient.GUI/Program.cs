@@ -1,5 +1,7 @@
-﻿using Avalonia;
+using Avalonia;
 using System;
+using System.Diagnostics;
+using System.Linq;
 
 namespace DualSenseClient.GUI;
 
@@ -17,8 +19,35 @@ internal sealed class Program
     /// </summary>
     /// <param name="args">Command-line arguments passed to the application.</param>
     [STAThread]
-    public static void Main(string[] args) => BuildAvaloniaApp()
-        .StartWithClassicDesktopLifetime(args);
+    public static void Main(string[] args)
+    {
+        if (args.Contains("--controller-connect"))
+        {
+            using Process current = Process.GetCurrentProcess();
+            foreach (Process process in Process.GetProcessesByName(current.ProcessName))
+            {
+                using (process)
+                {
+                    if (process.Id == current.Id)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        if (process.MainModule?.FileName == Environment.ProcessPath)
+                        {
+                            return;
+                        }
+                    }
+                    catch (System.ComponentModel.Win32Exception) { }
+                    catch (InvalidOperationException) { }
+                }
+            }
+        }
+
+        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+    }
 
     /// <summary>
     /// Configures the Avalonia application builder with platform detection, developer tools (in debug mode),

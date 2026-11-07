@@ -43,6 +43,12 @@ The app provides a system tray icon so it can run in the background.
 | **Start in tray** | Launch the app already hidden to the tray. |
 | **Show battery percentage** | When enabled, the tray icon shows the active controller's battery as plain numbers. When disabled (or no controller has a known battery level), the app icon is shown instead, tinted with the current theme's accent color. |
 
+### Launch when a controller connects (Windows)
+
+Enable **Launch when a controller connects**, then select **Apply controller launch setting**. Windows asks for administrator approval to enable its Bluetooth connection event log. The application registers a least-privilege scheduled task for the current signed-in user and the Bluetooth addresses of controllers already known to the app. Connect a controller in the app first; apply again after adding controllers or moving the executable.
+
+Connection-triggered launches honor the existing **Start in tray** setting. Disable the option and apply to remove the task; the shared Windows event log remains enabled. A controller already connected before sign-in may need reconnecting. USB connections do not trigger the task. If the same executable is already running, a connection-triggered invocation exits without opening another instance.
+
 ### Tray Icon Menu
 
 - **Show** — restores the main window.

@@ -572,4 +572,8 @@
     <sys:String x:Key="AudioSource.Mode.ExecutableFile">Executable file</sys:String>
     <sys:String x:Key="AudioSource.Mode.PlayingApps">Applications playing audio</sys:String>
     <sys:String x:Key="AudioSource.Mode.Title">Application selection</sys:String>
+    <sys:String x:Key="SettingsPage.Window.ControllerLaunch.Title">Launch when a controller connects</sys:String>
+    <sys:String x:Key="SettingsPage.Window.ControllerLaunch.Description">Windows only. Applies to controllers already known to this app; apply again after adding a controller or moving the app. Enabling requires administrator approval for the Bluetooth event log. Uses Start in tray.</sys:String>
+    <sys:String x:Key="SettingsPage.Window.ControllerLaunch.Apply">Apply controller launch setting</sys:String>
+    <sys:String x:Key="SettingsPage.Window.ControllerLaunch.Saved">Controller launch setting applied.</sys:String>
 </ResourceDictionary>

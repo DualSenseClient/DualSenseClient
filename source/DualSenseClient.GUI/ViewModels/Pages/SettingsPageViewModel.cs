@@ -328,6 +328,49 @@ public partial class SettingsPageViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool startInTray;
 
+    public bool IsControllerLaunchSupported
+    {
+        get
+        {
+            return OperatingSystem.IsWindows();
+        }
+    }
+
+    [ObservableProperty] private bool launchOnControllerConnect;
+    [ObservableProperty] private string controllerLaunchStatus = string.Empty;
+
+    [RelayCommand]
+    private async Task ApplyControllerLaunchAsync()
+    {
+        try
+        {
+            ControllerInfoService controllers = App.Services.GetRequiredService<ControllerInfoService>();
+            string executable = Path.Combine(AppContext.BaseDirectory, "DualSenseClient.exe");
+            if (!File.Exists(executable))
+            {
+                throw new InvalidOperationException("Use a Windows build of DualSense Client to enable controller launch.");
+            }
+
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
+            await Launch.ControllerLaunchTask.ApplyAsync(LaunchOnControllerConnect, executable,
+                System.Security.Principal.WindowsIdentity.GetCurrent().User!.Value,
+                controllers.Settings.Controllers.Select(controller => controller.MacAddress));
+            _settingsService.Settings.Ui.LaunchOnControllerConnect = LaunchOnControllerConnect;
+            _settingsService.SaveSettings();
+            ControllerLaunchStatus = LocalizationService.GetText("SettingsPage.Window.ControllerLaunch.Saved");
+        }
+        catch (Exception ex)
+        {
+            ControllerLaunchStatus = ex.Message;
+            _log.Error($"Controller launch registration failed: {ex.Message}");
+        }
+    }
+
+
     /// <summary>
     /// Called after <see cref="StartInTray"/> changes. Persists the choice to settings.
     /// </summary>
@@ -712,6 +755,7 @@ public partial class SettingsPageViewModel : ObservableObject
         // Tray behavior
         CloseToTray = _settingsService.Settings.Ui.CloseToTray;
         StartInTray = _settingsService.Settings.Ui.StartInTray;
+        LaunchOnControllerConnect = _settingsService.Settings.Ui.LaunchOnControllerConnect;
         ShowBatteryPercentage = _settingsService.Settings.Ui.ShowBatteryPercentage;
 
         // Notifications
