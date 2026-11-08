@@ -86,10 +86,10 @@ For bug reports and feature requests, [open an issue](https://github.com/DualSen
 - **Translating**: add a language file under `source/DualSenseClient.GUI/Resources/Language/` — instructions in the [Contributing Guide](https://github.com/DualSenseClient/DualSenseClient/blob/main/docs/CONTRIBUTING.md#translating)
 - **Custom themes**: copy the theme template and register it — instructions in the [Contributing Guide](https://github.com/DualSenseClient/DualSenseClient/blob/main/docs/CONTRIBUTING.md#creating-custom-themes)
 
-These documentation pages are built with [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/) from the Markdown files in `docs/` and deployed to GitHub Pages. To preview them locally:
+These documentation pages are built with [Zensical](https://zensical.org/) from the Markdown files in `docs/` and deployed to GitHub Pages. To preview them locally:
 
 ```bash
 pip install -r requirements.txt
-mkdocs serve
+zensical serve
 ```
 

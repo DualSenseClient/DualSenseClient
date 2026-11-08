@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - "docs/**"
-      - "mkdocs.yml"
+      - "zensical.toml"
       - "requirements.txt"
       - ".github/workflows/deploy_docs.yml"
   workflow_dispatch:
