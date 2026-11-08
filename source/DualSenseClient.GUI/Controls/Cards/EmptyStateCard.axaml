@@ -1,7 +1,8 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ic="using:FluentIcons.Avalonia.Fluent"
         xmlns:local="clr-namespace:DualSenseClient.GUI.Controls.Cards">
-    <!-- EmptyStateCard: Card displaying a title and description for empty states.
+    <!-- EmptyStateCard: Centered card displaying an icon, title, and description for empty states.
          Uses the same border/background colors as CustomCard. -->
     <Style Selector="local|EmptyStateCard">
         <Setter Property="Template">
@@ -10,15 +11,28 @@
                         Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
                         BorderThickness="2"
                         CornerRadius="4"
-                        MinHeight="44"
-                        Padding="12">
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="{TemplateBinding Title}"
-                                   FontWeight="SemiBold" />
-                        <TextBlock Text="{TemplateBinding Description}"
-                                   FontSize="12"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                   TextWrapping="Wrap" />
+                        MinWidth="320"
+                        MaxWidth="420"
+                        Padding="32,28">
+                    <StackPanel Spacing="16"
+                                HorizontalAlignment="Center">
+                        <ic:FluentIcon Icon="{TemplateBinding Icon}"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       IconSize="Size48"
+                                       IconVariant="Regular" />
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{TemplateBinding Title}"
+                                       FontSize="20"
+                                       FontWeight="SemiBold"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Text="{TemplateBinding Description}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
                     </StackPanel>
                 </Border>
             </ControlTemplate>

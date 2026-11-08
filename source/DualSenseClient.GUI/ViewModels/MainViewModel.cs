@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
@@ -61,6 +62,18 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// Controllers discovered while scanning, shown in the title bar combobox.
     /// </summary>
     public ObservableCollection<ControllerItem> Controllers { get; } = new ObservableCollection<ControllerItem>();
+
+    /// <summary>
+    /// Whether at least one controller is listed. Controls whether the title bar shows
+    /// the controller picker or the no-controllers message.
+    /// </summary>
+    public bool HasControllers
+    {
+        get
+        {
+            return Controllers.Count > 0;
+        }
+    }
 
     /// <summary>
     /// The controller selected in the title bar combobox.
@@ -130,6 +143,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _scanner.ControllerConnected += OnControllerConnected;
         _scanner.ControllerDisconnected += OnControllerDisconnected;
         _controllerService.ControllersChanged += OnControllersChanged;
+        Controllers.CollectionChanged += OnControllersCollectionChanged;
     }
 
     /// <summary>
@@ -427,6 +441,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
+    /// Refreshes <see cref="HasControllers"/> when a controller is added to or removed
+    /// from the list.
+    /// </summary>
+    private void OnControllersCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => OnPropertyChanged(nameof(HasControllers));
+
+    /// <summary>
     /// Unsubscribes from events, untracks and disposes the owned controllers, and
     /// clears the selection.
     /// </summary>
@@ -441,6 +461,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _scanner.ControllerConnected -= OnControllerConnected;
         _scanner.ControllerDisconnected -= OnControllerDisconnected;
         _controllerService.ControllersChanged -= OnControllersChanged;
+        Controllers.CollectionChanged -= OnControllersCollectionChanged;
 
         foreach (ControllerItem item in Controllers)
         {

@@ -15,6 +15,7 @@
     <sys:String x:Key="MainWindow.Customization">Customization</sys:String>
     <sys:String x:Key="MainWindow.Devices">Device Info</sys:String>
     <sys:String x:Key="MainWindow.Emulation">Emulation</sys:String>
+    <sys:String x:Key="MainWindow.NoControllers">No controllers connected</sys:String>
     <sys:String x:Key="MainWindow.Settings">Settings</sys:String>
     <sys:String x:Key="MainWindow.Title">DualSense Client</sys:String>
     <!-- DisconnectController -->
