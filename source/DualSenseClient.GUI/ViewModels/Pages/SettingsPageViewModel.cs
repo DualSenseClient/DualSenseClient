@@ -339,9 +339,22 @@ public partial class SettingsPageViewModel : ObservableObject
     [ObservableProperty] private bool launchOnControllerConnect;
     [ObservableProperty] private string controllerLaunchStatus = string.Empty;
 
-    [RelayCommand]
-    private async Task ApplyControllerLaunchAsync()
+    [ObservableProperty] private bool isControllerLaunchBusy;
+
+    partial void OnLaunchOnControllerConnectChanged(bool oldValue, bool newValue)
     {
+        if (_suppressUpdates || oldValue == newValue)
+        {
+            return;
+        }
+
+        _ = ApplyControllerLaunchAsync(newValue);
+    }
+
+    private async Task ApplyControllerLaunchAsync(bool enabled)
+    {
+        IsControllerLaunchBusy = true;
+        ControllerLaunchStatus = string.Empty;
         try
         {
             ControllerInfoService controllers = App.Services.GetRequiredService<ControllerInfoService>();
@@ -356,18 +369,21 @@ public partial class SettingsPageViewModel : ObservableObject
                 return;
             }
 
-            await Launch.ControllerLaunchTask.ApplyAsync(LaunchOnControllerConnect, executable,
+            await Launch.ControllerLaunchTask.ApplyAsync(enabled, executable,
                 System.Security.Principal.WindowsIdentity.GetCurrent().User!.Value,
                 controllers.Settings.Controllers.Select(controller => controller.MacAddress));
-            _settingsService.Settings.Ui.LaunchOnControllerConnect = LaunchOnControllerConnect;
+            _settingsService.Settings.Ui.LaunchOnControllerConnect = enabled;
             _settingsService.SaveSettings();
-            ControllerLaunchStatus = LocalizationService.GetText("SettingsPage.Window.ControllerLaunch.Saved");
         }
         catch (Exception ex)
         {
             ControllerLaunchStatus = ex.Message;
             _log.Error($"Controller launch registration failed: {ex.Message}");
+            _suppressUpdates = true;
+            try { LaunchOnControllerConnect = _settingsService.Settings.Ui.LaunchOnControllerConnect; }
+            finally { _suppressUpdates = false; }
         }
+        finally { IsControllerLaunchBusy = false; }
     }
 
 
