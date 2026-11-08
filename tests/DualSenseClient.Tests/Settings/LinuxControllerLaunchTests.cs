@@ -117,6 +117,20 @@ public class LinuxControllerLaunchTests
     }
 
     [Test]
+    public void InstanceLockPreventsAnotherThreadAndReleasesAfterExit()
+    {
+        string name = "DualSenseClient-test-" + Guid.NewGuid();
+        using (UserAppInstance first = new(name))
+        {
+            Assert.That(first.Acquired, Is.True);
+            bool competitor = Task.Run(() => { using UserAppInstance other = new(name); return other.Acquired; }).GetAwaiter().GetResult();
+            Assert.That(competitor, Is.False);
+        }
+        using UserAppInstance afterExit = new(name);
+        Assert.That(afterExit.Acquired, Is.True);
+    }
+
+    [Test]
     public void AppImageUsesPermanentPathInsteadOfMount()
     {
         Directory.CreateDirectory(_home);

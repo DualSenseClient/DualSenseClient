@@ -23,23 +23,8 @@ internal sealed class Program
     {
         // Every Linux instance owns the same user-scoped lock, including manual
         // launches. A connection launch never sends an activation/window message.
-        using System.Threading.Mutex? instance = OperatingSystem.IsLinux()
-            ? new System.Threading.Mutex(false, "DualSenseClient-" + Environment.UserName)
-            : null;
-        bool ownsInstance = false;
-        if (instance != null)
-        {
-            try { ownsInstance = instance.WaitOne(0); }
-            catch (System.Threading.AbandonedMutexException) { ownsInstance = true; }
-
-            if (!ownsInstance)
-            {
-                return;
-            }
-        }
-
-        try
-        {
+        using Launch.UserAppInstance? instance = OperatingSystem.IsLinux() ? new Launch.UserAppInstance() : null;
+        if (instance is { Acquired: false }) return;
             if (OperatingSystem.IsWindows() && args.Contains("--controller-connect"))
             {
                 using Process current = Process.GetCurrentProcess();
@@ -66,14 +51,7 @@ internal sealed class Program
             }
 
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
-        }
-        finally
-        {
-            if (ownsInstance)
-            {
-                instance!.ReleaseMutex();
-            }
-        }
+
     }
 
     /// <summary>
