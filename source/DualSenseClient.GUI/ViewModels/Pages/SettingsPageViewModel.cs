@@ -360,20 +360,30 @@ public partial class SettingsPageViewModel : ObservableObject
             ControllerInfoService controllers = App.Services.GetRequiredService<ControllerInfoService>();
             if (OperatingSystem.IsLinux())
             {
-                string[] command = enabled ? Launch.LinuxControllerLaunch.ResolveCommand(
-                    Environment.GetEnvironmentVariable("APPIMAGE"), Environment.ProcessPath!, typeof(App).Assembly.Location) : [];
+                string[] command = enabled
+                    ? Launch.LinuxControllerLaunch.ResolveCommand(
+                        Environment.GetEnvironmentVariable("APPIMAGE"), Environment.ProcessPath!, Path.Combine(AppContext.BaseDirectory, "DualSenseClient.dll"))
+                    : [];
                 await new Launch.LinuxControllerLaunch().ApplyAsync(enabled, command,
                     controllers.Settings.Controllers.Select(controller => controller.MacAddress));
             }
             else if (OperatingSystem.IsWindows())
             {
                 string executable = Path.Combine(AppContext.BaseDirectory, "DualSenseClient.exe");
-                if (!File.Exists(executable)) throw new InvalidOperationException("Use an installed Windows build to enable controller launch.");
+                if (!File.Exists(executable))
+                {
+                    throw new InvalidOperationException("Use an installed Windows build to enable controller launch.");
+                }
+
                 await Launch.ControllerLaunchTask.ApplyAsync(enabled, executable,
                     System.Security.Principal.WindowsIdentity.GetCurrent().User!.Value,
                     controllers.Settings.Controllers.Select(controller => controller.MacAddress));
             }
-            else throw new PlatformNotSupportedException();
+            else
+            {
+                throw new PlatformNotSupportedException();
+            }
+
             bool previous = _settingsService.Settings.Ui.LaunchOnControllerConnect;
             _settingsService.Settings.Ui.LaunchOnControllerConnect = enabled;
             try { _settingsService.SaveSettingsChecked(); }
@@ -383,9 +393,11 @@ public partial class SettingsPageViewModel : ObservableObject
                 if (OperatingSystem.IsLinux())
                 {
                     await new Launch.LinuxControllerLaunch().ApplyAsync(previous,
-                        Launch.LinuxControllerLaunch.ResolveCommand(Environment.GetEnvironmentVariable("APPIMAGE"), Environment.ProcessPath!, typeof(App).Assembly.Location),
+                        Launch.LinuxControllerLaunch.ResolveCommand(Environment.GetEnvironmentVariable("APPIMAGE"), Environment.ProcessPath!,
+                            Path.Combine(AppContext.BaseDirectory, "DualSenseClient.dll")),
                         controllers.Settings.Controllers.Select(controller => controller.MacAddress));
                 }
+
                 throw;
             }
         }
@@ -402,6 +414,7 @@ public partial class SettingsPageViewModel : ObservableObject
                 }
                 catch (Exception stateError) { ControllerLaunchStatus += " Saved state could not be reconciled: " + stateError.Message; }
             }
+
             _log.Error($"Controller launch registration failed: {ex.Message}");
             _suppressUpdates = true;
             try { LaunchOnControllerConnect = _settingsService.Settings.Ui.LaunchOnControllerConnect; }
@@ -734,12 +747,17 @@ public partial class SettingsPageViewModel : ObservableObject
         {
             _suppressUpdates = false;
         }
+
         _ = RefreshControllerLaunchStateAsync();
     }
 
     private async Task RefreshControllerLaunchStateAsync()
     {
-        if (!OperatingSystem.IsLinux() || IsControllerLaunchBusy) return;
+        if (!OperatingSystem.IsLinux() || IsControllerLaunchBusy)
+        {
+            return;
+        }
+
         IsControllerLaunchBusy = true;
         try
         {

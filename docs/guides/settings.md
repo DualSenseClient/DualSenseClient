@@ -43,11 +43,46 @@ The app provides a system tray icon so it can run in the background.
 | **Start in tray** | Launch the app already hidden to the tray. |
 | **Show battery percentage** | When enabled, the tray icon shows the active controller's battery as plain numbers. When disabled (or no controller has a known battery level), the app icon is shown instead, tinted with the current theme's accent color. |
 
-### Launch when a controller connects (Windows)
+### Launch when a controller connects (Windows and Linux)
 
-Toggle **Launch when a controller connects** to apply the setting immediately. Windows asks for administrator approval to enable its Bluetooth connection event log. The application registers a least-privilege scheduled task for the current signed-in user and the Bluetooth addresses of controllers already known to the app. Connect a controller in the app first; toggle off and on after adding controllers or moving the executable.
+Toggle **Launch when a controller connects** to apply the setting immediately.
+Open the app when a paired controller connects. Uses Start in tray.
 
-Connection-triggered launches honor the existing **Start in tray** setting. Disable the option to remove the task; the shared Windows event log remains enabled. A controller already connected before sign-in may need reconnecting. USB connections do not trigger the task. If the same executable is already running, a connection-triggered invocation exits without opening another instance.
+Disconnecting leaves the app running. Reconnecting leaves the existing process
+and hidden window alone. After you choose **Exit**, the next connection launches
+the app again. Disabling the toggle removes its automation without quitting the
+app. Registration and settings-save failures show an error and reconcile the
+toggle with the applied service state.
+
+On **Windows**, initial setup asks for administrator approval to enable the
+Bluetooth event log. A least-privilege current-user scheduled task filters events
+to controller addresses already known to the app. Ordinary launches need no
+administrator prompt. Disabling removes the task; the shared event log stays
+enabled. A controller already connected before sign-in may need reconnecting.
+
+On **Linux**, install BlueZ (`bluetoothctl`), Python 3 and a desktop with a systemd
+user manager. Pair a Bluetooth DualSense first. The app discovers paired DualSense
+controllers and paired addresses previously known to the app. It installs its
+bundled watcher, configuration and a per-user `dualsense-controller-launch.service`;
+no checkout or manual service creation is needed. An XDG desktop autostart entry
+imports the fresh graphical session environment at sign-in and starts the watcher.
+It also handles a controller already connected at startup. Setup and ordinary
+launches run as your user without administrator prompts. Normal HID device
+permissions still apply independently of connection launch.
+
+The watcher is copied to `~/.local/share/DualSenseClient/controller-launch/`.
+The unit is `~/.config/systemd/user/dualsense-controller-launch.service`; the
+session entry is `~/.config/autostart/dualsense-controller-launch.desktop`.
+Inspect failures with `journalctl --user -u dualsense-controller-launch.service`.
+The setting retires the earlier `dualsense-session@*.service` instances when
+successfully enabled. Disabling removes the managed unit and desktop entry.
+
+Enable the setting from the permanent installed executable or AppImage location.
+AppImage registrations use the original AppImage, never its temporary mount.
+Paths with spaces are supported. Toggle off and on after moving the installation
+or adding a controller. USB connections do not trigger this feature. Linux uses a
+user-scoped instance lock shared by manual and connection launches; another launch
+exits without restoring the window.
 
 ### Tray Icon Menu
 

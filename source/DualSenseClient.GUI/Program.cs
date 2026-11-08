@@ -24,44 +24,56 @@ internal sealed class Program
         // Every Linux instance owns the same user-scoped lock, including manual
         // launches. A connection launch never sends an activation/window message.
         using System.Threading.Mutex? instance = OperatingSystem.IsLinux()
-            ? new System.Threading.Mutex(false, "DualSenseClient-" + Environment.UserName) : null;
+            ? new System.Threading.Mutex(false, "DualSenseClient-" + Environment.UserName)
+            : null;
         bool ownsInstance = false;
         if (instance != null)
         {
             try { ownsInstance = instance.WaitOne(0); }
             catch (System.Threading.AbandonedMutexException) { ownsInstance = true; }
-            if (!ownsInstance) return;
-        }
-        try
-        {
-        if (args.Contains("--controller-connect"))
-        {
-            using Process current = Process.GetCurrentProcess();
-            foreach (Process process in Process.GetProcessesByName(current.ProcessName))
-            {
-                using (process)
-                {
-                    if (process.Id == current.Id)
-                    {
-                        continue;
-                    }
 
-                    try
-                    {
-                        if (process.MainModule?.FileName == Environment.ProcessPath)
-                        {
-                            return;
-                        }
-                    }
-                    catch (System.ComponentModel.Win32Exception) { }
-                    catch (InvalidOperationException) { }
-                }
+            if (!ownsInstance)
+            {
+                return;
             }
         }
 
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        try
+        {
+            if (OperatingSystem.IsWindows() && args.Contains("--controller-connect"))
+            {
+                using Process current = Process.GetCurrentProcess();
+                foreach (Process process in Process.GetProcessesByName(current.ProcessName))
+                {
+                    using (process)
+                    {
+                        if (process.Id == current.Id)
+                        {
+                            continue;
+                        }
+
+                        try
+                        {
+                            if (process.MainModule?.FileName == Environment.ProcessPath)
+                            {
+                                return;
+                            }
+                        }
+                        catch (System.ComponentModel.Win32Exception) { }
+                        catch (InvalidOperationException) { }
+                    }
+                }
+            }
+
+            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         }
-        finally { if (ownsInstance) instance!.ReleaseMutex(); }
+        finally
+        {
+            if (ownsInstance)
+            {
+                instance!.ReleaseMutex();
+            }
+        }
     }
 
     /// <summary>
