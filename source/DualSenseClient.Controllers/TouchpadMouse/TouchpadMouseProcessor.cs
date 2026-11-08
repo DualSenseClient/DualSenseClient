@@ -74,6 +74,24 @@ public sealed class TouchpadMouseProcessor
     /// <summary>Tracking identifier of the second slot in the previous sample, or 0 when inactive.</summary>
     private byte _trackingId2;
 
+    /// <summary>
+    /// Tracking identifier of the finger that stays anchored while two fingers drag, or 0
+    /// when no two-finger touch is active.
+    /// </summary>
+    private byte _anchorTrackingId;
+
+    /// <summary>
+    /// Tracking identifier of the second finger, which moves the pointer while the physical
+    /// pad button is held, or 0 when no two-finger touch is active.
+    /// </summary>
+    private byte _dragTrackingId;
+
+    /// <summary>Horizontal position of the drag finger in the previous sample.</summary>
+    private double _lastDragX;
+
+    /// <summary>Vertical position of the drag finger in the previous sample.</summary>
+    private double _lastDragY;
+
     /// <summary>Horizontal centroid of the previous sample.</summary>
     private double _lastCentroidX;
 
@@ -236,7 +254,7 @@ public sealed class TouchpadMouseProcessor
                 _suppressTap = true;
             }
 
-            Rebase(activeCount, trackingId1, trackingId2, centroidX, centroidY, timestampMs);
+            Rebase(activeCount, trackingId1, trackingId2, centroidX, centroidY, timestampMs, touch1, touch2);
             return;
         }
 
@@ -275,7 +293,15 @@ public sealed class TouchpadMouseProcessor
                 _twoFingerTapEligible = false;
             }
 
-            Rebase(activeCount, trackingId1, trackingId2, centroidX, centroidY, timestampMs);
+            Rebase(activeCount, trackingId1, trackingId2, centroidX, centroidY, timestampMs, touch1, touch2);
+            return;
+        }
+
+        if (padPressedChanged)
+        {
+            // Switching between scrolling and dragging changes which reference drives the
+            // pointer, so that report only rebases and never emits a jump.
+            Rebase(activeCount, trackingId1, trackingId2, centroidX, centroidY, timestampMs, touch1, touch2);
             return;
         }
 
@@ -284,10 +310,23 @@ public sealed class TouchpadMouseProcessor
             return;
         }
 
-        double rawDx = centroidX - _lastCentroidX;
-        double rawDy = centroidY - _lastCentroidY;
-        _lastCentroidX = centroidX;
-        _lastCentroidY = centroidY;
+        double rawDx;
+        double rawDy;
+        if (activeCount == 2 && _padPressed)
+        {
+            GetDragPoint(touch1, touch2, out double dragX, out double dragY);
+            rawDx = dragX - _lastDragX;
+            rawDy = dragY - _lastDragY;
+            _lastDragX = dragX;
+            _lastDragY = dragY;
+        }
+        else
+        {
+            rawDx = centroidX - _lastCentroidX;
+            rawDy = centroidY - _lastCentroidY;
+            _lastCentroidX = centroidX;
+            _lastCentroidY = centroidY;
+        }
 
         _pendingRawX += rawDx;
         _pendingRawY += rawDy;
@@ -306,7 +345,7 @@ public sealed class TouchpadMouseProcessor
         // must not consume the tap budget or latch scrolling without emitting any motion.
         _touchTravel += Math.Sqrt(dx * dx + dy * dy);
 
-        if (activeCount == 2 && _touchTravel > ScrollStartTravelUnits)
+        if (activeCount == 2 && !_padPressed && _touchTravel > ScrollStartTravelUnits)
         {
             _scrollActive = true;
         }
@@ -320,7 +359,13 @@ public sealed class TouchpadMouseProcessor
 
         if (activeCount == 2)
         {
-            if (_scrollActive)
+            if (_padPressed)
+            {
+                // With the physical button held, the second finger drives the pointer while
+                // the first finger anchors the touch, so the drag does not also scroll.
+                ApplyPointer(dx, dy, deltaMs);
+            }
+            else if (_scrollActive)
             {
                 ApplyScroll(dx, dy);
             }
@@ -333,6 +378,18 @@ public sealed class TouchpadMouseProcessor
             return;
         }
 
+        ApplyPointer(dx, dy, deltaMs);
+    }
+
+    /// <summary>
+    /// Emits pointer movement for the given gated delta, applying the configured speed and
+    /// the mild velocity-based acceleration.
+    /// </summary>
+    /// <param name="dx">Horizontal movement since the previous emitted report.</param>
+    /// <param name="dy">Vertical movement since the previous emitted report.</param>
+    /// <param name="deltaMs">Time since the previous emitted report, in milliseconds.</param>
+    private void ApplyPointer(double dx, double dy, long deltaMs)
+    {
         double distance = Math.Sqrt(dx * dx + dy * dy);
         double instantaneousVelocity = distance / deltaMs;
         _velocity = VelocityRetention * _velocity + VelocityWeight * instantaneousVelocity;
@@ -374,6 +431,9 @@ public sealed class TouchpadMouseProcessor
             // A press suppresses tap resolution for the current touch and cancels any
             // pending two-finger tap; dragging comes from movement while held.
             _twoFingerTapEligible = false;
+            _scrollActive = false;
+            _scrollResidualY = 0;
+            _scrollResidualX = 0;
             if (_activeCount > 0 || activeCount > 0)
             {
                 _physicalClickDuringTouch = true;
@@ -500,6 +560,10 @@ public sealed class TouchpadMouseProcessor
         _scrollActive = false;
         _scrollResidualY = 0;
         _scrollResidualX = 0;
+        _anchorTrackingId = 0;
+        _dragTrackingId = 0;
+        _lastDragX = 0;
+        _lastDragY = 0;
     }
 
     /// <summary>
@@ -512,13 +576,17 @@ public sealed class TouchpadMouseProcessor
     /// <param name="centroidX">Horizontal centroid of the new sample.</param>
     /// <param name="centroidY">Vertical centroid of the new sample.</param>
     /// <param name="timestampMs">Timestamp of the new sample in milliseconds.</param>
+    /// <param name="touch1">The first touch point of the new sample.</param>
+    /// <param name="touch2">The second touch point of the new sample.</param>
     private void Rebase(
         int activeCount,
         byte trackingId1,
         byte trackingId2,
         double centroidX,
         double centroidY,
-        long timestampMs)
+        long timestampMs,
+        TouchPoint touch1,
+        TouchPoint touch2)
     {
         _activeCount = activeCount;
         _trackingId1 = trackingId1;
@@ -531,5 +599,68 @@ public sealed class TouchpadMouseProcessor
         _pendingRawY = 0;
         _scrollResidualY = 0;
         _scrollResidualX = 0;
+
+        if (activeCount == 0)
+        {
+            _anchorTrackingId = 0;
+            _dragTrackingId = 0;
+            _lastDragX = 0;
+            _lastDragY = 0;
+        }
+        else if (activeCount == 1)
+        {
+            _anchorTrackingId = trackingId1 != 0 ? trackingId1 : trackingId2;
+            _dragTrackingId = 0;
+            _lastDragX = 0;
+            _lastDragY = 0;
+        }
+        else
+        {
+            // Keep the finger that was already down as the anchor and use the other finger
+            // as the drag pointer. A fresh two-finger contact (or a tracking-ID change) has
+            // no previous anchor, so the first slot becomes the anchor.
+            if (_anchorTrackingId != trackingId1 && _anchorTrackingId != trackingId2)
+            {
+                _anchorTrackingId = trackingId1;
+            }
+
+            _dragTrackingId = _anchorTrackingId == trackingId1 ? trackingId2 : trackingId1;
+            GetDragPoint(touch1, touch2, out _lastDragX, out _lastDragY);
+        }
+    }
+
+    /// <summary>
+    /// Resolves the position of the drag finger: the second finger when it is active, or the
+    /// remaining finger when only one is down.
+    /// </summary>
+    /// <param name="touch1">The first touch point of the sample.</param>
+    /// <param name="touch2">The second touch point of the sample.</param>
+    /// <param name="x">Receives the drag finger's horizontal position.</param>
+    /// <param name="y">Receives the drag finger's vertical position.</param>
+    private void GetDragPoint(TouchPoint touch1, TouchPoint touch2, out double x, out double y)
+    {
+        if (touch1.IsActive && touch1.TrackingId == _dragTrackingId)
+        {
+            x = touch1.X;
+            y = touch1.Y;
+            return;
+        }
+
+        if (touch2.IsActive && touch2.TrackingId == _dragTrackingId)
+        {
+            x = touch2.X;
+            y = touch2.Y;
+            return;
+        }
+
+        if (touch2.IsActive)
+        {
+            x = touch2.X;
+            y = touch2.Y;
+            return;
+        }
+
+        x = touch1.X;
+        y = touch1.Y;
     }
 }

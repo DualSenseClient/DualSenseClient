@@ -29,10 +29,11 @@ The options below the switch stay disabled until the feature is on:
 | One-finger slide | Moves the Windows pointer                          |
 | One-finger tap   | Left click                                         |
 | Touchpad press   | Left click — hold the button down and move to drag |
+| Press + second finger | Hold the pad with one finger; move a second finger to drag |
 | Two-finger tap   | Right click                                        |
 | Two-finger slide | Scrolls vertically and horizontally                |
 
-A tap is a quick touch and lift; sliding a finger only moves the pointer and does not click. While two fingers are on the touchpad the pointer stays still, and a two-finger slide scrolls instead. A physical press clicks immediately, and keeping it held while you move drags.
+A tap is a quick touch and lift; sliding a finger only moves the pointer and does not click. While two fingers are on the touchpad without a press, the pointer stays still and a two-finger slide scrolls instead. A physical press clicks immediately, and keeping it held while you move drags. You can also keep one finger on the pad to anchor the press and drag with a second finger; while the pad is held, two-finger movement drags instead of scrolling.
 
 ## Touchpad Special Actions
 

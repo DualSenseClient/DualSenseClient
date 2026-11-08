@@ -448,6 +448,95 @@ public class TouchpadMouseProcessorTests
     }
 
     [Test]
+    public void Process_PadPressed_TwoFingers_DragFollowsSecondFinger()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State(), false, 0);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), false, 10);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), true, 20);
+        processor.Process(TouchpadMouseTestData.State((100, 100), (200, 200)), true, 30);
+        processor.Process(TouchpadMouseTestData.State((100, 100), (210, 205)), true, 40);
+
+        Assert.That(injector.Calls, Is.EqualTo(new[]
+        {
+            "LeftDown", "Move(10,5)"
+        }));
+        Assert.That(injector.Wheels, Is.Empty);
+    }
+
+    [Test]
+    public void Process_PadPressed_TwoFingers_AnchorMovementDoesNotMovePointer()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State(), false, 0);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), false, 10);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), true, 20);
+        processor.Process(TouchpadMouseTestData.State((100, 100), (200, 200)), true, 30);
+        processor.Process(TouchpadMouseTestData.State((150, 150), (200, 200)), true, 40);
+
+        Assert.That(injector.Moves, Is.Empty);
+
+        processor.Process(TouchpadMouseTestData.State((150, 150), (210, 205)), true, 50);
+
+        Assert.That(injector.Moves, Has.Count.EqualTo(1));
+        Assert.That(injector.Moves[0], Is.EqualTo((10, 5)));
+    }
+
+    [Test]
+    public void Process_PressWhileScrolling_SwitchesFromScrollToDrag()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State(), false, 0);
+        processor.Process(TouchpadMouseTestData.State((500, 500), (600, 500)), false, 10);
+        processor.Process(TouchpadMouseTestData.State((500, 550), (600, 550)), false, 20);
+        Assert.That(injector.Wheels, Is.Not.Empty);
+
+        processor.Process(TouchpadMouseTestData.State((500, 550), (600, 550)), true, 30);
+        int wheelsBeforeDrag = injector.Wheels.Count;
+
+        processor.Process(TouchpadMouseTestData.State((500, 550), (610, 555)), true, 40);
+
+        Assert.That(injector.Wheels, Has.Count.EqualTo(wheelsBeforeDrag));
+        Assert.That(injector.Moves, Has.Count.EqualTo(1));
+        Assert.That(injector.Moves[0], Is.EqualTo((10, 5)));
+    }
+
+    [Test]
+    public void Process_PadReleased_TwoFingers_ResumesScrolling()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State(), false, 0);
+        processor.Process(TouchpadMouseTestData.State((500, 500), (600, 500)), false, 10);
+        processor.Process(TouchpadMouseTestData.State((500, 500), (600, 500)), true, 20);
+        processor.Process(TouchpadMouseTestData.State((500, 500), (600, 550)), true, 30);
+
+        Assert.That(injector.Wheels, Is.Empty);
+        Assert.That(injector.Moves, Is.Not.Empty);
+
+        processor.Process(TouchpadMouseTestData.State((500, 500), (600, 550)), false, 40);
+        processor.Process(TouchpadMouseTestData.State((500, 520), (600, 570)), false, 50);
+
+        Assert.That(injector.Wheels, Is.Not.Empty);
+    }
+
+    [Test]
+    public void Process_PadPressed_AnchorLifts_RemainingFingerContinuesTheDrag()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State(), false, 0);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), false, 10);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), true, 20);
+        processor.Process(TouchpadMouseTestData.State((100, 100), (200, 200)), true, 30);
+        processor.Process(TouchpadMouseTestData.State((200, 200)), true, 40);
+        processor.Process(TouchpadMouseTestData.State((210, 205)), true, 50);
+
+        Assert.That(injector.Calls, Is.EqualTo(new[]
+        {
+            "LeftDown", "Move(10,5)"
+        }));
+    }
+
+    [Test]
     public void Process_OneFingerRestJitter_StillLeftClicks()
     {
         TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
