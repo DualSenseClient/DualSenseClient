@@ -94,6 +94,7 @@ DualSense Client
 - Per-controller emulation settings applied on connection, adjustable from the **Emulation** page or the tray menu (currently Windows-only)
 - DualSense output exposes haptics, adaptive triggers, and audio interfaces to the host; host audio can be forwarded to the physical controller's speaker or headset with volume and haptic-strength controls
 - Choose the forwarded audio source: virtual controller audio, system-output loopback, or a specific application (Windows 11)
+- Use the DualSense touchpad as a Windows mouse (pointer, tap-to-click, two-finger right-click and scrolling)
 - Powered by the built-in **Emulation** engine, which only requires the USB/IP driver on the host system
 
 ### Controller Hiding

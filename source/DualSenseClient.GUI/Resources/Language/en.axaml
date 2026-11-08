@@ -422,6 +422,16 @@
     <sys:String x:Key="EmulationPage.Passthroughs.Title">Passthroughs</sys:String>
     <sys:String x:Key="EmulationPage.Passthroughs.Triggers">Adaptive triggers</sys:String>
     <sys:String x:Key="EmulationPage.Passthroughs.Triggers.Description">Forward the game's adaptive trigger effects to the physical controller.</sys:String>
+    <!-- Touchpad mouse -->
+    <sys:String x:Key="EmulationPage.TouchpadMouse.Title">Touchpad Mouse</sys:String>
+    <sys:String x:Key="EmulationPage.TouchpadMouse.Description">Use this controller's touchpad as a laptop-style mouse. Special actions triggered by the touchpad are paused while this is on. Windows only.</sys:String>
+    <sys:String x:Key="EmulationPage.TouchpadMouse.Hint">One finger moves the pointer. Tap to click, two-finger tap to right-click, two-finger slide to scroll. Press to click and drag.</sys:String>
+    <sys:String x:Key="EmulationPage.TouchpadMouse.PointerSpeed">Pointer speed</sys:String>
+    <sys:String x:Key="EmulationPage.TouchpadMouse.PointerSpeed.Description">How far the pointer moves for a given finger movement.</sys:String>
+    <sys:String x:Key="EmulationPage.TouchpadMouse.ScrollSpeed">Scroll speed</sys:String>
+    <sys:String x:Key="EmulationPage.TouchpadMouse.ScrollSpeed.Description">How far the page scrolls for a given two-finger movement.</sys:String>
+    <sys:String x:Key="EmulationPage.TouchpadMouse.NaturalScrolling">Natural scrolling</sys:String>
+    <sys:String x:Key="EmulationPage.TouchpadMouse.NaturalScrolling.Description">Move two fingers down to move the content down, like a touchscreen.</sys:String>
 
     <!-- AutoProfilesPage -->
     <!-- AudioSource -->
