@@ -48,7 +48,7 @@ public class UiSettings
     [JsonPropertyName("startInTray")]
     public bool StartInTray { get; set; }
 
-    /// <summary>Whether Windows launches the app when a known Bluetooth controller connects.</summary>
+    /// <summary>Whether the desktop launches the app when a known Bluetooth controller connects.</summary>
     [JsonPropertyName("launchOnControllerConnect")]
     public bool LaunchOnControllerConnect { get; set; }
 
