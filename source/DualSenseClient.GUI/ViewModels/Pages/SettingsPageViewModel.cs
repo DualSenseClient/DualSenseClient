@@ -386,7 +386,17 @@ public partial class SettingsPageViewModel : ObservableObject
 
             bool previous = _settingsService.Settings.Ui.LaunchOnControllerConnect;
             _settingsService.Settings.Ui.LaunchOnControllerConnect = enabled;
-            try { _settingsService.SaveSettingsChecked(); }
+            try
+            {
+                if (OperatingSystem.IsLinux())
+                {
+                    _settingsService.SaveSettingsChecked();
+                }
+                else
+                {
+                    _settingsService.SaveSettings();
+                }
+            }
             catch
             {
                 _settingsService.Settings.Ui.LaunchOnControllerConnect = previous;

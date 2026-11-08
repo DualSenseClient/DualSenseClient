@@ -1,4 +1,6 @@
 using DualSenseClient.Launch;
+using DualSenseClient.Settings;
+using DualSenseClient.Settings.Sections;
 
 namespace DualSenseClient.Tests.Settings;
 
@@ -104,7 +106,7 @@ public class LinuxControllerLaunchTests
     public void CheckedSavePreservesOtherSettingsAndPropagatesFailure()
     {
         string path = Path.Combine(_home, "config.json");
-        var store = new DualSenseClient.Settings.JsonFileStore<DualSenseClient.Settings.Sections.UiSettings>(path);
+        JsonFileStore<UiSettings> store = new DualSenseClient.Settings.JsonFileStore<DualSenseClient.Settings.Sections.UiSettings>(path);
         store.Item.StartInTray = true;
         store.Item.LaunchOnControllerConnect = true;
         store.SaveChecked();
@@ -120,14 +122,28 @@ public class LinuxControllerLaunchTests
     public void InstanceLockPreventsAnotherThreadAndReleasesAfterExit()
     {
         string name = "DualSenseClient-test-" + Guid.NewGuid();
-        using (UserAppInstance first = new(name))
+        using (UserAppInstance first = new UserAppInstance(name))
         {
             Assert.That(first.Acquired, Is.True);
-            bool competitor = Task.Run(() => { using UserAppInstance other = new(name); return other.Acquired; }).GetAwaiter().GetResult();
+            bool competitor = Task.Run(() =>
+            {
+                using UserAppInstance other = new UserAppInstance(name);
+                return other.Acquired;
+            }).GetAwaiter().GetResult();
             Assert.That(competitor, Is.False);
         }
-        using UserAppInstance afterExit = new(name);
+
+        using UserAppInstance afterExit = new UserAppInstance(name);
         Assert.That(afterExit.Acquired, Is.True);
+    }
+
+    [Test]
+    public async Task MissingPairedControllerDoesNotInstallOrChangeAutomation()
+    {
+        LinuxControllerLaunch service =
+            new LinuxControllerLaunch(_home, (exe, args) => Task.FromResult(new LaunchCommandResult(args.Contains("is-enabled") ? 1 : 0)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ApplyAsync(true, ["client"], []));
+        Assert.That(Directory.Exists(_home), Is.False);
     }
 
     [Test]

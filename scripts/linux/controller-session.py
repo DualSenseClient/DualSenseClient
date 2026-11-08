@@ -15,6 +15,19 @@ def connected(address):
     return bool(re.search(r'^\s*Connected:\s+yes\s*$', result.stdout, re.MULTILINE))
 
 
+def sample_connections(addresses, previous):
+    current = set()
+    for address in addresses:
+        try:
+            if connected(address):
+                current.add(address)
+        except (OSError, RuntimeError, subprocess.TimeoutExpired):
+            # A forgotten/unavailable address must not block other controllers.
+            if address in previous:
+                current.add(address)
+    return current
+
+
 class ConnectionLauncher:
     """One launch per connection edge; an existing child survives disconnects."""
     def __init__(self, command, environment):
@@ -36,10 +49,12 @@ def main():
     parser.add_argument('command', nargs=argparse.REMAINDER)
     args = parser.parse_args()
     if args.session_start:
-        names = [name for name in ('DISPLAY', 'WAYLAND_DISPLAY', 'XAUTHORITY',
-                 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS', 'XDG_SESSION_TYPE')
-                 if os.environ.get(name)]
-        subprocess.run(['systemctl', '--user', 'import-environment', *names], check=True)
+        variables = ('DISPLAY', 'WAYLAND_DISPLAY', 'XAUTHORITY',
+                     'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS', 'XDG_SESSION_TYPE')
+        names = [name for name in variables if os.environ.get(name)]
+        subprocess.run(['systemctl', '--user', 'unset-environment', *variables], check=True)
+        if names:
+            subprocess.run(['systemctl', '--user', 'import-environment', *names], check=True)
         subprocess.run(['systemctl', '--user', 'restart', 'dualsense-controller-launch.service'], check=True)
         return
     if args.config:
@@ -59,11 +74,7 @@ def main():
         signal.signal(sig, lambda *_: stop.set())
     launcher = ConnectionLauncher(command, environment)
     while not stop.is_set():
-        try:
-            current = {address for address in addresses if connected(address)}
-        except (OSError, RuntimeError, subprocess.TimeoutExpired):
-            stop.wait(2)
-            continue
+        current = sample_connections(addresses, launcher.active)
         launcher.update(current)
         stop.wait(2)
 

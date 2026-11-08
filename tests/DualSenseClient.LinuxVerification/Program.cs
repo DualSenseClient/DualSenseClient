@@ -36,6 +36,20 @@ Dispatcher.UIThread.Post(async () =>
             if (vm.LaunchOnControllerConnect != (mode == "enable") || vm.ControllerLaunchStatus.Length > 0)
                 throw new InvalidOperationException("Toggle did not apply successfully.");
         }
+        if (mode == "failure")
+        {
+            string? path = Environment.GetEnvironmentVariable("PATH");
+            try
+            {
+                Environment.SetEnvironmentVariable("PATH", "/nonexistent-controller-launch-test");
+                vm.LaunchOnControllerConnect = false;
+                while (vm.IsControllerLaunchBusy) await Task.Delay(100);
+                Console.WriteLine($"FAILURE value={vm.LaunchOnControllerConnect} saved={settings.Settings.Ui.LaunchOnControllerConnect} error={vm.ControllerLaunchStatus}");
+                if (!vm.LaunchOnControllerConnect || !settings.Settings.Ui.LaunchOnControllerConnect || vm.ControllerLaunchStatus.Length == 0)
+                    throw new InvalidOperationException("Failed apply did not preserve the enabled setting and report an error.");
+            }
+            finally { Environment.SetEnvironmentVariable("PATH", path); }
+        }
         if (mode == "screenshot")
         {
             SettingsPage page = new();

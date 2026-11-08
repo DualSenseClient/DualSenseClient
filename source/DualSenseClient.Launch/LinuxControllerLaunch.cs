@@ -95,6 +95,7 @@ public sealed class LinuxControllerLaunch
         {
             unit, script, config, desktop
         }.ToDictionary(path => path, path => File.Exists(path) ? File.ReadAllBytes(path) : null);
+        bool changed = false;
         try
         {
             if (!enabled)
@@ -109,6 +110,7 @@ public sealed class LinuxControllerLaunch
                     return;
                 }
 
+                changed = true;
                 await Check("systemctl", "--user", "disable", "--now", UnitName);
                 if (File.Exists(unit))
                 {
@@ -143,6 +145,7 @@ public sealed class LinuxControllerLaunch
                 throw new InvalidOperationException("Pair a Bluetooth DualSense first, then enable connection launch.");
             }
 
+            changed = true;
             Directory.CreateDirectory(data);
             Directory.CreateDirectory(Path.GetDirectoryName(unit)!);
             using Stream resource = typeof(LinuxControllerLaunch).Assembly.GetManifestResourceStream("controller-session.py")!;
@@ -200,6 +203,11 @@ public sealed class LinuxControllerLaunch
         }
         catch (Exception failure)
         {
+            if (!changed)
+            {
+                throw;
+            }
+
             try
             {
                 foreach ((string path, byte[]? content) in previous)

@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import unittest
+import sys
 from unittest.mock import Mock, patch
 
 spec = importlib.util.spec_from_file_location('session', Path(__file__).with_name('controller-session.py'))
@@ -40,6 +41,21 @@ class ConnectionLauncherTests(unittest.TestCase):
             session.connected('AA')
         run.return_value = Mock(returncode=0, stdout='\tConnected: yes\n')
         self.assertTrue(session.connected('AA'))
+
+    @patch.object(session, 'connected')
+    def test_unavailable_address_does_not_block_another_controller(self, connected):
+        connected.side_effect = [RuntimeError('forgotten pairing'), True]
+        self.assertEqual(session.sample_connections(['old', 'new'], set()), {'new'})
+        connected.side_effect = [RuntimeError('temporary failure'), False]
+        self.assertEqual(session.sample_connections(['old', 'new'], {'old'}), {'old'})
+
+    @patch.object(session.subprocess, 'run')
+    def test_session_start_replaces_stale_display_environment(self, run):
+        with patch.object(sys, 'argv', ['watcher', '--session-start']), patch.dict(session.os.environ, {'DISPLAY': ':9'}, clear=True):
+            session.main()
+        self.assertIn('unset-environment', run.call_args_list[0].args[0])
+        self.assertEqual(run.call_args_list[1].args[0], ['systemctl', '--user', 'import-environment', 'DISPLAY'])
+        self.assertEqual(run.call_args_list[2].args[0], ['systemctl', '--user', 'restart', 'dualsense-controller-launch.service'])
 
 
 if __name__ == '__main__':
