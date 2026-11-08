@@ -8,6 +8,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
+using DualSenseClient.Controllers.Profiles;
+using DualSenseClient.Core.Models;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.Hid;
@@ -45,9 +47,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly INotificationPopupService _popups;
 
     /// <summary>
-    /// Profile service used to look up profiles by name.
+    /// Owns resolving, binding, and applying the profile a controller should use.
     /// </summary>
-    private readonly ProfileService _profileService;
+    private readonly IProfileActivation _profileActivation;
 
     /// <summary>
     /// Service storing persistent controller info (custom name, MAC address, device path,
@@ -113,16 +115,16 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// <param name="scanner">Scanner used to discover and watch controllers.</param>
     /// <param name="tracker">Tracker that owns the selected controller.</param>
     /// <param name="popups">Desktop popup service for controller notifications.</param>
-    /// <param name="profileService">Profile service used to look up profiles by name.</param>
+    /// <param name="profileActivation">Owns resolving and applying the controller's profile.</param>
     /// <param name="controllerService">Service storing persistent controller info and profile bindings.</param>
     public MainViewModel(IControllerScanner scanner, IControllerTracker tracker, INotificationPopupService popups,
-        ProfileService profileService,
+        IProfileActivation profileActivation,
         ControllerInfoService controllerService)
     {
         _scanner = scanner;
         _tracker = tracker;
         _popups = popups;
-        _profileService = profileService;
+        _profileActivation = profileActivation;
         _controllerService = controllerService;
         _tracker.ActiveControllerChanged += OnActiveControllerChanged;
         _scanner.ControllerConnected += OnControllerConnected;
@@ -269,10 +271,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// <param name="controller">The controller that just connected.</param>
     private void AddController(IControllerDevice controller)
     {
-        string? mac = (controller as DualSenseDevice)?.PairingInfo?.ClientMac;
-        string path = controller.Info.Path;
-        _controllerService.RegisterController(mac, path, controller.Info.ProductName);
-        string displayName = _controllerService.GetDisplayName(mac, path, controller.Info.ProductName);
+        ControllerKey key = ControllerKeyFactory.From(controller);
+        _controllerService.RegisterController(key, controller.Info.ProductName);
+        string displayName = _controllerService.GetDisplayName(key, controller.Info.ProductName);
 
         Controllers.Add(new ControllerItem(controller, displayName));
         _tracker.TrackController(controller);
@@ -292,17 +293,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        string? mac = device.PairingInfo?.ClientMac;
-        string? path = device.Info.Path;
-        string? profileName = _controllerService.GetBoundProfileName(mac, path) ?? ProfileService.DefaultProfileName;
-        Profile? profile = _profileService.GetProfile(profileName);
-        if (profile is null)
-        {
-            return;
-        }
-
-        _log.Info($"Applying profile '{profile.Name}' to {device.Info.ProductName}");
-        device.ApplyProfile(profile);
+        _log.Info($"Applying the bound profile to {device.Info.ProductName}");
+        _profileActivation.Activate(device);
     }
 
     /// <summary>
@@ -343,7 +335,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             }
 
             AddController(controller);
-            string displayName = _controllerService.GetDisplayName((controller as DualSenseDevice)?.PairingInfo?.ClientMac, controller.Info.Path,
+            string displayName = _controllerService.GetDisplayName(ControllerKeyFactory.From(controller),
                 controller.Info.ProductName);
             _popups.ShowConnection(displayName, controller.ConnectionType.ToString(), true);
             _log.Info($"Controller connected: {controller.Info.ProductName}");
@@ -410,7 +402,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     _tracker.UntrackController(device);
                     device.Dispose();
                     Controllers.RemoveAt(i);
-                    string displayName = _controllerService.GetDisplayName(null, e.Info.Path, e.Info.ProductName);
+                    string displayName = _controllerService.GetDisplayName(ControllerKey.From(null, e.Info.Path),
+                        e.Info.ProductName);
                     _popups.ShowConnection(displayName, e.Info.BusType.ToString(), false);
                     _log.Info($"Controller disconnected: {e.Info.ProductName}");
                     break;
@@ -428,8 +421,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         foreach (ControllerItem item in Controllers)
         {
-            string? mac = (item.Device as DualSenseDevice)?.PairingInfo?.ClientMac;
-            item.DisplayName = _controllerService.GetDisplayName(mac, item.Device.Info.Path, item.Device.Info.ProductName);
+            item.DisplayName = _controllerService.GetDisplayName(ControllerKeyFactory.From(item.Device),
+                item.Device.Info.ProductName);
         }
     }
 

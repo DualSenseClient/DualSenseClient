@@ -29,6 +29,19 @@ public partial class EmulationPage : UserControl
     {
         InitializeComponent();
         DataContext = App.Services.GetRequiredService<EmulationPageViewModel>();
+        Unloaded += OnUnloaded;
+    }
+
+    /// <summary>
+    /// Flushes a pending debounced touchpad mouse save when the page is navigated away
+    /// from before the debounce timer elapses.
+    /// </summary>
+    private void OnUnloaded(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is EmulationPageViewModel viewModel)
+        {
+            viewModel.FlushPendingTouchpadMouseSave();
+        }
     }
 
     /// <summary>

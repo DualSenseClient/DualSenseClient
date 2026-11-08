@@ -12,7 +12,10 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
+using DualSenseClient.Controllers.Profiles;
+using DualSenseClient.Core.Models;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.Logging;
@@ -52,6 +55,8 @@ public partial class CustomizationPageViewModel : ObservableObject
     /// Service used to read and persist profiles.
     /// </summary>
     private readonly ProfileService _profileService;
+
+    private readonly IProfileActivation _profileActivation;
 
     /// <summary>
     /// Service storing controller info and controller-to-profile assignments.
@@ -218,6 +223,19 @@ public partial class CustomizationPageViewModel : ObservableObject
     }
 
     /// <summary>
+    /// The key of the selected controller, or an empty key when none is selected.
+    /// </summary>
+    private ControllerKey CurrentKey
+    {
+        get
+        {
+            return CurrentDevice is null
+                ? ControllerKey.From(null, null)
+                : ControllerKeyFactory.From(CurrentDevice.Controller.Device);
+        }
+    }
+
+    /// <summary>
     /// The name of the profile the selected controller is currently using: the bound
     /// profile, or the default profile when unbound.
     /// </summary>
@@ -225,7 +243,9 @@ public partial class CustomizationPageViewModel : ObservableObject
     {
         get
         {
-            return _controllerService.GetBoundProfileName(CurrentMac, CurrentDevicePath) ?? ProfileService.DefaultProfileName;
+            return CurrentDevice?.Controller.Device is DualSenseDevice device
+                ? _profileActivation.GetActiveProfile(device)?.Name ?? ProfileService.DefaultProfileName
+                : ProfileService.DefaultProfileName;
         }
     }
 
@@ -319,8 +339,7 @@ public partial class CustomizationPageViewModel : ObservableObject
         }
 
         bool controllerWasUsing = HasDevice && string.Equals(CurrentUsedProfileName, name, StringComparison.OrdinalIgnoreCase);
-        _profileService.DeleteProfile(name);
-        _controllerService.RemoveProfileReferences(name);
+        _profileActivation.DeleteProfile(name);
         _autoProfileService.RemoveProfileReferences(name);
         SelectedProfile = null;
         RebuildProfiles();
@@ -383,7 +402,7 @@ public partial class CustomizationPageViewModel : ObservableObject
     {
         SpecialAction action = _specialActionService.CreateAction(
             null,
-            SpecialActionService.GetControllerId(CurrentMac, CurrentDevicePath));
+            SpecialActionService.GetControllerId(CurrentKey));
         SpecialActionItem item = AddSpecialActionItem(action);
         SpecialActions.Add(item);
         SelectedSpecialAction = item;
@@ -494,7 +513,7 @@ public partial class CustomizationPageViewModel : ObservableObject
 
         SpecialActions.Clear();
 
-        string? controllerId = SpecialActionService.GetControllerId(CurrentMac, CurrentDevicePath);
+        string? controllerId = SpecialActionService.GetControllerId(CurrentKey);
         foreach (SpecialAction action in _specialActionService.Settings.Actions)
         {
             SpecialActions.Add(AddSpecialActionItem(action, controllerId));
@@ -514,7 +533,7 @@ public partial class CustomizationPageViewModel : ObservableObject
         SpecialActionItem item = new SpecialActionItem(
             action,
             _specialActionService,
-            controllerId ?? SpecialActionService.GetControllerId(CurrentMac, CurrentDevicePath),
+            controllerId ?? SpecialActionService.GetControllerId(CurrentKey),
             HasFullPlayerLedSupport);
         item.DeleteRequested += OnSpecialActionDeleteRequested;
         return item;
@@ -547,17 +566,18 @@ public partial class CustomizationPageViewModel : ObservableObject
             return;
         }
 
-        string applied = CurrentUsedProfileName;
-        if (!string.Equals(item.Name, applied, StringComparison.OrdinalIgnoreCase))
+        if (CurrentDevice?.Controller.Device is not DualSenseDevice device)
         {
             return;
         }
 
-        Profile? profile = GetCurrentControllerProfile();
-        if (profile is not null)
+        Profile? applied = _profileActivation.GetActiveProfile(device);
+        if (applied is null || !string.Equals(item.Name, applied.Name, StringComparison.OrdinalIgnoreCase))
         {
-            ApplyProfileToController(profile);
+            return;
         }
+
+        _profileActivation.Activate(device, applied);
     }
 
     /// <summary>
@@ -567,40 +587,13 @@ public partial class CustomizationPageViewModel : ObservableObject
     /// </summary>
     private void ApplyBoundProfileToController()
     {
-        if (!HasDevice)
-        {
-            return;
-        }
-
-        Profile? profile = GetCurrentControllerProfile();
-        if (profile is not null)
-        {
-            ApplyProfileToController(profile);
-        }
-    }
-
-    /// <summary>
-    /// Gets the profile the selected controller is currently using: the bound profile, or
-    /// the default profile when unbound or the bound profile no longer exists.
-    /// </summary>
-    private Profile? GetCurrentControllerProfile()
-    {
-        string? bound = _controllerService.GetBoundProfileName(CurrentMac, CurrentDevicePath);
-        return _profileService.GetProfile(bound ?? ProfileService.DefaultProfileName);
-    }
-
-    /// <summary>
-    /// Applies a profile to the selected controller.
-    /// </summary>
-    private void ApplyProfileToController(Profile profile)
-    {
         if (CurrentDevice?.Controller.Device is not DualSenseDevice device)
         {
             return;
         }
 
-        _log.Info($"Applying profile '{profile.Name}' to {CurrentMac}");
-        device.ApplyProfile(profile);
+        _log.Info($"Applying the bound profile to {CurrentMac}");
+        _profileActivation.Activate(device);
     }
 
     /// <summary>
@@ -668,13 +661,6 @@ public partial class CustomizationPageViewModel : ObservableObject
     private readonly List<AudioApplicationInfo> _forwardAudioAppItems = [];
 
     /// <summary>
-    /// Serializes background audio-source applies: each queued apply waits for the
-    /// previous one, so rapid source or application changes reach the emulation service
-    /// in the order the UI made them.
-    /// </summary>
-    private Task _audioSourceApply = Task.CompletedTask;
-
-    /// <summary>
     /// Forwarded audio output options for the dropdown, in
     /// <see cref="EmulationAudioOutput"/> order (auto, speaker, headset).
     /// </summary>
@@ -727,7 +713,7 @@ public partial class CustomizationPageViewModel : ObservableObject
     /// <see cref="ControllerInfoService.SaveEmulationSettings"/> persists the change.
     /// </summary>
     private EmulationSettings GetEmulationSettings()
-        => _controllerService.GetEmulationSettings(CurrentMac, CurrentDevicePath);
+        => _controllerService.GetEmulationSettings(CurrentKey);
 
     /// <summary>
     /// Whether the selected controller's emulation mode is DualSense, the only mode whose
@@ -768,12 +754,8 @@ public partial class CustomizationPageViewModel : ObservableObject
 
             _log.Info($"Setting forwarded audio output of {CurrentMac} to {output}");
             settings.Forward.AudioOutput = output;
-            _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+            _controllerService.SaveEmulationSettings(CurrentKey, settings);
             OnPropertyChanged(nameof(ForwardAudioOutputIndex));
-            if (CurrentDualSenseDevice is { } device)
-            {
-                _emulation.SetForwardingAudioOutput(device, output);
-            }
         }
     }
 
@@ -804,10 +786,43 @@ public partial class CustomizationPageViewModel : ObservableObject
             settings.Forward.Volume = clamped;
             ScheduleEmulationSave();
             OnPropertyChanged(nameof(ForwardVolume));
-            if (CurrentDualSenseDevice is { } device)
+        }
+    }
+
+    /// <summary>
+    /// The software gain applied to every audio source sent to the selected controller
+    /// (1-8, 1 = unchanged, two-way, persisted). Values above 1 are soft-limited.
+    /// </summary>
+    public double ForwardSoftwareVolumeScale
+    {
+        get
+        {
+            return !HasDevice ? 1.0 : GetEmulationSettings().Forward.SoftwareVolumeScale;
+        }
+        set
+        {
+            if (!HasDevice)
             {
-                _emulation.SetForwardingAudioOptions(device, (byte)clamped, settings.Forward.Haptics / 100f);
+                return;
             }
+
+            double clamped = Math.Clamp(Math.Round(value, 1, MidpointRounding.AwayFromZero), 1.0, 8.0);
+            EmulationSettings settings = GetEmulationSettings();
+            if (Math.Abs(settings.Forward.SoftwareVolumeScale - clamped) < 0.0001)
+            {
+                return;
+            }
+
+            settings.Forward.SoftwareVolumeScale = clamped;
+            if (CurrentDevice?.Controller.Device is DualSenseDevice device)
+            {
+                // Apply the gain immediately so the audio player and special actions hear
+                // the change before the debounced save reaches the emulation service.
+                device.AudioLane.SoftwareGain = (float)clamped;
+            }
+
+            ScheduleEmulationSave();
+            OnPropertyChanged(nameof(ForwardSoftwareVolumeScale));
         }
     }
 
@@ -838,10 +853,6 @@ public partial class CustomizationPageViewModel : ObservableObject
             settings.Forward.AudioBufferLength = clamped;
             ScheduleEmulationSave();
             OnPropertyChanged(nameof(ForwardAudioBufferLength));
-            if (CurrentDualSenseDevice is { } device)
-            {
-                _emulation.SetForwardingAudioBufferLength(device, (byte)clamped);
-            }
         }
     }
 
@@ -876,10 +887,6 @@ public partial class CustomizationPageViewModel : ObservableObject
             settings.Forward.PacketMode = mode;
             ScheduleEmulationSave();
             OnPropertyChanged(nameof(ForwardAudioPacketModeIndex));
-            if (CurrentDualSenseDevice is { } device)
-            {
-                _emulation.SetForwardingAudioPacketMode(device, mode);
-            }
         }
     }
 
@@ -910,10 +917,6 @@ public partial class CustomizationPageViewModel : ObservableObject
             settings.Forward.Haptics = clamped;
             ScheduleEmulationSave();
             OnPropertyChanged(nameof(ForwardHapticStrength));
-            if (CurrentDualSenseDevice is { } device)
-            {
-                _emulation.SetForwardingAudioOptions(device, (byte)settings.Forward.Volume, clamped / 100f);
-            }
         }
     }
 
@@ -943,12 +946,8 @@ public partial class CustomizationPageViewModel : ObservableObject
 
             _log.Info($"Setting audio-only haptics of {CurrentMac} to {value}");
             settings.Forward.ForceAudioHaptics = value;
-            _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+            _controllerService.SaveEmulationSettings(CurrentKey, settings);
             OnPropertyChanged(nameof(ForceAudioHaptics));
-            if (CurrentDualSenseDevice is { } device)
-            {
-                _emulation.SetForwardingHapticsSource(device, value);
-            }
         }
     }
 
@@ -980,7 +979,7 @@ public partial class CustomizationPageViewModel : ObservableObject
 
             _log.Info($"Setting forwarded audio source of {CurrentMac} to {source}");
             settings.Forward.AudioSource = source;
-            _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+            _controllerService.SaveEmulationSettings(CurrentKey, settings);
             OnPropertyChanged(nameof(ForwardAudioSourceIndex));
             OnPropertyChanged(nameof(IsForwardAudioAppVisible));
             OnPropertyChanged(nameof(IsForwardAudioAppListVisible));
@@ -993,11 +992,6 @@ public partial class CustomizationPageViewModel : ObservableObject
             else
             {
                 ClearForwardAudioApps();
-            }
-
-            if (CurrentDualSenseDevice is { } device)
-            {
-                ApplyForwardAudioSource(device, source, settings.Forward.AudioApp);
             }
         }
     }
@@ -1042,7 +1036,7 @@ public partial class CustomizationPageViewModel : ObservableObject
 
             _log.Info($"Setting forwarded audio application mode of {CurrentMac} to {mode}");
             settings.Forward.AudioAppMode = mode;
-            _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+            _controllerService.SaveEmulationSettings(CurrentKey, settings);
             OnPropertyChanged(nameof(ForwardAudioAppModeIndex));
             OnPropertyChanged(nameof(IsForwardAudioAppListVisible));
             OnPropertyChanged(nameof(IsForwardAudioAppBrowseVisible));
@@ -1221,28 +1215,6 @@ public partial class CustomizationPageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Applies a forwarded-audio source change off the UI thread: resolving the stored
-    /// application can scan every running process and starting the capture can wait
-    /// seconds for activation.
-    /// </summary>
-    private void ApplyForwardAudioSource(DualSenseDevice device, EmulationAudioSource source, string audioApp)
-    {
-        _audioSourceApply = _audioSourceApply.ContinueWith(
-            _ =>
-            {
-                try
-                {
-                    _emulation.SetForwardingAudioSource(device, source, audioApp);
-                }
-                catch (Exception ex)
-                {
-                    _log.Error($"Applying the forwarded audio source failed: {ex.Message}");
-                }
-            },
-            TaskScheduler.Default);
-    }
-
-    /// <summary>
     /// Persists the chosen application and applies it to the active forwarder. No-op when
     /// the selection did not change.
     /// </summary>
@@ -1256,13 +1228,9 @@ public partial class CustomizationPageViewModel : ObservableObject
 
         _log.Info($"Setting forwarded audio application of {CurrentMac} to '{applicationPath}'");
         settings.Forward.AudioApp = applicationPath;
-        _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+        _controllerService.SaveEmulationSettings(CurrentKey, settings);
         OnPropertyChanged(nameof(ForwardAudioAppIndex));
         OnPropertyChanged(nameof(ForwardAudioAppPath));
-        if (CurrentDualSenseDevice is { } device)
-        {
-            ApplyForwardAudioSource(device, settings.Forward.AudioSource, applicationPath);
-        }
     }
 
     /// <summary>
@@ -1304,7 +1272,7 @@ public partial class CustomizationPageViewModel : ObservableObject
             return;
         }
 
-        _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, GetEmulationSettings());
+        _controllerService.SaveEmulationSettings(CurrentKey, GetEmulationSettings());
     }
 
     /// <summary>
@@ -1314,6 +1282,7 @@ public partial class CustomizationPageViewModel : ObservableObject
     {
         _mainViewModel = App.Services.GetRequiredService<MainViewModel>();
         _profileService = App.Services.GetRequiredService<ProfileService>();
+        _profileActivation = App.Services.GetRequiredService<IProfileActivation>();
         _controllerService = App.Services.GetRequiredService<ControllerInfoService>();
         _autoProfileService = App.Services.GetRequiredService<AutoProfileService>();
         _specialActionService = App.Services.GetRequiredService<SpecialActionService>();
@@ -1362,6 +1331,7 @@ public partial class CustomizationPageViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDualSenseEmulation));
         OnPropertyChanged(nameof(ForwardAudioOutputIndex));
         OnPropertyChanged(nameof(ForwardVolume));
+        OnPropertyChanged(nameof(ForwardSoftwareVolumeScale));
         OnPropertyChanged(nameof(ForwardAudioBufferLength));
         OnPropertyChanged(nameof(ForwardAudioPacketModeIndex));
         OnPropertyChanged(nameof(ForwardHapticStrength));
@@ -1396,6 +1366,7 @@ public partial class CustomizationPageViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDualSenseEmulation));
         OnPropertyChanged(nameof(ForwardAudioOutputIndex));
         OnPropertyChanged(nameof(ForwardVolume));
+        OnPropertyChanged(nameof(ForwardSoftwareVolumeScale));
         OnPropertyChanged(nameof(ForwardAudioBufferLength));
         OnPropertyChanged(nameof(ForwardAudioPacketModeIndex));
         OnPropertyChanged(nameof(ForwardHapticStrength));

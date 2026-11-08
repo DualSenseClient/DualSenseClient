@@ -5,6 +5,7 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using DualSenseClient.Core.Models;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.HidHide;
 using DualSenseClient.Logging;
@@ -1777,18 +1778,11 @@ public partial class AutoProfilePageViewModel : ObservableObject
                 return 0;
             }
 
+            ControllerKey selector = ControllerKey.From(SelectedRule.ControllerMac, SelectedRule.ControllerPath);
             for (int i = 0; i < _controllerEntries.Count; i++)
             {
                 ControllerInfo entry = _controllerEntries[i];
-                if (!string.IsNullOrEmpty(SelectedRule.ControllerMac)
-                    && string.Equals(entry.MacAddress?.Trim().ToUpperInvariant(),
-                        SelectedRule.ControllerMac.Trim().ToUpperInvariant(), StringComparison.Ordinal))
-                {
-                    return i + 1;
-                }
-
-                if (!string.IsNullOrEmpty(SelectedRule.ControllerPath)
-                    && string.Equals(entry.DevicePath?.Trim(), SelectedRule.ControllerPath.Trim(), StringComparison.Ordinal))
+                if (selector.Matches(ControllerKey.From(entry.MacAddress, entry.DevicePath)))
                 {
                     return i + 1;
                 }

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
+using DualSenseClient.Controllers.Profiles;
 using DualSenseClient.Controllers.SpecialActions;
 using DualSenseClient.Settings;
 using DualSenseClient.Settings.Sections;
@@ -37,7 +38,7 @@ public sealed class SpecialActionCoordinator : IDisposable
     /// <summary>
     /// Stores the controller profiles.
     /// </summary>
-    private readonly ProfileService _profileService;
+    private readonly IProfileActivation _profileActivation;
 
     /// <summary>
     /// The shared audio engine used to decode special action sound files.
@@ -81,18 +82,18 @@ public sealed class SpecialActionCoordinator : IDisposable
     /// </summary>
     /// <param name="tracker">The controller tracker providing the connected controllers.</param>
     /// <param name="service">The special action settings service.</param>
-    /// <param name="controllerService">Resolves the profile bound to each controller.</param>
-    /// <param name="profileService">Stores the controller profiles.</param>
+    /// <param name="controllerService">Resolves the controller display names.</param>
+    /// <param name="profileActivation">Resolves the active profile for light restoration.</param>
     /// <param name="audioEngine">The shared audio engine used to decode sound files.</param>
     /// <param name="engines">The per-controller engine registry, also used by the emulation output path.</param>
     /// <param name="popups">Shows battery notifications raised by special actions.</param>
     public SpecialActionCoordinator(IControllerTracker tracker, SpecialActionService service, ControllerInfoService controllerService,
-        ProfileService profileService, AudioEngine audioEngine, SpecialActionEngineRegistry engines, INotificationPopupService popups)
+        IProfileActivation profileActivation, AudioEngine audioEngine, SpecialActionEngineRegistry engines, INotificationPopupService popups)
     {
         _tracker = tracker;
         _service = service;
         _controllerService = controllerService;
-        _profileService = profileService;
+        _profileActivation = profileActivation;
         _audioEngine = audioEngine;
         _engines = engines;
         _popups = popups;
@@ -163,7 +164,7 @@ public sealed class SpecialActionCoordinator : IDisposable
     /// </summary>
     private void OnBatteryNotificationShown(object? sender, SpecialActionBatteryNotificationShownEventArgs e)
     {
-        string displayName = _controllerService.GetDisplayName(e.Device.PairingInfo?.ClientMac, e.Device.Info.Path, e.Device.Info.ProductName);
+        string displayName = _controllerService.GetDisplayName(e.Device.Key, e.Device.Info.ProductName);
         string title = LocalizationService.GetText("Notification.Battery.Title");
         string message = string.Format(LocalizationService.GetText("Notification.Battery.Message"), displayName, e.Percentage);
 
@@ -206,13 +207,7 @@ public sealed class SpecialActionCoordinator : IDisposable
     /// which the engine re-applies to revert while-held light actions. Runs on the
     /// controller's read-loop thread or the engine's timer thread.
     /// </summary>
-    private Profile? ResolveProfile(DualSenseDevice device)
-    {
-        string? mac = device.PairingInfo?.ClientMac;
-        string? path = device.Info.Path;
-        string? profileName = _controllerService.GetBoundProfileName(mac, path) ?? ProfileService.DefaultProfileName;
-        return _profileService.GetProfile(profileName);
-    }
+    private Profile? ResolveProfile(DualSenseDevice device) => _profileActivation.GetActiveProfile(device);
 
     /// <summary>
     /// Unsubscribes and disposes the per-controller engines.

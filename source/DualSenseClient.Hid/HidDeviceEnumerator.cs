@@ -41,6 +41,16 @@ public interface IHidDeviceEnumerator : IDisposable
     void StartWatching(int intervalMs = 1000);
 
     /// <summary>
+    /// Starts a background watcher that only looks at devices matching the given vendor/product
+    /// ID pairs. Unrelated HID devices (mice, keyboards) are never opened or queried, which
+    /// matters because some firmware resets when its string descriptors are read repeatedly.
+    /// </summary>
+    /// <remarks>
+    /// The default implementation ignores the filter so existing implementations keep compiling.
+    /// </remarks>
+    void StartWatching(IEnumerable<(ushort VendorId, ushort ProductId)> deviceIds, int intervalMs = 1000) => StartWatching(intervalMs);
+
+    /// <summary>
     /// Stops the background watcher.
     /// </summary>
     void StopWatching();
@@ -93,9 +103,19 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     public event EventHandler<DeviceConnectionEventArgs>? DeviceDisconnected;
 
     /// <summary>
-    /// The background polling timer, or <c>null</c> while not watching.
+    /// The watcher thread, or <c>null</c> while not watching.
     /// </summary>
-    private Timer? _watcher;
+    private Thread? _watchThread;
+
+    /// <summary>
+    /// Cancels the watcher thread. Disposed by the thread itself when it exits.
+    /// </summary>
+    private CancellationTokenSource? _watchCts;
+
+    /// <summary>
+    /// Queries HIDAPI. A field only so tests can supply devices without native hardware or a native library.
+    /// </summary>
+    private readonly Func<ushort?, ushort?, List<IHidDeviceInfo>> _enumerateNative;
 
     /// <summary>
     /// The last observed set of devices, used to detect connections and disconnections.
@@ -124,6 +144,22 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     /// Device paths hidden from enumeration results.
     /// </summary>
     private readonly HashSet<string> _excludedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Creates an enumerator that queries HIDAPI.
+    /// </summary>
+    public HidDeviceEnumerator() : this(null)
+    {
+    }
+
+    /// <summary>
+    /// Creates an enumerator with a replacement HIDAPI query, so tests can supply devices.
+    /// </summary>
+    /// <param name="enumerateNative">Replaces the HIDAPI query, or <c>null</c> to use HIDAPI.</param>
+    internal HidDeviceEnumerator(Func<ushort?, ushort?, List<IHidDeviceInfo>>? enumerateNative)
+    {
+        _enumerateNative = enumerateNative ?? new Func<ushort?, ushort?, List<IHidDeviceInfo>>(NativeEnumerate);
+    }
 
     /// <inheritdoc/>
     public void ExcludeDevice(string path)
@@ -161,64 +197,135 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     }
 
     /// <inheritdoc/>
-    public void StartWatching(int intervalMs = 1000)
+    public void StartWatching(int intervalMs = 1000) => StartWatchingCore(null, intervalMs);
+
+    /// <inheritdoc/>
+    public void StartWatching(IEnumerable<(ushort VendorId, ushort ProductId)> deviceIds, int intervalMs = 1000)
+        => StartWatchingCore(new HashSet<(ushort VendorId, ushort ProductId)>(deviceIds), intervalMs);
+
+    /// <summary>
+    /// Starts the watcher thread, optionally limited to the given VID/PID pairs.
+    /// </summary>
+    /// <param name="filter">Pairs to watch, or <c>null</c> for every device.</param>
+    /// <param name="intervalMs">Polling interval.</param>
+    private void StartWatchingCore(HashSet<(ushort VendorId, ushort ProductId)>? filter, int intervalMs)
     {
         lock (_watchLock)
         {
-            if (_watcher != null)
+            if (_watchThread != null)
             {
                 return;
             }
 
-            _log.Debug($"Starting device watcher (interval={intervalMs}ms)");
-            _previousSnapshot = [.. Enumerate()];
-            _watcher = new Timer(WatchTick, null, intervalMs, intervalMs);
+            _log.Debug($"Starting device watcher (interval={intervalMs}ms, filter={(filter == null ? "none" : $"{filter.Count} VID/PID pair(s)")})");
+            _previousSnapshot = [.. EnumerateCore(filter)];
+
+            CancellationTokenSource cts = new CancellationTokenSource();
+            _watchCts = cts;
+            _watchThread = new Thread(() => WatchLoop(cts, filter, intervalMs))
+            {
+                IsBackground = true,
+                Name = "HidDeviceWatcher"
+            };
+            _watchThread.Start();
         }
     }
 
     /// <inheritdoc/>
     public void StopWatching()
     {
+        CancellationTokenSource? cts;
+        Thread? thread;
+
         lock (_watchLock)
         {
-            if (_watcher == null)
+            if (_watchThread == null)
             {
                 return;
             }
 
             _log.Debug("Stopping device watcher");
-            _watcher.Dispose();
-            _watcher = null;
+            cts = _watchCts;
+            thread = _watchThread;
+            _watchCts = null;
+            _watchThread = null;
             _previousSnapshot = null;
             _pendingConnected.Clear();
+        }
+
+        try
+        {
+            cts?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The watcher thread already exited and disposed it.
+        }
+
+        // Joining keeps Dispose() from shutting HIDAPI down underneath a running scan. It is skipped when a
+        // handler raised by the watcher thread itself ends up here, because a thread cannot join itself.
+        if (thread != null && thread != Thread.CurrentThread)
+        {
+            thread.Join(TimeSpan.FromSeconds(5));
         }
     }
 
     /// <summary>
-    /// Timer callback. Re-enumerates active devices and fires <see cref="DeviceConnected"/>
-    /// or <see cref="DeviceDisconnected"/> when the set of reachable devices changes.
+    /// Body of the watcher thread: one scan at a time, so scans can never overlap.
+    /// </summary>
+    private void WatchLoop(CancellationTokenSource cts, HashSet<(ushort VendorId, ushort ProductId)>? filter, int intervalMs)
+    {
+        CancellationToken token = cts.Token;
+
+        try
+        {
+            // WaitOne returns true as soon as the token is cancelled, so stopping does not wait out the interval.
+            while (!token.WaitHandle.WaitOne(intervalMs))
+            {
+                // Nothing may escape: if this thread died, device detection would silently stop for good.
+                try
+                {
+                    ScanOnce(filter);
+                }
+                catch (Exception ex)
+                {
+                    _log.Warning($"Device scan failed: {ex.Message}");
+                }
+            }
+        }
+        finally
+        {
+            cts.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Re-enumerates the watched devices and raises <see cref="DeviceConnected"/> or
+    /// <see cref="DeviceDisconnected"/> when the set of reachable devices changed.
     /// USB devices are trusted at face value; Bluetooth devices are probed in parallel
     /// to confirm they are still responding. Newly seen devices are only reported as
-    /// connected once they have been observed on two consecutive polls, so devices the
+    /// connected once they have been observed on two consecutive scans, so devices the
     /// app itself created and excluded (virtual controllers) never fire
     /// <see cref="DeviceConnected"/>.
     /// </summary>
-    private void WatchTick(object? state)
+    private void ScanOnce(HashSet<(ushort VendorId, ushort ProductId)>? filter)
     {
-        List<IHidDeviceInfo> current = [.. Enumerate()];
+        // Outside the lock: this can open Bluetooth devices and take a while.
+        List<IHidDeviceInfo> current = [.. EnumerateCore(filter)];
+        List<(bool Connected, IHidDeviceInfo Device)> changes = [];
 
         lock (_watchLock)
         {
-            if (_previousSnapshot == null)
+            if (_watchThread == null || _previousSnapshot == null)
             {
-                _previousSnapshot = current;
+                // Stopped while enumerating.
                 return;
             }
 
             HashSet<string> prevPaths = new HashSet<string>(_previousSnapshot.Select(d => d.Path));
             HashSet<string> currPaths = new HashSet<string>(current.Select(d => d.Path));
 
-            // Confirm devices pending from the previous poll that are still present;
+            // Confirm devices pending from the previous scan that are still present;
             // devices that vanished are left for the disconnect pass below.
             foreach (KeyValuePair<string, IHidDeviceInfo> pair in _pendingConnected.ToList())
             {
@@ -229,18 +336,11 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
 
                 _pendingConnected.Remove(pair.Key);
                 _log.Info($"Device connected: {pair.Value.ProductName} (VID=0x{pair.Value.VendorId:X4}, PID=0x{pair.Value.ProductId:X4})");
-                try
-                {
-                    DeviceConnected?.Invoke(this, new DeviceConnectionEventArgs(DeviceChangeType.Connected, pair.Value));
-                }
-                catch (Exception ex)
-                {
-                    _log.Warning($"DeviceConnected handler threw: {ex.Message}");
-                }
+                changes.Add((true, pair.Value));
             }
 
             // First observation of a device: remember it, but only report it after it
-            // is seen again on the next poll, so devices the app itself created and
+            // is seen again on the next scan, so devices the app itself created and
             // then excluded (virtual controllers) never surface as connections.
             foreach (IHidDeviceInfo device in current.Where(device => !prevPaths.Contains(device.Path)))
             {
@@ -258,25 +358,76 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                 }
 
                 _log.Info($"Device disconnected: {device.ProductName} (VID=0x{device.VendorId:X4}, PID=0x{device.ProductId:X4})");
-                try
-                {
-                    DeviceDisconnected?.Invoke(this, new DeviceConnectionEventArgs(DeviceChangeType.Disconnected, device));
-                }
-                catch (Exception ex)
-                {
-                    _log.Warning($"DeviceDisconnected handler threw: {ex.Message}");
-                }
+                changes.Add((false, device));
             }
 
             _previousSnapshot = current;
         }
+
+        // Raised outside the lock: handlers open devices, which is slow, and may call back into this class.
+        foreach ((bool connected, IHidDeviceInfo device) in changes)
+        {
+            RaiseChange(connected, device);
+        }
+    }
+
+    /// <summary>
+    /// Raises one connection event, keeping a throwing handler from affecting the others.
+    /// </summary>
+    private void RaiseChange(bool connected, IHidDeviceInfo device)
+    {
+        try
+        {
+            if (connected)
+            {
+                DeviceConnected?.Invoke(this, new DeviceConnectionEventArgs(DeviceChangeType.Connected, device));
+            }
+            else
+            {
+                DeviceDisconnected?.Invoke(this, new DeviceConnectionEventArgs(DeviceChangeType.Disconnected, device));
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.Warning($"{(connected ? "DeviceConnected" : "DeviceDisconnected")} handler threw: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Shared enumeration: everything when <paramref name="filter"/> is <c>null</c>, otherwise only the given pairs.
+    /// </summary>
+    private IReadOnlyList<IHidDeviceInfo> EnumerateCore(HashSet<(ushort VendorId, ushort ProductId)>? filter)
+    {
+        if (filter == null)
+        {
+            List<IHidDeviceInfo> everything = _enumerateNative(null, null);
+            everything.RemoveAll(device => IsExcluded(device.Path));
+            return FilterConnected(everything);
+        }
+
+        if (filter.Count == 0)
+        {
+            return [];
+        }
+
+        // One native call per vendor instead of enumerating everything: with a non-zero VID HIDAPI only reads
+        // the attributes of other vendors' devices and skips them, rather than opening each one and requesting
+        // its string descriptors. That request stream is what resets some cheap mouse firmware.
+        List<IHidDeviceInfo> all = [];
+        foreach (ushort vendorId in filter.Select(pair => pair.VendorId).Distinct())
+        {
+            all.AddRange(_enumerateNative(vendorId, null));
+        }
+
+        all.RemoveAll(device => IsExcluded(device.Path) || !filter.Contains((device.VendorId, device.ProductId)));
+        return FilterConnected(all);
     }
 
     /// <inheritdoc/>
     public IReadOnlyList<IHidDeviceInfo> Enumerate(ushort? vendorId = null, ushort? productId = null)
     {
         _log.Debug($"Enumerating devices (vendorId=0x{vendorId:X4}, productId=0x{productId:X4})");
-        List<IHidDeviceInfo> all = NativeEnumerate(vendorId, productId);
+        List<IHidDeviceInfo> all = _enumerateNative(vendorId, productId);
         all.RemoveAll(device => IsExcluded(device.Path));
         return FilterConnected(all);
     }
@@ -285,7 +436,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     public IReadOnlyList<IHidDeviceInfo> EnumerateIncludingExcluded(ushort? vendorId = null, ushort? productId = null)
     {
         _log.Debug($"Enumerating devices including excluded (vendorId=0x{vendorId:X4}, productId=0x{productId:X4})");
-        return FilterConnected(NativeEnumerate(vendorId, productId));
+        return FilterConnected(_enumerateNative(vendorId, productId));
     }
 
     /// <summary>
@@ -347,7 +498,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
             return [];
         }
 
-        List<IHidDeviceInfo> result = Enumerate().Where(d => filter.Contains((d.VendorId, d.ProductId))).ToList();
+        IReadOnlyList<IHidDeviceInfo> result = EnumerateCore(new HashSet<(ushort VendorId, ushort ProductId)>(filter));
         _log.Debug($"Filtered enumerate returned {result.Count} device(s)");
         return result;
     }

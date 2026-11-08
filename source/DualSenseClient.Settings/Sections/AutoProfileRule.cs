@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using DualSenseClient.Core.Models;
 
 namespace DualSenseClient.Settings.Sections;
 
@@ -429,5 +430,20 @@ public class AutoProfileRule : INotifyPropertyChanged
         string selectorPath = ControllerPath?.Trim() ?? string.Empty;
         return !string.IsNullOrEmpty(normalizedPath) && !string.IsNullOrEmpty(selectorPath)
                                                      && string.Equals(normalizedPath, selectorPath, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Tests whether the rule applies to a controller identified by its key.
+    /// </summary>
+    /// <param name="key">The controller key.</param>
+    /// <returns><c>true</c> when the rule applies.</returns>
+    public bool MatchesController(ControllerKey key)
+    {
+        if (AppliesToAllControllers)
+        {
+            return true;
+        }
+
+        return ControllerKey.From(ControllerMac, ControllerPath).Matches(key);
     }
 }

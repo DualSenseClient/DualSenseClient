@@ -13,8 +13,15 @@ public class DualSenseAudioForwarderTests
     /// <summary>
     /// Fake physical-controller audio lane recording every call.
     /// </summary>
-    private sealed class FakeAudioOutputs : IDualSenseAudioOutputs
+    private sealed class FakeAudioOutputs : IDualSenseAudioOutputs, IControllerAudioSink
     {
+        public FakeAudioOutputs()
+        {
+            AudioLane = new ControllerAudioLane(this);
+        }
+
+        public ControllerAudioLane AudioLane { get; }
+
         public ConnectionType ConnectionType { get; init; } = ConnectionType.Bluetooth;
 
         public bool NeedsOutputStateBlock { get; set; }
@@ -90,6 +97,14 @@ public class DualSenseAudioForwarderTests
             AudioOnlyReportCount++;
             LastOpusFrameLength = (byte)opusFrame.Length;
         }
+
+        public void SendBluetoothHaptics(ReadOnlySpan<byte> hapticsPcm)
+        {
+            HapticsOnlyReportCount++;
+            LastHapticsFrame = hapticsPcm.ToArray();
+        }
+
+        public int HapticsOnlyReportCount { get; private set; }
 
         public void SendBluetoothAudioAndHapticsDouble(ReadOnlySpan<byte> opusFrames, ReadOnlySpan<byte> hapticsPcm, BluetoothAudioRoute route)
         {
@@ -183,6 +198,35 @@ public class DualSenseAudioForwarderTests
             Assert.That(fake.LastAppliedSpeakerVolume, Is.EqualTo(0x50));
             Assert.That(fake.ReportCount, Is.GreaterThanOrEqualTo(8), "the first block must warm up the stream with the 8 silence reports");
         });
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void Preemption_ReappliesForwarderRouteOnResume()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => fake.PrimeCount == 1 && fake.LastAppliedControl == AudioControl.OutputPathSpeaker,
+            TimeSpan.FromSeconds(3));
+
+        object player = new object();
+        Assert.That(fake.AudioLane.TryEnter(player, AudioPriority.Player), Is.True);
+        fake.AudioLane.SetAudioOutput(player, AudioControl.OutputPathHeadphones, 0x20, 0x20);
+        Thread.Sleep(50);
+        fake.AudioLane.Leave(player);
+
+        forwarder.FeedPcm(AudioBlock);
+        WaitUntil(() => fake.LastAppliedControl == AudioControl.OutputPathSpeaker, TimeSpan.FromSeconds(3));
+
+        Assert.That(fake.LastAppliedControl, Is.EqualTo(AudioControl.OutputPathSpeaker),
+            "the forwarder must restore its speaker route after a higher-priority source releases the lane");
 
         forwarder.Stop();
     }
@@ -486,6 +530,117 @@ public class DualSenseAudioForwarderTests
         });
 
         forwarder.Stop();
+    }
+
+    [Test]
+    public void AudioLevel_ScalesWithTheLaneSoftwareGain()
+    {
+        FakeAudioOutputs fullOutputs = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        FakeAudioOutputs halfOutputs = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder full = new DualSenseAudioForwarder(fullOutputs, null);
+        using DualSenseAudioForwarder half = new DualSenseAudioForwarder(halfOutputs, null);
+        full.Start();
+        half.Start();
+        fullOutputs.AudioLane.SoftwareGain = 1f;
+        halfOutputs.AudioLane.SoftwareGain = 0.5f;
+
+        full.FeedPcm(AudioBlock);
+        half.FeedPcm(AudioBlock);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(full.AudioLevel, Is.GreaterThan(0f));
+            Assert.That(half.AudioLevel, Is.GreaterThan(0f));
+            Assert.That(half.AudioLevel, Is.LessThan(full.AudioLevel));
+            Assert.That(half.AudioLevel, Is.EqualTo(full.AudioLevel * 0.5f).Within(0.002f));
+        });
+
+        full.Stop();
+        half.Stop();
+    }
+
+    [Test]
+    public void SoftwareGain_DoesNotAlterAudioDerivedHaptics()
+    {
+        FakeAudioOutputs fullOutputs = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        FakeAudioOutputs halfOutputs = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder full = new DualSenseAudioForwarder(fullOutputs, null);
+        using DualSenseAudioForwarder half = new DualSenseAudioForwarder(halfOutputs, null);
+        full.Start();
+        half.Start();
+        fullOutputs.AudioLane.SoftwareGain = 1f;
+        halfOutputs.AudioLane.SoftwareGain = 0.5f;
+
+        full.FeedPcm(AudioBlock);
+        half.FeedPcm(AudioBlock);
+
+        WaitUntil(() => fullOutputs.AnyHapticsNonZero && halfOutputs.AnyHapticsNonZero, TimeSpan.FromSeconds(3));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fullOutputs.AnyHapticsNonZero, Is.True);
+            Assert.That(halfOutputs.AnyHapticsNonZero, Is.True);
+            Assert.That(halfOutputs.LastHapticsFrame, Is.EqualTo(fullOutputs.LastHapticsFrame),
+                "software volume must scale the speaker audio, not the audio-derived haptics");
+        });
+
+        full.Stop();
+        half.Stop();
+    }
+
+    [TestCase(1.0, 1f)]
+    [TestCase(1.1, 1.1f)]
+    [TestCase(2.5, 2.5f)]
+    [TestCase(8.0, 8f)]
+    public void ApplyForwardingSettings_AppliesSoftwareVolumeScaleToTheLane(double scale, float expectedGain)
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+
+        forwarder.ApplyForwardingSettings(new ForwardSettings
+        {
+            SoftwareVolumeScale = scale
+        });
+
+        Assert.That(fake.AudioLane.SoftwareGain, Is.EqualTo(expectedGain));
+    }
+
+    [Test]
+    public void ToUsbQuadS16_AppliesSoftwareGainToAudioOnly()
+    {
+        short[] stereo = new short[DualSenseBtAudioPipeline.FramesPerBlock * 2];
+        for (int i = 0; i < DualSenseBtAudioPipeline.FramesPerBlock; i++)
+        {
+            stereo[i * 2] = 1000;
+            stereo[i * 2 + 1] = -1000;
+        }
+
+        short[] quad = new short[DualSenseBtAudioPipeline.FramesPerBlock * 4];
+
+        DualSenseAudioForwarder.ToUsbQuadS16(stereo, quad, 0.5f, 1f);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(quad[0], Is.EqualTo(500), "the front-left audio channel must be scaled");
+            Assert.That(quad[1], Is.EqualTo(-500), "the front-right audio channel must be scaled");
+            Assert.That(quad[2], Is.EqualTo(1000), "the rear-left haptics channel must stay unscaled");
+            Assert.That(quad[3], Is.EqualTo(-1000), "the rear-right haptics channel must stay unscaled");
+        });
     }
 
     [Test]
@@ -871,6 +1026,33 @@ public class DualSenseAudioForwarderTests
             Assert.That(forwarder.AudioBufferLength, Is.EqualTo(64));
             Assert.That(fake.AudioBufferLength, Is.EqualTo(64));
             Assert.That(forwarder.PacketMode, Is.EqualTo(BluetoothAudioPacketMode.Double));
+        });
+    }
+
+    [Test]
+    public void ApplyForwardingSettings_AudioOptions_AreAppliedToTheRunningLane()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+
+        forwarder.ApplyForwardingSettings(new ForwardSettings
+        {
+            Volume = 0x20,
+            Haptics = 150,
+            ForceAudioHaptics = true
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(forwarder.SpeakerVolume, Is.EqualTo((byte)0x20),
+                "the forwarded volume slider must reach a running forwarder");
+            Assert.That(forwarder.HapticStrength, Is.EqualTo(1.5f).Within(0.001f),
+                "the forwarded haptic strength slider must reach a running forwarder");
+            Assert.That(forwarder.ForceAudioHaptics, Is.True,
+                "the audio-based-haptics toggle must reach a running forwarder");
         });
     }
 

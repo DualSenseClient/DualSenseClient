@@ -1,7 +1,6 @@
-using DualSenseClient.Controllers.DualSense.Lightbar;
+using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Devices;
-using DualSenseClient.Controllers.SpecialActions;
 using DualSenseClient.Hid;
 using DualSenseClient.Logging;
 
@@ -91,6 +90,11 @@ public interface IDualSenseAudioOutputs : IDualSenseOutputs
     /// Routes audio output and applies speaker/headphone volume.
     /// </summary>
     void SetAudioOutput(AudioControl outputControl, byte speakerVolume, byte headphoneVolume);
+
+    /// <summary>
+    /// The physical controller's shared audio lane.
+    /// </summary>
+    ControllerAudioLane AudioLane { get; }
 }
 
 /// <summary>
@@ -117,18 +121,20 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
     private readonly DualSenseDevice _device;
 
     /// <summary>
-    /// The special-actions engine whose active light actions override the forwarded
-    /// lightbar color.
-    /// </summary>
-    private readonly SpecialActionEngine _specialActions;
-
-    /// <summary>
     /// Creates a new adapter around the given physical controller.
     /// </summary>
-    public DualSenseDeviceOutputs(DualSenseDevice device, SpecialActionEngine specialActions)
+    public DualSenseDeviceOutputs(DualSenseDevice device)
     {
         _device = device;
-        _specialActions = specialActions;
+    }
+
+    /// <inheritdoc/>
+    public ControllerAudioLane AudioLane
+    {
+        get
+        {
+            return _device.AudioLane;
+        }
     }
 
     /// <inheritdoc/>
@@ -145,15 +151,7 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
     {
         get
         {
-            OutputStateOverride overrideState = _specialActions.OutputOverride;
-            bool profileLights = _device.TryGetProfileLights(out _, out _, out _, out _, out _, out bool force)
-                                 && (force
-                                     || !_device.LightbarPassthroughEnabled
-                                     || !_device.PlayerLedPassthroughEnabled);
-            return overrideState.LightbarColor is not null
-                   || overrideState.PlayerLeds is not null
-                   || profileLights
-                   || _device.TryGetLightbarEffectFrame(out _);
+            return _device.Lighting.NeedsStateBlock;
         }
     }
 
@@ -173,7 +171,8 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
         {
             try
             {
-                _device.SendOutputState(ApplyOutputOverride(payload));
+                _device.Lighting.SubmitGameOutput(payload);
+                _device.Lighting.Commit();
             }
             catch (HidException ex)
             {
@@ -183,119 +182,6 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
                 _log.Error($"Failed to send output state to the physical controller: {ex.Message}");
             }
         }
-    }
-
-    /// <summary>
-    /// Merges the active lightbar effect frame, the applied profile's static lights and
-    /// the fields held by the active special actions (lightbar color, player LEDs) over
-    /// the payload, so neither the game's output nor a plain passthrough can overwrite
-    /// them. The profile's lightbar and player LEDs are only restored while the game does
-    /// not own that channel, or when the profile forces them. Effects are applied first
-    /// and actions afterwards, so an action always wins. Fields nothing holds pass
-    /// through unchanged. Returns the payload unchanged when nothing is driving the lights.
-    /// </summary>
-    private SetStateData ApplyOutputOverride(SetStateData payload)
-    {
-        OutputStateOverride overrideState = _specialActions.OutputOverride;
-        (byte Red, byte Green, byte Blue)? color = overrideState.LightbarColor;
-        byte? leds = overrideState.PlayerLeds;
-
-        // Both providers are read once so the merges see the same snapshot.
-        bool hasFrame = _device.TryGetLightbarEffectFrame(out LightbarEffectFrame frame);
-        bool hasProfile = _device.TryGetProfileLights(
-            out byte profileRed,
-            out byte profileGreen,
-            out byte profileBlue,
-            out PlayerLedMask profileLeds,
-            out byte profileMuteLed,
-            out bool forceOverGame);
-        bool profileLightbar = hasProfile && (forceOverGame || !_device.LightbarPassthroughEnabled);
-        bool profilePlayerLeds = hasProfile && (forceOverGame || !_device.PlayerLedPassthroughEnabled);
-        bool profileMute = hasProfile && forceOverGame;
-        if (color is null && leds is null && !hasFrame && !profileLightbar && !profilePlayerLeds && !profileMute)
-        {
-            return payload;
-        }
-
-        // Clone first: SetStateData shares its backing buffer through 'with',
-        // so writing via the copy would mutate the caller's payload in place.
-        byte[] raw = new byte[SetStateData.PayloadSize];
-        payload.CopyTo(raw, 0);
-        SetStateData copy = new SetStateData(raw, 0);
-
-        if (hasFrame)
-        {
-            ValidFlags flag1 = copy.ValidFlag1 | ValidFlags.AllowLedColor;
-            PlayerLedMask playerLeds = profilePlayerLeds ? profileLeds : copy.PlayerLeds;
-            if (frame.PlayerLeds is { } chase)
-            {
-                flag1 |= ValidFlags.AllowPlayerIndicators;
-                playerLeds = chase;
-            }
-            else if (profilePlayerLeds)
-            {
-                flag1 |= ValidFlags.AllowPlayerIndicators;
-            }
-
-            copy = copy with
-            {
-                ValidFlag1 = flag1,
-                ValidFlag2 = copy.ValidFlag2 | ValidFlags.AllowColorFadeAnim | ValidFlags.AllowBrightnessChange,
-                LightFadeAnimation = 0x02,
-                LightBrightness = 0,
-                PlayerLeds = playerLeds,
-                LedRed = frame.Red,
-                LedGreen = frame.Green,
-                LedBlue = frame.Blue
-            };
-        }
-        else
-        {
-            if (profileLightbar)
-            {
-                copy = copy with
-                {
-                    ValidFlag1 = copy.ValidFlag1 | ValidFlags.AllowLedColor,
-                    ValidFlag2 = copy.ValidFlag2 | ValidFlags.AllowColorFadeAnim | ValidFlags.AllowBrightnessChange,
-                    LightFadeAnimation = 0x02,
-                    LightBrightness = 0,
-                    LedRed = profileRed,
-                    LedGreen = profileGreen,
-                    LedBlue = profileBlue
-                };
-            }
-
-            if (profilePlayerLeds)
-            {
-                copy = copy with
-                {
-                    ValidFlag1 = copy.ValidFlag1 | ValidFlags.AllowPlayerIndicators,
-                    PlayerLeds = profileLeds
-                };
-            }
-        }
-
-        if (profileMute)
-        {
-            copy = copy with
-            {
-                ValidFlag1 = copy.ValidFlag1 | ValidFlags.AllowMuteLight,
-                MuteLedMode = profileMuteLed
-            };
-        }
-
-        if (color is not null || leds is not null)
-        {
-            copy = copy with
-            {
-                LedRed = color?.Red ?? copy.LedRed,
-                LedGreen = color?.Green ?? copy.LedGreen,
-                LedBlue = color?.Blue ?? copy.LedBlue,
-                PlayerLeds = leds is { } mask ? (PlayerLedMask)mask : copy.PlayerLeds
-            };
-        }
-
-        return copy;
     }
 
     /// <inheritdoc/>
@@ -340,7 +226,7 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
     {
         lock (_writeLock)
         {
-            _device.SendBluetoothAudioPrime(ApplyOutputOverride(state));
+            _device.SendBluetoothAudioPrime(_device.Lighting.Resolve(state));
         }
     }
 
@@ -349,7 +235,7 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
     {
         lock (_writeLock)
         {
-            _device.SendBluetoothAudioAndHaptics(ApplyOutputOverride(state), opusFrame, hapticsPcm, route);
+            _device.SendBluetoothAudioAndHaptics(_device.Lighting.Resolve(state), opusFrame, hapticsPcm, route);
         }
     }
 

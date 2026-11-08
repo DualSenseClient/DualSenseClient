@@ -5,7 +5,9 @@ using DualSenseClient.Bluetooth;
 using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.Emulation;
+using DualSenseClient.Controllers.Profiles;
 using DualSenseClient.Controllers.SpecialActions;
+using DualSenseClient.Controllers.TouchpadMouse;
 using DualSenseClient.Core.Foreground;
 using DualSenseClient.GUI.ViewModels;
 using DualSenseClient.GUI.ViewModels.Pages;
@@ -43,6 +45,7 @@ public abstract class ServiceConfigurator
         services.AddSingleton<ControllerInfoService>();
         services.AddSingleton<SpecialActionService>();
         services.AddSingleton<AutoProfileService>();
+        services.AddSingleton<IProfileActivation, ProfileActivation>();
 
         // Services
         services.AddSingleton<IMessageBoxService, MessageBoxService>();
@@ -51,6 +54,10 @@ public abstract class ServiceConfigurator
         services.AddSingleton<NavigationService>();
         services.AddSingleton<TrayIconService>();
         services.AddSingleton<SpecialActionCoordinator>();
+        // Touchpad mouse: one engine (and one injector) per controller with the setting
+        // enabled; the coordinator attaches them to the tracked controllers.
+        services.AddSingleton<Func<IMouseInjector>>(_ => TouchpadMouseInjectorFactory.Create);
+        services.AddSingleton<TouchpadMouseCoordinator>();
         services.AddSingleton<AutoProfileCoordinator>();
         services.AddSingleton<ControllerIllustrationService>();
 

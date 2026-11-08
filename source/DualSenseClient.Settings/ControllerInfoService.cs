@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DualSenseClient.Core.Models;
 using DualSenseClient.Core.Utilities;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings.Sections;
@@ -135,6 +136,13 @@ public sealed class ControllerInfoService
     public ControllerInfo? GetControllerInfo(string? mac, string? devicePath) => FindController(NormalizeMac(mac), NormalizePath(devicePath));
 
     /// <summary>
+    /// Gets the stored info for a controller identified by its key.
+    /// </summary>
+    /// <param name="key">The controller key.</param>
+    /// <returns>The matching info, or <c>null</c> when no entry matches.</returns>
+    public ControllerInfo? GetControllerInfo(ControllerKey key) => GetControllerInfo(key.Mac, key.Path);
+
+    /// <summary>
     /// Gets the display name of a controller: its stored custom name, or
     /// <paramref name="fallback"/> (typically the product name) when no entry or no
     /// custom name exists.
@@ -147,6 +155,14 @@ public sealed class ControllerInfoService
         ControllerInfo? info = FindController(NormalizeMac(mac), NormalizePath(devicePath));
         return info is null || string.IsNullOrEmpty(info.Name) ? fallback : info.Name;
     }
+
+    /// <summary>
+    /// Gets the display name of a controller identified by its key.
+    /// </summary>
+    /// <param name="key">The controller key.</param>
+    /// <param name="fallback">The name to return when the controller has no custom name.</param>
+    /// <returns>The stored custom name, or <paramref name="fallback"/>.</returns>
+    public string GetDisplayName(ControllerKey key, string fallback) => GetDisplayName(key.Mac, key.Path, fallback);
 
     /// <summary>
     /// Registers a connected controller so it can be renamed and assigned a profile.
@@ -193,6 +209,13 @@ public sealed class ControllerInfoService
     }
 
     /// <summary>
+    /// Registers a connected controller identified by its key.
+    /// </summary>
+    /// <param name="key">The controller key.</param>
+    /// <param name="name">The default display name (e.g. the product name).</param>
+    public void RegisterController(ControllerKey key, string? name) => RegisterController(key.Mac, key.Path, name);
+
+    /// <summary>
     /// Gets the name of the profile bound to a controller, or <c>null</c> when the
     /// controller has no entry or no bound profile.
     /// </summary>
@@ -203,6 +226,13 @@ public sealed class ControllerInfoService
         ControllerInfo? info = FindController(NormalizeMac(mac), NormalizePath(devicePath));
         return info is null || string.IsNullOrEmpty(info.ProfileName) ? null : info.ProfileName;
     }
+
+    /// <summary>
+    /// Gets the name of the profile bound to a controller identified by its key.
+    /// </summary>
+    /// <param name="key">The controller key.</param>
+    /// <returns>The bound profile name, or <c>null</c> when unbound.</returns>
+    public string? GetBoundProfileName(ControllerKey key) => GetBoundProfileName(key.Mac, key.Path);
 
     /// <summary>
     /// Sets (or clears) the profile bound to a controller and persists the change.
@@ -234,6 +264,13 @@ public sealed class ControllerInfoService
     }
 
     /// <summary>
+    /// Sets (or clears) the profile bound to a controller identified by its key.
+    /// </summary>
+    /// <param name="key">The controller key.</param>
+    /// <param name="profileName">The profile name to bind, or <c>null</c>/empty to unbind.</param>
+    public void SetControllerProfile(ControllerKey key, string? profileName) => SetControllerProfile(key.Mac, key.Path, profileName);
+
+    /// <summary>
     /// Gets the virtual controller emulation settings stored for a controller, or the
     /// defaults (emulation off) when the controller has no entry or no stored settings.
     /// The returned instance is the live stored object; persist changes with
@@ -246,6 +283,14 @@ public sealed class ControllerInfoService
         ControllerInfo? info = FindController(NormalizeMac(mac), NormalizePath(devicePath));
         return info?.Emulation ?? new EmulationSettings();
     }
+
+    /// <summary>
+    /// Gets the virtual controller emulation settings stored for a controller identified
+    /// by its key.
+    /// </summary>
+    /// <param name="key">The controller key.</param>
+    /// <returns>The stored settings, or defaults when none are stored.</returns>
+    public EmulationSettings GetEmulationSettings(ControllerKey key) => GetEmulationSettings(key.Mac, key.Path);
 
     /// <summary>
     /// Stores the virtual controller emulation settings for a controller and persists
@@ -277,6 +322,72 @@ public sealed class ControllerInfoService
     }
 
     /// <summary>
+    /// Stores the virtual controller emulation settings for a controller identified by
+    /// its key.
+    /// </summary>
+    /// <param name="key">The controller key.</param>
+    /// <param name="emulation">The emulation settings to store.</param>
+    public void SaveEmulationSettings(ControllerKey key, EmulationSettings emulation) => SaveEmulationSettings(key.Mac, key.Path, emulation);
+
+    /// <summary>
+    /// Gets the touchpad-as-a-mouse settings stored for a controller, or the defaults
+    /// (disabled, unit speeds) when the controller has no entry or no stored settings.
+    /// The returned instance is the live stored object; persist changes with
+    /// <see cref="SaveTouchpadMouseSettings(ControllerKey, TouchpadMouseSettings)"/>.
+    /// </summary>
+    /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>
+    /// <param name="devicePath">The controller's HID device path, or <c>null</c>/empty when unavailable.</param>
+    public TouchpadMouseSettings GetTouchpadMouseSettings(string? mac, string? devicePath)
+    {
+        ControllerInfo? info = FindController(NormalizeMac(mac), NormalizePath(devicePath));
+        return info?.TouchpadMouse ?? new TouchpadMouseSettings();
+    }
+
+    /// <summary>
+    /// Gets the touchpad-as-a-mouse settings stored for a controller identified by its key.
+    /// </summary>
+    /// <param name="key">The controller key.</param>
+    /// <returns>The stored settings, or defaults when none are stored.</returns>
+    public TouchpadMouseSettings GetTouchpadMouseSettings(ControllerKey key) => GetTouchpadMouseSettings(key.Mac, key.Path);
+
+    /// <summary>
+    /// Stores the touchpad-as-a-mouse settings for a controller and persists the change.
+    /// The controller's entry is created if not registered yet.
+    /// </summary>
+    /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>
+    /// <param name="devicePath">The controller's HID device path, or <c>null</c>/empty when unavailable.</param>
+    /// <param name="settings">The touchpad mouse settings to store.</param>
+    public void SaveTouchpadMouseSettings(string? mac, string? devicePath, TouchpadMouseSettings settings)
+    {
+        string normalizedMac = NormalizeMac(mac);
+        string normalizedPath = NormalizePath(devicePath);
+        if (string.IsNullOrEmpty(normalizedMac) && string.IsNullOrEmpty(normalizedPath))
+        {
+            return;
+        }
+
+        ControllerInfo? info = FindController(normalizedMac, normalizedPath);
+        if (info is null)
+        {
+            info = new ControllerInfo();
+            Settings.Controllers.Add(info);
+        }
+
+        info.MacAddress = normalizedMac;
+        info.DevicePath = normalizedPath;
+        info.TouchpadMouse = settings;
+        Save();
+    }
+
+    /// <summary>
+    /// Stores the touchpad-as-a-mouse settings for a controller identified by its key.
+    /// </summary>
+    /// <param name="key">The controller key.</param>
+    /// <param name="settings">The touchpad mouse settings to store.</param>
+    public void SaveTouchpadMouseSettings(ControllerKey key, TouchpadMouseSettings settings) =>
+        SaveTouchpadMouseSettings(key.Mac, key.Path, settings);
+
+    /// <summary>
     /// Renames a controller (its stored display name) and persists the change.
     /// </summary>
     /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>
@@ -304,6 +415,14 @@ public sealed class ControllerInfoService
     }
 
     /// <summary>
+    /// Renames a controller identified by its key.
+    /// </summary>
+    /// <param name="key">The controller key.</param>
+    /// <param name="newName">The desired display name.</param>
+    /// <returns><c>true</c> when the rename was applied.</returns>
+    public bool RenameController(ControllerKey key, string? newName) => RenameController(key.Mac, key.Path, newName);
+
+    /// <summary>
     /// Gets the illustration skin stored for a controller, or <c>null</c> when the
     /// controller has no entry or no stored skin (use the default skin in that case).
     /// </summary>
@@ -314,6 +433,13 @@ public sealed class ControllerInfoService
         ControllerInfo? info = FindController(NormalizeMac(mac), NormalizePath(devicePath));
         return info is null || string.IsNullOrEmpty(info.Skin) ? null : info.Skin;
     }
+
+    /// <summary>
+    /// Gets the illustration skin stored for a controller identified by its key.
+    /// </summary>
+    /// <param name="key">The controller key.</param>
+    /// <returns>The stored skin, or <c>null</c> when none is stored.</returns>
+    public string? GetSkin(ControllerKey key) => GetSkin(key.Mac, key.Path);
 
     /// <summary>
     /// Sets (or clears) the illustration skin stored for a controller and persists the
@@ -343,6 +469,13 @@ public sealed class ControllerInfoService
         info.Skin = skin ?? string.Empty;
         Save();
     }
+
+    /// <summary>
+    /// Sets (or clears) the illustration skin stored for a controller identified by its key.
+    /// </summary>
+    /// <param name="key">The controller key.</param>
+    /// <param name="skin">The skin name to store, or <c>null</c>/empty to clear it.</param>
+    public void SetSkin(ControllerKey key, string? skin) => SetSkin(key.Mac, key.Path, skin);
 
     /// <summary>
     /// Updates the stored profile name on every controller entry after a profile is renamed,

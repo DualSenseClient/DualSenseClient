@@ -13,7 +13,8 @@ namespace DualSenseClient.Controllers.SpecialActions;
 public sealed class SpecialActionEngineRegistry : IDisposable
 {
     /// <summary>
-    /// Guards access to <see cref="_engines"/> and <see cref="_actions"/>.
+    /// Guards access to <see cref="_engines"/>, <see cref="_actions"/> and
+    /// <see cref="_touchpadActionsSuspended"/>.
     /// </summary>
     private readonly Lock _lock = new Lock();
 
@@ -21,6 +22,13 @@ public sealed class SpecialActionEngineRegistry : IDisposable
     /// The engine per attached controller.
     /// </summary>
     private readonly Dictionary<DualSenseDevice, SpecialActionEngine> _engines = new Dictionary<DualSenseDevice, SpecialActionEngine>();
+
+    /// <summary>
+    /// The controllers whose touchpad-triggered special actions are suspended because the
+    /// touchpad mouse feature owns their touchpad. Remembered for controllers whose engine
+    /// does not exist yet.
+    /// </summary>
+    private readonly HashSet<DualSenseDevice> _touchpadActionsSuspended = new HashSet<DualSenseDevice>();
 
     /// <summary>
     /// The current action configuration, applied to engines created after the last
@@ -59,8 +67,37 @@ public sealed class SpecialActionEngineRegistry : IDisposable
                 SoundPlayerFactory = SoundPlayerFactory
             };
             engine.UpdateActions(_actions);
+            engine.TouchpadActionsEnabled = !_touchpadActionsSuspended.Contains(device);
             _engines.Add(device, engine);
             return engine;
+        }
+    }
+
+    /// <summary>
+    /// Suspends or resumes the touchpad-triggered special actions (swipe gestures and
+    /// combinations containing the touchpad button) of a controller, for as long as the
+    /// touchpad mouse feature owns its touchpad. Applied immediately to an existing engine,
+    /// or to the engine created later for the controller.
+    /// </summary>
+    /// <param name="device">The controller whose touchpad actions to suspend or resume.</param>
+    /// <param name="suspended">Whether the touchpad-triggered actions are suspended.</param>
+    public void SetTouchpadActionsSuspended(DualSenseDevice device, bool suspended)
+    {
+        lock (_lock)
+        {
+            if (suspended)
+            {
+                _touchpadActionsSuspended.Add(device);
+            }
+            else
+            {
+                _touchpadActionsSuspended.Remove(device);
+            }
+
+            if (_engines.TryGetValue(device, out SpecialActionEngine? engine))
+            {
+                engine.TouchpadActionsEnabled = !suspended;
+            }
         }
     }
 
@@ -71,6 +108,7 @@ public sealed class SpecialActionEngineRegistry : IDisposable
     {
         lock (_lock)
         {
+            _touchpadActionsSuspended.Remove(device);
             if (_engines.Remove(device, out SpecialActionEngine? engine))
             {
                 engine.Dispose();
@@ -104,6 +142,7 @@ public sealed class SpecialActionEngineRegistry : IDisposable
             }
 
             _engines.Clear();
+            _touchpadActionsSuspended.Clear();
         }
     }
 }

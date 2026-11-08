@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using DualSenseClient.Core.Models;
 using DualSenseClient.Core.Utilities;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings.Sections;
@@ -375,6 +376,14 @@ public sealed class SpecialActionService
         string normalizedPath = devicePath?.Trim() ?? string.Empty;
         return string.IsNullOrEmpty(normalizedPath) ? null : normalizedPath;
     }
+
+    /// <summary>
+    /// Gets the canonical identifier of a controller identified by its key: the
+    /// normalized MAC when present, otherwise the normalized path.
+    /// </summary>
+    /// <param name="key">The controller key.</param>
+    /// <returns>The canonical identifier, or <c>null</c> when the key is empty.</returns>
+    public static string? GetControllerId(ControllerKey key) => key.Id;
 
     /// <summary>
     /// Whether an action is enabled for the given controller.

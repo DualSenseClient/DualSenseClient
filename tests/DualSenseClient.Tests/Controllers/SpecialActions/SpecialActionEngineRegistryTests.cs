@@ -240,4 +240,42 @@ public class SpecialActionEngineRegistryTests
         Assert.That(registry.GetOrCreate(CreateDevice("first")), Is.Not.SameAs(first));
         Assert.That(registry.GetOrCreate(CreateDevice("second")), Is.Not.SameAs(second));
     }
+
+    [Test]
+    public void SetTouchpadActionsSuspended_AppliesToExistingEngine()
+    {
+        using SpecialActionEngineRegistry registry = new SpecialActionEngineRegistry();
+        DualSenseDevice device = CreateDevice("first");
+        SpecialActionEngine engine = registry.GetOrCreate(device);
+
+        registry.SetTouchpadActionsSuspended(device, true);
+
+        Assert.That(engine.TouchpadActionsEnabled, Is.False);
+    }
+
+    [Test]
+    public void SetTouchpadActionsSuspended_AppliesToFutureEngine()
+    {
+        using SpecialActionEngineRegistry registry = new SpecialActionEngineRegistry();
+        DualSenseDevice device = CreateDevice("first");
+
+        registry.SetTouchpadActionsSuspended(device, true);
+        SpecialActionEngine engine = registry.GetOrCreate(device);
+
+        Assert.That(engine.TouchpadActionsEnabled, Is.False);
+    }
+
+    [Test]
+    public void Remove_ClearsTouchpadActionsSuspension()
+    {
+        using SpecialActionEngineRegistry registry = new SpecialActionEngineRegistry();
+        DualSenseDevice device = CreateDevice("first");
+        registry.GetOrCreate(device);
+        registry.SetTouchpadActionsSuspended(device, true);
+
+        registry.Remove(device);
+        SpecialActionEngine engine = registry.GetOrCreate(device);
+
+        Assert.That(engine.TouchpadActionsEnabled, Is.True);
+    }
 }

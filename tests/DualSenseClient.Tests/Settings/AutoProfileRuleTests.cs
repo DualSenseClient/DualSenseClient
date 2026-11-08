@@ -1,3 +1,4 @@
+using DualSenseClient.Core.Models;
 using DualSenseClient.Settings.Sections;
 
 namespace DualSenseClient.Tests.Settings;
@@ -128,6 +129,23 @@ public class AutoProfileRuleTests
         {
             Assert.That(rule.MatchesController("AA:BB:CC:DD:EE:FF", @"\\?\hid#1"), Is.True);
             Assert.That(rule.MatchesController("AA:BB:CC:DD:EE:FF", @"\\?\hid#2"), Is.False);
+        });
+    }
+
+    [Test]
+    public void MatchesController_WithKey_UsesMacThenPath()
+    {
+        AutoProfileRule rule = new AutoProfileRule
+        {
+            ControllerMac = "AA:BB:CC:DD:EE:FF",
+            ControllerPath = @"\\?\hid#1"
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rule.MatchesController(ControllerKey.From("aa:bb:cc:dd:ee:ff", @"\\?\hid#2")), Is.True);
+            Assert.That(rule.MatchesController(ControllerKey.From("11:22:33:44:55:66", @"\\?\hid#1")), Is.True);
+            Assert.That(rule.MatchesController(ControllerKey.From("11:22:33:44:55:66", @"\\?\hid#2")), Is.False);
         });
     }
 

@@ -73,12 +73,13 @@ If no mapping is desired, leave the editor empty — the default one-to-one mapp
 
 ## Audio Forwarding
 
-Host audio can be forwarded to your **physical controller's speaker or headset**, with volume and haptic-strength controls. These settings live under **Customization → Audio Forwarding**.
+Host audio can be forwarded to your **physical controller's speaker or headset**, with hardware volume and software volume scale controls and haptic-strength controls. These settings live under **Customization → Audio Forwarding**.
 
 ![Audio Forwarding settings on the Customization page](../assets/images/audio-forwarding-customization.png)
 
 - **Forwarded Audio Output** — `Auto` (follows the controller's headset jack), `Speaker`, or `Headset`.
-- **Forwarded Audio Volume** — 0 – 255.
+- **Forwarded Audio Volume** — 0 – 255. The controller's hardware speaker/headset volume.
+- **Software Volume Scale** — 1x – 8x. Applied in software to all audio sent to the controller: forwarded audio, the audio player, and special-action sounds. `1x` leaves the audio unchanged; values above `1x` are soft-limited to prevent clipping.
 - **Forwarded Audio Buffer Length** — 16 – 128. Lower values reduce latency; higher values tolerate more jitter.
 - **Forwarded Audio Packet Mode** — `Single (0x36)` sends one audio frame per report; `Double (0x39)` batches two frames per report. Double falls back to the single report while an output-state override (lightbar or player LEDs) is active.
 - **Forwarded Haptic Strength** — 0 – 200.

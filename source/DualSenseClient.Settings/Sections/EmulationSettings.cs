@@ -191,6 +191,14 @@ public class ForwardSettings
     public int Volume { get; set; } = 0x50;
 
     /// <summary>
+    /// Gets or sets the software volume scale applied to every audio source sent to the
+    /// controller: forwarded host audio, the audio player, and special-action sounds
+    /// (1-8, 1 = unchanged). Values above 1 are soft-limited to prevent clipping.
+    /// </summary>
+    [JsonPropertyName("software_volume_scale")]
+    public double SoftwareVolumeScale { get; set; } = 1.0;
+
+    /// <summary>
     /// Gets or sets the controller-side audio buffer length written to the Bluetooth
     /// audio control blocks (16-128, default 48). Lower values reduce latency; higher
     /// values tolerate more jitter.

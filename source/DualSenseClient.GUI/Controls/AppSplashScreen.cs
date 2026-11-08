@@ -134,6 +134,10 @@ internal class AppSplashScreen : IFAApplicationSplashScreen
             // special actions engine to every tracked controller).
             _ = App.Services.GetRequiredService<SpecialActionCoordinator>();
 
+            // Touchpad mouse coordinator (created for its side effects: it attaches a
+            // touchpad-mouse engine to every tracked controller whose setting enables it).
+            _ = App.Services.GetRequiredService<TouchpadMouseCoordinator>();
+
             // Auto profile coordinator (created for its side effects: it polls the
             // focused program and temporarily applies the matching auto profile rule).
             _ = App.Services.GetRequiredService<AutoProfileCoordinator>();

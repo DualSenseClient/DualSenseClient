@@ -49,14 +49,21 @@ You will also need a **PlayStation 5 DualSense controller**, connected via wired
 
 ## Linux: Controller Access Without Root
 
-To access the controller without running the app as root, install a udev rule based on the official [hidapi udev rules](https://github.com/libusb/hidapi/blob/master/udev/69-hid.rules). For the DualSense (VID `054c`, PID `0ce6`), create `/etc/udev/rules.d/70-dualsense.rules` with:
+To access the controller without running the app as root, install a udev rule based on the official [hidapi udev rules](https://github.com/libusb/hidapi/blob/master/udev/69-hid.rules). The rules cover the DualSense (`054c:0ce6`) and DualSense Edge (`054c:0df2`) over USB and Bluetooth. They are also available as [`assets/linux/70-dualsense.rules`](https://github.com/DualSenseClient/DualSenseClient/blob/main/assets/linux/70-dualsense.rules). Create `/etc/udev/rules.d/70-dualsense.rules` with:
 
 ```
 # HIDAPI/libusb
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0ce6", TAG+="uaccess"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0df2", TAG+="uaccess"
 
-# HIDAPI/hidraw
+# HIDAPI/hidraw over USB
 KERNEL=="hidraw*", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0ce6", TAG+="uaccess"
+KERNEL=="hidraw*", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0df2", TAG+="uaccess"
+
+# HIDAPI/hidraw over Bluetooth. The hidraw node's parent is a HID device named like
+# "0005:054C:0CE6.0003" rather than a USB device, so idVendor/idProduct never match; match the name instead.
+KERNEL=="hidraw*", KERNELS=="*054C:0CE6*", TAG+="uaccess"
+KERNEL=="hidraw*", KERNELS=="*054C:0DF2*", TAG+="uaccess"
 ```
 
 Then replug the controller or run:

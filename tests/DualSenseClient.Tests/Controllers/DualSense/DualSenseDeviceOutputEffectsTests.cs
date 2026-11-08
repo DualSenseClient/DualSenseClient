@@ -1,4 +1,5 @@
 using DualSenseClient.Controllers.Devices;
+using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.DualSense.Triggers;
 using DualSenseClient.Hid;
@@ -261,6 +262,34 @@ public class DualSenseDeviceOutputEffectsTests
         {
             Assert.That(hid.LastWrite![1 + 2], Is.EqualTo(0x55)); // payload byte 2 = right motor
             Assert.That(hid.LastWrite[1 + 3], Is.EqualTo(0x00)); // payload byte 3 = left motor
+        });
+    }
+
+    [Test]
+    public void SetManualVibration_PreemptsTheAudioLaneUntilTheMotorsStop()
+    {
+        CapturingHidDevice hid = new CapturingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Bluetooth));
+        object forwarder = new object();
+        device.AudioLane.TryEnter(forwarder, AudioPriority.Forwarder);
+
+        device.SetManualVibration(0x55, 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(device.AudioLane.ActivePriority, Is.EqualTo(AudioPriority.ManualRumble));
+            Assert.That(device.AudioLane.IsActive(forwarder), Is.False);
+            Assert.That(hid.LastWrite![3 + 3], Is.EqualTo(0x55),
+                "the manual motor value must reach the controller");
+        });
+
+        device.SetManualVibration(0, 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(device.AudioLane.ActivePriority, Is.EqualTo(AudioPriority.Forwarder));
+            Assert.That(device.AudioLane.IsActive(forwarder), Is.True,
+                "the forwarder must resume once the manual motors stop");
         });
     }
 

@@ -477,7 +477,7 @@ public sealed class EmulationServiceUsbIpTests
         Assert.That(_service.GetStatus(device).Running, Is.False, "the stored Off setting does not create");
 
         // The temporary override changes the mode only; the stored Off setting must survive.
-        _service.SetTemporaryEmulationMode(device, EmulationMode.DualSense);
+        _service.SetTemporaryOverride(device, new EmulationOverride(EmulationMode.DualSense));
         _service.Refresh();
         WaitForRunning(device);
 

@@ -170,6 +170,17 @@ public sealed class DualSenseAudioPlayer : IDisposable
     private bool _restartRequested;
 
     /// <summary>
+    /// Whether this player owned the lane on the last tick.
+    /// </summary>
+    private bool _laneActive;
+
+    /// <summary>
+    /// The lane activation version observed by the last tick, so a preemption and
+    /// subsequent resume re-applies the route and re-primes the stream.
+    /// </summary>
+    private long _laneActivation = -1;
+
+    /// <summary>
     /// The background task running the writer loop.
     /// </summary>
     private Task? _loopTask;
@@ -234,6 +245,11 @@ public sealed class DualSenseAudioPlayer : IDisposable
     /// Scratch buffer for the 4-channel (quad) USB representation of one block.
     /// </summary>
     private readonly float[] _usbFloatBlock4 = new float[BlockSamples * 2];
+
+    /// <summary>
+    /// Scratch buffer for the stereo USB fallback when the endpoint has no haptics pair.
+    /// </summary>
+    private readonly float[] _usbFloatBlock2 = new float[BlockSamples];
 
     /// <summary>
     /// Scratch buffer for one 480-frame Opus block.
@@ -319,7 +335,12 @@ public sealed class DualSenseAudioPlayer : IDisposable
     }
 
     /// <summary>
-    /// Whether the writer loop is currently consuming the source.
+    /// The lane priority this player claims while playing.
+    /// </summary>
+    public AudioPriority Priority { get; set; } = AudioPriority.Player;
+
+    /// <summary>
+    /// Whether playback is currently running.
     /// </summary>
     public bool IsPlaying
     {
@@ -442,7 +463,10 @@ public sealed class DualSenseAudioPlayer : IDisposable
 
             if (_device is not null)
             {
-                _device.SetAudioOutput(OutputControl, _speakerVolume, HeadphoneVolume);
+                _device.AudioLane.TryEnter(this, Priority);
+                _laneActive = _device.AudioLane.IsActive(this);
+                _laneActivation = _device.AudioLane.ActivationVersion;
+                _device.AudioLane.SetAudioOutput(this, OutputControl, _speakerVolume, HeadphoneVolume);
             }
 
             _cts = new CancellationTokenSource();
@@ -469,6 +493,8 @@ public sealed class DualSenseAudioPlayer : IDisposable
         cts?.Cancel();
         if (cts is not null)
         {
+            _device?.AudioLane.Leave(this);
+            _laneActive = false;
             TimerResolution.Release();
             OnStateChanged();
             _log.Debug("Playback paused");
@@ -556,7 +582,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
                 // gap after the silence lets the controller's buffer underrun and
                 // crackle when audio resumes.
                 RebuildRenderTargets();
-                if (_device is not null && IsBluetooth)
+                if (_device is not null && IsBluetooth && _laneActive)
                 {
                     RestartBluetoothStream();
                 }
@@ -647,6 +673,11 @@ public sealed class DualSenseAudioPlayer : IDisposable
                     RestartBluetoothStream();
                 }
             }
+            else if (RefreshLaneActivationLocked())
+            {
+                restartOccurred = true;
+                return true;
+            }
 
             read = _source.Read(_floatBlock, 0, BlockSamples);
             Position = _source.CurrentTime;
@@ -664,16 +695,18 @@ public sealed class DualSenseAudioPlayer : IDisposable
 
             _desktopQueue?.AddSamples(_floatBlock);
 
+            float softwareGain = _device?.AudioLane.SoftwareGain ?? 1f;
             if (_usbQueue is not null)
             {
                 if (_usbFourChannel)
                 {
-                    ToUsbFourChannel(_floatBlock, _usbFloatBlock4);
+                    ToUsbFourChannel(_floatBlock, _usbFloatBlock4, softwareGain, _playToHaptics ? _hapticStrength : 0f);
                     _usbQueue.AddSamples(_usbFloatBlock4);
                 }
                 else
                 {
-                    _usbQueue.AddSamples(_floatBlock);
+                    ApplySoftwareGain(_floatBlock, _usbFloatBlock2, softwareGain);
+                    _usbQueue.AddSamples(_usbFloatBlock2);
                 }
             }
 
@@ -682,7 +715,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
                 DualSenseBtAudioPipeline.ConvertToPcm16(_floatBlock, _pcmBlock);
                 if (_playToSpeaker || _playToHeadset)
                 {
-                    DualSenseBtAudioPipeline.ResampleToOpusBlock(_pcmBlock, _opusBlock);
+                    DualSenseBtAudioPipeline.ResampleToOpusBlock(_pcmBlock, _opusBlock, softwareGain);
                     _btPipeline.EncodeOpus(_opusBlock, _opusFrame);
                     if (_playToHaptics)
                     {
@@ -694,7 +727,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
                 else
                 {
                     DualSenseBtAudioPipeline.ToHapticsPcm(_pcmBlock, _hapticsPcm, _hapticStrength);
-                    _device!.SendBluetoothHaptics(_hapticsPcm);
+                    _device!.AudioLane.SendHaptics(this, _hapticsPcm);
                 }
             }
         }
@@ -724,7 +757,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
             return;
         }
 
-        _device.SetAudioOutput(OutputControl, _speakerVolume, HeadphoneVolume);
+        _device.AudioLane.SetAudioOutput(this, OutputControl, _speakerVolume, HeadphoneVolume);
         if (IsPlaying && IsBluetooth)
         {
             SendBluetoothPrime();
@@ -737,7 +770,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
     private void SendBluetoothPrime()
     {
         _log.Debug("Sending Bluetooth audio stream init-prime");
-        _device!.SendBluetoothAudioPrime(CreateAudioState());
+        _device!.AudioLane.Prime(this, CreateAudioState());
     }
 
     /// <summary>
@@ -749,10 +782,51 @@ public sealed class DualSenseAudioPlayer : IDisposable
     /// </summary>
     private void RestartBluetoothStream()
     {
-        _device!.ResetBluetoothAudioStream();
+        if (_device is null || !IsBluetooth || !_device.AudioLane.IsActive(this))
+        {
+            return;
+        }
+
+        _device.AudioLane.ResetBluetoothStream(this);
         _btPipeline.ResetEncoder();
         SendBluetoothPrime();
         SendBtPreroll();
+    }
+
+    /// <summary>
+    /// Re-arms the route and Bluetooth stream when the lane returns to this player after
+    /// a higher-priority source used it. Returns <c>true</c> when a re-prime happened.
+    /// Caller must hold <see cref="_sync"/>.
+    /// </summary>
+    private bool RefreshLaneActivationLocked()
+    {
+        if (_device is null)
+        {
+            return false;
+        }
+
+        long activation = _device.AudioLane.ActivationVersion;
+        if (activation == _laneActivation)
+        {
+            return false;
+        }
+
+        _laneActivation = activation;
+        if (!_device.AudioLane.IsActive(this))
+        {
+            _laneActive = false;
+            return false;
+        }
+
+        _laneActive = true;
+        _device.AudioLane.SetAudioOutput(this, OutputControl, _speakerVolume, HeadphoneVolume);
+        if (!IsBluetooth)
+        {
+            return false;
+        }
+
+        RestartBluetoothStream();
+        return true;
     }
 
     /// <summary>
@@ -780,6 +854,11 @@ public sealed class DualSenseAudioPlayer : IDisposable
     /// </summary>
     private void SendBluetoothAudioReports(ReadOnlySpan<byte> opusFrame)
     {
+        if (_device is null || !_device.AudioLane.IsActive(this))
+        {
+            return;
+        }
+
         SetStateData state = CreateAudioState();
         bool first = true;
         if (_playToSpeaker)
@@ -802,11 +881,11 @@ public sealed class DualSenseAudioPlayer : IDisposable
     {
         if (first && _playToHaptics)
         {
-            _device!.SendBluetoothAudioAndHaptics(state, opusFrame, _hapticsPcm, route);
+            _device!.AudioLane.SendAudioAndHaptics(this, state, opusFrame, _hapticsPcm, route);
         }
         else
         {
-            _device!.SendBluetoothAudio(opusFrame, route);
+            _device!.AudioLane.SendAudio(this, opusFrame, route);
         }
     }
 
@@ -830,7 +909,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
             if (_playToDesktop)
             {
                 (_desktopDevice, _desktopQueue, _desktopPlayer) = CreateRenderTarget(_engine, null, StereoFormat, null);
-                PrimeQueue(_desktopQueue, false);
+                PrimeQueue(_desktopQueue, false, false);
                 _desktopPlayer.Play();
                 _desktopDevice.Start();
             }
@@ -914,7 +993,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
     private void OpenUsbDevice(DeviceInfo endpoint, AudioFormat format, MiniAudioDeviceConfig? config, bool fourChannel)
     {
         (_usbDevice, _usbQueue, _usbPlayer) = CreateRenderTarget(_engine, endpoint, format, config);
-        PrimeQueue(_usbQueue, fourChannel);
+        PrimeQueue(_usbQueue, fourChannel, true);
         _usbPlayer.Play();
         _usbDevice.Start();
     }
@@ -940,8 +1019,9 @@ public sealed class DualSenseAudioPlayer : IDisposable
     /// decoded audio so the device starts with real data instead of silence. Advances the
     /// source cursor, so it is only used while the writer loop is not running.
     /// </summary>
-    private void PrimeQueue(QueueDataProvider queue, bool fourChannel)
+    private void PrimeQueue(QueueDataProvider queue, bool fourChannel, bool controllerAudio)
     {
+        float softwareGain = controllerAudio ? _device?.AudioLane.SoftwareGain ?? 1f : 1f;
         for (int i = 0; i < PrerollBlocks && _source is not null; i++)
         {
             int read = _source.Read(_floatBlock, 0, BlockSamples);
@@ -957,8 +1037,13 @@ public sealed class DualSenseAudioPlayer : IDisposable
 
             if (fourChannel)
             {
-                ToUsbFourChannel(_floatBlock, _usbFloatBlock4);
+                ToUsbFourChannel(_floatBlock, _usbFloatBlock4, softwareGain, _playToHaptics ? _hapticStrength : 0f);
                 queue.AddSamples(_usbFloatBlock4);
+            }
+            else if (controllerAudio)
+            {
+                ApplySoftwareGain(_floatBlock, _usbFloatBlock2, softwareGain);
+                queue.AddSamples(_usbFloatBlock2);
             }
             else
             {
@@ -1057,7 +1142,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
                 SendBluetoothAudioReports(_opusFrame);
                 if (_playToHaptics && !(_playToSpeaker || _playToHeadset))
                 {
-                    _device.SendBluetoothHaptics(_hapticsPcm);
+                    _device.AudioLane.SendHaptics(this, _hapticsPcm);
                 }
 
                 next += prerollTicks;
@@ -1072,19 +1157,33 @@ public sealed class DualSenseAudioPlayer : IDisposable
 
     /// <summary>
     /// Expands a stereo float block into a 4-channel float USB stream: channels 1/2 carry
-    /// the audio, channels 3/4 carry the haptics scaled by the current strength — or
-    /// silence when haptics are disabled.
+    /// the audio at the lane's software gain, channels 3/4 carry the unmodified audio
+    /// scaled by the current strength — or silence when haptics are disabled.
     /// </summary>
-    private void ToUsbFourChannel(ReadOnlySpan<float> stereo, Span<float> quad)
+    /// <param name="stereo">The 512-frame stereo source block.</param>
+    /// <param name="quad">The 512-frame four-channel target block.</param>
+    /// <param name="gain">The lane's software gain (0-8).</param>
+    /// <param name="hapticStrength">The haptic strength multiplier, or zero when disabled.</param>
+    internal static void ToUsbFourChannel(ReadOnlySpan<float> stereo, Span<float> quad, float gain, float hapticStrength)
     {
-        float haptic = _playToHaptics ? _hapticStrength : 0f;
         for (int f = 0; f < FramesPerBlock; f++)
         {
             int o = f * 4;
-            quad[o] = stereo[f * 2];
-            quad[o + 1] = stereo[f * 2 + 1];
-            quad[o + 2] = stereo[f * 2] * haptic;
-            quad[o + 3] = stereo[f * 2 + 1] * haptic;
+            quad[o] = DualSenseBtAudioPipeline.ApplySoftwareGain(stereo[f * 2], gain);
+            quad[o + 1] = DualSenseBtAudioPipeline.ApplySoftwareGain(stereo[f * 2 + 1], gain);
+            quad[o + 2] = stereo[f * 2] * hapticStrength;
+            quad[o + 3] = stereo[f * 2 + 1] * hapticStrength;
+        }
+    }
+
+    /// <summary>
+    /// Copies a stereo float block through the lane's software gain.
+    /// </summary>
+    private static void ApplySoftwareGain(ReadOnlySpan<float> source, Span<float> target, float gain)
+    {
+        for (int i = 0; i < source.Length; i++)
+        {
+            target[i] = DualSenseBtAudioPipeline.ApplySoftwareGain(source[i], gain);
         }
     }
 

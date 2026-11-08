@@ -387,7 +387,7 @@ public class DualSenseDeviceOutputsTests
         using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
         using SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
         device.ApplyProfile(AnimatedProfile());
         hid.Clear();
 
@@ -410,7 +410,7 @@ public class DualSenseDeviceOutputsTests
         using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
         using SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
         device.LightbarPassthroughEnabled = true;
         device.ApplyProfile(AnimatedProfile());
         hid.Clear();
@@ -433,7 +433,7 @@ public class DualSenseDeviceOutputsTests
         using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
         using SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
         device.LightbarPassthroughEnabled = true;
         device.PlayerLedPassthroughEnabled = true;
         device.ApplyProfile(new Profile
@@ -491,7 +491,7 @@ public class DualSenseDeviceOutputsTests
         using SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
         engine.UpdateActions([CreateSustainedPlayerLedsAction(0x05)]);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
         Profile profile = AnimatedProfile();
         profile.OverrideVirtualLights = true;
         device.ApplyProfile(profile);
@@ -518,7 +518,7 @@ public class DualSenseDeviceOutputsTests
         using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
         using SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
         device.ApplyProfile(new Profile
         {
             Name = "Normal",
@@ -551,7 +551,7 @@ public class DualSenseDeviceOutputsTests
         using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
         using SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
         device.LightbarPassthroughEnabled = true;
         device.PlayerLedPassthroughEnabled = true;
         Profile profile = new Profile
@@ -594,7 +594,7 @@ public class DualSenseDeviceOutputsTests
         using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
         using SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
         FeedReport(device, CreateChargingReport());
         Profile profile = BatteryChaseProfile();
         profile.OverrideVirtualLights = true;
@@ -619,7 +619,7 @@ public class DualSenseDeviceOutputsTests
         using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
         using SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
         device.ApplyProfile(new Profile
         {
             Name = "Override",
@@ -644,7 +644,7 @@ public class DualSenseDeviceOutputsTests
         using SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
         engine.UpdateActions([CreateSustainedLightbarAction(0xAA, 0xBB, 0xCC)]);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
         device.ApplyProfile(AnimatedProfile());
         HoldCombo(device);
         hid.Clear();
@@ -667,7 +667,7 @@ public class DualSenseDeviceOutputsTests
         using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
         using SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
         FeedReport(device, CreateChargingReport());
         device.ApplyProfile(BatteryChaseProfile());
         hid.Clear();
@@ -690,7 +690,7 @@ public class DualSenseDeviceOutputsTests
         using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
         using SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
         FeedReport(device, CreateChargingReport());
         device.ApplyProfile(BatteryChaseProfile());
         device.PlayerLedPassthroughEnabled = true;
@@ -710,7 +710,7 @@ public class DualSenseDeviceOutputsTests
         using SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
         engine.UpdateActions([CreateSustainedLightbarAction(0xAA, 0xBB, 0xCC)]);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
 
         Assert.That(outputs.NeedsOutputStateBlock, Is.False);
 
@@ -733,7 +733,7 @@ public class DualSenseDeviceOutputsTests
         SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
         engine.UpdateActions([CreateSustainedLightbarAction(0xAA, 0xBB, 0xCC)]);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
 
         // Fire the action by holding the combination.
         FeedReport(device, CreateReport());
@@ -774,7 +774,7 @@ public class DualSenseDeviceOutputsTests
         SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
         engine.UpdateActions([CreateSustainedLightbarAction(0xAA, 0xBB, 0xCC)]);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
 
         outputs.SendOutputState(GameOutput(0x01, 0x02, 0x03));
         Assert.Multiple(() =>
@@ -796,7 +796,7 @@ public class DualSenseDeviceOutputsTests
         SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
         engine.UpdateActions([CreateSustainedPlayerLedsAction(0x05)]);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
 
         HoldCombo(device);
         hid.Clear();
@@ -851,7 +851,7 @@ public class DualSenseDeviceOutputsTests
             ButtonType.Circle.ToString()
         };
         engine.UpdateActions([color, leds]);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
 
         // Fire the timed color action on L1+R1.
         FeedReport(device, CreateReport());
@@ -893,7 +893,7 @@ public class DualSenseDeviceOutputsTests
         SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
         engine.UpdateActions([CreateSustainedLightbarAction(0xAA, 0xBB, 0xCC)]);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
 
         FeedReport(device, CreateReport());
         FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
@@ -936,7 +936,7 @@ public class DualSenseDeviceOutputsTests
         DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
         SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
         device.ApplyProfile(new Profile
         {
             Name = "Single",
@@ -987,7 +987,7 @@ public class DualSenseDeviceOutputsTests
         DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
         SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
         device.ApplyProfile(new Profile
         {
             Name = "Single",
@@ -1036,7 +1036,7 @@ public class DualSenseDeviceOutputsTests
         DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
         SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
         device.ApplyProfile(new Profile
         {
             Name = "Single",
@@ -1085,7 +1085,7 @@ public class DualSenseDeviceOutputsTests
         DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
         SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
 
         Assert.That(outputs.NeedsOutputStateBlock, Is.False);
 
@@ -1119,7 +1119,7 @@ public class DualSenseDeviceOutputsTests
         using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo());
         using SpecialActionEngine engine = new SpecialActionEngine();
         engine.Attach(device);
-        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device, engine);
+        DualSenseDeviceOutputs outputs = new DualSenseDeviceOutputs(device);
         device.ApplyProfile(new Profile
         {
             Name = "Single",

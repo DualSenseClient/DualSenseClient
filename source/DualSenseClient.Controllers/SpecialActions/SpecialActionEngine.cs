@@ -1,8 +1,10 @@
 ﻿using DualSenseClient.Controllers.DualSense.Enum;
 using DualSenseClient.Controllers.DualSense.Events;
 using DualSenseClient.Controllers.DualSense.Input;
+using DualSenseClient.Controllers.DualSense.Lightbar;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Devices;
+using DualSenseClient.Hid;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
 using DualSenseClient.Settings.Sections;
@@ -244,6 +246,20 @@ public sealed class SpecialActionEngine : IDisposable
     private string? _lastGesture;
 
     /// <summary>
+    /// Whether touchpad-triggered actions (swipes and combinations containing
+    /// <see cref="ButtonType.TouchPad"/>) are evaluated. Defaults to <c>true</c>; the
+    /// touchpad mouse feature suspends them while it owns the controller's touchpad.
+    /// </summary>
+    private bool _touchpadActionsEnabled = true;
+
+    /// <summary>
+    /// Whether the TouchPad button was already held when touchpad actions were re-enabled.
+    /// Such a press must not fire until it is released and pressed again, because it began
+    /// while the touchpad belonged to the mouse feature.
+    /// </summary>
+    private bool _staleTouchpadPress;
+
+    /// <summary>
     /// Actions that have already fired for the current hold, re-armed on release.
     /// </summary>
     private readonly HashSet<Guid> _fired = new HashSet<Guid>();
@@ -333,6 +349,56 @@ public sealed class SpecialActionEngine : IDisposable
     public Func<DualSenseDevice, ISpecialActionSoundPlayer>? SoundPlayerFactory { get; set; }
 
     /// <summary>
+    /// Gets or sets whether touchpad-triggered actions are evaluated: swipe gestures
+    /// (see <see cref="SpecialAction.TouchpadGesture"/>) and button combinations containing
+    /// <see cref="ButtonType.TouchPad"/>. Defaults to <c>true</c>. Setting it to <c>false</c>
+    /// releases any touchpad-triggered sustained effect and cancels a pending swipe hold; a
+    /// TouchPad press (or touch) already in progress when it is set back to <c>true</c> does
+    /// not fire until it is released and started again.
+    /// </summary>
+    public bool TouchpadActionsEnabled
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _touchpadActionsEnabled;
+            }
+        }
+        set
+        {
+            lock (_lock)
+            {
+                if (_touchpadActionsEnabled == value)
+                {
+                    return;
+                }
+
+                _touchpadActionsEnabled = value;
+                if (!value)
+                {
+                    _touchStart = null;
+                    _lastGesture = null;
+                    _staleTouchpadPress = false;
+                    foreach (SpecialAction action in _actions)
+                    {
+                        if (IsTouchpadOwned(action))
+                        {
+                            ReleaseOutputs(action);
+                        }
+                    }
+                }
+                else
+                {
+                    // A TouchPad press held through the suspension belongs to the mouse
+                    // feature; latch it so it cannot fire until released and pressed again.
+                    _staleTouchpadPress = _held.Contains(ButtonType.TouchPad);
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// The controller output fields held by the active light actions
     /// (<see cref="SpecialActionTypes.SetLightbarColor"/>, <see cref="SpecialActionTypes.SetPlayerLeds"/>
     /// and <see cref="SpecialActionTypes.ShowBatteryLevel"/>; each field is <c>null</c>
@@ -374,7 +440,7 @@ public sealed class SpecialActionEngine : IDisposable
             DetachCore();
 
             _device = device;
-            _controllerId = SpecialActionService.GetControllerId(device.PairingInfo?.ClientMac, device.Info.Path);
+            _controllerId = SpecialActionService.GetControllerId(device.Key);
             _held.Clear();
             _fired.Clear();
             _pending.Clear();
@@ -385,6 +451,7 @@ public sealed class SpecialActionEngine : IDisposable
             _playerLedOverrideCode = -1;
             _touchStart = null;
             _lastGesture = null;
+            _staleTouchpadPress = false;
 
             device.ButtonPressed += OnButtonPressed;
             device.ButtonReleased += OnButtonReleased;
@@ -486,6 +553,13 @@ public sealed class SpecialActionEngine : IDisposable
         lock (_lock)
         {
             _held.Remove(e.Button);
+            if (e.Button == ButtonType.TouchPad)
+            {
+                // The stale press that began during suspension is over: the next press is
+                // a fresh trigger.
+                _staleTouchpadPress = false;
+            }
+
             EvaluateCombos();
         }
     }
@@ -501,6 +575,15 @@ public sealed class SpecialActionEngine : IDisposable
     {
         lock (_lock)
         {
+            if (!_touchpadActionsEnabled)
+            {
+                // The touchpad belongs to the mouse feature: drop any gesture tracking so
+                // a finger already down cannot complete a swipe once suspension lifts.
+                _touchStart = null;
+                _lastGesture = null;
+                return;
+            }
+
             TouchPoint touch = e.CurrentState.Touch1;
             bool isActive = touch.IsActive;
 
@@ -568,9 +651,19 @@ public sealed class SpecialActionEngine : IDisposable
             return;
         }
 
+        // Read the private field: every caller already holds the lock. Touchpad-owned
+        // actions are skipped while suspended (and while a TouchPad press that began
+        // during suspension is still held); other combinations keep working.
+        bool touchpadActionsAllowed = _touchpadActionsEnabled && !_staleTouchpadPress;
+
         foreach (SpecialAction action in _actions)
         {
             if (!SpecialActionService.IsEnabledFor(action, _controllerId))
+            {
+                continue;
+            }
+
+            if (!touchpadActionsAllowed && IsTouchpadOwned(action))
             {
                 continue;
             }
@@ -612,25 +705,9 @@ public sealed class SpecialActionEngine : IDisposable
 
                 if (!_held.IsSupersetOf(combo))
                 {
-                    // A combination button was released: re-arm the action.
-                    _fired.Remove(action.Id);
-                    if (_sustainedActive.Remove(action.Id))
-                    {
-                        EndOutputOverride(action.Id);
-                        EndBatteryNotification(action.Id);
-                        if (action.Effects.Any(e => e.Enabled && e.Type == SpecialActionTypes.PlaySound))
-                        {
-                            StopSound();
-                        }
-
-                        if (action.Effects.Any(e => e.Enabled
-                                                    && e.Type is SpecialActionTypes.SetLightbarColor
-                                                        or SpecialActionTypes.SetPlayerLeds
-                                                        or SpecialActionTypes.ShowBatteryLevel))
-                        {
-                            RestoreBaseState();
-                        }
-                    }
+                    // A combination button was released: re-arm the action and release
+                    // its while-held outputs.
+                    ReleaseOutputs(action);
                 }
             }
         }
@@ -666,24 +743,45 @@ public sealed class SpecialActionEngine : IDisposable
         {
             // No committed gesture: a pending hold is moot and the action is re-armed
             // (the swipe's release already happened), reverting while-held effects.
-            _pending.Remove(action.Id);
-            _fired.Remove(action.Id);
-            if (_sustainedActive.Remove(action.Id))
-            {
-                EndOutputOverride(action.Id);
-                EndBatteryNotification(action.Id);
-                if (action.Effects.Any(e => e.Enabled && e.Type == SpecialActionTypes.PlaySound))
-                {
-                    StopSound();
-                }
+            ReleaseOutputs(action);
+        }
+    }
 
-                if (action.Effects.Any(e => e.Enabled
-                                            && e.Type is SpecialActionTypes.SetLightbarColor
-                                                or SpecialActionTypes.SetPlayerLeds
-                                                or SpecialActionTypes.ShowBatteryLevel))
-                {
-                    RestoreBaseState();
-                }
+    /// <summary>
+    /// Whether the action is triggered through the touchpad: a swipe gesture or a button
+    /// combination containing <see cref="ButtonType.TouchPad"/>. Such actions are suspended
+    /// while the touchpad mouse owns the controller's touchpad.
+    /// </summary>
+    private static bool IsTouchpadOwned(SpecialAction action) =>
+        !string.IsNullOrEmpty(action.TouchpadGesture)
+        || (action.Buttons?.Any(name => string.Equals(name, nameof(ButtonType.TouchPad), StringComparison.OrdinalIgnoreCase)) ?? false);
+
+    /// <summary>
+    /// Releases an action's trigger state as if its trigger had been released: cancels a
+    /// pending hold, re-arms it, and ends a while-held effect (output override, battery
+    /// notification, sound, and the restored base light state). Callers must hold
+    /// <see cref="_lock"/>.
+    /// </summary>
+    /// <param name="action">The action to release.</param>
+    private void ReleaseOutputs(SpecialAction action)
+    {
+        _pending.Remove(action.Id);
+        _fired.Remove(action.Id);
+        if (_sustainedActive.Remove(action.Id))
+        {
+            EndOutputOverride(action.Id);
+            EndBatteryNotification(action.Id);
+            if (action.Effects.Any(e => e.Enabled && e.Type == SpecialActionTypes.PlaySound))
+            {
+                StopSound();
+            }
+
+            if (action.Effects.Any(e => e.Enabled
+                                        && e.Type is SpecialActionTypes.SetLightbarColor
+                                            or SpecialActionTypes.SetPlayerLeds
+                                            or SpecialActionTypes.ShowBatteryLevel))
+            {
+                RestoreBaseState();
             }
         }
     }
@@ -842,14 +940,34 @@ public sealed class SpecialActionEngine : IDisposable
                 }
             }
 
-            // While the action stays active, its output fields override the emulated
-            // output forwarded from a virtual controller (the most recent fire wins
-            // per field).
-            if ((applied.LightbarColor is not null || applied.PlayerLeds is not null)
-                && (_sustainedActive.Contains(action.Id) || _timedActive.ContainsKey(action.Id)))
+            if (applied.LightbarColor is not null || applied.PlayerLeds is not null)
             {
-                _outputOverrides[action.Id] = (applied, ++_overrideSequence);
-                RecomputeOutputOverride();
+                if (_sustainedActive.Contains(action.Id) || _timedActive.ContainsKey(action.Id))
+                {
+                    // While the action stays active, its output fields override the
+                    // forwarded output (the most recent fire wins per field).
+                    _outputOverrides[action.Id] = (applied, ++_overrideSequence);
+                    RecomputeOutputOverride();
+                }
+                else if (_device is not null)
+                {
+                    // A one-shot light action is visible immediately but does not hold
+                    // the channel, so the next game or effect frame can take it back.
+                    _device.Lighting.Submit(LightingOwner.SpecialAction, new LightingSnapshot(
+                        applied.LightbarColor,
+                        applied.PlayerLeds is { } leds ? (PlayerLedMask)leds : null));
+
+                    try
+                    {
+                        _device.Lighting.Commit();
+                    }
+                    catch (HidException ex)
+                    {
+                        _log.Error($"Failed to apply special-action lighting: {ex.Message}");
+                    }
+
+                    _device.Lighting.Clear(LightingOwner.SpecialAction);
+                }
             }
 
             ActionExecuted?.Invoke(this, new SpecialActionExecutedEventArgs(action));
@@ -977,40 +1095,16 @@ public sealed class SpecialActionEngine : IDisposable
     }
 
     /// <summary>
-    /// Sets the lightbar color, including the fade animation setup byte needed to take
-    /// over the lightbar from the controller's default state (mirrors
-    /// <see cref="DualSenseDevice.ApplyProfile"/>).
+    /// Returns the lightbar color applied by the effect. The authority resolves and
+    /// sends it after every active action has been combined.
     /// </summary>
-    private (byte Red, byte Green, byte Blue) SendLightbarColor(byte red, byte green, byte blue)
-    {
-        SetStateData payload = new SetStateData
-        {
-            ValidFlag1 = ValidFlags.AllowLedColor,
-            ValidFlag2 = ValidFlags.AllowColorFadeAnim,
-            LightFadeAnimation = 0x02,
-            LedRed = red,
-            LedGreen = green,
-            LedBlue = blue
-        };
-
-        _device!.SendOutputState(payload);
-        return (red, green, blue);
-    }
+    private static (byte Red, byte Green, byte Blue) SendLightbarColor(byte red, byte green, byte blue) => (red, green, blue);
 
     /// <summary>
-    /// Sets the player LED layout from the raw byte mask (bit 0 = LED 1, ... bit 4 = LED 5).
+    /// Returns the player LED layout applied by the effect (bit 0 = LED 1, ... bit 4 = LED 5).
+    /// The authority resolves and sends it after every active action has been combined.
     /// </summary>
-    private byte SendPlayerLeds(byte mask)
-    {
-        SetStateData payload = new SetStateData
-        {
-            ValidFlag1 = ValidFlags.AllowPlayerIndicators,
-            PlayerLeds = (PlayerLedMask)mask
-        };
-
-        _device!.SendOutputState(payload);
-        return mask;
-    }
+    private static byte SendPlayerLeds(byte mask) => mask;
 
     /// <summary>
     /// Shows the controller's current battery charge: on the lightbar (unless disabled via
@@ -1202,10 +1296,32 @@ public sealed class SpecialActionEngine : IDisposable
         _lightbarOverrideCode = bestColor < 0 ? -1 : (bestColorEntry.Red << 16) | (bestColorEntry.Green << 8) | bestColorEntry.Blue;
         _playerLedOverrideCode = bestLeds < 0 ? -1 : bestLedsEntry;
 
-        // An active light action owns the lightbar and player LEDs: freeze the profile
-        // effect so it cannot fight the action's output.
         if (_device is not null)
         {
+            if (bestColor < 0 && bestLeds < 0)
+            {
+                // Clearing does not send: the caller either restores the profile or lets
+                // the next game/effect frame reveal the lower-precedence owner.
+                _device.Lighting.Clear(LightingOwner.SpecialAction);
+            }
+            else
+            {
+                _device.Lighting.Submit(LightingOwner.SpecialAction, new LightingSnapshot(
+                    bestColor < 0 ? null : bestColorEntry,
+                    bestLeds < 0 ? null : (PlayerLedMask)bestLedsEntry));
+
+                try
+                {
+                    _device.Lighting.Commit();
+                }
+                catch (HidException ex)
+                {
+                    _log.Error($"Failed to apply special-action lighting: {ex.Message}");
+                }
+            }
+
+            // An active light action owns the lightbar and player LEDs: freeze the profile
+            // effect so it cannot fight the action's output.
             _device.LightbarEffectSuspended = bestColor >= 0 || bestLeds >= 0;
         }
     }
@@ -1241,6 +1357,7 @@ public sealed class SpecialActionEngine : IDisposable
         _playerLedOverrideCode = -1;
         _touchStart = null;
         _lastGesture = null;
+        _staleTouchpadPress = false;
 
         _soundPlayer?.Dispose();
         _soundPlayer = null;

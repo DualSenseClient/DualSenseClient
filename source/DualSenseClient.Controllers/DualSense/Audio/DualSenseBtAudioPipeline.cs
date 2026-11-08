@@ -126,6 +126,86 @@ public sealed class DualSenseBtAudioPipeline : IDisposable
     }
 
     /// <summary>
+    /// Applies the controller's software gain to one PCM sample. Gains up to unity are
+    /// linear; gains above unity pass through a soft limiter so a boost cannot clip.
+    /// </summary>
+    /// <param name="sample">The source sample.</param>
+    /// <param name="gain">The gain multiplier (0-8).</param>
+    /// <returns>The scaled sample.</returns>
+    public static short ApplySoftwareGain(short sample, float gain)
+    {
+        if (gain == 1f)
+        {
+            return sample;
+        }
+
+        if (!float.IsFinite(gain))
+        {
+            gain = 1f;
+        }
+
+        gain = Math.Clamp(gain, 0f, 8f);
+        float value = sample * gain;
+        if (gain > 1f)
+        {
+            // Soft-knee limiter in the S16 domain: linear below 90% of full scale, then
+            // asymptotically approaches full scale. It keeps a 200% boost audible without
+            // hard clipping.
+            const float threshold = 0.9f * 32768f;
+            const float knee = 0.1f * 32768f;
+            float magnitude = MathF.Abs(value);
+            if (magnitude > threshold)
+            {
+                float excess = (magnitude - threshold) / knee;
+                magnitude = threshold + knee * MathF.Tanh(excess);
+                value = MathF.CopySign(magnitude, value);
+            }
+        }
+
+        return (short)Math.Clamp(MathF.Round(value), short.MinValue, short.MaxValue);
+    }
+
+    /// <summary>
+    /// Applies the controller's software gain to one normalized float sample. Gains up
+    /// to unity are linear; gains above unity pass through a soft limiter so a boost
+    /// cannot clip.
+    /// </summary>
+    /// <param name="sample">The source sample (-1..1).</param>
+    /// <param name="gain">The gain multiplier (0-8).</param>
+    /// <returns>The scaled sample.</returns>
+    public static float ApplySoftwareGain(float sample, float gain)
+    {
+        if (!float.IsFinite(gain))
+        {
+            gain = 1f;
+        }
+
+        gain = Math.Clamp(gain, 0f, 8f);
+        if (gain == 1f)
+        {
+            return sample;
+        }
+
+        float value = sample * gain;
+        if (gain > 1f)
+        {
+            // Soft-knee limiter: linear below 90% of full scale, then asymptotically
+            // approaches full scale. It keeps a 200% boost audible without hard clipping.
+            const float threshold = 0.9f;
+            const float knee = 0.1f;
+            float magnitude = MathF.Abs(value);
+            if (magnitude > threshold)
+            {
+                float excess = (magnitude - threshold) / knee;
+                magnitude = threshold + knee * MathF.Tanh(excess);
+                value = MathF.CopySign(magnitude, value);
+            }
+        }
+
+        return Math.Clamp(value, -1f, 1f);
+    }
+
+    /// <summary>
     /// Downsamples the block to <see cref="HapticsBytes"/> bytes of interleaved s8
     /// stereo (32 frames at 3 kHz) for the Bluetooth haptics report, scaled by the
     /// given strength. Each 3 kHz sample is the mean of its 16-frame decimation window
@@ -161,15 +241,22 @@ public sealed class DualSenseBtAudioPipeline : IDisposable
     /// source index of the last output lands one ulp short of the true endpoint due to
     /// floating-point rounding, which would otherwise smear the last frame by one LSB.
     /// </summary>
-    public static void ResampleToOpusBlock(ReadOnlySpan<short> source, Span<short> target)
+    /// <param name="source">The 512-frame stereo source block.</param>
+    /// <param name="target">The 480-frame stereo target block.</param>
+    /// <param name="gain">
+    /// Software gain applied to the resampled audio (0-8). Haptics are derived from the
+    /// unmodified source, so this only affects the audio path.
+    /// </param>
+    public static void ResampleToOpusBlock(ReadOnlySpan<short> source, Span<short> target, float gain = 1f)
     {
+        gain = float.IsFinite(gain) ? Math.Clamp(gain, 0f, 8f) : 1f;
         const double step = (FramesPerBlock - 1) / (double)(OpusFrameSamples - 1);
         for (int i = 0; i < OpusFrameSamples; i++)
         {
             if (i == OpusFrameSamples - 1)
             {
-                target[i * 2] = source[(FramesPerBlock - 1) * 2];
-                target[i * 2 + 1] = source[(FramesPerBlock - 1) * 2 + 1];
+                target[i * 2] = ApplySoftwareGain(source[(FramesPerBlock - 1) * 2], gain);
+                target[i * 2 + 1] = ApplySoftwareGain(source[(FramesPerBlock - 1) * 2 + 1], gain);
                 continue;
             }
 
@@ -181,8 +268,8 @@ public sealed class DualSenseBtAudioPipeline : IDisposable
             int l1 = source[nxt * 2];
             int r0 = source[idx * 2 + 1];
             int r1 = source[nxt * 2 + 1];
-            target[i * 2] = (short)(int)(l0 + (l1 - l0) * frac);
-            target[i * 2 + 1] = (short)(int)(r0 + (r1 - r0) * frac);
+            target[i * 2] = ApplySoftwareGain((short)(int)(l0 + (l1 - l0) * frac), gain);
+            target[i * 2 + 1] = ApplySoftwareGain((short)(int)(r0 + (r1 - r0) * frac), gain);
         }
     }
 

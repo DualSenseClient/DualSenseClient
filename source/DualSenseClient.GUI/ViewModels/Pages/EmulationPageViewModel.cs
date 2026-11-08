@@ -3,11 +3,14 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Enum;
+using DualSenseClient.Core.Models;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Controls;
@@ -138,6 +141,19 @@ public partial class EmulationPageViewModel : ObservableObject
     }
 
     /// <summary>
+    /// The key of the selected controller, or an empty key when none is selected.
+    /// </summary>
+    private ControllerKey CurrentKey
+    {
+        get
+        {
+            return CurrentDevice is null
+                ? ControllerKey.From(null, null)
+                : ControllerKeyFactory.From(CurrentDevice.Controller.Device);
+        }
+    }
+
+    /// <summary>
     /// The concrete DualSense device of the selected controller, or <c>null</c> for
     /// non-DualSense devices.
     /// </summary>
@@ -193,7 +209,7 @@ public partial class EmulationPageViewModel : ObservableObject
 
             string skin = Skins[value];
             _skinIndex = value;
-            _controllerService.SetSkin(CurrentMac, CurrentDevicePath, skin);
+            _controllerService.SetSkin(CurrentKey, skin);
             OnPropertyChanged();
             OnPropertyChanged(nameof(SkinName));
         }
@@ -239,7 +255,7 @@ public partial class EmulationPageViewModel : ObservableObject
     /// <see cref="ControllerInfoService.SaveEmulationSettings"/> persists the change.
     /// </summary>
     private EmulationSettings GetEmulationSettings()
-        => _controllerService.GetEmulationSettings(CurrentMac, CurrentDevicePath);
+        => _controllerService.GetEmulationSettings(CurrentKey);
 
     /// <summary>
     /// The virtual controller emulation mode (<see cref="EmulationMode"/> value) of the
@@ -274,7 +290,7 @@ public partial class EmulationPageViewModel : ObservableObject
 
             _log.Info($"Setting emulation mode of {CurrentMac} to {mode}");
             settings.Mode = mode;
-            _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+            _controllerService.SaveEmulationSettings(CurrentKey, settings);
             OnPropertyChanged(nameof(EmulationModeIndex));
             OnPropertyChanged(nameof(IsEmulationEnabled));
             OnPropertyChanged(nameof(IsDualSenseEmulation));
@@ -462,7 +478,7 @@ public partial class EmulationPageViewModel : ObservableObject
 
         _log.Info($"Setting {propertyName} of {CurrentMac} to {value}");
         setter(settings.Forward, value);
-        _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+        _controllerService.SaveEmulationSettings(CurrentKey, settings);
         OnPropertyChanged(propertyName);
         _emulation.Refresh();
     }
@@ -533,7 +549,7 @@ public partial class EmulationPageViewModel : ObservableObject
 
             _log.Info($"Setting DualSense variant of {CurrentMac} to {variant}");
             settings.Variant.DualSense = variant;
-            _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+            _controllerService.SaveEmulationSettings(CurrentKey, settings);
             OnPropertyChanged(nameof(DualSenseVariantIndex));
             RefreshMappingTargets();
             RefreshBindings();
@@ -568,7 +584,7 @@ public partial class EmulationPageViewModel : ObservableObject
 
             _log.Info($"Setting DualShock 4 variant of {CurrentMac} to {variant}");
             settings.Variant.DualShock4 = variant;
-            _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+            _controllerService.SaveEmulationSettings(CurrentKey, settings);
             OnPropertyChanged(nameof(DualShock4VariantIndex));
             _emulation.Refresh();
         }
@@ -620,6 +636,196 @@ public partial class EmulationPageViewModel : ObservableObject
             return EmulationService.IsSupported
                    && (CurrentDualSenseDevice is not { } device || !_emulation.GetStatus(device).IsCreating);
         }
+    }
+
+    // ── Touchpad mouse ──────────────────────────────────────────
+
+    /// <summary>
+    /// Debounced touchpad mouse save timer: each speed slider change restarts it and the
+    /// save happens only after changes stop.
+    /// </summary>
+    private readonly DispatcherTimer _touchpadMouseSaveTimer;
+
+    /// <summary>
+    /// Whether a debounced touchpad mouse save is waiting for the timer to elapse.
+    /// </summary>
+    private bool _touchpadMouseSavePending;
+
+    /// <summary>
+    /// The touchpad-as-a-mouse settings stored for the selected controller. The returned
+    /// instance is the live stored object; mutating it and calling
+    /// <see cref="ControllerInfoService.SaveTouchpadMouseSettings(ControllerKey, TouchpadMouseSettings)"/>
+    /// persists the change.
+    /// </summary>
+    private TouchpadMouseSettings GetTouchpadMouseSettings()
+        => _controllerService.GetTouchpadMouseSettings(CurrentKey);
+
+    /// <summary>
+    /// Clamps a stored speed into the UI range and falls back to 1.0 for NaN, which
+    /// hand-edited settings can contain.
+    /// </summary>
+    private static double ClampTouchpadMouseSpeed(double value)
+        => double.IsNaN(value) ? 1.0 : Math.Clamp(value, 0.25, 3.0);
+
+    /// <summary>
+    /// Whether the touchpad mouse expander is offered: the feature is Windows-only and
+    /// needs a selected controller.
+    /// </summary>
+    public bool IsTouchpadMouseVisible
+    {
+        get
+        {
+            return HasDevice && OperatingSystem.IsWindows();
+        }
+    }
+
+    /// <summary>
+    /// Whether the selected controller's touchpad drives the pointer (two-way, persisted
+    /// immediately). Also enables the speed and scrolling options.
+    /// </summary>
+    public bool IsTouchpadMouseEnabled
+    {
+        get
+        {
+            return HasDevice && GetTouchpadMouseSettings().Enabled;
+        }
+        set
+        {
+            if (!HasDevice)
+            {
+                return;
+            }
+
+            TouchpadMouseSettings settings = GetTouchpadMouseSettings();
+            if (settings.Enabled == value)
+            {
+                return;
+            }
+
+            _log.Info($"Setting touchpad mouse of {CurrentMac} to {value}");
+            settings.Enabled = value;
+            _controllerService.SaveTouchpadMouseSettings(CurrentKey, settings);
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsTouchpadMouseOptionsEnabled));
+        }
+    }
+
+    /// <summary>
+    /// Whether the pointer and scroll options may be changed: the touchpad mouse must be
+    /// enabled.
+    /// </summary>
+    public bool IsTouchpadMouseOptionsEnabled
+    {
+        get
+        {
+            return IsTouchpadMouseEnabled;
+        }
+    }
+
+    /// <summary>
+    /// The pointer speed multiplier of the selected controller (UI range 0.25–3.0,
+    /// persisted after the debounce). Writes the live settings and schedules the save.
+    /// </summary>
+    public double TouchpadMousePointerSpeed
+    {
+        get
+        {
+            return HasDevice ? ClampTouchpadMouseSpeed(GetTouchpadMouseSettings().PointerSpeed) : 1.0;
+        }
+        set
+        {
+            if (!HasDevice)
+            {
+                return;
+            }
+
+            GetTouchpadMouseSettings().PointerSpeed = ClampTouchpadMouseSpeed(value);
+            OnPropertyChanged();
+            ScheduleTouchpadMouseSave();
+        }
+    }
+
+    /// <summary>
+    /// The scroll speed multiplier of the selected controller (UI range 0.25–3.0,
+    /// persisted after the debounce). Writes the live settings and schedules the save.
+    /// </summary>
+    public double TouchpadMouseScrollSpeed
+    {
+        get
+        {
+            return HasDevice ? ClampTouchpadMouseSpeed(GetTouchpadMouseSettings().ScrollSpeed) : 1.0;
+        }
+        set
+        {
+            if (!HasDevice)
+            {
+                return;
+            }
+
+            GetTouchpadMouseSettings().ScrollSpeed = ClampTouchpadMouseSpeed(value);
+            OnPropertyChanged();
+            ScheduleTouchpadMouseSave();
+        }
+    }
+
+    /// <summary>
+    /// Whether two-finger scrolling follows the natural (touch) direction (two-way,
+    /// persisted immediately).
+    /// </summary>
+    public bool TouchpadMouseNaturalScrolling
+    {
+        get
+        {
+            return HasDevice && GetTouchpadMouseSettings().NaturalScrolling;
+        }
+        set
+        {
+            if (!HasDevice)
+            {
+                return;
+            }
+
+            TouchpadMouseSettings settings = GetTouchpadMouseSettings();
+            if (settings.NaturalScrolling == value)
+            {
+                return;
+            }
+
+            settings.NaturalScrolling = value;
+            _controllerService.SaveTouchpadMouseSettings(CurrentKey, settings);
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>
+    /// Restarts the debounce timer so the pending touchpad mouse save is delayed until
+    /// slider changes stop, avoiding a disk write per drag step.
+    /// </summary>
+    private void ScheduleTouchpadMouseSave()
+    {
+        _touchpadMouseSavePending = true;
+        _touchpadMouseSaveTimer.Stop();
+        _touchpadMouseSaveTimer.Start();
+    }
+
+    /// <summary>
+    /// Persists a pending debounced touchpad mouse save immediately, e.g. when the page
+    /// unloads or the selected controller changes.
+    /// </summary>
+    public void FlushPendingTouchpadMouseSave()
+    {
+        if (!_touchpadMouseSavePending)
+        {
+            return;
+        }
+
+        if (HasDevice)
+        {
+            _controllerService.SaveTouchpadMouseSettings(CurrentKey, GetTouchpadMouseSettings());
+        }
+
+        _touchpadMouseSaveTimer.Stop();
+        _touchpadMouseSavePending = false;
     }
 
     // ── Button remapping ────────────────────────────────────────
@@ -1079,7 +1285,7 @@ public partial class EmulationPageViewModel : ObservableObject
     /// </summary>
     private void SaveAndApply(EmulationSettings settings)
     {
-        _controllerService.SaveEmulationSettings(CurrentMac, CurrentDevicePath, settings);
+        _controllerService.SaveEmulationSettings(CurrentKey, settings);
         if (CurrentDualSenseDevice is { } device)
         {
             _emulation.ApplyButtonMappings(device);
@@ -1414,6 +1620,11 @@ public partial class EmulationPageViewModel : ObservableObject
             Skins.Add(skin);
         }
 
+        _touchpadMouseSaveTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(400)
+        };
+        _touchpadMouseSaveTimer.Tick += (_, _) => FlushPendingTouchpadMouseSave();
         _emulation.StateChanged += OnEmulationStateChanged;
         _mainViewModel.PropertyChanged += OnMainViewModelPropertyChanged;
         UpdateDevice();
@@ -1448,6 +1659,7 @@ public partial class EmulationPageViewModel : ObservableObject
     /// </summary>
     private void UpdateDevice()
     {
+        FlushPendingTouchpadMouseSave();
         _previousItem?.Dispose();
         _previousMonitorState?.Dispose();
 
@@ -1457,7 +1669,7 @@ public partial class EmulationPageViewModel : ObservableObject
         MonitorState = selected is not null ? new InputMonitorItem(selected, _audioEngine) : null;
         _previousMonitorState = MonitorState;
 
-        string storedSkin = selected is null ? string.Empty : _controllerService.GetSkin(CurrentMac, CurrentDevicePath) ?? string.Empty;
+        string storedSkin = selected is null ? string.Empty : _controllerService.GetSkin(CurrentKey) ?? string.Empty;
         int storedIndex = Skins.IndexOf(storedSkin);
         _skinIndex = storedIndex >= 0 ? storedIndex : 0;
 
@@ -1496,5 +1708,11 @@ public partial class EmulationPageViewModel : ObservableObject
 
         OnPropertyChanged(nameof(EmulationStatusText));
         OnPropertyChanged(nameof(CanChangeEmulation));
+        OnPropertyChanged(nameof(IsTouchpadMouseVisible));
+        OnPropertyChanged(nameof(IsTouchpadMouseEnabled));
+        OnPropertyChanged(nameof(IsTouchpadMouseOptionsEnabled));
+        OnPropertyChanged(nameof(TouchpadMousePointerSpeed));
+        OnPropertyChanged(nameof(TouchpadMouseScrollSpeed));
+        OnPropertyChanged(nameof(TouchpadMouseNaturalScrolling));
     }
 }

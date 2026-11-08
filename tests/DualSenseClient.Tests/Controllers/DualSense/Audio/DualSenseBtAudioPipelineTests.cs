@@ -232,6 +232,140 @@ public class DualSenseBtAudioPipelineTests
     }
 
     [Test]
+    public void ApplySoftwareGain_UnityReturnsTheSample()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(DualSenseBtAudioPipeline.ApplySoftwareGain(12345, 1f), Is.EqualTo(12345));
+            Assert.That(DualSenseBtAudioPipeline.ApplySoftwareGain(-12345, 1f), Is.EqualTo(-12345));
+            Assert.That(DualSenseBtAudioPipeline.ApplySoftwareGain(0, 1f), Is.Zero);
+        });
+    }
+
+    [Test]
+    public void ApplySoftwareGain_AttenuatesLinearly()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(DualSenseBtAudioPipeline.ApplySoftwareGain(10000, 0.5f), Is.EqualTo(5000));
+            Assert.That(DualSenseBtAudioPipeline.ApplySoftwareGain(-10000, 0.5f), Is.EqualTo(-5000));
+            Assert.That(DualSenseBtAudioPipeline.ApplySoftwareGain(12345, 0f), Is.Zero);
+        });
+    }
+
+    [Test]
+    public void ApplySoftwareGain_BoostsBelowTheLimiterThreshold()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(DualSenseBtAudioPipeline.ApplySoftwareGain(10000, 2f), Is.EqualTo(20000));
+            Assert.That(DualSenseBtAudioPipeline.ApplySoftwareGain(-10000, 2f), Is.EqualTo(-20000));
+        });
+    }
+
+    [Test]
+    public void ApplySoftwareGain_LimitsPeaksAboveTheThreshold()
+    {
+        short boosted = DualSenseBtAudioPipeline.ApplySoftwareGain(30000, 2f);
+        short negative = DualSenseBtAudioPipeline.ApplySoftwareGain(-30000, 2f);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(boosted, Is.LessThanOrEqualTo(short.MaxValue));
+            Assert.That(boosted, Is.GreaterThan(30000), "the limiter must still make a quiet peak louder");
+            Assert.That(negative, Is.GreaterThanOrEqualTo(short.MinValue));
+            Assert.That(negative, Is.LessThan(-30000));
+            Assert.That(negative, Is.EqualTo((short)-boosted).Within(1), "limiting must stay symmetric within one LSB");
+        });
+    }
+
+    [Test]
+    public void ApplySoftwareGain_FloatUnityReturnsTheSample()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(DualSenseBtAudioPipeline.ApplySoftwareGain(0.5f, 1f), Is.EqualTo(0.5f));
+            Assert.That(DualSenseBtAudioPipeline.ApplySoftwareGain(-0.5f, 1f), Is.EqualTo(-0.5f));
+            Assert.That(DualSenseBtAudioPipeline.ApplySoftwareGain(0f, 1f), Is.Zero);
+        });
+    }
+
+    [Test]
+    public void ApplySoftwareGain_FloatAttenuatesAndLimits()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(DualSenseBtAudioPipeline.ApplySoftwareGain(0.25f, 0.5f), Is.EqualTo(0.125f));
+            Assert.That(DualSenseBtAudioPipeline.ApplySoftwareGain(-0.25f, 0.5f), Is.EqualTo(-0.125f));
+            Assert.That(DualSenseBtAudioPipeline.ApplySoftwareGain(0.25f, 2f), Is.EqualTo(0.5f));
+            Assert.That(DualSenseBtAudioPipeline.ApplySoftwareGain(0.75f, 2f), Is.LessThanOrEqualTo(1f));
+            Assert.That(DualSenseBtAudioPipeline.ApplySoftwareGain(-0.75f, 2f), Is.GreaterThanOrEqualTo(-1f));
+            Assert.That(DualSenseBtAudioPipeline.ApplySoftwareGain(0.25f, 0f), Is.Zero);
+        });
+    }
+
+    [Test]
+    public void ApplySoftwareGain_HighScaleBoostsAndLimits()
+    {
+        Assert.That(DualSenseBtAudioPipeline.ApplySoftwareGain(1000, 8f), Is.EqualTo(8000));
+
+        short full = DualSenseBtAudioPipeline.ApplySoftwareGain(30000, 8f);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(full, Is.LessThanOrEqualTo(short.MaxValue));
+            Assert.That(full, Is.GreaterThan(30000));
+        });
+    }
+
+    [Test]
+    public void ResampleToOpusBlock_AppliesSoftwareGain()
+    {
+        short[] target = new short[DualSenseBtAudioPipeline.OpusFrameSamples * 2];
+
+        DualSenseBtAudioPipeline.ResampleToOpusBlock(ConstantBlock(500), target, 0.5f);
+
+        Assert.That(target.All(s => s == 250), Is.True);
+
+        DualSenseBtAudioPipeline.ResampleToOpusBlock(ConstantBlock(500), target, 2f);
+
+        Assert.That(target.All(s => s == 1000), Is.True);
+    }
+
+    [Test]
+    public void ResampleToOpusBlock_BoostDoesNotClip()
+    {
+        short[] target = new short[DualSenseBtAudioPipeline.OpusFrameSamples * 2];
+
+        DualSenseBtAudioPipeline.ResampleToOpusBlock(ConstantBlock(30000), target, 2f);
+
+        Assert.That(target.All(s => s <= short.MaxValue), Is.True);
+        Assert.That(target.All(s => s > 30000), Is.True);
+    }
+
+    [Test]
+    public void ResampleToOpusBlock_AppliesGainToThePinnedEndpoint()
+    {
+        short[] source = ConstantBlock(0);
+        source[0] = 1000;
+        source[1] = 1000;
+        int last = (DualSenseBtAudioPipeline.FramesPerBlock - 1) * 2;
+        source[last] = 2000;
+        source[last + 1] = 2000;
+
+        short[] target = new short[DualSenseBtAudioPipeline.OpusFrameSamples * 2];
+        DualSenseBtAudioPipeline.ResampleToOpusBlock(source, target, 0.5f);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(target[0], Is.EqualTo(500));
+            Assert.That(target[1], Is.EqualTo(500));
+            Assert.That(target[^2], Is.EqualTo(1000));
+            Assert.That(target[^1], Is.EqualTo(1000));
+        });
+    }
+
+    [Test]
     public void ResampleToOpusBlock_LinearRampInterpolatesExactly()
     {
         // A linear ramp resampled by linear interpolation must land on the source line:

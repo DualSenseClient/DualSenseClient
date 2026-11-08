@@ -68,6 +68,7 @@ nav:
       - Rumble & Triggers: guides/rumble-and-triggers.md
       - Special Actions: guides/special-actions.md
       - Emulation: guides/virtual-controller.md
+      - Touchpad Mouse: guides/touchpad-mouse.md
       - Audio Playback: guides/audio.md
       - Auto Profiles: guides/auto-profiles.md
       - Controller Hiding: guides/controller-hiding.md

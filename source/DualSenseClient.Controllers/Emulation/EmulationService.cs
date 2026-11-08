@@ -51,53 +51,6 @@ public interface IEmulationService : IDisposable
     void Refresh();
 
     /// <summary>
-    /// Applies the forwarding volume and haptic strength to the given controller's
-    /// active host-audio forwarder without recreating the virtual controller. No-op
-    /// when audio forwarding is not active for that controller.
-    /// </summary>
-    void SetForwardingAudioOptions(DualSenseDevice device, byte speakerVolume, float hapticStrength);
-
-    /// <summary>
-    /// Applies the controller-side audio buffer length used by the forwarded Bluetooth
-    /// audio reports without recreating the virtual controller.
-    /// </summary>
-    /// <param name="device">Controller whose forwarder is updated.</param>
-    /// <param name="audioBufferLength">Buffer length in bytes (16-128).</param>
-    void SetForwardingAudioBufferLength(DualSenseDevice device, byte audioBufferLength);
-
-    /// <summary>
-    /// Applies the Bluetooth audio report shape (single <c>0x36</c> or double
-    /// <c>0x39</c>) used by the forwarded audio without recreating the virtual
-    /// controller.
-    /// </summary>
-    /// <param name="device">Controller whose forwarder is updated.</param>
-    /// <param name="packetMode">The report shape to use.</param>
-    void SetForwardingAudioPacketMode(DualSenseDevice device, BluetoothAudioPacketMode packetMode);
-
-    /// <summary>
-    /// Sets the given controller's forwarded host audio route without recreating the
-    /// virtual controller. No-op when audio forwarding is not active for that controller.
-    /// </summary>
-    void SetForwardingAudioOutput(DualSenseDevice device, EmulationAudioOutput output);
-
-    /// <summary>
-    /// Switches the given controller's forwarded haptics between the game's own payload
-    /// and the audio-derived fallback without recreating the virtual controller. No-op
-    /// when audio forwarding is not active for that controller.
-    /// </summary>
-    void SetForwardingHapticsSource(DualSenseDevice device, bool forceAudioHaptics);
-
-    /// <summary>
-    /// Switches the given controller's forwarded audio between the audio rendered to the
-    /// virtual controller and a loopback capture of the system's default output, without
-    /// recreating the virtual controller. The direct sources (the system output and a
-    /// single application, identified by <paramref name="audioApp"/>) are routed straight
-    /// to the physical controller and need no virtual device. No-op when audio forwarding
-    /// is not active for that controller.
-    /// </summary>
-    void SetForwardingAudioSource(DualSenseDevice device, EmulationAudioSource audioSource, string audioApp = "");
-
-    /// <summary>
     /// Reloads the given controller's button remapping rules from its stored emulation
     /// settings and applies them to its running virtual controller without recreating the
     /// device. No-op when the controller has no active virtual controller.
@@ -107,14 +60,12 @@ public interface IEmulationService : IDisposable
     /// <summary>
     /// Temporarily overrides the given controller's emulation mode, hardware variants and
     /// forwarded-audio source (e.g. for foreground-app auto profiles) without touching its
-    /// stored settings. A <c>null</c> argument leaves that setting at its stored value, and
-    /// all-<c>null</c> clears the override. Variants are only used with their matching
-    /// mode (DualSense/Edge with <see cref="EmulationMode.DualSense"/>, V1/V2 with
-    /// <see cref="EmulationMode.DualShock4"/>). Call <see cref="Refresh"/> afterwards
-    /// to recreate the virtual controller when the effective settings changed.
+    /// stored settings. A <c>null</c> override clears it. Variants are only used with their
+    /// matching mode (DualSense/Edge with <see cref="EmulationMode.DualSense"/>, V1/V2 with
+    /// <see cref="EmulationMode.DualShock4"/>). Call <see cref="Refresh"/> afterwards to
+    /// recreate the virtual controller when the effective settings changed.
     /// </summary>
-    void SetTemporaryEmulationMode(DualSenseDevice device, EmulationMode? mode, DualSenseVariant? dsVariant = null,
-        DualShock4Variant? ds4Variant = null, EmulationAudioSource? audioSource = null, string? audioApp = null);
+    void SetTemporaryOverride(DualSenseDevice device, EmulationOverride? overrides);
 }
 
 /// <summary>
@@ -200,7 +151,7 @@ public sealed class EmulationService : IEmulationService
     /// <summary>
     /// The virtual controller state per tracked controller.
     /// </summary>
-    private readonly Dictionary<DualSenseDevice, VirtualControllerEntry> _entries = new Dictionary<DualSenseDevice, VirtualControllerEntry>();
+    private readonly Dictionary<DualSenseDevice, VirtualControllerSlot> _entries = new Dictionary<DualSenseDevice, VirtualControllerSlot>();
 
     /// <summary>
     /// Temporary per-controller emulation overrides (foreground-app auto profiles).
@@ -211,10 +162,18 @@ public sealed class EmulationService : IEmulationService
     /// <see cref="ApplyButtonMappings"/> under that lock; <see cref="Lock"/> is not
     /// re-entrant and must never be acquired twice on one thread).
     /// </summary>
-    private readonly ConcurrentDictionary<DualSenseDevice, (EmulationMode? Mode, DualSenseVariant? Ds, DualShock4Variant? Ds4, EmulationAudioSource? AudioSource
-            , string? AudioApp)>
-        _temporaryModes =
-            new ConcurrentDictionary<DualSenseDevice, (EmulationMode?, DualSenseVariant?, DualShock4Variant?, EmulationAudioSource?, string?)>();
+    private readonly ConcurrentDictionary<DualSenseDevice, EmulationOverride> _temporaryModes =
+        new ConcurrentDictionary<DualSenseDevice, EmulationOverride>();
+
+    /// <summary>
+    /// Set when a controller-info save needs a refresh; consumed by the background worker.
+    /// </summary>
+    private int _refreshPending;
+
+    /// <summary>
+    /// Whether the background refresh worker is running.
+    /// </summary>
+    private int _refreshRunning;
 
     /// <summary>
     /// The emulation server shared by all Emulation entries, or <c>null</c> while no entry runs on
@@ -268,6 +227,7 @@ public sealed class EmulationService : IEmulationService
     public void Start()
     {
         _tracker.ControllersChanged += OnControllersChanged;
+        _controllerInfo.ControllersChanged += OnControllerInfoChanged;
         Reconcile();
     }
 
@@ -282,6 +242,7 @@ public sealed class EmulationService : IEmulationService
         _disposed = true;
 
         _tracker.ControllersChanged -= OnControllersChanged;
+        _controllerInfo.ControllersChanged -= OnControllerInfoChanged;
 
         // Wait for the in-flight creation (if any) to finish before stopping the
         // server, so no task is still using it. Queued creations observe _disposed
@@ -292,8 +253,10 @@ public sealed class EmulationService : IEmulationService
         {
             lock (_sync)
             {
-                foreach (KeyValuePair<DualSenseDevice, VirtualControllerEntry> pair in _entries.ToList())
+                foreach (KeyValuePair<DualSenseDevice, VirtualControllerSlot> pair in _entries.ToList())
                 {
+                    pair.Value.StatusChanged -= OnSlotStatusChanged;
+                    pair.Value.MarkStopped();
                     DeviceDisposeUnsubscribe(pair.Key);
                     DisposeEntryLocked(pair.Value);
                 }
@@ -320,10 +283,10 @@ public sealed class EmulationService : IEmulationService
     /// <inheritdoc/>
     public void Refresh()
     {
-        List<(VirtualControllerEntry Entry, bool Settle)> toRecreate = new List<(VirtualControllerEntry Entry, bool Settle)>();
+        List<(VirtualControllerSlot Entry, bool Settle)> toRecreate = new List<(VirtualControllerSlot Entry, bool Settle)>();
         lock (_sync)
         {
-            foreach (VirtualControllerEntry entry in _entries.Values)
+            foreach (VirtualControllerSlot entry in _entries.Values)
             {
                 // Only rebuild entries whose recorded creation inputs changed: with several
                 // controllers, recreating every virtual device on every change would briefly
@@ -340,6 +303,15 @@ public sealed class EmulationService : IEmulationService
                 string audioApp = emulation?.Forward.AudioApp ?? string.Empty;
                 bool audioEnabled = emulation?.Forward.AudioEnabled ?? true;
                 ApplyForwardingLocked(entry, emulation);
+                if (entry.Status.State == EmulationState.Creating && entry.Status.Mode == mode)
+                {
+                    // A create+discover cycle for the same mode is already running. Leave it
+                    // alone so the settings-save notification and an explicit Refresh cannot
+                    // start a second creation for the same slot.
+                    SyncAudioLocked(entry, audioSource, audioApp, audioEnabled);
+                    continue;
+                }
+
                 if (!ShouldRecreateEntry(entry.Virtual is not null, entry.Status.Mode, entry.Status.Variant, entry.Status.Ds4Variant,
                         mode, variant, ds4Variant))
                 {
@@ -362,7 +334,7 @@ public sealed class EmulationService : IEmulationService
             }
         }
 
-        foreach ((VirtualControllerEntry entry, bool settle) in toRecreate)
+        foreach ((VirtualControllerSlot entry, bool settle) in toRecreate)
         {
             _ = CreateVirtualControllerAsync(entry, settle);
         }
@@ -397,82 +369,9 @@ public sealed class EmulationService : IEmulationService
     {
         lock (_sync)
         {
-            return _entries.TryGetValue(device, out VirtualControllerEntry? entry)
+            return _entries.TryGetValue(device, out VirtualControllerSlot? entry)
                 ? entry.Status
                 : new EmulationStatus(EmulationMode.Off, false, null, null);
-        }
-    }
-
-    /// <inheritdoc/>
-    public void SetForwardingAudioOptions(DualSenseDevice device, byte speakerVolume, float hapticStrength)
-    {
-        lock (_sync)
-        {
-            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Forwarder is { } forwarder)
-            {
-                forwarder.SpeakerVolume = speakerVolume;
-                forwarder.HapticStrength = Math.Clamp(hapticStrength, 0f, 2f);
-            }
-        }
-    }
-
-    /// <inheritdoc/>
-    public void SetForwardingAudioBufferLength(DualSenseDevice device, byte audioBufferLength)
-    {
-        lock (_sync)
-        {
-            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Forwarder is { } forwarder)
-            {
-                forwarder.AudioBufferLength = audioBufferLength;
-            }
-        }
-    }
-
-    /// <inheritdoc/>
-    public void SetForwardingAudioPacketMode(DualSenseDevice device, BluetoothAudioPacketMode packetMode)
-    {
-        lock (_sync)
-        {
-            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Forwarder is { } forwarder)
-            {
-                forwarder.PacketMode = packetMode;
-            }
-        }
-    }
-
-    public void SetForwardingAudioOutput(DualSenseDevice device, EmulationAudioOutput output)
-    {
-        lock (_sync)
-        {
-            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Forwarder is { } forwarder)
-            {
-                forwarder.AudioOutput = output;
-            }
-        }
-    }
-
-    /// <inheritdoc/>
-    public void SetForwardingHapticsSource(DualSenseDevice device, bool forceAudioHaptics)
-    {
-        lock (_sync)
-        {
-            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Forwarder is { } forwarder)
-            {
-                forwarder.ForceAudioHaptics = forceAudioHaptics;
-            }
-        }
-    }
-
-    /// <inheritdoc/>
-    public void SetForwardingAudioSource(DualSenseDevice device, EmulationAudioSource audioSource, string audioApp = "")
-    {
-        lock (_sync)
-        {
-            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry))
-            {
-                bool audioEnabled = GetEmulationSettings(device).Forward.AudioEnabled;
-                SyncAudioLocked(entry, audioSource, audioApp ?? string.Empty, audioEnabled);
-            }
         }
     }
 
@@ -481,7 +380,7 @@ public sealed class EmulationService : IEmulationService
     {
         lock (_sync)
         {
-            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Virtual is { } virtualController)
+            if (_entries.TryGetValue(device, out VirtualControllerSlot? entry) && entry.Virtual is { } virtualController)
             {
                 ApplyButtonMappingsLocked(virtualController, device);
             }
@@ -489,38 +388,22 @@ public sealed class EmulationService : IEmulationService
     }
 
     /// <inheritdoc/>
-    public void SetTemporaryEmulationMode(DualSenseDevice device, EmulationMode? mode, DualSenseVariant? dsVariant = null,
-        DualShock4Variant? ds4Variant = null, EmulationAudioSource? audioSource = null, string? audioApp = null)
+    public void SetTemporaryOverride(DualSenseDevice device, EmulationOverride? overrides)
     {
-        // Rules are edited on the UI thread while the watcher reads them: ignore
-        // undefined values (e.g. torn reads) rather than recreating devices for them.
-        if (mode is not null && !Enum.IsDefined(mode.Value))
-        {
-            return;
-        }
-
-        if (dsVariant is not null && !Enum.IsDefined(dsVariant.Value))
-        {
-            dsVariant = null;
-        }
-
-        if (ds4Variant is not null && !Enum.IsDefined(ds4Variant.Value))
-        {
-            ds4Variant = null;
-        }
-
-        if (audioSource is not null && !Enum.IsDefined(audioSource.Value))
-        {
-            audioSource = null;
-        }
-
-        if (mode is null && dsVariant is null && ds4Variant is null && audioSource is null && audioApp is null)
+        if (overrides is null || overrides.IsEmpty)
         {
             _temporaryModes.TryRemove(device, out _);
             return;
         }
 
-        _temporaryModes[device] = (mode, dsVariant, ds4Variant, audioSource, audioApp);
+        // Rules are edited on the UI thread while the watcher reads them: ignore
+        // undefined values (e.g. torn reads) rather than recreating devices for them.
+        if (overrides.Mode is not null && !Enum.IsDefined(overrides.Mode.Value))
+        {
+            return;
+        }
+
+        _temporaryModes[device] = overrides;
     }
 
     /// <summary>
@@ -554,100 +437,6 @@ public sealed class EmulationService : IEmulationService
     private void WarnInvalidMapping(string message) => _log.Warning(message);
 
     /// <summary>
-    /// Per-controller virtual device lifecycle: the physical controller, the virtual
-    /// device, its USB bus, and the host-audio forwarder/capture pair. The audio side
-    /// lives independently of the virtual side: the direct sources forward
-    /// straight to the physical controller with no virtual device at all.
-    /// </summary>
-    private sealed class VirtualControllerEntry
-    {
-        /// <summary>
-        /// The physical controller being mirrored.
-        /// </summary>
-        public required DualSenseDevice Device { get; init; }
-
-        /// <summary>
-        /// The current emulation state, surfaced for the UI.
-        /// </summary>
-        public EmulationStatus Status { get; set; } = new EmulationStatus(EmulationMode.Off, false, null, null);
-
-        /// <summary>
-        /// Incremented on every rebuild so stale background creations are discarded
-        /// when the controller or its profile changes while one is in flight.
-        /// </summary>
-        public int Generation;
-
-        /// <summary>
-        /// The virtual controller, or <c>null</c> while not emulating.
-        /// </summary>
-        public IVirtualController? Virtual;
-
-        /// <summary>
-        /// The physical controller receiving host feedback and forwarded audio. Shared
-        /// by the virtual controller and the audio forwarder so writes to the device
-        /// stay serialized. Created on first audio or virtual need; kept for the
-        /// entry's lifetime.
-        /// </summary>
-        public DualSenseDeviceOutputs? Outputs;
-
-        /// <summary>
-        /// Forwards host audio to the physical controller: the virtual controller's
-        /// endpoint capture when following the game, or the direct host capture
-        /// (<see cref="DirectCapture"/>) when <see cref="DirectAudioActive"/>. Lives
-        /// independently of <see cref="Virtual"/>: direct audio needs no virtual device.
-        /// </summary>
-        public DualSenseAudioForwarder? Forwarder;
-
-        /// <summary>
-        /// Whether <see cref="Forwarder"/> is currently fed by the direct host capture
-        /// (<see cref="DirectCapture"/>) instead of the virtual controller's capture.
-        /// </summary>
-        public bool DirectAudioActive;
-
-        /// <summary>
-        /// Whether the virtual controller's output-state callbacks are currently
-        /// subscribed on <see cref="Forwarder"/> (game lightbar/triggers/haptics
-        /// ride the Bluetooth audio reports while set).
-        /// </summary>
-        public bool AudioCallbacksWired;
-
-        /// <summary>
-        /// Captures the audio the host renders to the virtual controller (DualSense or
-        /// DualShock 4) and feeds it to <see cref="Forwarder"/>, or <c>null</c> when
-        /// not forwarding. Lives and dies with <see cref="Virtual"/>; must be disposed
-        /// before the virtual device is removed.
-        /// </summary>
-        public IDisposable? Capture;
-
-        /// <summary>
-        /// The direct host capture feeding <see cref="Forwarder"/>: a loopback of the
-        /// system's default output or of a single application, selected by the controller's
-        /// settings. Created on first activation and stopped whenever the source switches
-        /// back; disposed with the entry. Independent of <see cref="Virtual"/>.
-        /// </summary>
-        public IForwardedAudioCapture? DirectCapture;
-
-        /// <summary>
-        /// The source <see cref="DirectCapture"/> was created for, used to detect a source
-        /// change while direct audio is active.
-        /// </summary>
-        public EmulationAudioSource DirectSource;
-
-        /// <summary>
-        /// The application captured by <see cref="DirectCapture"/> when
-        /// <see cref="DirectSource"/> is <see cref="EmulationAudioSource.Application"/>.
-        /// </summary>
-        public string DirectApp = string.Empty;
-
-        /// <summary>
-        /// The Emulation persona of the entry: set the moment a creation attaches it, until the
-        /// entry or the creation detaches and unregisters it again. While a creation is in
-        /// flight the entry has a persona but no <see cref="Virtual"/> yet.
-        /// </summary>
-        public VirtualUsbDevice? Persona;
-    }
-
-    /// <summary>
     /// (Re)builds the per-controller entries whenever the tracked controller set changes:
     /// disposes the entries of untracked controllers and creates entries (and virtual
     /// controllers) for newly tracked ones.
@@ -655,17 +444,74 @@ public sealed class EmulationService : IEmulationService
     private void OnControllersChanged(object? sender, EventArgs e) => Reconcile();
 
     /// <summary>
+    /// Reconciles the running virtual controllers after stored emulation settings change.
+    /// Runs off the saving thread: starting a forwarded-audio capture can wait on WASAPI
+    /// activation, and the save may be raised while the settings service holds its lock.
+    /// </summary>
+    private void OnControllerInfoChanged(object? sender, EventArgs e)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        Interlocked.Exchange(ref _refreshPending, 1);
+        if (Interlocked.Exchange(ref _refreshRunning, 1) == 1)
+        {
+            return;
+        }
+
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            try
+            {
+                while (!_disposed && Interlocked.Exchange(ref _refreshPending, 0) == 1)
+                {
+                    Refresh();
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.LogExceptionDetails(ex);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _refreshRunning, 0);
+                if (!_disposed && Volatile.Read(ref _refreshPending) == 1)
+                {
+                    OnControllerInfoChanged(this, EventArgs.Empty);
+                }
+            }
+        });
+    }
+
+    /// <summary>
+    /// Re-raises a slot's state transition on the service-wide event.
+    /// </summary>
+    private void OnSlotStatusChanged(object? sender, EventArgs e)
+    {
+        if (sender is VirtualControllerSlot slot)
+        {
+            EmulationStatus status = slot.Status;
+            string detail = status.IsCreating ? "creating" : status.Detail ?? status.VirtualDevicePath ?? status.State.ToString();
+            _log.Info($"Emulation status: {slot.Device.Info.ProductName} {status.Mode} running={status.Running} ({detail})");
+        }
+
+        StateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
     /// Diffs the tracked controllers against the current entries, adding and removing
     /// virtual controller state as needed.
     /// </summary>
     private void Reconcile()
     {
-        List<VirtualControllerEntry> toCreate = new List<VirtualControllerEntry>();
+        List<VirtualControllerSlot> toCreate = new List<VirtualControllerSlot>();
         lock (_sync)
         {
             HashSet<DualSenseDevice> current = _tracker.Controllers.OfType<DualSenseDevice>().ToHashSet();
 
-            foreach (KeyValuePair<DualSenseDevice, VirtualControllerEntry> pair in _entries.ToList())
+            foreach (KeyValuePair<DualSenseDevice, VirtualControllerSlot> pair in _entries.ToList())
             {
                 if (current.Contains(pair.Key))
                 {
@@ -674,6 +520,8 @@ public sealed class EmulationService : IEmulationService
 
                 _entries.Remove(pair.Key);
                 _temporaryModes.TryRemove(pair.Key, out _);
+                pair.Value.StatusChanged -= OnSlotStatusChanged;
+                pair.Value.MarkStopped();
                 DeviceDisposeUnsubscribe(pair.Key);
                 DisposeEntryLocked(pair.Value);
             }
@@ -685,12 +533,12 @@ public sealed class EmulationService : IEmulationService
                     continue;
                 }
 
-                VirtualControllerEntry entry = new VirtualControllerEntry
-                {
-                    Device = device
-                };
+                VirtualControllerSlot entry = new VirtualControllerSlot(device);
+                entry.StatusChanged += OnSlotStatusChanged;
                 _entries.Add(device, entry);
                 DeviceSubscribe(device);
+                EmulationSettings settings = GetEmulationSettings(device);
+                entry.Device.AudioLane.SoftwareGain = (float)Math.Clamp(settings.Forward.SoftwareVolumeScale, 1.0, 8.0);
                 if (StartCreationLocked(entry))
                 {
                     toCreate.Add(entry);
@@ -699,13 +547,12 @@ public sealed class EmulationService : IEmulationService
                 {
                     // No virtual device (emulation off or unsupported platform), but a
                     // direct (system-output or application) source forwards without one.
-                    EmulationSettings direct = GetEmulationSettings(device);
-                    SyncAudioLocked(entry, direct.Forward.AudioSource, direct.Forward.AudioApp, direct.Forward.AudioEnabled);
+                    SyncAudioLocked(entry, settings.Forward.AudioSource, settings.Forward.AudioApp, settings.Forward.AudioEnabled);
                 }
             }
         }
 
-        foreach (VirtualControllerEntry entry in toCreate)
+        foreach (VirtualControllerSlot entry in toCreate)
         {
             _ = CreateVirtualControllerAsync(entry, false);
         }
@@ -716,22 +563,22 @@ public sealed class EmulationService : IEmulationService
     /// surfaces the creating status, and reports whether a virtual controller should be
     /// created. Caller must hold <see cref="_sync"/>.
     /// </summary>
-    private bool StartCreationLocked(VirtualControllerEntry entry)
+    private bool StartCreationLocked(VirtualControllerSlot entry)
     {
         if (!IsSupported)
         {
-            SetStatus(entry, new EmulationStatus(EmulationMode.Off, false, "Emulation is not available on this platform", null));
+            entry.MarkUnavailable("Emulation is not available on this platform");
             return false;
         }
 
         EmulationMode mode = GetEmulationSettings(entry.Device).Mode;
         if (mode == EmulationMode.Off)
         {
-            SetStatus(entry, new EmulationStatus(EmulationMode.Off, false, "Emulation is disabled for this controller", null));
+            entry.MarkDisabled("Emulation is disabled for this controller");
             return false;
         }
 
-        SetStatus(entry, new EmulationStatus(mode, false, null, null, true));
+        entry.BeginCreation(mode);
         return true;
     }
 
@@ -744,19 +591,19 @@ public sealed class EmulationService : IEmulationService
     /// client finishes detaching the previous device. Creation is retried once after
     /// <see cref="CreateRetryDelay"/> on failure.
     /// </summary>
-    private async Task CreateVirtualControllerAsync(VirtualControllerEntry entry, bool settleAfterRemoval)
+    private async Task CreateVirtualControllerAsync(VirtualControllerSlot entry, bool settleAfterRemoval)
     {
         int generation = entry.Generation;
         if (!IsSupported)
         {
-            SetStatus(entry, new EmulationStatus(EmulationMode.Off, false, "Emulation is not available on this platform", null));
+            entry.MarkUnavailable("Emulation is not available on this platform");
             return;
         }
 
         EmulationMode mode = GetEmulationSettings(entry.Device).Mode;
         if (mode == EmulationMode.Off)
         {
-            SetStatus(entry, new EmulationStatus(EmulationMode.Off, false, "Emulation is disabled for this controller", null));
+            entry.MarkDisabled("Emulation is disabled for this controller");
             return;
         }
 
@@ -768,7 +615,7 @@ public sealed class EmulationService : IEmulationService
         catch (Exception ex)
         {
             _log.LogExceptionDetails(ex);
-            SetStatus(entry, new EmulationStatus(mode, false, ex.Message, null));
+            entry.MarkFailed(mode, ex.Message);
         }
         finally
         {
@@ -783,7 +630,7 @@ public sealed class EmulationService : IEmulationService
     /// enumeration, so the same discovery/cleanup flow applies. Creation is retried once after
     /// <see cref="CreateRetryDelay"/> on failure. Caller must hold <see cref="_creationGate"/>.
     /// </summary>
-    private async Task CreateEmulationVirtualControllerAsync(VirtualControllerEntry entry, int generation, EmulationMode mode,
+    private async Task CreateEmulationVirtualControllerAsync(VirtualControllerSlot entry, int generation, EmulationMode mode,
         bool settleAfterRemoval)
     {
         EmulationServer server;
@@ -800,7 +647,7 @@ public sealed class EmulationService : IEmulationService
 
             if (!EnsureEmulationServerLocked())
             {
-                SetStatus(entry, new EmulationStatus(mode, false, "Could not start the Emulation server", null));
+                entry.MarkFailed(mode, "Could not start the Emulation server");
                 return;
             }
 
@@ -820,7 +667,6 @@ public sealed class EmulationService : IEmulationService
         bool audioEnabled = emulation?.Forward.AudioEnabled ?? true;
         ForwardSettings forwarding = emulation?.Forward ?? new ForwardSettings();
         (ushort vid, ushort pid) = GetDeviceIds(mode, edge, ds4Variant);
-        SpecialActionEngine specialActions;
         DualSenseDeviceOutputs outputs;
         lock (_sync)
         {
@@ -830,10 +676,12 @@ public sealed class EmulationService : IEmulationService
                 return;
             }
 
-            specialActions = _specialActions.GetOrCreate(entry.Device);
+            // Ensure the controller's special-action engine is attached; its light
+            // overrides now go through the device's lighting authority.
+            _specialActions.GetOrCreate(entry.Device);
             // One shared outputs lane per entry: the virtual controller and the
             // audio forwarder must serialize writes to the physical device.
-            entry.Outputs ??= new DualSenseDeviceOutputs(entry.Device, specialActions);
+            entry.Outputs ??= new DualSenseDeviceOutputs(entry.Device);
             outputs = entry.Outputs;
         }
 
@@ -867,9 +715,8 @@ public sealed class EmulationService : IEmulationService
 
         if (creation is null)
         {
-            SetStatus(entry,
-                new EmulationStatus(mode, false,
-                    "The emulation server could not create the virtual device. Check the emulation logs; USB/IP must be installed for auto-attachment", null));
+            entry.MarkFailed(mode,
+                "The emulation server could not create the virtual device. Check the emulation logs; USB/IP must be installed for auto-attachment");
             lock (_sync)
             {
                 MaybeTeardownEmulationServerLocked();
@@ -921,9 +768,8 @@ public sealed class EmulationService : IEmulationService
                     : $"Found {candidates.Count} new matching devices; removing them again");
                 CleanupAttachedPersona();
                 await UnexcludeSurvivingCandidatesAsync(vid, pid, candidates);
-                SetStatus(entry,
-                    new EmulationStatus(mode, false,
-                        "The virtual device did not appear in HID enumeration. Check the emulation logs; USB/IP must be installed for auto-attachment", null));
+                entry.MarkFailed(mode,
+                    "The virtual device did not appear in HID enumeration. Check the emulation logs; USB/IP must be installed for auto-attachment");
                 return;
             }
 
@@ -990,9 +836,9 @@ public sealed class EmulationService : IEmulationService
                 SyncAudioLocked(entry, audioSource, audioApp, audioEnabled);
             }
 
-            SetStatus(entry, new EmulationStatus(mode, true, null, virtualController.VirtualDevicePath,
-                Variant: mode == EmulationMode.DualSense ? edge ? DualSenseVariant.Edge : DualSenseVariant.Standard : null,
-                Ds4Variant: mode == EmulationMode.DualShock4 ? ds4Variant : null));
+            entry.MarkRunning(mode, virtualController.VirtualDevicePath,
+                mode == EmulationMode.DualSense ? edge ? DualSenseVariant.Edge : DualSenseVariant.Standard : null,
+                mode == EmulationMode.DualShock4 ? ds4Variant : null);
         }
         catch
         {
@@ -1022,7 +868,7 @@ public sealed class EmulationService : IEmulationService
     /// <param name="ds4Variant">The DualShock 4 hardware generation to present (DualShock 4 mode only).</param>
     /// <param name="forwarding">The host-feedback forwarding options to apply before the host can send output.</param>
     /// <returns>The created adapter and persona, or <c>null</c> when creation or attachment failed.</returns>
-    private VirtualControllerCreation? TryCreateEmulationDevice(VirtualControllerEntry entry, EmulationServer server, EmulationMode mode,
+    private VirtualControllerCreation? TryCreateEmulationDevice(VirtualControllerSlot entry, EmulationServer server, EmulationMode mode,
         DualSenseDeviceOutputs outputs, bool vibrationV2, bool edge, DualShock4Variant ds4Variant, ForwardSettings forwarding)
     {
         VirtualControllerCreation? creation = null;
@@ -1036,7 +882,7 @@ public sealed class EmulationService : IEmulationService
 
             // Apply before attaching so the host cannot send output in the window
             // between the device appearing and the settings being known.
-            creation.Controller.ApplyForwardingSettings(forwarding);
+            creation.Controller.ApplyForwardingSettings(ForwardingSnapshot.From(forwarding));
             if (server.TryAttach(creation.Persona, out string? error))
             {
                 // Spotlight the attached persona immediately: until the owning creation
@@ -1073,11 +919,11 @@ public sealed class EmulationService : IEmulationService
     /// Whether the given creation is still wanted: the service is not disposed, the
     /// entry is still tracked, and its generation was not bumped by a newer rebuild.
     /// </summary>
-    private bool IsStale(VirtualControllerEntry entry, int generation)
+    private bool IsStale(VirtualControllerSlot entry, int generation)
     {
         lock (_sync)
         {
-            return _disposed || !_entries.TryGetValue(entry.Device, out VirtualControllerEntry? current)
+            return _disposed || !_entries.TryGetValue(entry.Device, out VirtualControllerSlot? current)
                              || !ReferenceEquals(current, entry) || entry.Generation != generation;
         }
     }
@@ -1089,13 +935,12 @@ public sealed class EmulationService : IEmulationService
     /// </summary>
     private EmulationSettings GetEmulationSettings(DualSenseDevice device)
     {
-        EmulationSettings stored = _controllerInfo.GetEmulationSettings(device.PairingInfo?.ClientMac, device.Info.Path);
-        if (_temporaryModes.TryGetValue(device,
-                out (EmulationMode? Mode, DualSenseVariant? Ds, DualShock4Variant? Ds4, EmulationAudioSource? AudioSource, string? AudioApp) temp))
+        EmulationSettings stored = _controllerInfo.GetEmulationSettings(device.Key);
+        if (_temporaryModes.TryGetValue(device, out EmulationOverride? temp))
         {
             EmulationMode mode = temp.Mode ?? stored.Mode;
-            DualSenseVariant dsVariant = temp.Ds ?? stored.Variant.DualSense;
-            DualShock4Variant ds4Variant = temp.Ds4 ?? stored.Variant.DualShock4;
+            DualSenseVariant dsVariant = temp.DualSenseVariant ?? stored.Variant.DualSense;
+            DualShock4Variant ds4Variant = temp.DualShock4Variant ?? stored.Variant.DualShock4;
             EmulationAudioSource audioSource = temp.AudioSource ?? stored.Forward.AudioSource;
             string audioApp = temp.AudioApp ?? stored.Forward.AudioApp;
             bool audioChanged = stored.Forward.AudioSource != audioSource
@@ -1163,14 +1008,9 @@ public sealed class EmulationService : IEmulationService
         DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(outputs, usbTarget);
         if (emulation is not null)
         {
-            forwarder.SpeakerVolume = (byte)Math.Clamp(emulation.Forward.Volume, 0, 255);
-            forwarder.AudioBufferLength = (byte)Math.Clamp(
-                emulation.Forward.AudioBufferLength,
-                BluetoothAudioReportBuilder.MinAudioBufferLength,
-                BluetoothAudioReportBuilder.MaxAudioBufferLength);
-            forwarder.HapticStrength = Math.Clamp(emulation.Forward.Haptics, 0, 200) / 100f;
-            forwarder.ForceAudioHaptics = emulation.Forward.ForceAudioHaptics;
-            forwarder.ApplyForwardingSettings(emulation.Forward);
+            // One snapshot path for creation and live updates, so a new forwarding option
+            // cannot be applied on only one of them.
+            forwarder.ApplyForwardingSettings(ForwardingSnapshot.From(emulation.Forward));
         }
 
         return forwarder;
@@ -1180,11 +1020,15 @@ public sealed class EmulationService : IEmulationService
     /// Applies the host-feedback forwarding options to the entry's live adapter and audio
     /// forwarder without recreating either. Caller must hold <see cref="_sync"/>.
     /// </summary>
-    private static void ApplyForwardingLocked(VirtualControllerEntry entry, EmulationSettings? emulation)
+    private static void ApplyForwardingLocked(VirtualControllerSlot entry, EmulationSettings? emulation)
     {
         ForwardSettings forwarding = emulation?.Forward ?? new ForwardSettings();
-        entry.Virtual?.ApplyForwardingSettings(forwarding);
-        entry.Forwarder?.ApplyForwardingSettings(forwarding);
+        ForwardingSnapshot snapshot = ForwardingSnapshot.From(forwarding);
+        entry.Virtual?.ApplyForwardingSettings(snapshot);
+        entry.Forwarder?.ApplyForwardingSettings(snapshot);
+        // The software volume applies to every audio owner on this device, including the
+        // local player and special-action sounds that never touch the forwarder.
+        entry.Device.AudioLane.SoftwareGain = (float)snapshot.SoftwareVolumeScale;
         ApplyPassthroughLocked(entry, forwarding);
     }
 
@@ -1194,7 +1038,7 @@ public sealed class EmulationService : IEmulationService
     /// profile effects must keep driving the physical controller.
     /// Caller must hold <see cref="_sync"/>.
     /// </summary>
-    private static void ApplyPassthroughLocked(VirtualControllerEntry entry, ForwardSettings forwarding)
+    private static void ApplyPassthroughLocked(VirtualControllerSlot entry, ForwardSettings forwarding)
     {
         bool dualSense = entry.Virtual is VirtualDualSenseController;
         entry.Device.LightbarPassthroughEnabled = dualSense && forwarding.Lightbar;
@@ -1208,7 +1052,7 @@ public sealed class EmulationService : IEmulationService
     /// spurious syncs never drop buffered audio, while a source or application change
     /// restarts the direct capture. Caller must hold <see cref="_sync"/>.
     /// </summary>
-    private void SyncAudioLocked(VirtualControllerEntry entry, EmulationAudioSource audioSource, string audioApp, bool audioEnabled)
+    private void SyncAudioLocked(VirtualControllerSlot entry, EmulationAudioSource audioSource, string audioApp, bool audioEnabled)
     {
         bool direct = audioSource is EmulationAudioSource.SystemOutput or EmulationAudioSource.Application;
         if (!direct)
@@ -1277,7 +1121,7 @@ public sealed class EmulationService : IEmulationService
     /// When the chosen application is not running, the virtual controller's audio keeps
     /// driving the controller instead. Caller must hold <see cref="_sync"/>.
     /// </summary>
-    private void ActivateDirectAudioLocked(VirtualControllerEntry entry, EmulationAudioSource audioSource, string audioApp)
+    private void ActivateDirectAudioLocked(VirtualControllerSlot entry, EmulationAudioSource audioSource, string audioApp)
     {
         if (entry.Forwarder is null)
         {
@@ -1356,7 +1200,7 @@ public sealed class EmulationService : IEmulationService
     /// The forwarder is disposed only when no speaker-bearing capture can feed it. Caller must
     /// hold <see cref="_sync"/>.
     /// </summary>
-    private void DeactivateDirectAudioLocked(VirtualControllerEntry entry)
+    private void DeactivateDirectAudioLocked(VirtualControllerSlot entry)
     {
         StopDirectCaptureLocked(entry);
 
@@ -1382,7 +1226,7 @@ public sealed class EmulationService : IEmulationService
     /// until it is re-created. Returns <c>false</c> when nothing speaker-bearing can feed the
     /// forwarder. Caller must hold <see cref="_sync"/>.
     /// </summary>
-    private bool ResumeControllerCaptureLocked(VirtualControllerEntry entry)
+    private bool ResumeControllerCaptureLocked(VirtualControllerSlot entry)
     {
         if (entry.Capture is IVirtualAudioCapture controllerCapture)
         {
@@ -1418,7 +1262,7 @@ public sealed class EmulationService : IEmulationService
     /// Stops and drops the entry's direct capture, clearing the remembered source and
     /// application. Caller must hold <see cref="_sync"/>.
     /// </summary>
-    private static void StopDirectCaptureLocked(VirtualControllerEntry entry)
+    private static void StopDirectCaptureLocked(VirtualControllerSlot entry)
     {
         entry.DirectAudioActive = false;
         entry.DirectCapture?.Stop();
@@ -1431,7 +1275,7 @@ public sealed class EmulationService : IEmulationService
     /// Stops and drops the entry's controller-endpoint capture, leaving the forwarder
     /// alone. Caller must hold <see cref="_sync"/>.
     /// </summary>
-    private static void StopControllerCaptureLocked(VirtualControllerEntry entry)
+    private static void StopControllerCaptureLocked(VirtualControllerSlot entry)
     {
         entry.Capture?.Dispose();
         entry.Capture = null;
@@ -1468,7 +1312,7 @@ public sealed class EmulationService : IEmulationService
     /// is replaced. No-op when a live one already exists. Caller must hold
     /// <see cref="_sync"/>.
     /// </summary>
-    private void EnsureForwarderLocked(VirtualControllerEntry entry, EmulationSettings? emulation)
+    private void EnsureForwarderLocked(VirtualControllerSlot entry, EmulationSettings? emulation)
     {
         if (entry.Forwarder is { } existing)
         {
@@ -1476,7 +1320,7 @@ public sealed class EmulationService : IEmulationService
             {
                 if (emulation is not null)
                 {
-                    existing.ApplyForwardingSettings(emulation.Forward);
+                    existing.ApplyForwardingSettings(ForwardingSnapshot.From(emulation.Forward));
                 }
 
                 entry.Device.AudioLevelProvider = () => existing.AudioLevel;
@@ -1487,7 +1331,7 @@ public sealed class EmulationService : IEmulationService
             entry.Forwarder = null;
         }
 
-        entry.Outputs ??= new DualSenseDeviceOutputs(entry.Device, _specialActions.GetOrCreate(entry.Device));
+        entry.Outputs ??= new DualSenseDeviceOutputs(entry.Device);
         DualSenseAudioForwarder forwarder = CreateAudioForwarder(entry.Outputs, emulation);
         entry.Forwarder = forwarder;
         entry.Device.AudioLevelProvider = () => forwarder.AudioLevel;
@@ -1500,7 +1344,7 @@ public sealed class EmulationService : IEmulationService
     /// lightbar, triggers and game haptics ride the Bluetooth audio reports. No-op
     /// without both sides, or when already wired. Caller must hold <see cref="_sync"/>.
     /// </summary>
-    private void WireGameCallbacksLocked(VirtualControllerEntry entry)
+    private void WireGameCallbacksLocked(VirtualControllerSlot entry)
     {
         if (entry.AudioCallbacksWired || entry.Forwarder is not { } forwarder)
         {
@@ -1524,7 +1368,7 @@ public sealed class EmulationService : IEmulationService
     /// Unsubscribes the forwarder from the virtual controller's game-output
     /// callbacks. Caller must hold <see cref="_sync"/>.
     /// </summary>
-    private void UnwireGameCallbacksLocked(VirtualControllerEntry entry)
+    private void UnwireGameCallbacksLocked(VirtualControllerSlot entry)
     {
         if (!entry.AudioCallbacksWired || entry.Forwarder is not { } forwarder)
         {
@@ -1549,7 +1393,7 @@ public sealed class EmulationService : IEmulationService
     /// Disposes the entry's forwarder and loopback capture. Caller must hold
     /// <see cref="_sync"/>.
     /// </summary>
-    private void TeardownAudioLocked(VirtualControllerEntry entry)
+    private void TeardownAudioLocked(VirtualControllerSlot entry)
     {
         UnwireGameCallbacksLocked(entry);
 
@@ -1697,7 +1541,7 @@ public sealed class EmulationService : IEmulationService
             return;
         }
 
-        foreach (VirtualControllerEntry entry in _entries.Values)
+        foreach (VirtualControllerSlot entry in _entries.Values)
         {
             if (entry.Persona is not null || entry.Virtual is not null)
             {
@@ -1724,7 +1568,7 @@ public sealed class EmulationService : IEmulationService
     /// Caller must hold <see cref="_sync"/>.
     /// </summary>
     /// <returns><c>true</c> when a virtual device was removed.</returns>
-    private bool DisposeVirtualLocked(VirtualControllerEntry entry)
+    private bool DisposeVirtualLocked(VirtualControllerSlot entry)
     {
         if (entry.Virtual is null)
         {
@@ -1778,7 +1622,7 @@ public sealed class EmulationService : IEmulationService
     /// <see cref="_sync"/>.
     /// </summary>
     /// <returns><c>true</c> when a virtual device was removed.</returns>
-    private bool DisposeEntryLocked(VirtualControllerEntry entry)
+    private bool DisposeEntryLocked(VirtualControllerSlot entry)
     {
         bool hadVirtual = DisposeVirtualLocked(entry);
         TeardownAudioLocked(entry);
@@ -1817,9 +1661,9 @@ public sealed class EmulationService : IEmulationService
 
         lock (_sync)
         {
-            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Virtual is not null)
+            if (_entries.TryGetValue(device, out VirtualControllerSlot? entry))
             {
-                entry.Virtual.PushInput(report);
+                entry.PushInput(report);
             }
         }
     }
@@ -1836,12 +1680,9 @@ public sealed class EmulationService : IEmulationService
 
         lock (_sync)
         {
-            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry)
-                && entry.Virtual is not null
-                && device.InputReport is { } report)
+            if (_entries.TryGetValue(device, out VirtualControllerSlot? entry))
             {
-                entry.Virtual.PushInput(report);
-                entry.Virtual.PushBattery(e.CurrentState);
+                entry.PushBattery(e.CurrentState, device.InputReport);
             }
         }
     }
@@ -1858,9 +1699,9 @@ public sealed class EmulationService : IEmulationService
 
         lock (_sync)
         {
-            if (_entries.TryGetValue(device, out VirtualControllerEntry? entry) && entry.Virtual is not null)
+            if (_entries.TryGetValue(device, out VirtualControllerSlot? entry))
             {
-                entry.Virtual.PushConnectionStatus(e.CurrentStatus);
+                entry.PushConnectionStatus(e.CurrentStatus);
             }
         }
     }
@@ -1880,15 +1721,4 @@ public sealed class EmulationService : IEmulationService
         EmulationMode.DualSense => (0x054C, 0x0CE6),
         _ => (0, 0)
     };
-
-    /// <summary>
-    /// Updates an entry's <see cref="EmulationStatus"/> and raises <see cref="StateChanged"/>.
-    /// </summary>
-    private void SetStatus(VirtualControllerEntry entry, EmulationStatus status)
-    {
-        entry.Status = status;
-        string detail = status.IsCreating ? "creating" : status.Detail ?? status.VirtualDevicePath ?? "ok";
-        _log.Info($"Emulation status: {entry.Device.Info.ProductName} {status.Mode} running={status.Running} ({detail})");
-        StateChanged?.Invoke(this, EventArgs.Empty);
-    }
 }
