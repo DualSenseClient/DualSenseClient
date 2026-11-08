@@ -236,6 +236,122 @@ public class TouchpadMouseProcessorTests
     }
 
     [Test]
+    public void Process_PadPress_EmitsLeftDownAndReleaseEmitsLeftUp()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State(), false, 0);
+        processor.Process(TouchpadMouseTestData.State(), true, 10);
+        processor.Process(TouchpadMouseTestData.State(), false, 100);
+
+        Assert.That(injector.Calls, Is.EqualTo(new[]
+        {
+            "LeftDown", "LeftUp"
+        }));
+    }
+
+    [Test]
+    public void Process_PressWhileMoving_MovesAndDrags()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State(), false, 0);
+        processor.Process(TouchpadMouseTestData.State(), true, 10);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), true, 20);
+        processor.Process(TouchpadMouseTestData.State((105, 100)), true, 30);
+        processor.Process(TouchpadMouseTestData.State((105, 100)), false, 40);
+        processor.Process(TouchpadMouseTestData.State(), false, 50);
+
+        Assert.That(injector.Calls, Is.EqualTo(new[]
+        {
+            "LeftDown", "Move(5,0)", "LeftUp"
+        }));
+    }
+
+    [Test]
+    public void Process_PhysicalClickDuringTap_DoesNotEmitTapClick()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State(), false, 0);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), false, 10);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), true, 30);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), false, 40);
+
+        // The physical press must click immediately, before the finger lifts.
+        Assert.That(injector.Calls, Is.EqualTo(new[]
+        {
+            "LeftDown", "LeftUp"
+        }));
+
+        processor.Process(TouchpadMouseTestData.State(), false, 60);
+
+        // The lift must not add a second tap click.
+        Assert.That(injector.Calls, Is.EqualTo(new[]
+        {
+            "LeftDown", "LeftUp"
+        }));
+    }
+
+    [Test]
+    public void Process_TouchStartingWhilePressed_IsNeverATap()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State(), false, 0);
+        processor.Process(TouchpadMouseTestData.State(), true, 10);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), true, 20);
+        processor.Process(TouchpadMouseTestData.State(), true, 50);
+
+        Assert.That(injector.Calls, Is.EqualTo(new[]
+        {
+            "LeftDown"
+        }));
+
+        processor.Process(TouchpadMouseTestData.State(), false, 60);
+
+        Assert.That(injector.Calls, Is.EqualTo(new[]
+        {
+            "LeftDown", "LeftUp"
+        }));
+    }
+
+    [Test]
+    public void Process_AttachWhilePressed_DoesNotInjectDown()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), true, 0);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), false, 50);
+
+        Assert.That(injector.Calls, Is.Empty);
+    }
+
+    [Test]
+    public void Process_FailedLeftDown_DoesNotEmitUp()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        injector.FailLeftDown = true;
+        processor.Process(TouchpadMouseTestData.State(), false, 0);
+        processor.Process(TouchpadMouseTestData.State(), true, 10);
+        processor.Process(TouchpadMouseTestData.State(), false, 100);
+
+        Assert.That(injector.Calls, Is.EqualTo(new[]
+        {
+            "LeftDown"
+        }));
+    }
+
+    [Test]
+    public void Reset_ReleasesHeldLeftButton()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State(), false, 0);
+        processor.Process(TouchpadMouseTestData.State(), true, 10);
+        processor.Reset();
+
+        Assert.That(injector.Calls, Is.EqualTo(new[]
+        {
+            "LeftDown", "LeftUp"
+        }));
+    }
+
+    [Test]
     public void Process_OneFingerRestJitter_StillLeftClicks()
     {
         TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);

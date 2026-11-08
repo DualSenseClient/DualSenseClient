@@ -138,9 +138,16 @@ public sealed class TouchpadMouseProcessor
 
     /// <summary>
     /// Clears all gesture state so the next report initializes as if the processor were new.
+    /// Releases the left button first when this processor injected the matching down.
     /// </summary>
     public void Reset()
     {
+        if (_leftHeld)
+        {
+            _injector.LeftUp();
+            _leftHeld = false;
+        }
+
         _hasState = false;
         _lastTouchpad = default;
         _padPressed = false;
@@ -156,7 +163,6 @@ public sealed class TouchpadMouseProcessor
         _moveResidualY = 0;
         _velocity = 0;
         EndTouch();
-        _leftHeld = false;
     }
 
     /// <summary>
@@ -218,11 +224,17 @@ public sealed class TouchpadMouseProcessor
             return;
         }
 
+        bool padPressedChanged = padPressed != _padPressed;
         bool fingerCountChanged = activeCount != _activeCount;
         bool trackingIdChanged = trackingId1 != _trackingId1 || trackingId2 != _trackingId2;
 
         _lastTouchpad = touchpad;
         _padPressed = padPressed;
+
+        if (padPressedChanged)
+        {
+            ApplyPadButton(padPressed, activeCount);
+        }
 
         if (fingerCountChanged || trackingIdChanged)
         {
@@ -311,6 +323,42 @@ public sealed class TouchpadMouseProcessor
     }
 
     /// <summary>
+    /// Applies a change in the physical touchpad button level. A rising edge injects the left
+    /// button down and suppresses tap resolution for the current touch, so its lift cannot add
+    /// a second click; movement while the button is held drives the pointer, giving
+    /// press-and-drag. A falling edge releases the button only when the matching down was
+    /// accepted by the host.
+    /// </summary>
+    /// <param name="padPressed">Whether the button is pressed in the current report.</param>
+    /// <param name="activeCount">Number of active points in the current report.</param>
+    private void ApplyPadButton(bool padPressed, int activeCount)
+    {
+        if (padPressed)
+        {
+            if (_injector.LeftDown())
+            {
+                _leftHeld = true;
+            }
+
+            // A press suppresses tap resolution for the current touch and cancels any
+            // pending two-finger tap; dragging comes from movement while held.
+            _twoFingerTapEligible = false;
+            if (_activeCount > 0 || activeCount > 0)
+            {
+                _physicalClickDuringTouch = true;
+            }
+
+            return;
+        }
+
+        if (_leftHeld)
+        {
+            _injector.LeftUp();
+            _leftHeld = false;
+        }
+    }
+
+    /// <summary>
     /// Starts tracking the tap state of a touch that began in the current report.
     /// </summary>
     /// <param name="activeCount">Number of active points in the report.</param>
@@ -337,7 +385,8 @@ public sealed class TouchpadMouseProcessor
         _sawTwoFingers = true;
         _twoFingerTapEligible = timestampMs - _touchStartMs <= TwoFingerTapWindowMs
                                 && _touchTravel <= TapMaxTravelUnits
-                                && !_scrollActive;
+                                && !_scrollActive
+                                && !_padPressed;
     }
 
     /// <summary>
