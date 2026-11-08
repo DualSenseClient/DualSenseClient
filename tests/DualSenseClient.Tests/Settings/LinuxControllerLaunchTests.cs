@@ -4,6 +4,7 @@ using DualSenseClient.Settings.Sections;
 
 namespace DualSenseClient.Tests.Settings;
 
+[Platform(Include = "Win,Linux")]
 public class LinuxControllerLaunchTests
 {
     private string _home = null!;
@@ -154,7 +155,7 @@ public class LinuxControllerLaunchTests
         Directory.CreateDirectory(_home);
         string appImage = Path.Combine(_home, "Client image.AppImage");
         File.WriteAllText(appImage, "test");
-        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(appImage, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        if (OperatingSystem.IsLinux()) File.SetUnixFileMode(appImage, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         Assert.That(LinuxControllerLaunch.ResolveCommand(appImage, "/tmp/.mount/Client", "ignored"),
             Is.EqualTo(new[]
             {
