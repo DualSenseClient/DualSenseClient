@@ -40,6 +40,16 @@ public sealed class TouchpadMouseProcessor
     /// <summary>Longest delay, in milliseconds, between the first and second finger of a two-finger tap.</summary>
     private const long TwoFingerTapWindowMs = 150;
 
+    /// <summary>Cumulative two-finger travel, in touchpad units, that starts scrolling.</summary>
+    private const double ScrollStartTravelUnits = 15.0;
+
+    /// <summary>
+    /// Wheel units emitted per touchpad unit of travel at a scroll speed of 1.0. The pad is
+    /// 1080 units tall and Windows counts 120 units per wheel notch, so the 1200/1080 ratio
+    /// emits ten notches over a full-height slide (one notch per 108 units of travel).
+    /// </summary>
+    private const double ScrollWheelScale = 1200.0 / 1080.0;
+
     /// <summary>Injects the computed pointer movement.</summary>
     private readonly IMouseInjector _injector;
 
@@ -111,6 +121,12 @@ public sealed class TouchpadMouseProcessor
 
     /// <summary>Whether the current touch has scrolled and must not also right-click.</summary>
     private bool _scrollActive;
+
+    /// <summary>Sub-unit vertical wheel delta carried into the next report.</summary>
+    private double _scrollResidualY;
+
+    /// <summary>Sub-unit horizontal wheel delta carried into the next report.</summary>
+    private double _scrollResidualX;
 
     /// <summary>Whether this processor is holding the left mouse button down.</summary>
     private bool _leftHeld;
@@ -290,12 +306,27 @@ public sealed class TouchpadMouseProcessor
         // must not consume the tap budget or latch scrolling without emitting any motion.
         _touchTravel += Math.Sqrt(dx * dx + dy * dy);
 
+        if (activeCount == 2 && _touchTravel > ScrollStartTravelUnits)
+        {
+            _scrollActive = true;
+        }
+
         // The jitter gate holds small deltas until they reach the threshold. Advancing the
         // reference timestamp only when a gated move is emitted keeps the elapsed time and
         // the accumulated displacement describing the same interval, which keeps velocity
         // (and therefore acceleration) steady at high report rates.
         long deltaMs = Math.Clamp(timestampMs - _lastTimestampMs, MinDeltaMs, MaxDeltaMs);
         _lastTimestampMs = timestampMs;
+
+        if (activeCount == 2)
+        {
+            if (_scrollActive)
+            {
+                ApplyScroll(dx, dy);
+            }
+
+            return;
+        }
 
         if (activeCount != 1)
         {
@@ -355,6 +386,34 @@ public sealed class TouchpadMouseProcessor
         {
             _injector.LeftUp();
             _leftHeld = false;
+        }
+    }
+
+    /// <summary>
+    /// Accumulates two-finger movement into whole wheel deltas, carrying the sub-unit remainder
+    /// into the next report so slow scrolling is not lost.
+    /// </summary>
+    /// <param name="dx">Horizontal centroid movement since the previous emitted report.</param>
+    /// <param name="dy">Vertical centroid movement since the previous emitted report.</param>
+    private void ApplyScroll(double dx, double dy)
+    {
+        double scale = ScrollWheelScale * _options.ScrollSpeed;
+
+        _scrollResidualY += (_options.NaturalScrolling ? dy : -dy) * scale;
+        _scrollResidualX += (_options.NaturalScrolling ? -dx : dx) * scale;
+
+        int wheelDelta = (int)Math.Truncate(_scrollResidualY);
+        if (wheelDelta != 0)
+        {
+            _scrollResidualY -= wheelDelta;
+            _injector.Wheel(wheelDelta);
+        }
+
+        int horizontalDelta = (int)Math.Truncate(_scrollResidualX);
+        if (horizontalDelta != 0)
+        {
+            _scrollResidualX -= horizontalDelta;
+            _injector.HorizontalWheel(horizontalDelta);
         }
     }
 
@@ -439,6 +498,8 @@ public sealed class TouchpadMouseProcessor
         _touchStartedWhilePressed = false;
         _physicalClickDuringTouch = false;
         _scrollActive = false;
+        _scrollResidualY = 0;
+        _scrollResidualX = 0;
     }
 
     /// <summary>
@@ -468,5 +529,7 @@ public sealed class TouchpadMouseProcessor
         _velocity = 0;
         _pendingRawX = 0;
         _pendingRawY = 0;
+        _scrollResidualY = 0;
+        _scrollResidualX = 0;
     }
 }
