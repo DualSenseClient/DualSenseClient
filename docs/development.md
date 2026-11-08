@@ -61,9 +61,9 @@ Unlike the hardware suites, an attach failure is reported as a test failure beca
 
 ## Project Structure
 
-The solution follows a multi-project layout: each distinct concern lives in its own library project under `source/`, named `DualSenseClient.<Area>` (for example `DualSenseClient.Core`, `DualSenseClient.Hid`, `DualSenseClient.Settings`). **DualSenseClient.GUI** is the main application project containing Views, ViewModels, and UI-related logic.
+The solution follows a multi-project layout: each distinct concern lives in its own project under `source/`, named `DualSenseClient.<Area>` (for example `DualSenseClient.Core`, `DualSenseClient.Hid`, `DualSenseClient.Settings`). **DualSenseClient.GUI** is the main application project containing Views, ViewModels, and UI-related logic.
 
-Tests live in `tests/DualSenseClient.Tests/`, organized into one folder per source project.
+Tests live in `tests/DualSenseClient.Tests/`, organized into one folder per tested source project.
 
 ## Contributing
 
@@ -77,7 +77,7 @@ Pull requests are welcome! Before submitting:
     python scripts/lint.py --check
     ```
 
-4. Open a pull request targeting the `dev` branch with a clear description of what changed, why, and how you tested it
+4. Open a pull request targeting `dev` when it exists; otherwise target `main`, with a clear description of what changed, why, and how you tested it
 
 For bug reports and feature requests, [open an issue](https://github.com/DualSenseClient/DualSenseClient/issues) instead.
 
