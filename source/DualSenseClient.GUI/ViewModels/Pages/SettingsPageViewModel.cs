@@ -563,8 +563,8 @@ public partial class SettingsPageViewModel : ObservableObject
     [ObservableProperty] private bool includeNightlyUpdates;
 
     /// <summary>
-    /// Called after <see cref="IncludeNightlyUpdates"/> changes. Persists the choice,
-    /// refreshes <see cref="ChannelLabel"/>, and drops the in-memory update from the other channel.
+    /// Called after <see cref="IncludeNightlyUpdates"/> changes. Persists the choice
+    /// and drops the in-memory update from the other channel.
     /// </summary>
     partial void OnIncludeNightlyUpdatesChanged(bool oldValue, bool newValue)
     {
@@ -576,21 +576,7 @@ public partial class SettingsPageViewModel : ObservableObject
         _log.Info($"Update channel changed to '{(newValue ? "nightly" : "stable")}'");
         _settingsService.Settings.Update.NightlyVersion = newValue;
         _settingsService.SaveSettings();
-        OnPropertyChanged(nameof(ChannelLabel));
         ClearPendingUpdate();
-    }
-
-    /// <summary>
-    /// The channel toggle title: Stable when off, Nightly when on.
-    /// </summary>
-    public string ChannelLabel
-    {
-        get
-        {
-            return LocalizationService.GetText(IncludeNightlyUpdates
-                ? "SettingsPage.Updates.Channel.Nightly"
-                : "SettingsPage.Updates.Channel.Stable");
-        }
     }
 
     /// <summary>
@@ -745,7 +731,6 @@ public partial class SettingsPageViewModel : ObservableObject
         // Updates
         AutoCheckForUpdates = _settingsService.Settings.Update.AutomaticCheck;
         IncludeNightlyUpdates = _settingsService.Settings.Update.NightlyVersion;
-        OnPropertyChanged(nameof(ChannelLabel));
     }
 
     /// <summary>
