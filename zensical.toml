@@ -1,0 +1,79 @@
+[project]
+site_name = "DualSense Client"
+site_description = "Unofficial DualSense client for Windows and Linux. Customize and monitor your PS5 DualSense controller: lighting, profiles, input monitoring, rumble, adaptive triggers, and audio to the controller's speaker and haptics."
+site_url = "https://dualsenseclient.github.io/DualSenseClient/"
+repo_url = "https://github.com/DualSenseClient/DualSenseClient"
+repo_name = "DualSenseClient/DualSenseClient"
+edit_uri = "edit/main/docs/"
+copyright = "GPL-3.0 licensed. Not affiliated with or endorsed by Sony Interactive Entertainment."
+docs_dir = "docs"
+site_dir = "site"
+exclude_docs = """
+CONTRIBUTING.md
+"""
+
+nav = [
+  { "Home" = "index.md" },
+  { "Installation" = "installation.md" },
+  { "Guides" = [
+    { "Device Information" = "guides/device-info.md" },
+    { "Input Monitoring" = "guides/input-monitor.md" },
+    { "Profiles" = "guides/profiles.md" },
+    { "Light Control" = "guides/light-control.md" },
+    { "Rumble & Triggers" = "guides/rumble-and-triggers.md" },
+    { "Special Actions" = "guides/special-actions.md" },
+    { "Emulation" = "guides/virtual-controller.md" },
+    { "Touchpad Mouse" = "guides/touchpad-mouse.md" },
+    { "Audio Playback" = "guides/audio.md" },
+    { "Auto Profiles" = "guides/auto-profiles.md" },
+    { "Controller Hiding" = "guides/controller-hiding.md" },
+    { "Settings" = "guides/settings.md" },
+  ] },
+  { "FAQ" = "faq.md" },
+  { "Troubleshooting" = "troubleshooting.md" },
+  { "Development" = "development.md" },
+]
+
+[project.theme]
+variant = "modern"
+logo = "assets/images/icon.png"
+favicon = "assets/images/favicon.ico"
+font.text = "Inter"
+font.code = "JetBrains Mono"
+features = [
+  "navigation.tabs",
+  "navigation.sections",
+  "navigation.top",
+  "navigation.footer",
+  "search.suggest",
+  "search.highlight",
+  "search.share",
+  "content.code.copy",
+  "content.tabs.link",
+]
+
+[project.theme.palette]
+scheme = "slate"
+primary = "blue"
+accent = "light blue"
+
+[project.theme.icon]
+repo = "fontawesome/brands/github"
+
+[project.plugins.search]
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+def_list = {}
+md_in_html = {}
+tables = {}
+pymdownx.details = {}
+pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji"
+pymdownx.emoji.emoji_generator = "zensical.extensions.emoji.to_svg"
+pymdownx.highlight = {}
+pymdownx.inlinehilite = {}
+pymdownx.snippets = {}
+pymdownx.superfences = {}
+pymdownx.tabbed.alternate_style = true
+toc.permalink = true

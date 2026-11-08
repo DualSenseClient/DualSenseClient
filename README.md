@@ -12,7 +12,7 @@ DualSense Client
 <p align="center">
   <img src="https://shieldcn.dev/badge/Platform-Windows_%26_Linux.svg?color=0070D1&variant=ghost&font=fira-code&theme=zinc" alt="Platform">
   <a href="https://github.com/DualSenseClient/DualSenseClient/blob/main/LICENSE"><img src="https://shieldcn.dev/github/DualSenseClient/DualSenseClient/license.svg?color=0070D1&variant=ghost&font=fira-code&theme=zinc" alt="License"></a>
-  <a href="https://github.com/DualSenseClient/DualSenseClient/actions/workflows/build_release.yml"><img src="https://shieldcn.dev/github/DualSenseClient/DualSenseClient/ci.svg?label=Build&logo=github&color=0070D1&variant=ghost&font=fira-code&theme=zinc" alt="Build Status"></a>
+  <a href="https://github.com/DualSenseClient/DualSenseClient/actions/workflows/build_release.yml?query=branch%3Amain"><img src="https://shieldcn.dev/github/DualSenseClient/DualSenseClient/ci.svg?workflow=build_release.yml&amp;branch=main&amp;label=Build&amp;logo=github&amp;color=0070D1&amp;variant=ghost&amp;font=fira-code&amp;theme=zinc" alt="Build Status"></a>
 </p>
 
 <p align="center">
