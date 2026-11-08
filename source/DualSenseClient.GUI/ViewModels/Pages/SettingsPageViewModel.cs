@@ -332,7 +332,7 @@ public partial class SettingsPageViewModel : ObservableObject
     {
         get
         {
-            return OperatingSystem.IsWindows();
+            return OperatingSystem.IsWindows() || OperatingSystem.IsLinux();
         }
     }
 
@@ -358,26 +358,73 @@ public partial class SettingsPageViewModel : ObservableObject
         try
         {
             ControllerInfoService controllers = App.Services.GetRequiredService<ControllerInfoService>();
-            string executable = Path.Combine(AppContext.BaseDirectory, "DualSenseClient.exe");
-            if (!File.Exists(executable))
+            if (OperatingSystem.IsLinux())
             {
-                throw new InvalidOperationException("Use a Windows build of DualSense Client to enable controller launch.");
+                string[] command = enabled
+                    ? Launch.LinuxControllerLaunch.ResolveCommand(
+                        Environment.GetEnvironmentVariable("APPIMAGE"), Environment.ProcessPath!, Path.Combine(AppContext.BaseDirectory, "DualSenseClient.dll"))
+                    : [];
+                await new Launch.LinuxControllerLaunch().ApplyAsync(enabled, command,
+                    controllers.Settings.Controllers.Select(controller => controller.MacAddress));
+            }
+            else if (OperatingSystem.IsWindows())
+            {
+                string executable = Path.Combine(AppContext.BaseDirectory, "DualSenseClient.exe");
+                if (!File.Exists(executable))
+                {
+                    throw new InvalidOperationException("Use an installed Windows build to enable controller launch.");
+                }
+
+                await Launch.ControllerLaunchTask.ApplyAsync(enabled, executable,
+                    System.Security.Principal.WindowsIdentity.GetCurrent().User!.Value,
+                    controllers.Settings.Controllers.Select(controller => controller.MacAddress));
+            }
+            else
+            {
+                throw new PlatformNotSupportedException();
             }
 
-            if (!OperatingSystem.IsWindows())
-            {
-                return;
-            }
-
-            await Launch.ControllerLaunchTask.ApplyAsync(enabled, executable,
-                System.Security.Principal.WindowsIdentity.GetCurrent().User!.Value,
-                controllers.Settings.Controllers.Select(controller => controller.MacAddress));
+            bool previous = _settingsService.Settings.Ui.LaunchOnControllerConnect;
             _settingsService.Settings.Ui.LaunchOnControllerConnect = enabled;
-            _settingsService.SaveSettings();
+            try
+            {
+                if (OperatingSystem.IsLinux())
+                {
+                    _settingsService.SaveSettingsChecked();
+                }
+                else
+                {
+                    _settingsService.SaveSettings();
+                }
+            }
+            catch
+            {
+                _settingsService.Settings.Ui.LaunchOnControllerConnect = previous;
+                if (OperatingSystem.IsLinux())
+                {
+                    await new Launch.LinuxControllerLaunch().ApplyAsync(previous,
+                        Launch.LinuxControllerLaunch.ResolveCommand(Environment.GetEnvironmentVariable("APPIMAGE"), Environment.ProcessPath!,
+                            Path.Combine(AppContext.BaseDirectory, "DualSenseClient.dll")),
+                        controllers.Settings.Controllers.Select(controller => controller.MacAddress));
+                }
+
+                throw;
+            }
         }
         catch (Exception ex)
         {
             ControllerLaunchStatus = ex.Message;
+            if (OperatingSystem.IsLinux())
+            {
+                try
+                {
+                    bool applied = await new Launch.LinuxControllerLaunch().IsEnabledAsync();
+                    _settingsService.Settings.Ui.LaunchOnControllerConnect = applied;
+                    _settingsService.SaveSettingsChecked();
+                }
+                catch (Exception stateError) { ControllerLaunchStatus += " Saved state could not be reconciled: " + stateError.Message; }
+            }
+
             _log.Error($"Controller launch registration failed: {ex.Message}");
             _suppressUpdates = true;
             try { LaunchOnControllerConnect = _settingsService.Settings.Ui.LaunchOnControllerConnect; }
@@ -710,6 +757,31 @@ public partial class SettingsPageViewModel : ObservableObject
         {
             _suppressUpdates = false;
         }
+
+        _ = RefreshControllerLaunchStateAsync();
+    }
+
+    private async Task RefreshControllerLaunchStateAsync()
+    {
+        if (!OperatingSystem.IsLinux() || IsControllerLaunchBusy)
+        {
+            return;
+        }
+
+        IsControllerLaunchBusy = true;
+        try
+        {
+            bool applied = await new Launch.LinuxControllerLaunch().IsEnabledAsync();
+            if (applied != _settingsService.Settings.Ui.LaunchOnControllerConnect)
+            {
+                ControllerLaunchStatus = "Connection launch differs from the saved setting. Toggle it to configure it again.";
+                _suppressUpdates = true;
+                try { LaunchOnControllerConnect = applied; }
+                finally { _suppressUpdates = false; }
+            }
+        }
+        catch (Exception ex) { ControllerLaunchStatus = ex.Message; }
+        finally { IsControllerLaunchBusy = false; }
     }
 
     /// <summary>

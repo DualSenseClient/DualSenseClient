@@ -184,6 +184,32 @@ public class JsonFileStore<T> where T : class, new()
     /// </summary>
     public async Task SaveAsync() => await Task.Run(Save);
 
+    /// <summary>Saves atomically and reports failures to callers applying external settings.</summary>
+    public void SaveChecked()
+    {
+        lock (_lock)
+        {
+            if (_isLoading)
+            {
+                throw new InvalidOperationException("Settings are still loading. Try again.");
+            }
+
+            string temporary = FilePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                File.WriteAllText(temporary, JsonSerializer.Serialize(Item, _jsonOptions));
+                File.Move(temporary, FilePath, true);
+            }
+            finally
+            {
+                if (File.Exists(temporary))
+                {
+                    File.Delete(temporary);
+                }
+            }
+        }
+    }
+
     private void SaveUnsafe()
     {
         try

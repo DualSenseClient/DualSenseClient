@@ -1,5 +1,7 @@
 """Watch one paired BlueZ controller and launch the client on connection, leaving it running."""
 import argparse
+import json
+import os
 import re
 import signal
 import subprocess
@@ -13,28 +15,67 @@ def connected(address):
     return bool(re.search(r'^\s*Connected:\s+yes\s*$', result.stdout, re.MULTILINE))
 
 
+def sample_connections(addresses, previous):
+    current = set()
+    for address in addresses:
+        try:
+            if connected(address):
+                current.add(address)
+        except (OSError, RuntimeError, subprocess.TimeoutExpired):
+            # A forgotten/unavailable address must not block other controllers.
+            if address in previous:
+                current.add(address)
+    return current
+
+
+class ConnectionLauncher:
+    """One launch per connection edge; an existing child survives disconnects."""
+    def __init__(self, command, environment):
+        self.command, self.environment = command, environment
+        self.child = None
+        self.active = set()
+
+    def update(self, connected_addresses):
+        if connected_addresses - self.active and (self.child is None or self.child.poll() is not None):
+            self.child = subprocess.Popen(self.command, env=self.environment)
+        self.active = connected_addresses
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('address')
+    parser.add_argument('--config')
+    parser.add_argument('--session-start', action='store_true')
+    parser.add_argument('address', nargs='?')
     parser.add_argument('command', nargs=argparse.REMAINDER)
     args = parser.parse_args()
-    command = args.command[1:] if args.command[:1] == ['--'] else args.command
-    if not re.fullmatch(r'(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}', args.address) or not command:
-        parser.error('Supply a MAC address followed by -- and the client executable')
+    if args.session_start:
+        variables = ('DISPLAY', 'WAYLAND_DISPLAY', 'XAUTHORITY',
+                     'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS', 'XDG_SESSION_TYPE')
+        names = [name for name in variables if os.environ.get(name)]
+        subprocess.run(['systemctl', '--user', 'unset-environment', *variables], check=True)
+        if names:
+            subprocess.run(['systemctl', '--user', 'import-environment', *names], check=True)
+        subprocess.run(['systemctl', '--user', 'restart', 'dualsense-controller-launch.service'], check=True)
+        return
+    if args.config:
+        with open(args.config, encoding='utf-8') as file:
+            config = json.load(file)
+        addresses, command = config['addresses'], config['command']
+    else:
+        addresses = [args.address]
+        command = args.command[1:] if args.command[:1] == ['--'] else args.command
+    if not addresses or any(not re.fullmatch(r'(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}', address or '') for address in addresses) or not command:
+        parser.error('Supply paired controller addresses and a client command')
+    # Never carry an AppImage mount or loader environment into a future launch.
+    environment = {key: value for key, value in os.environ.items()
+                   if key not in ('APPIMAGE', 'APPDIR', 'ARGV0', 'LD_LIBRARY_PATH', 'LD_PRELOAD')}
     stop = threading.Event()
     for sig in (signal.SIGTERM, signal.SIGINT):
         signal.signal(sig, lambda *_: stop.set())
-    child = None
-    active = False
+    launcher = ConnectionLauncher(command, environment)
     while not stop.is_set():
-        try:
-            current = connected(args.address)
-        except (OSError, RuntimeError, subprocess.TimeoutExpired):
-            stop.wait(2)
-            continue
-        if current and not active and (child is None or child.poll() is not None):
-            child = subprocess.Popen(command)
-        active = current
+        current = sample_connections(addresses, launcher.active)
+        launcher.update(current)
         stop.wait(2)
 
 

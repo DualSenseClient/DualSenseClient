@@ -1,45 +1,26 @@
-# Linux controller session launcher
+# Linux controller connection launch
 
-Install Python 3 and BlueZ, pair your controller, then run:
+Use **Settings → Window → Launch when a controller connects** in the installed
+app. It applies immediately and uses the existing **Start in tray** preference.
+See [the settings guide](../../docs/guides/settings.md#launch-when-a-controller-connects-windows-and-linux).
 
-```sh
-python3 /absolute/path/controller-session.py AA:BB:CC:DD:EE:FF -- /absolute/path/DualSenseClient
-```
+The GUI bundles this watcher as an embedded resource, copies it to the user's
+application data directory, and configures its systemd user unit and XDG session
+entry. It records paired controller addresses and the permanent executable or
+AppImage command as JSON; no shell interpolation is used for the app command.
+Disconnects do not stop the client. A running instance is protected by the app's
+user-scoped lock. After Exit, the next connection can launch the app again.
 
-Replace the address and paths. An executable AppImage also works. Enable the
-client's Start in tray setting if desired. Close other copies first.
+The positional `controller-session.py ADDRESS -- EXECUTABLE` interface remains
+available for existing manual setups, but the GUI's managed service replaces
+this project's older `dualsense-session@*.service` instances on successful enable.
 
-The watcher launches the client on connection, including an existing connection at
-startup. Disconnecting leaves the client running; reconnecting does not launch a
-second copy of its running child. If you quit the client, the next connection
-launches it again. Failed BlueZ queries leave it running. The client honours its
-own Start in tray setting.
+Automated watcher checks: `python3 scripts/linux/test_controller_session.py`.
+The opt-in desktop probe in `tests/DualSenseClient.LinuxVerification` runs the
+actual settings ViewModel and Exit handler on a Linux desktop, including service
+registration and persistence. Run it only with the app closed, in a separate
+installation containing a copy of your Config directory. It can capture the
+compiled settings page and observe real controller button events. It does not
+prove reboot behavior; perform that check separately.
 
-For desktop login startup, save this as
-`~/.config/systemd/user/dualsense-session.service`, replacing paths and address:
-
-```ini
-[Unit]
-Description=DualSense Bluetooth session launcher
-After=graphical-session.target
-PartOf=graphical-session.target
-
-[Service]
-KillMode=process
-ExecStart=/usr/bin/python3 /absolute/path/controller-session.py AA:BB:CC:DD:EE:FF -- /absolute/path/DualSenseClient
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=graphical-session.target
-```
-
-Run `systemctl --user daemon-reload`, then
-`systemctl --user enable --now dualsense-session.service` in your desktop session.
-The desktop must import its DISPLAY/WAYLAND_DISPLAY environment into the user
-service manager. Inspect logs with `journalctl --user -u dualsense-session.service`.
-Disable with `systemctl --user disable --now dualsense-session.service`.
-
-This ports the connection lifecycle from rwflan/dualsense-session-launcher;
-it does not enable Linux virtual controller emulation. Hardware verification is
-required on the target Linux desktop.
+See [the verification record](../../docs/linux-controller-launch-verification.md) for installed evidence and explicit limits.

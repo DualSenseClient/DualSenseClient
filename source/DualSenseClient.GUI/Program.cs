@@ -21,32 +21,37 @@ internal sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        if (args.Contains("--controller-connect"))
-        {
-            using Process current = Process.GetCurrentProcess();
-            foreach (Process process in Process.GetProcessesByName(current.ProcessName))
+        // Every Linux instance owns the same user-scoped lock, including manual
+        // launches. A connection launch never sends an activation/window message.
+        using Launch.UserAppInstance? instance = OperatingSystem.IsLinux() ? new Launch.UserAppInstance() : null;
+        if (instance is { Acquired: false }) return;
+            if (OperatingSystem.IsWindows() && args.Contains("--controller-connect"))
             {
-                using (process)
+                using Process current = Process.GetCurrentProcess();
+                foreach (Process process in Process.GetProcessesByName(current.ProcessName))
                 {
-                    if (process.Id == current.Id)
+                    using (process)
                     {
-                        continue;
-                    }
-
-                    try
-                    {
-                        if (process.MainModule?.FileName == Environment.ProcessPath)
+                        if (process.Id == current.Id)
                         {
-                            return;
+                            continue;
                         }
+
+                        try
+                        {
+                            if (process.MainModule?.FileName == Environment.ProcessPath)
+                            {
+                                return;
+                            }
+                        }
+                        catch (System.ComponentModel.Win32Exception) { }
+                        catch (InvalidOperationException) { }
                     }
-                    catch (System.ComponentModel.Win32Exception) { }
-                    catch (InvalidOperationException) { }
                 }
             }
-        }
 
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+
     }
 
     /// <summary>
