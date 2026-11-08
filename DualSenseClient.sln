@@ -20,11 +20,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DualSenseClient.Controllers
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DualSenseClient.Bluetooth", "source\DualSenseClient.Bluetooth\DualSenseClient.Bluetooth.csproj", "{A236F4C0-598E-4947-9FF7-F316DEB5D643}"
 EndProject
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DualSenseClient.HidHide", "source\DualSenseClient.HidHide\DualSenseClient.HidHide.csproj", "{E077428C-7EE4-46F1-96EE-8017685980F3}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DualSenseClient.Emulation", "source\DualSenseClient.Emulation\DualSenseClient.Emulation.csproj", "{420BB25A-A64D-4792-A192-BC960CE57AEE}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DualSenseClient.Launch", "source\DualSenseClient.Launch\DualSenseClient.Launch.csproj", "{E2F1A691-59C1-464B-8F23-9FFF0D9276DB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -32,10 +31,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{E2F1A691-59C1-464B-8F23-9FFF0D9276DB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{E2F1A691-59C1-464B-8F23-9FFF0D9276DB}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{E2F1A691-59C1-464B-8F23-9FFF0D9276DB}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{E2F1A691-59C1-464B-8F23-9FFF0D9276DB}.Release|Any CPU.Build.0 = Release|Any CPU
 		{2E9DEC2F-B58B-4AE5-926A-7D447036E135}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{2E9DEC2F-B58B-4AE5-926A-7D447036E135}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2E9DEC2F-B58B-4AE5-926A-7D447036E135}.Release|Any CPU.ActiveCfg = Release|Any CPU

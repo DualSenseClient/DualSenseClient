@@ -572,6 +572,4 @@
     <sys:String x:Key="AudioSource.Mode.ExecutableFile">Executable file</sys:String>
     <sys:String x:Key="AudioSource.Mode.PlayingApps">Applications playing audio</sys:String>
     <sys:String x:Key="AudioSource.Mode.Title">Application selection</sys:String>
-    <sys:String x:Key="SettingsPage.Window.ControllerLaunch.Title">Launch when a controller connects</sys:String>
-    <sys:String x:Key="SettingsPage.Window.ControllerLaunch.Description">Open the app when a paired controller connects. Uses Start in tray.</sys:String>
 </ResourceDictionary>

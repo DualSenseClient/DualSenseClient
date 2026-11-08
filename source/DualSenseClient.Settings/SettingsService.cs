@@ -126,14 +126,6 @@ public sealed class SettingsService
     /// Asynchronously saves the current settings instance to persistent storage.
     /// </summary>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public void SaveSettingsChecked()
-    {
-        lock (_lock)
-        {
-            _store.SaveChecked();
-        }
-    }
-
     public async Task SaveSettingsAsync() => await Task.Run(SaveSettings);
 
     /// <summary>

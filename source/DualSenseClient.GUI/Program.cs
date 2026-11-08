@@ -1,7 +1,5 @@
-using Avalonia;
+﻿using Avalonia;
 using System;
-using System.Diagnostics;
-using System.Linq;
 
 namespace DualSenseClient.GUI;
 
@@ -19,40 +17,8 @@ internal sealed class Program
     /// </summary>
     /// <param name="args">Command-line arguments passed to the application.</param>
     [STAThread]
-    public static void Main(string[] args)
-    {
-        // Every Linux instance owns the same user-scoped lock, including manual
-        // launches. A connection launch never sends an activation/window message.
-        using Launch.UserAppInstance? instance = OperatingSystem.IsLinux() ? new Launch.UserAppInstance() : null;
-        if (instance is { Acquired: false }) return;
-            if (OperatingSystem.IsWindows() && args.Contains("--controller-connect"))
-            {
-                using Process current = Process.GetCurrentProcess();
-                foreach (Process process in Process.GetProcessesByName(current.ProcessName))
-                {
-                    using (process)
-                    {
-                        if (process.Id == current.Id)
-                        {
-                            continue;
-                        }
-
-                        try
-                        {
-                            if (process.MainModule?.FileName == Environment.ProcessPath)
-                            {
-                                return;
-                            }
-                        }
-                        catch (System.ComponentModel.Win32Exception) { }
-                        catch (InvalidOperationException) { }
-                    }
-                }
-            }
-
-            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
-
-    }
+    public static void Main(string[] args) => BuildAvaloniaApp()
+        .StartWithClassicDesktopLifetime(args);
 
     /// <summary>
     /// Configures the Avalonia application builder with platform detection, developer tools (in debug mode),

@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using DualSenseClient.Core.Models;
 
 namespace DualSenseClient.Settings.Sections;
@@ -47,10 +47,6 @@ public class UiSettings
     /// </remarks>
     [JsonPropertyName("startInTray")]
     public bool StartInTray { get; set; }
-
-    /// <summary>Whether the desktop launches the app when a known Bluetooth controller connects.</summary>
-    [JsonPropertyName("launchOnControllerConnect")]
-    public bool LaunchOnControllerConnect { get; set; }
 
     /// <summary>
     /// Gets or sets whether the tray icon shows the selected controller's battery

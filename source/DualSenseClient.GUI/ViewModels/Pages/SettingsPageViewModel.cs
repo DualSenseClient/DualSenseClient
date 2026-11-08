@@ -328,112 +328,6 @@ public partial class SettingsPageViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool startInTray;
 
-    public bool IsControllerLaunchSupported
-    {
-        get
-        {
-            return OperatingSystem.IsWindows() || OperatingSystem.IsLinux();
-        }
-    }
-
-    [ObservableProperty] private bool launchOnControllerConnect;
-    [ObservableProperty] private string controllerLaunchStatus = string.Empty;
-
-    [ObservableProperty] private bool isControllerLaunchBusy;
-
-    partial void OnLaunchOnControllerConnectChanged(bool oldValue, bool newValue)
-    {
-        if (_suppressUpdates || oldValue == newValue)
-        {
-            return;
-        }
-
-        _ = ApplyControllerLaunchAsync(newValue);
-    }
-
-    private async Task ApplyControllerLaunchAsync(bool enabled)
-    {
-        IsControllerLaunchBusy = true;
-        ControllerLaunchStatus = string.Empty;
-        try
-        {
-            ControllerInfoService controllers = App.Services.GetRequiredService<ControllerInfoService>();
-            if (OperatingSystem.IsLinux())
-            {
-                string[] command = enabled
-                    ? Launch.LinuxControllerLaunch.ResolveCommand(
-                        Environment.GetEnvironmentVariable("APPIMAGE"), Environment.ProcessPath!, Path.Combine(AppContext.BaseDirectory, "DualSenseClient.dll"))
-                    : [];
-                await new Launch.LinuxControllerLaunch().ApplyAsync(enabled, command,
-                    controllers.Settings.Controllers.Select(controller => controller.MacAddress));
-            }
-            else if (OperatingSystem.IsWindows())
-            {
-                string executable = Path.Combine(AppContext.BaseDirectory, "DualSenseClient.exe");
-                if (!File.Exists(executable))
-                {
-                    throw new InvalidOperationException("Use an installed Windows build to enable controller launch.");
-                }
-
-                await Launch.ControllerLaunchTask.ApplyAsync(enabled, executable,
-                    System.Security.Principal.WindowsIdentity.GetCurrent().User!.Value,
-                    controllers.Settings.Controllers.Select(controller => controller.MacAddress));
-            }
-            else
-            {
-                throw new PlatformNotSupportedException();
-            }
-
-            bool previous = _settingsService.Settings.Ui.LaunchOnControllerConnect;
-            _settingsService.Settings.Ui.LaunchOnControllerConnect = enabled;
-            try
-            {
-                if (OperatingSystem.IsLinux())
-                {
-                    _settingsService.SaveSettingsChecked();
-                }
-                else
-                {
-                    _settingsService.SaveSettings();
-                }
-            }
-            catch
-            {
-                _settingsService.Settings.Ui.LaunchOnControllerConnect = previous;
-                if (OperatingSystem.IsLinux())
-                {
-                    await new Launch.LinuxControllerLaunch().ApplyAsync(previous,
-                        Launch.LinuxControllerLaunch.ResolveCommand(Environment.GetEnvironmentVariable("APPIMAGE"), Environment.ProcessPath!,
-                            Path.Combine(AppContext.BaseDirectory, "DualSenseClient.dll")),
-                        controllers.Settings.Controllers.Select(controller => controller.MacAddress));
-                }
-
-                throw;
-            }
-        }
-        catch (Exception ex)
-        {
-            ControllerLaunchStatus = ex.Message;
-            if (OperatingSystem.IsLinux())
-            {
-                try
-                {
-                    bool applied = await new Launch.LinuxControllerLaunch().IsEnabledAsync();
-                    _settingsService.Settings.Ui.LaunchOnControllerConnect = applied;
-                    _settingsService.SaveSettingsChecked();
-                }
-                catch (Exception stateError) { ControllerLaunchStatus += " Saved state could not be reconciled: " + stateError.Message; }
-            }
-
-            _log.Error($"Controller launch registration failed: {ex.Message}");
-            _suppressUpdates = true;
-            try { LaunchOnControllerConnect = _settingsService.Settings.Ui.LaunchOnControllerConnect; }
-            finally { _suppressUpdates = false; }
-        }
-        finally { IsControllerLaunchBusy = false; }
-    }
-
-
     /// <summary>
     /// Called after <see cref="StartInTray"/> changes. Persists the choice to settings.
     /// </summary>
@@ -757,31 +651,6 @@ public partial class SettingsPageViewModel : ObservableObject
         {
             _suppressUpdates = false;
         }
-
-        _ = RefreshControllerLaunchStateAsync();
-    }
-
-    private async Task RefreshControllerLaunchStateAsync()
-    {
-        if (!OperatingSystem.IsLinux() || IsControllerLaunchBusy)
-        {
-            return;
-        }
-
-        IsControllerLaunchBusy = true;
-        try
-        {
-            bool applied = await new Launch.LinuxControllerLaunch().IsEnabledAsync();
-            if (applied != _settingsService.Settings.Ui.LaunchOnControllerConnect)
-            {
-                ControllerLaunchStatus = "Connection launch differs from the saved setting. Toggle it to configure it again.";
-                _suppressUpdates = true;
-                try { LaunchOnControllerConnect = applied; }
-                finally { _suppressUpdates = false; }
-            }
-        }
-        catch (Exception ex) { ControllerLaunchStatus = ex.Message; }
-        finally { IsControllerLaunchBusy = false; }
     }
 
     /// <summary>
@@ -843,7 +712,6 @@ public partial class SettingsPageViewModel : ObservableObject
         // Tray behavior
         CloseToTray = _settingsService.Settings.Ui.CloseToTray;
         StartInTray = _settingsService.Settings.Ui.StartInTray;
-        LaunchOnControllerConnect = _settingsService.Settings.Ui.LaunchOnControllerConnect;
         ShowBatteryPercentage = _settingsService.Settings.Ui.ShowBatteryPercentage;
 
         // Notifications

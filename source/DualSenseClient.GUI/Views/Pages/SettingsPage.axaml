@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:DualSenseClient.GUI.ViewModels.Pages"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -137,19 +137,6 @@
                                            Description="{DynamicResource SettingsPage.Window.CloseToTray.Description}">
                     <ui:FASettingsExpanderItem.Footer>
                         <ToggleSwitch IsChecked="{Binding CloseToTray, Mode=TwoWay}" />
-                    </ui:FASettingsExpanderItem.Footer>
-                </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Window.ControllerLaunch.Title}"
-                                           Description="{DynamicResource SettingsPage.Window.ControllerLaunch.Description}"
-                                           IsVisible="{Binding IsControllerLaunchSupported}">
-                    <ui:FASettingsExpanderItem.Footer>
-                        <StackPanel Spacing="8">
-                            <ToggleSwitch IsChecked="{Binding LaunchOnControllerConnect, Mode=TwoWay}"
-                                          IsEnabled="{Binding !IsControllerLaunchBusy}" />
-                            <TextBlock Text="{Binding ControllerLaunchStatus}"
-                                       TextWrapping="Wrap"
-                                       MaxWidth="320" />
-                        </StackPanel>
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>
                 <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Window.StartInTray.Title}"

@@ -125,7 +125,6 @@ public partial class App : Application
 
         mainWindow.Opened -= HideStartupWindow;
         mainWindow.Hide();
-        _log.Info($"Start in tray applied; main window visible: {mainWindow.IsVisible}");
     }
 
     /// <summary>
