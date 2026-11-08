@@ -85,6 +85,26 @@ public partial class App : Application
             // Flush buffered log entries and close the file sink when the app exits.
             desktop.Exit += (_, _) =>
             {
+                try
+                {
+                    Services.GetRequiredService<TouchpadMouseCoordinator>().Dispose();
+                }
+                catch (Exception ex)
+                {
+                    _log.Error($"Failed to release touchpad mouse state on exit: {ex.Message}");
+                }
+
+                // Saving is a separate best-effort step: a failing coordinator must not
+                // discard the settings persisted on exit.
+                try
+                {
+                    Services.GetRequiredService<ControllerInfoService>().Save();
+                }
+                catch (Exception ex)
+                {
+                    _log.Error($"Failed to save controller info on exit: {ex.Message}");
+                }
+
                 _log.Info("Closing DualSense Client");
                 DualSenseClientLogger.Shutdown();
             };
