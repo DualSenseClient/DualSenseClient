@@ -36,6 +36,14 @@ Dispatcher.UIThread.Post(async () =>
             if (vm.LaunchOnControllerConnect != (mode == "enable") || vm.ControllerLaunchStatus.Length > 0)
                 throw new InvalidOperationException("Toggle did not apply successfully.");
         }
+        if (mode == "register-installed")
+        {
+            // Register a separately published single-file installation after the
+            // GUI toggle tests; the probe's own dotnet host is not that executable.
+            await new DualSenseClient.Launch.LinuxControllerLaunch().ApplyAsync(true,
+                DualSenseClient.Launch.LinuxControllerLaunch.ResolveCommand(null, args[1], ""), []);
+            Console.WriteLine("REGISTERED installed executable " + args[1]);
+        }
         if (mode == "failure")
         {
             string? path = Environment.GetEnvironmentVariable("PATH");
