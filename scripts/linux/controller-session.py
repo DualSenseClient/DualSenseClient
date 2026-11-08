@@ -1,4 +1,4 @@
-"""Watch one paired BlueZ controller and run the client while connected."""
+"""Watch one paired BlueZ controller and launch the client on connection, leaving it running."""
 import argparse
 import re
 import signal
@@ -11,16 +11,6 @@ def connected(address):
     if result.returncode:
         raise RuntimeError('BlueZ query failed')
     return bool(re.search(r'^\s*Connected:\s+yes\s*$', result.stdout, re.MULTILINE))
-
-
-def shutdown(child):
-    if child is not None and child.poll() is None:
-        child.terminate()
-        try:
-            child.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            child.kill()
-            child.wait()
 
 
 def main():
@@ -36,28 +26,16 @@ def main():
         signal.signal(sig, lambda *_: stop.set())
     child = None
     active = False
-    misses = 0
-    try:
-        while not stop.is_set():
-            try:
-                current = connected(args.address)
-            except (OSError, RuntimeError, subprocess.TimeoutExpired):
-                stop.wait(2)
-                continue
-            if current:
-                misses = 0
-                if not active:
-                    child = subprocess.Popen(command)
-                    active = True
-            elif active:
-                misses += 1
-                if misses >= 3:
-                    shutdown(child)
-                    child = None
-                    active = False
+    while not stop.is_set():
+        try:
+            current = connected(args.address)
+        except (OSError, RuntimeError, subprocess.TimeoutExpired):
             stop.wait(2)
-    finally:
-        shutdown(child)
+            continue
+        if current and not active and (child is None or child.poll() is not None):
+            child = subprocess.Popen(command)
+        active = current
+        stop.wait(2)
 
 
 if __name__ == '__main__':
