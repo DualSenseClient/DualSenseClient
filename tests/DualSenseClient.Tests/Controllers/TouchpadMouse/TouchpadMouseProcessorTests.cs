@@ -121,6 +121,151 @@ public class TouchpadMouseProcessorTests
         Assert.That(injector.Moves[^1].Dx, Is.EqualTo(5));
     }
 
+    [Test]
+    public void Process_OneFingerTap_EmitsLeftClick()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State(), false, 0);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), false, 10);
+        processor.Process(TouchpadMouseTestData.State(), false, 110);
+
+        Assert.That(injector.Calls, Is.EqualTo(new[]
+        {
+            "LeftDown", "LeftUp"
+        }));
+    }
+
+    [Test]
+    public void Process_LongTouch_DoesNotClick()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State(), false, 0);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), false, 10);
+        processor.Process(TouchpadMouseTestData.State(), false, 400);
+
+        Assert.That(injector.Calls, Is.Empty);
+    }
+
+    [Test]
+    public void Process_MovedTouch_DoesNotClick()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State(), false, 0);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), false, 10);
+        processor.Process(TouchpadMouseTestData.State((200, 100)), false, 60);
+        processor.Process(TouchpadMouseTestData.State(), false, 70);
+
+        // The move itself is expected; only the click is forbidden.
+        Assert.That(injector.Moves, Is.Not.Empty);
+        AssertNoClicks(injector);
+    }
+
+    [Test]
+    public void Process_TwoFingerTap_EmitsRightClick()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State(), false, 0);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), false, 10);
+        processor.Process(TouchpadMouseTestData.State((100, 100), (200, 200)), false, 50);
+        processor.Process(TouchpadMouseTestData.State(), false, 110);
+
+        Assert.That(injector.Calls, Is.EqualTo(new[]
+        {
+            "RightDown", "RightUp"
+        }));
+    }
+
+    [Test]
+    public void Process_TwoFingerTap_SecondFingerLate_DoesNotClick()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State(), false, 0);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), false, 10);
+        processor.Process(TouchpadMouseTestData.State((100, 100), (200, 200)), false, 170);
+        processor.Process(TouchpadMouseTestData.State(), false, 190);
+
+        Assert.That(injector.Calls, Is.Empty);
+    }
+
+    [Test]
+    public void Process_TwoFingerTap_StaggeredLift_EmitsRightClick()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State(), false, 0);
+        processor.Process(TouchpadMouseTestData.State((100, 100), (200, 100)), false, 10);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), false, 80);
+        processor.Process(TouchpadMouseTestData.State(), false, 100);
+
+        Assert.That(injector.Calls, Is.EqualTo(new[]
+        {
+            "RightDown", "RightUp"
+        }));
+    }
+
+    [Test]
+    public void Process_TrackingIdChange_DoesNotClickOnLift()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State(), false, 0);
+        processor.Process(TouchpadMouseTestData.State((100, 100), tracking1: 1), false, 10);
+        processor.Process(TouchpadMouseTestData.State((100, 100), tracking1: 2), false, 50);
+        processor.Process(TouchpadMouseTestData.State(), false, 100);
+
+        Assert.That(injector.Calls, Is.Empty);
+    }
+
+    [Test]
+    public void Process_FirstReportWithActiveTouch_DoesNotClickOnLift()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), false, 10);
+        processor.Process(TouchpadMouseTestData.State(), false, 50);
+
+        Assert.That(injector.Calls, Is.Empty);
+    }
+
+    [Test]
+    public void Process_TouchStartingWhilePressed_DoesNotClick()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State(), true, 0);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), true, 10);
+        processor.Process(TouchpadMouseTestData.State(), true, 50);
+
+        Assert.That(injector.Calls, Is.Empty);
+    }
+
+    [Test]
+    public void Process_OneFingerRestJitter_StillLeftClicks()
+    {
+        TouchpadMouseProcessor processor = CreateProcessor(out RecordingMouseInjector injector);
+        processor.Process(TouchpadMouseTestData.State(), false, 0);
+        processor.Process(TouchpadMouseTestData.State((100, 100)), false, 10);
+        for (int i = 0; i < 100; i++)
+        {
+            ushort jitter = (ushort)(i % 2);
+            processor.Process(TouchpadMouseTestData.State(((ushort)(100 + jitter), 100)), false, 10 + i);
+        }
+
+        processor.Process(TouchpadMouseTestData.State(), false, 150);
+
+        Assert.That(injector.Calls, Is.EqualTo(new[]
+        {
+            "LeftDown", "LeftUp"
+        }));
+        Assert.That(injector.Moves, Is.Empty);
+    }
+
+    private static void AssertNoClicks(RecordingMouseInjector injector)
+    {
+        Assert.That(
+            injector.Calls,
+            Has.None.EqualTo("LeftDown")
+                .And.None.EqualTo("LeftUp")
+                .And.None.EqualTo("RightDown")
+                .And.None.EqualTo("RightUp"));
+    }
+
     private static TouchpadMouseProcessor CreateProcessor(out RecordingMouseInjector injector)
     {
         injector = new RecordingMouseInjector();

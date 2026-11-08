@@ -31,6 +31,15 @@ public sealed class TouchpadMouseProcessor
     /// <summary>Longest report interval used for velocity, in milliseconds.</summary>
     private const long MaxDeltaMs = 100;
 
+    /// <summary>Longest touch duration, in milliseconds, that can still count as a tap.</summary>
+    private const long TapMaxDurationMs = 200;
+
+    /// <summary>Largest cumulative centroid travel, in touchpad units, that can still count as a tap.</summary>
+    private const double TapMaxTravelUnits = 50;
+
+    /// <summary>Longest delay, in milliseconds, between the first and second finger of a two-finger tap.</summary>
+    private const long TwoFingerTapWindowMs = 150;
+
     /// <summary>Injects the computed pointer movement.</summary>
     private readonly IMouseInjector _injector;
 
@@ -79,6 +88,33 @@ public sealed class TouchpadMouseProcessor
     /// <summary>Smoothed centroid velocity in touchpad units per millisecond.</summary>
     private double _velocity;
 
+    /// <summary>Timestamp of the report that started the current touch, in milliseconds.</summary>
+    private long _touchStartMs;
+
+    /// <summary>Cumulative centroid travel during the current touch, in touchpad units.</summary>
+    private double _touchTravel;
+
+    /// <summary>Whether the current touch has ever had two fingers down.</summary>
+    private bool _sawTwoFingers;
+
+    /// <summary>Whether the current touch can still resolve as a two-finger tap.</summary>
+    private bool _twoFingerTapEligible;
+
+    /// <summary>Whether tap resolution is suppressed for the current touch.</summary>
+    private bool _suppressTap;
+
+    /// <summary>Whether the current touch began while the physical pad button was held.</summary>
+    private bool _touchStartedWhilePressed;
+
+    /// <summary>Whether a physical click happened during the current touch.</summary>
+    private bool _physicalClickDuringTouch;
+
+    /// <summary>Whether the current touch has scrolled and must not also right-click.</summary>
+    private bool _scrollActive;
+
+    /// <summary>Whether this processor is holding the left mouse button down.</summary>
+    private bool _leftHeld;
+
     /// <summary>
     /// Creates a processor that injects pointer movement through the given injector.
     /// </summary>
@@ -119,6 +155,8 @@ public sealed class TouchpadMouseProcessor
         _moveResidualX = 0;
         _moveResidualY = 0;
         _velocity = 0;
+        EndTouch();
+        _leftHeld = false;
     }
 
     /// <summary>
@@ -167,15 +205,48 @@ public sealed class TouchpadMouseProcessor
             _hasState = true;
             _lastTouchpad = touchpad;
             _padPressed = padPressed;
+
+            // A first report with fingers already down means the processor attached (or was
+            // re-enabled) in the middle of a touch, so its lift must not synthesize a click.
+            if (activeCount > 0)
+            {
+                StartTouch(activeCount, timestampMs);
+                _suppressTap = true;
+            }
+
             Rebase(activeCount, trackingId1, trackingId2, centroidX, centroidY, timestampMs);
             return;
         }
 
+        bool fingerCountChanged = activeCount != _activeCount;
+        bool trackingIdChanged = trackingId1 != _trackingId1 || trackingId2 != _trackingId2;
+
         _lastTouchpad = touchpad;
         _padPressed = padPressed;
 
-        if (activeCount != _activeCount || trackingId1 != _trackingId1 || trackingId2 != _trackingId2)
+        if (fingerCountChanged || trackingIdChanged)
         {
+            if (_activeCount == 0 && activeCount > 0)
+            {
+                StartTouch(activeCount, timestampMs);
+            }
+            else if (_activeCount > 0 && activeCount == 0)
+            {
+                ResolveTap(timestampMs);
+                EndTouch();
+            }
+            else if (_activeCount == 1 && activeCount == 2)
+            {
+                BeginSecondFinger(timestampMs);
+            }
+            else if (activeCount > 0 && activeCount == _activeCount)
+            {
+                // The same number of fingers with different tracking IDs is a new contact,
+                // not a continuation of the touch that began the tap.
+                _suppressTap = true;
+                _twoFingerTapEligible = false;
+            }
+
             Rebase(activeCount, trackingId1, trackingId2, centroidX, centroidY, timestampMs);
             return;
         }
@@ -202,6 +273,10 @@ public sealed class TouchpadMouseProcessor
         double dy = _pendingRawY;
         _pendingRawX = 0;
         _pendingRawY = 0;
+
+        // Count travel from the gated delta: resting ±1 jitter cancels inside the gate, so it
+        // must not consume the tap budget or latch scrolling without emitting any motion.
+        _touchTravel += Math.Sqrt(dx * dx + dy * dy);
 
         // The jitter gate holds small deltas until they reach the threshold. Advancing the
         // reference timestamp only when a gated move is emitted keeps the elapsed time and
@@ -233,6 +308,88 @@ public sealed class TouchpadMouseProcessor
             _moveResidualY -= moveY;
             _injector.Move(moveX, moveY);
         }
+    }
+
+    /// <summary>
+    /// Starts tracking the tap state of a touch that began in the current report.
+    /// </summary>
+    /// <param name="activeCount">Number of active points in the report.</param>
+    /// <param name="timestampMs">Timestamp of the report in milliseconds.</param>
+    private void StartTouch(int activeCount, long timestampMs)
+    {
+        _touchStartMs = timestampMs;
+        _touchTravel = 0;
+        _sawTwoFingers = activeCount == 2;
+        _twoFingerTapEligible = activeCount == 2 && !_padPressed;
+        _suppressTap = false;
+        _touchStartedWhilePressed = _padPressed;
+        _physicalClickDuringTouch = false;
+        _scrollActive = false;
+    }
+
+    /// <summary>
+    /// Marks the current touch as a two-finger tap candidate when the second finger lands soon
+    /// enough after the first and neither has travelled beyond the tap limit.
+    /// </summary>
+    /// <param name="timestampMs">Timestamp of the report in milliseconds.</param>
+    private void BeginSecondFinger(long timestampMs)
+    {
+        _sawTwoFingers = true;
+        _twoFingerTapEligible = timestampMs - _touchStartMs <= TwoFingerTapWindowMs
+                                && _touchTravel <= TapMaxTravelUnits
+                                && !_scrollActive;
+    }
+
+    /// <summary>
+    /// Emits a click when the touch that just ended satisfies every tap limit and has not been
+    /// disqualified by movement, timing, a physical press, a scroll, or a tracking change.
+    /// </summary>
+    /// <param name="timestampMs">Timestamp of the lift report in milliseconds.</param>
+    private void ResolveTap(long timestampMs)
+    {
+        if (_suppressTap
+            || _touchStartedWhilePressed
+            || _physicalClickDuringTouch
+            || _scrollActive
+            || _leftHeld)
+        {
+            return;
+        }
+
+        if (timestampMs - _touchStartMs > TapMaxDurationMs || _touchTravel > TapMaxTravelUnits)
+        {
+            return;
+        }
+
+        if (_sawTwoFingers)
+        {
+            if (_twoFingerTapEligible && _injector.RightDown())
+            {
+                _injector.RightUp();
+            }
+
+            return;
+        }
+
+        if (_injector.LeftDown())
+        {
+            _injector.LeftUp();
+        }
+    }
+
+    /// <summary>
+    /// Clears the tap state of the touch that just ended.
+    /// </summary>
+    private void EndTouch()
+    {
+        _touchStartMs = 0;
+        _touchTravel = 0;
+        _sawTwoFingers = false;
+        _twoFingerTapEligible = false;
+        _suppressTap = false;
+        _touchStartedWhilePressed = false;
+        _physicalClickDuringTouch = false;
+        _scrollActive = false;
     }
 
     /// <summary>
