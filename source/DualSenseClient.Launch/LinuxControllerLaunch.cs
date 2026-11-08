@@ -46,6 +46,9 @@ public sealed class LinuxControllerLaunch
             throw new InvalidOperationException("The installed application could not be found. Run it from its permanent location and try again.");
         }
 
+        if (OperatingSystem.IsLinux() && (File.GetUnixFileMode(executable) &
+            (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)) == 0)
+            throw new InvalidOperationException("The installed application is not executable. Restore its executable permission and try again.");
         return string.IsNullOrEmpty(appImage) && Path.GetFileNameWithoutExtension(processPath) == "dotnet"
             ? [processPath, assemblyPath, "--controller-connect"]
             : [executable, "--controller-connect"];
@@ -191,15 +194,19 @@ public sealed class LinuxControllerLaunch
 
             // Retire only this project's former manual watcher instances, after the
             // managed service is healthy. KillMode=process preserves the client.
-            LaunchCommandResult legacy = await _run("systemctl", ["--user", "list-units", "--all", "--plain", "--no-legend", "dualsense-session@*.service"]);
-            foreach (string line in legacy.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            HashSet<string> legacyUnits = new();
+            foreach (string listing in new[] { "list-units", "list-unit-files" })
             {
-                string name = line.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
-                if (name.StartsWith("dualsense-session@") && name.EndsWith(".service"))
+                LaunchCommandResult legacy = await _run("systemctl", ["--user", listing, "--no-legend", "dualsense-session@*.service"]);
+                if (legacy.ExitCode != 0) throw new InvalidOperationException("Could not inspect the previous controller launch services: " + legacy.Error);
+                foreach (string line in legacy.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
                 {
-                    await Check("systemctl", "--user", "disable", "--now", name);
+                    string name = line.TrimStart(' ', '●', '○').Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+                    if (name.StartsWith("dualsense-session@") && name.EndsWith(".service") && name != "dualsense-session@.service") legacyUnits.Add(name);
                 }
             }
+            foreach (string name in legacyUnits) await Check("systemctl", "--user", "disable", "--now", name);
+
         }
         catch (Exception failure)
         {

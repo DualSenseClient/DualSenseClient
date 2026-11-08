@@ -39,6 +39,7 @@ public class LinuxControllerLaunchTests
                 "Device AA:BB:CC:DD:EE:FF DualSense Wireless Controller\nDevice 11:22:33:44:55:66 Headphones\n"));
         }
 
+        if (args.Contains("list-unit-files")) return Task.FromResult(new LaunchCommandResult(0, "dualsense-session@AA:BB:CC:DD:EE:FF.service enabled enabled\n"));
         if (args.Contains("is-enabled") || args.Contains("is-active"))
         {
             return Task.FromResult(new LaunchCommandResult(_enabled ? 0 : 1));
@@ -73,6 +74,7 @@ public class LinuxControllerLaunchTests
         Assert.That(File.ReadAllText(Path.Combine(_home, ".config/systemd/user", LinuxControllerLaunch.UnitName)), Does.Contain("KillMode=process"));
         Assert.That(File.ReadAllText(Path.Combine(_home, ".config/autostart/dualsense-controller-launch.desktop")), Does.Contain("--session-start"));
         Assert.That(await service.IsEnabledAsync(), Is.True);
+        Assert.That(_calls, Does.Contain("systemctl --user disable --now dualsense-session@AA:BB:CC:DD:EE:FF.service"));
         await service.ApplyAsync(false, [], []);
         Assert.That(await service.IsEnabledAsync(), Is.False);
         Assert.That(File.Exists(Path.Combine(_home, ".config/autostart/dualsense-controller-launch.desktop")), Is.False);
@@ -152,6 +154,7 @@ public class LinuxControllerLaunchTests
         Directory.CreateDirectory(_home);
         string appImage = Path.Combine(_home, "Client image.AppImage");
         File.WriteAllText(appImage, "test");
+        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(appImage, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         Assert.That(LinuxControllerLaunch.ResolveCommand(appImage, "/tmp/.mount/Client", "ignored"),
             Is.EqualTo(new[]
             {
