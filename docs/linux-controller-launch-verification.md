@@ -7,17 +7,15 @@ were not GUI integration. Windows continues to use its existing current-user tas
 
 - Release GUI and opt-in desktop-probe builds passed without warnings/errors.
 - A self-contained Linux x64 single-file publish succeeded on the Chromebox.
-- 21 focused .NET launch/persistence tests passed on both the Mac and Chromebox:
+- 21 focused .NET launch/persistence tests passed on the Linux Chromebox:
   `dotnet test tests/DualSenseClient.Tests -c Release --filter 'FullyQualifiedName~ControllerLaunch|FullyQualifiedName~JsonFileStore'`.
-- Five Python tests passed on both machines:
+- Five Python tests passed on the Linux Chromebox:
   `python3 scripts/linux/test_controller_session.py`.
 - These cover controller filtering, registration/removal, rollback after a failed
   update, checked settings persistence, executable/AppImage resolution, quoting,
   the user instance lock, disconnect/reconnect retention, explicit process exit,
   multiple controller addresses, failed BlueZ queries and desktop environment refresh.
-- A broader macOS run had 1,845 passes, 35 skips and five failures in audio-process
-  discovery, Windows handle tests and unavailable macOS HIDAPI. It was not a green
-  cross-platform full-suite claim. The target-specific checks above passed.
+
 
 ## Installed desktop evidence
 
