@@ -51,4 +51,11 @@ public class ControllerInfo
     /// </summary>
     [JsonPropertyName("emulation")]
     public EmulationSettings Emulation { get; set; } = new EmulationSettings();
+
+    /// <summary>
+    /// Gets or sets the touchpad-as-a-mouse settings stored for this controller
+    /// (the touchpad mouse section of the emulation page). Defaults to disabled.
+    /// </summary>
+    [JsonPropertyName("touchpad_mouse")]
+    public TouchpadMouseSettings TouchpadMouse { get; set; } = new TouchpadMouseSettings();
 }

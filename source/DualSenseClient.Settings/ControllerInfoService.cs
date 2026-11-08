@@ -330,6 +330,64 @@ public sealed class ControllerInfoService
     public void SaveEmulationSettings(ControllerKey key, EmulationSettings emulation) => SaveEmulationSettings(key.Mac, key.Path, emulation);
 
     /// <summary>
+    /// Gets the touchpad-as-a-mouse settings stored for a controller, or the defaults
+    /// (disabled, unit speeds) when the controller has no entry or no stored settings.
+    /// The returned instance is the live stored object; persist changes with
+    /// <see cref="SaveTouchpadMouseSettings(ControllerKey, TouchpadMouseSettings)"/>.
+    /// </summary>
+    /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>
+    /// <param name="devicePath">The controller's HID device path, or <c>null</c>/empty when unavailable.</param>
+    public TouchpadMouseSettings GetTouchpadMouseSettings(string? mac, string? devicePath)
+    {
+        ControllerInfo? info = FindController(NormalizeMac(mac), NormalizePath(devicePath));
+        return info?.TouchpadMouse ?? new TouchpadMouseSettings();
+    }
+
+    /// <summary>
+    /// Gets the touchpad-as-a-mouse settings stored for a controller identified by its key.
+    /// </summary>
+    /// <param name="key">The controller key.</param>
+    /// <returns>The stored settings, or defaults when none are stored.</returns>
+    public TouchpadMouseSettings GetTouchpadMouseSettings(ControllerKey key) => GetTouchpadMouseSettings(key.Mac, key.Path);
+
+    /// <summary>
+    /// Stores the touchpad-as-a-mouse settings for a controller and persists the change.
+    /// The controller's entry is created if not registered yet.
+    /// </summary>
+    /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>
+    /// <param name="devicePath">The controller's HID device path, or <c>null</c>/empty when unavailable.</param>
+    /// <param name="settings">The touchpad mouse settings to store.</param>
+    public void SaveTouchpadMouseSettings(string? mac, string? devicePath, TouchpadMouseSettings settings)
+    {
+        string normalizedMac = NormalizeMac(mac);
+        string normalizedPath = NormalizePath(devicePath);
+        if (string.IsNullOrEmpty(normalizedMac) && string.IsNullOrEmpty(normalizedPath))
+        {
+            return;
+        }
+
+        ControllerInfo? info = FindController(normalizedMac, normalizedPath);
+        if (info is null)
+        {
+            info = new ControllerInfo();
+            Settings.Controllers.Add(info);
+        }
+
+        info.MacAddress = normalizedMac;
+        info.DevicePath = normalizedPath;
+        info.TouchpadMouse = settings;
+        Save();
+    }
+
+    /// <summary>
+    /// Stores the touchpad-as-a-mouse settings for a controller identified by its key.
+    /// </summary>
+    /// <param name="key">The controller key.</param>
+    /// <param name="settings">The touchpad mouse settings to store.</param>
+    public void SaveTouchpadMouseSettings(ControllerKey key, TouchpadMouseSettings settings) =>
+        SaveTouchpadMouseSettings(key.Mac, key.Path, settings);
+
+    /// <summary>
     /// Renames a controller (its stored display name) and persists the change.
     /// </summary>
     /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>
