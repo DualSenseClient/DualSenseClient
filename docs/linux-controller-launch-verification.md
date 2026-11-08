@@ -6,10 +6,10 @@ were not GUI integration. Windows continues to use its existing current-user tas
 ## Automated checks
 
 - Release GUI and opt-in desktop-probe builds passed without warnings/errors.
-- A self-contained Linux x64 single-file publish succeeded on the Chromebox.
-- 21 focused .NET launch/persistence tests passed on the Linux Chromebox:
+- A self-contained Linux x64 single-file publish succeeded on Linux.
+- 21 focused .NET launch/persistence tests passed on Linux:
   `dotnet test tests/DualSenseClient.Tests -c Release --filter 'FullyQualifiedName~ControllerLaunch|FullyQualifiedName~JsonFileStore'`.
-- Five Python tests passed on the Linux Chromebox:
+- Five Python tests passed on Linux:
   `python3 scripts/linux/test_controller_session.py`.
 - These cover controller filtering, registration/removal, rollback after a failed
   update, checked settings persistence, executable/AppImage resolution, quoting,
