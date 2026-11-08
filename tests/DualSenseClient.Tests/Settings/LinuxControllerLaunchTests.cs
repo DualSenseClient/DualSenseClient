@@ -45,12 +45,12 @@ public class LinuxControllerLaunchTests
             return Task.FromResult(new LaunchCommandResult(_enabled ? 0 : 1));
         }
 
-        if (args.Contains("enable"))
+        if (args.Contains("enable") && args.Contains(LinuxControllerLaunch.UnitName))
         {
             _enabled = true;
         }
 
-        if (args.Contains("disable"))
+        if (args.Contains("disable") && args.Contains(LinuxControllerLaunch.UnitName))
         {
             _enabled = false;
         }
