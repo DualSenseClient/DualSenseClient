@@ -22,3 +22,5 @@ registration and persistence. Run it only with the app closed, in a separate
 installation containing a copy of your Config directory. It can capture the
 compiled settings page and observe real controller button events. It does not
 prove reboot behavior; perform that check separately.
+
+See [the verification record](../../docs/linux-controller-launch-verification.md) for installed evidence and explicit limits.
