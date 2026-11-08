@@ -2540,4 +2540,98 @@ public class SpecialActionEngineTests
         engine.Dispose();
         device.Dispose();
     }
+
+    [Test]
+    public void TouchpadActionsDisabled_IgnoresGestureSwipe()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired(CreateGestureAction(TouchpadGestures.SwipeRight));
+        int executions = 0;
+        engine.ActionExecuted += (_, _) => executions++;
+        engine.TouchpadActionsEnabled = false;
+
+        SwipeRight(device);
+
+        Assert.That(executions, Is.Zero);
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void TouchpadActionsDisabled_IgnoresTouchPadButtonCombo()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired(CreateAction(ButtonType.TouchPad));
+        int executions = 0;
+        engine.ActionExecuted += (_, _) => executions++;
+        engine.TouchpadActionsEnabled = false;
+
+        FeedReport(device, CreateReport());
+        FeedReport(device, CreateReport(ButtonType.TouchPad));
+        FeedReport(device, CreateReport());
+
+        Assert.That(executions, Is.Zero);
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void TouchpadActionsDisabled_KeepsOtherButtonCombos()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired(CreateAction(ButtonType.L1, ButtonType.R1));
+        int executions = 0;
+        engine.ActionExecuted += (_, _) => executions++;
+        engine.TouchpadActionsEnabled = false;
+
+        FeedReport(device, CreateReport());
+        FeedReport(device, CreateReport(ButtonType.L1, ButtonType.R1));
+
+        Assert.That(executions, Is.EqualTo(1));
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void TouchpadActionsDisabled_RestoresSustainedGestureLightbar()
+    {
+        (DualSenseDevice device, RecordingHidDevice hid, SpecialActionEngine engine) = CreateWired(
+            CreateGestureLightbarAction(TouchpadGestures.SwipeRight, 0xAA, 0xBB, 0xCC, true));
+        engine.ProfileProvider = _ => CreateRestoreProfile();
+
+        SwipeRight(device);
+        Assert.That(hid.Writes, Has.Count.EqualTo(1));
+
+        engine.TouchpadActionsEnabled = false;
+
+        Assert.That(hid.Writes, Has.Count.EqualTo(2));
+        Assert.That(hid.Writes[^1][45], Is.EqualTo(0x01));
+        engine.Dispose();
+        device.Dispose();
+    }
+
+    [Test]
+    public void TouchpadActionsReenabled_DoesNotFirePressHeldWhileSuspended()
+    {
+        (DualSenseDevice device, _, SpecialActionEngine engine) = CreateWired(CreateAction(ButtonType.TouchPad));
+        int executions = 0;
+        engine.ActionExecuted += (_, _) => executions++;
+        engine.TouchpadActionsEnabled = false;
+
+        FeedReport(device, CreateReport());
+        FeedReport(device, CreateReport(ButtonType.TouchPad));
+        engine.TouchpadActionsEnabled = true;
+        Assert.That(executions, Is.Zero);
+
+        // Force an evaluation while TouchPad is still held: the L1 press breaks the exact
+        // match, and its release restores _held == { TouchPad } and evaluates again.
+        FeedReport(device, CreateReport(ButtonType.TouchPad, ButtonType.L1));
+        Assert.That(executions, Is.Zero);
+        FeedReport(device, CreateReport(ButtonType.TouchPad));
+        Assert.That(executions, Is.Zero);
+
+        // Release and press again: now it fires.
+        FeedReport(device, CreateReport());
+        FeedReport(device, CreateReport(ButtonType.TouchPad));
+        Assert.That(executions, Is.EqualTo(1));
+        engine.Dispose();
+        device.Dispose();
+    }
 }
