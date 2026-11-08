@@ -9,11 +9,11 @@ python3 /absolute/path/controller-session.py AA:BB:CC:DD:EE:FF -- /absolute/path
 Replace the address and paths. An executable AppImage also works. Enable the
 client's Start in tray setting if desired. Close other copies first.
 
-The watcher starts the client on connection (including already connected at
-startup), waits for three disconnected samples before stopping it, and ignores
-failed BlueZ queries. It stops only its own child. A manually closed client stays
-closed until the next connection. SIGTERM is followed by SIGKILL after ten seconds
-if needed; save settings before disconnecting.
+The watcher launches the client on connection, including an existing connection at
+startup. Disconnecting leaves the client running; reconnecting does not launch a
+second copy of its running child. If you quit the client, the next connection
+launches it again. Failed BlueZ queries leave it running. The client honours its
+own Start in tray setting.
 
 For desktop login startup, save this as
 `~/.config/systemd/user/dualsense-session.service`, replacing paths and address:
@@ -25,6 +25,7 @@ After=graphical-session.target
 PartOf=graphical-session.target
 
 [Service]
+KillMode=process
 ExecStart=/usr/bin/python3 /absolute/path/controller-session.py AA:BB:CC:DD:EE:FF -- /absolute/path/DualSenseClient
 Restart=on-failure
 RestartSec=5
