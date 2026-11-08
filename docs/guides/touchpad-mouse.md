@@ -1,5 +1,7 @@
 # Touchpad Mouse
 
+![Audio Player section on the Emulation page](../assets/images/touchpad-mouse.png)
+
 The DualSense touchpad can double as a **Windows mouse**, turning the controller into a laptop-style trackpad for browsing, media apps, and launchers when no mouse is within reach — especially handy when you are using the PC from a couch. One finger moves the pointer, taps click, and two-finger gestures right-click and scroll.
 
 !!! note
