@@ -90,6 +90,14 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     private readonly ControllerAudioLane _audioLane;
 
     /// <summary>
+    /// Active manual (Output Test) rumble state encoded as <c>(left &lt;&lt; 8) | right</c>,
+    /// or -1 when no manual vibration is held. It is merged into every outgoing output
+    /// report because the pad stops the classic motors as soon as a report without the
+    /// rumble-selection bits arrives (for example the profile's animated lightbar frames).
+    /// </summary>
+    private int _manualRumble = -1;
+
+    /// <summary>
     /// Runs the profile's animated lightbar effect.
     /// </summary>
     private readonly LightbarEffectController _lightbarEffect;
@@ -714,6 +722,16 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
             return;
         }
 
+        int manualRumble = Volatile.Read(ref _manualRumble);
+        if (manualRumble >= 0)
+        {
+            payload = ApplyRumbleEncoding(
+                payload,
+                (byte)(manualRumble >> 8),
+                (byte)(manualRumble & 0xFF),
+                UsesVibrationV2);
+        }
+
         if ((payload.ValidFlag1 & ValidFlags.AllowLedColor) != 0
             && (payload.LedRed, payload.LedGreen, payload.LedBlue) != CurrentLightbarColor)
         {
@@ -862,14 +880,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
             return;
         }
 
-        SetStateData payload = new SetStateData
-        {
-            ValidFlag0 = ValidFlags.UseRumbleNotHaptics
-                         | (UsesVibrationV2 ? ValidFlags.None : ValidFlags.EnableRumbleEmulation),
-            ValidFlag2 = UsesVibrationV2 ? ValidFlags.EnableImprovedRumbleEmu : ValidFlags.None,
-            RumbleLeft = left,
-            RumbleRight = right
-        };
+        SetStateData payload = ApplyRumbleEncoding(new SetStateData(), left, right, UsesVibrationV2);
 
         try
         {
@@ -882,16 +893,58 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     }
 
     /// <summary>
+    /// Applies the classic rumble selection bits and motor values to an output payload.
+    /// The selection bits must accompany every report while classic rumble is active: a
+    /// report without them sends the pad back to its haptics path and stops the motors.
+    /// </summary>
+    /// <param name="payload">Payload to extend; its other fields and flags are preserved.</param>
+    /// <param name="left">Left (low-frequency) motor strength (0-255).</param>
+    /// <param name="right">Right (high-frequency) motor strength (0-255).</param>
+    /// <param name="vibrationV2">Whether the controller uses the improved rumble encoding.</param>
+    /// <returns>The payload with the rumble bits and motor values applied.</returns>
+    private static SetStateData ApplyRumbleEncoding(SetStateData payload, byte left, byte right, bool vibrationV2)
+    {
+        ValidFlags flag0 = payload.ValidFlag0 | ValidFlags.UseRumbleNotHaptics;
+        ValidFlags flag2 = payload.ValidFlag2;
+        if (vibrationV2)
+        {
+            flag0 &= ~ValidFlags.EnableRumbleEmulation;
+            flag2 |= ValidFlags.EnableImprovedRumbleEmu;
+        }
+        else
+        {
+            flag0 |= ValidFlags.EnableRumbleEmulation;
+            flag2 &= ~ValidFlags.EnableImprovedRumbleEmu;
+        }
+
+        return payload with
+        {
+            ValidFlag0 = flag0,
+            ValidFlag2 = flag2,
+            RumbleLeft = left,
+            RumbleRight = right
+        };
+    }
+
+    /// <summary>
     /// Sets the classic rumble motors for manual (Output Test) vibration. While either
     /// motor is on, the manual claim preempts every audio owner so the pad stops
     /// receiving audio reports and accepts the classic rumble report; releasing both
     /// motors returns the lane to the previous owner.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The Bluetooth audio stream puts the pad into its haptics path, where the motor
     /// bytes of a <c>0x31</c> report are ignored. Forwarded game rumble therefore rides
     /// the haptics PCM instead. Manual testing still needs the classic encoding, so it
     /// takes the lane rather than synthesizing haptics frames.
+    /// </para>
+    /// <para>
+    /// The motor state is also kept in <see cref="_manualRumble"/> and merged into every
+    /// outgoing output report while it is set. A single classic rumble report is not
+    /// enough: the next report without the rumble-selection bits (such as the profile's
+    /// lightbar effect frames) sends the pad back to haptics and stops the motors.
+    /// </para>
     /// </remarks>
     /// <param name="left">Left (low-frequency) motor strength (0-255).</param>
     /// <param name="right">Right (high-frequency) motor strength (0-255).</param>
@@ -899,7 +952,12 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     {
         if (left != 0 || right != 0)
         {
+            Volatile.Write(ref _manualRumble, (left << 8) | right);
             _audioLane.TryEnter(this, AudioPriority.ManualRumble);
+        }
+        else
+        {
+            Volatile.Write(ref _manualRumble, -1);
         }
 
         SetVibration(left, right);
