@@ -5,7 +5,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
-using DualSenseClient.Core.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.GUI.Views;
@@ -75,12 +74,7 @@ public partial class App : Application
             _ = settingsService.Settings;
 
             LogLevel logLevel = settingsService.Settings.Debug.LogLevel;
-            DualSenseClientLogger.Configure(logLevel,
-                new CompositeLogSink(
-                    new ConsoleLogSink(),
-                    new FileLogSink(PathResolver.GetFullPath("Logs", "DualSenseClient.log"))
-                )
-            );
+            LoggingSetup.SetLevel(logLevel);
 
             // Flush buffered log entries and close the file sink when the app exits.
             desktop.Exit += (_, _) =>
@@ -91,7 +85,7 @@ public partial class App : Application
                 }
                 catch (Exception ex)
                 {
-                    _log.Error($"Failed to release touchpad mouse state on exit: {ex.Message}");
+                    _log.Error("Failed to release touchpad mouse state on exit", ex);
                 }
 
                 // Saving is a separate best-effort step: a failing coordinator must not
@@ -102,14 +96,21 @@ public partial class App : Application
                 }
                 catch (Exception ex)
                 {
-                    _log.Error($"Failed to save controller info on exit: {ex.Message}");
+                    _log.Error("Failed to save controller info on exit", ex);
                 }
 
                 _log.Info("Closing DualSense Client");
+                _log.Info("DualSense Client session ended");
                 DualSenseClientLogger.Shutdown();
             };
 
+            _log.Info($"===== DualSense Client session started (PID {Environment.ProcessId}) =====");
+            _log.Info($"Log level: {logLevel}");
             BuildInfo.LogStartupBanner(_log);
+            string logStatus = LoggingSetup.CurrentLogFilePath is { } logFilePath
+                ? logFilePath
+                : $"unavailable ({LoggingSetup.LogPath})";
+            _log.Info($"Log file: {logStatus}");
             RegisterGlobalExceptionHandlers();
 
             LocalizationService.LoadLanguage(settingsService.Settings.Ui.Language);
@@ -150,28 +151,26 @@ public partial class App : Application
     /// <summary>
     /// Registers global exception handlers for <see cref="TaskScheduler.UnobservedTaskException"/>,
     /// <see cref="AppDomain.UnhandledException"/>, and <see cref="Dispatcher.UIThread.UnhandledException"/>.
-    /// All caught exceptions are logged via <see cref="DualSenseClientLogger.LogExceptionDetails"/>.
+    /// Every caught exception is logged with its exception object so the stack trace is preserved.
     /// </summary>
     private void RegisterGlobalExceptionHandlers()
     {
         TaskScheduler.UnobservedTaskException += (_, args) =>
         {
             args.SetObserved();
-            _log.Error("Unobserved task exception occurred");
-            _log.LogExceptionDetails(args.Exception);
+            _log.Error("Unobserved task exception occurred", args.Exception);
         };
 
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
         {
             bool isTerminating = args.IsTerminating;
-            _log.Error($"Unhandled exception occurred in AppDomain (Terminating: {isTerminating})");
             if (args.ExceptionObject is Exception ex)
             {
-                _log.LogExceptionDetails(ex);
+                _log.Critical($"Unhandled exception in AppDomain (Terminating: {isTerminating})", ex);
             }
             else
             {
-                _log.Error($"Non-exception object thrown: {args.ExceptionObject.GetType().FullName ?? "null"}");
+                _log.Critical($"Non-exception object thrown in AppDomain (Terminating: {isTerminating}): {args.ExceptionObject.GetType().FullName ?? "null"}");
             }
 
             // The process is about to die, so the background flush timer can no longer be
@@ -185,8 +184,7 @@ public partial class App : Application
         Dispatcher.UIThread.UnhandledException += (_, args) =>
         {
             args.Handled = true;
-            _log.Error("Unhandled exception on UI thread");
-            _log.LogExceptionDetails(args.Exception);
+            _log.Error("Unhandled exception on UI thread", args.Exception);
         };
     }
 }
