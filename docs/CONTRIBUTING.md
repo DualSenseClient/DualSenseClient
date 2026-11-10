@@ -165,10 +165,11 @@ All shared logic should be placed in the appropriate library project to facilita
   }
   catch (Exception ex)
   {
-      _log.Error("Error description");
-      _log.LogExceptionDetails(ex);
+      _log.Error("Error description", ex);
   }
   ```
+
+- Pass the exception object instead of interpolating `ex.Message`; this preserves the stack trace. Use the logger methods that accept an `Exception?` (`Debug`, `Warning`, `Error`, `Critical`). Reserve `LogExceptionDetails` for unhandled-exception and crash reports.
 
 - Use appropriate log levels:
     - `Trace`: Detailed debugging information
