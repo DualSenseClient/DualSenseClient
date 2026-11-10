@@ -217,6 +217,94 @@ public class DualSenseClientLoggerTests
     }
 
     [Test]
+    public void Warning_WithException_LogsException()
+    {
+        TestLogSink testSink = new TestLogSink();
+        DualSenseClientLogger.Sink = testSink;
+        DualSenseClientLogger.MinimumLevel = LogLevel.Trace;
+
+        InvalidOperationException ex = new InvalidOperationException("warning failure");
+        DualSenseClientLogger.For("TestCategory").Warning("warning message", ex);
+
+        Assert.That(testSink.LastEntry, Is.Not.Null);
+        Assert.That(testSink.LastEntry!.Value.Level, Is.EqualTo(LogLevel.Warning));
+        Assert.That(testSink.LastEntry.Value.Exception, Is.EqualTo(ex));
+    }
+
+    [Test]
+    public void Info_CapturesCurrentThreadMetadata()
+    {
+        TestLogSink testSink = new TestLogSink();
+        DualSenseClientLogger.Sink = testSink;
+        DualSenseClientLogger.MinimumLevel = LogLevel.Trace;
+
+        Exception? caught = null;
+        Thread thread = new Thread(() =>
+        {
+            try
+            {
+                DualSenseClientLogger.For("ThreadCategory").Info("from a named thread");
+            }
+            catch (Exception ex)
+            {
+                caught = ex;
+            }
+        })
+        {
+            Name = "LoggingTestThread"
+        };
+
+        thread.Start();
+        thread.Join();
+
+        Assert.That(caught, Is.Null);
+        Assert.That(testSink.LastEntry, Is.Not.Null);
+        Assert.That(testSink.LastEntry!.Value.ThreadId, Is.EqualTo(thread.ManagedThreadId));
+        Assert.That(testSink.LastEntry.Value.ThreadName, Is.EqualTo("LoggingTestThread"));
+    }
+
+    [Test]
+    public void Info_WithException_LogsException()
+    {
+        TestLogSink testSink = new TestLogSink();
+        DualSenseClientLogger.Sink = testSink;
+        DualSenseClientLogger.MinimumLevel = LogLevel.Trace;
+
+        InvalidOperationException ex = new InvalidOperationException("info failure");
+        DualSenseClientLogger.For("TestCategory").Info("info message", ex);
+
+        Assert.That(testSink.LastEntry, Is.Not.Null);
+        Assert.That(testSink.LastEntry!.Value.Level, Is.EqualTo(LogLevel.Info));
+        Assert.That(testSink.LastEntry.Value.Exception, Is.EqualTo(ex));
+    }
+
+    [Test]
+    public void Trace_WithException_LogsException()
+    {
+        TestLogSink testSink = new TestLogSink();
+        DualSenseClientLogger.Sink = testSink;
+        DualSenseClientLogger.MinimumLevel = LogLevel.Trace;
+
+        InvalidOperationException ex = new InvalidOperationException("trace failure");
+        DualSenseClientLogger.For("TestCategory").Trace("trace message", ex);
+
+        Assert.That(testSink.LastEntry, Is.Not.Null);
+        Assert.That(testSink.LastEntry!.Value.Level, Is.EqualTo(LogLevel.Trace));
+        Assert.That(testSink.LastEntry.Value.Exception, Is.EqualTo(ex));
+    }
+
+    [Test]
+    public void IsEnabled_ReturnsTrueAtOrAboveMinimum()
+    {
+        DualSenseClientLogger.MinimumLevel = LogLevel.Warning;
+        DualSenseClientLogger logger = DualSenseClientLogger.For("TestCategory");
+
+        Assert.That(logger.IsEnabled(LogLevel.Warning), Is.True);
+        Assert.That(logger.IsEnabled(LogLevel.Error), Is.True);
+        Assert.That(logger.IsEnabled(LogLevel.Info), Is.False);
+    }
+
+    [Test]
     public void Error_WithException_LogsToSink()
     {
         TestLogSink testSink = new TestLogSink();
@@ -259,7 +347,33 @@ public class DualSenseClientLoggerTests
     }
 
     [Test]
-    public void LogExceptionDetails_LogsMultipleEntries()
+    public void BelowMinimumLevel_WithException_DropsEntry()
+    {
+        TestLogSink testSink = new TestLogSink();
+        DualSenseClientLogger.Sink = testSink;
+        DualSenseClientLogger.MinimumLevel = LogLevel.Warning;
+
+        DualSenseClientLogger logger = DualSenseClientLogger.For("TestCategory");
+        logger.Debug("should be dropped", new InvalidOperationException("suppressed"));
+
+        Assert.That(testSink.Entries, Is.Empty);
+    }
+
+    [Test]
+    public void LogExceptionDetails_WhenSuppressed_DoesNotWriteEntry()
+    {
+        TestLogSink testSink = new TestLogSink();
+        DualSenseClientLogger.Sink = testSink;
+        DualSenseClientLogger.MinimumLevel = LogLevel.Critical;
+
+        DualSenseClientLogger.For("TestCategory")
+            .LogExceptionDetails(new InvalidOperationException("suppressed"));
+
+        Assert.That(testSink.Entries, Is.Empty);
+    }
+
+    [Test]
+    public void LogExceptionDetails_LogsSingleErrorEntry()
     {
         TestLogSink testSink = new TestLogSink();
         DualSenseClientLogger.Sink = testSink;
@@ -269,8 +383,38 @@ public class DualSenseClientLoggerTests
         InvalidOperationException ex = new InvalidOperationException("test");
         logger.LogExceptionDetails(ex, false);
 
-        Assert.That(testSink.Entries.Count, Is.GreaterThan(1));
-        Assert.That(testSink.Entries[0].Message, Does.Contain("Exception Report Start"));
+        Assert.That(testSink.Entries, Has.Count.EqualTo(1));
+        Assert.That(testSink.Entries[0].Level, Is.EqualTo(LogLevel.Error));
+        Assert.That(testSink.Entries[0].Exception, Is.SameAs(ex));
+        Assert.That(testSink.Entries[0].Message, Does.Contain("InvalidOperationException"));
+        Assert.That(testSink.Entries[0].Message, Does.Contain("test"));
+    }
+
+    [Test]
+    public void LogExceptionDetails_LevelParameter_ControlsLevel()
+    {
+        TestLogSink testSink = new TestLogSink();
+        DualSenseClientLogger.Sink = testSink;
+        DualSenseClientLogger.MinimumLevel = LogLevel.Trace;
+
+        DualSenseClientLogger.For("TestCategory")
+            .LogExceptionDetails(new InvalidOperationException("test"), false, LogLevel.Critical);
+
+        Assert.That(testSink.Entries, Has.Count.EqualTo(1));
+        Assert.That(testSink.Entries[0].Level, Is.EqualTo(LogLevel.Critical));
+    }
+
+    [Test]
+    public void LogExceptionDetails_WithoutEnvironmentInfo_OmitsSystemInformation()
+    {
+        TestLogSink testSink = new TestLogSink();
+        DualSenseClientLogger.Sink = testSink;
+        DualSenseClientLogger.MinimumLevel = LogLevel.Trace;
+
+        DualSenseClientLogger.For("TestCategory").LogExceptionDetails(new InvalidOperationException("test"));
+
+        Assert.That(testSink.Entries, Has.Count.EqualTo(1));
+        Assert.That(testSink.Entries[0].Message, Does.Not.Contain("Machine Name"));
     }
 
     [Test]
@@ -304,6 +448,21 @@ public class DualSenseClientLoggerTests
     }
 
     [Test]
+    public void Debug_WithException_LogsException()
+    {
+        TestLogSink testSink = new TestLogSink();
+        DualSenseClientLogger.Sink = testSink;
+        DualSenseClientLogger.MinimumLevel = LogLevel.Trace;
+
+        InvalidOperationException ex = new InvalidOperationException("debug failure");
+        DualSenseClientLogger.For("TestCategory").Debug("debug message", ex);
+
+        Assert.That(testSink.LastEntry, Is.Not.Null);
+        Assert.That(testSink.LastEntry!.Value.Level, Is.EqualTo(LogLevel.Debug));
+        Assert.That(testSink.LastEntry.Value.Exception, Is.EqualTo(ex));
+    }
+
+    [Test]
     public void LogExceptionDetails_WithEnvironmentInfo_LogsSystemInformation()
     {
         TestLogSink testSink = new TestLogSink();
@@ -314,22 +473,12 @@ public class DualSenseClientLoggerTests
         InvalidOperationException ex = new InvalidOperationException("test");
         logger.LogExceptionDetails(ex, true);
 
-        Assert.That(testSink.Entries.Count, Is.GreaterThan(1));
-        bool hasSystemInfo = false;
-        foreach (LogEntry entry in testSink.Entries)
-        {
-            if (entry.Message.Contains("Machine Name"))
-            {
-                hasSystemInfo = true;
-                break;
-            }
-        }
-
-        Assert.That(hasSystemInfo, Is.True);
+        Assert.That(testSink.Entries, Has.Count.EqualTo(1));
+        Assert.That(testSink.Entries[0].Message, Does.Contain("Machine Name"));
     }
 
     [Test]
-    public void LogExceptionDetails_NestedException_LogsAllLevels()
+    public void LogExceptionDetails_PreservesInnerExceptionChain()
     {
         TestLogSink testSink = new TestLogSink();
         DualSenseClientLogger.Sink = testSink;
@@ -340,23 +489,9 @@ public class DualSenseClientLoggerTests
         InvalidOperationException outer = new InvalidOperationException("outer exception", inner);
         logger.LogExceptionDetails(outer, false);
 
-        bool hasInner = false;
-        bool hasOuter = false;
-        foreach (LogEntry entry in testSink.Entries)
-        {
-            if (entry.Message.Contains("inner exception"))
-            {
-                hasInner = true;
-            }
-
-            if (entry.Message.Contains("outer exception"))
-            {
-                hasOuter = true;
-            }
-        }
-
-        Assert.That(hasOuter, Is.True);
-        Assert.That(hasInner, Is.True);
+        Assert.That(testSink.Entries, Has.Count.EqualTo(1));
+        Assert.That(testSink.Entries[0].Exception, Is.SameAs(outer));
+        Assert.That(testSink.Entries[0].Exception!.InnerException, Is.SameAs(inner));
     }
 
     private class TestLogSink : ILogSink, IDisposable

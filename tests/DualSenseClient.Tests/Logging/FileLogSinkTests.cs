@@ -221,4 +221,154 @@ public class FileLogSinkTests
             Assert.That(content, Does.Not.Contain("after failed rotation"));
         }
     }
+
+    [Test]
+    public void Write_WithThreadMetadata_IncludesThreadSegment()
+    {
+        string path = Path.Combine(_tempDir, "app.log");
+        using (FileLogSink sink = new FileLogSink(path, rotateDaily: false, includeTimestamp: false))
+        {
+            LogEntry entry = new LogEntry(
+                DateTimeOffset.UtcNow, LogLevel.Info, "Cat", "msg", "f.cs", 1, "M", null, 7, "Audio Pump");
+            sink.Write(in entry);
+        }
+
+        string content = File.ReadAllText(Path.Combine(_tempDir, "app.log"));
+        Assert.That(content, Does.Contain("[T7:Audio Pump]"));
+    }
+
+    [Test]
+    public void Write_WithUnnamedThread_IncludesThreadIdOnly()
+    {
+        string path = Path.Combine(_tempDir, "app.log");
+        using (FileLogSink sink = new FileLogSink(path, rotateDaily: false, includeTimestamp: false))
+        {
+            LogEntry entry = new LogEntry(
+                DateTimeOffset.UtcNow, LogLevel.Info, "Cat", "msg", "f.cs", 1, "M", null, 7, "");
+            sink.Write(in entry);
+        }
+
+        string content = File.ReadAllText(Path.Combine(_tempDir, "app.log"));
+        Assert.That(content, Does.Contain("[T7]"));
+        Assert.That(content, Does.Not.Contain("[T7:]"));
+    }
+
+    [Test]
+    public void CurrentFilePath_ReturnsOpenFile()
+    {
+        string path = Path.Combine(_tempDir, "app.log");
+        using FileLogSink sink = new FileLogSink(path, rotateDaily: false);
+
+        Assert.That(sink.CurrentFilePath, Is.EqualTo(Path.GetFullPath(path)));
+    }
+
+    [Test]
+    public void Constructor_UnavailablePath_DoesNotThrow()
+    {
+        string blocker = Path.Combine(_tempDir, "blocker");
+        File.WriteAllText(blocker, "x");
+        string path = Path.Combine(blocker, "app.log");
+
+        using FileLogSink sink = new FileLogSink(path, rotateDaily: false);
+        LogEntry entry = new LogEntry(
+            DateTimeOffset.UtcNow, LogLevel.Info, "Cat", "msg", "f.cs", 1, "M");
+
+        Assert.That(sink.CurrentFilePath, Is.Null);
+        Assert.DoesNotThrow(() => sink.Write(in entry));
+    }
+
+    [Test]
+    public void Write_AfterOpenFailure_RecoversWhenRetryIntervalElapses()
+    {
+        string blocker = Path.Combine(_tempDir, "blocker");
+        File.WriteAllText(blocker, "x");
+        string path = Path.Combine(blocker, "app.log");
+        TestTimeProvider time = new TestTimeProvider();
+        using FileLogSink sink = new FileLogSink(path, rotateDaily: false, timeProvider: time);
+        LogEntry entry = new LogEntry(
+            DateTimeOffset.UtcNow, LogLevel.Info, "Cat", "msg", "f.cs", 1, "M");
+
+        for (int i = 0; i < 5; i++)
+        {
+            sink.Write(in entry);
+        }
+
+        Assert.That(sink.CurrentFilePath, Is.Null);
+
+        File.Delete(blocker);
+        time.UtcNow = time.UtcNow.AddSeconds(6);
+        sink.Write(in entry);
+
+        Assert.That(sink.CurrentFilePath, Is.EqualTo(Path.GetFullPath(path)));
+        Assert.That(File.Exists(path), Is.True);
+    }
+
+    [Test]
+    public void Write_AfterRotationFailure_RecoversWhenRetryIntervalElapses()
+    {
+        string path = Path.Combine(_tempDir, "app.log");
+        TestTimeProvider time = new TestTimeProvider();
+        using FileLogSink sink = new FileLogSink(path, rotateDaily: true, timeProvider: time);
+        DateOnly futureDate = new DateOnly(2099, 1, 1);
+        string rotatedPath = Path.Combine(_tempDir, $"app-{futureDate:yyyy-MM-dd}.log");
+        File.WriteAllBytes(rotatedPath, []);
+        File.SetAttributes(rotatedPath, FileAttributes.ReadOnly);
+
+        LogEntry entry = new LogEntry(
+            new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            LogLevel.Info,
+            "Cat",
+            "after rotation",
+            "f.cs",
+            1,
+            "M");
+
+        sink.Write(in entry);
+        Assert.That(sink.CurrentFilePath, Is.Null);
+
+        File.SetAttributes(rotatedPath, FileAttributes.Normal);
+        time.UtcNow = time.UtcNow.AddSeconds(6);
+        sink.Write(in entry);
+
+        Assert.That(sink.CurrentFilePath, Does.EndWith($"app-{futureDate:yyyy-MM-dd}.log"));
+    }
+
+    [Test]
+    public void CurrentFilePath_UpdatesAfterSuccessfulRotation()
+    {
+        string path = Path.Combine(_tempDir, "app.log");
+        using FileLogSink sink = new FileLogSink(path, rotateDaily: true);
+        DateOnly futureDate = new DateOnly(2099, 1, 1);
+
+        LogEntry entry = new LogEntry(
+            new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            LogLevel.Info,
+            "Cat",
+            "after rotation",
+            "f.cs",
+            1,
+            "M");
+
+        sink.Write(in entry);
+
+        Assert.That(sink.CurrentFilePath, Does.EndWith($"app-{futureDate:yyyy-MM-dd}.log"));
+    }
+
+    [Test]
+    public void CurrentFilePath_ClearedOnDispose()
+    {
+        string path = Path.Combine(_tempDir, "app.log");
+        FileLogSink sink = new FileLogSink(path, rotateDaily: false);
+
+        sink.Dispose();
+
+        Assert.That(sink.CurrentFilePath, Is.Null);
+    }
+
+    private sealed class TestTimeProvider : TimeProvider
+    {
+        public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.UtcNow;
+
+        public override DateTimeOffset GetUtcNow() => UtcNow;
+    }
 }

@@ -74,6 +74,7 @@ public static class BuildInfo
                 lines.Add($"Build: {buildInfo}");
             }
 
+            lines.Add($"Process: {Environment.ProcessId}");
             lines.Add($"Runtime: {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}");
             lines.Add($"OS: {Environment.OSVersion}");
 

@@ -31,6 +31,25 @@ public class LogEntryTests
     }
 
     [Test]
+    public void LogEntry_CreatesWithThreadMetadata()
+    {
+        LogEntry entry = new LogEntry(
+            DateTimeOffset.UtcNow,
+            LogLevel.Info,
+            "Cat",
+            "msg",
+            "file.cs",
+            1,
+            "Method",
+            null,
+            7,
+            "Audio Pump");
+
+        Assert.That(entry.ThreadId, Is.EqualTo(7));
+        Assert.That(entry.ThreadName, Is.EqualTo("Audio Pump"));
+    }
+
+    [Test]
     public void LogEntry_NullException_DefaultsToNull()
     {
         LogEntry entry = new LogEntry(

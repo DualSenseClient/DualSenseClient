@@ -50,6 +50,7 @@ public sealed class ConsoleLogSink : ILogSink
             writer.Write(entry.Category);
             writer.Write(']');
             writer.Write(' ');
+            WriteThreadSegment(writer, in entry);
             writer.Write(entry.SourceFileName);
             if (entry.SourceLine > 0)
             {
@@ -65,6 +66,29 @@ public sealed class ConsoleLogSink : ILogSink
                 writer.WriteLine(entry.Exception);
             }
         }
+    }
+
+    /// <summary>
+    /// Writes the thread segment <c>[TId]</c> or <c>[TId:Name]</c> to the writer,
+    /// when the entry carries a thread identifier.
+    /// </summary>
+    private static void WriteThreadSegment(TextWriter writer, in LogEntry entry)
+    {
+        if (entry.ThreadId <= 0)
+        {
+            return;
+        }
+
+        writer.Write("[T");
+        writer.Write(entry.ThreadId);
+        if (!string.IsNullOrEmpty(entry.ThreadName))
+        {
+            writer.Write(':');
+            writer.Write(entry.ThreadName);
+        }
+
+        writer.Write(']');
+        writer.Write(' ');
     }
 
     /// <summary>

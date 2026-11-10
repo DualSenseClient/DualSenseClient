@@ -1,5 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Text;
 
 namespace DualSenseClient.Logging;
 
@@ -85,7 +87,8 @@ public sealed class DualSenseClientLogger
     /// <remarks>
     /// Replacing the sink automatically disposes the previous sink
     /// if it implements <see cref="IDisposable"/>.
-    /// All access is synchronized via <see cref="Sync"/>.
+    /// Writes are synchronized under <see cref="Sync"/>; reads use volatile semantics so
+    /// normal logging does not serialize on the configuration lock.
     /// </remarks>
     /// <exception cref="ArgumentNullException">
     /// Thrown when setting to <c>null</c>.
@@ -94,10 +97,7 @@ public sealed class DualSenseClientLogger
     {
         get
         {
-            lock (Sync)
-            {
-                return _sink;
-            }
+            return Volatile.Read(ref _sink);
         }
         set
         {
@@ -289,7 +289,7 @@ public sealed class DualSenseClientLogger
     /// otherwise, <c>false</c>. When <see cref="MinimumLevel"/> is <see cref="LogLevel.None"/>,
     /// this always returns <c>false</c>, acting as a global kill-switch.
     /// </returns>
-    internal static bool IsEnabled(LogLevel level) => level >= _minimumLevel;
+    internal static bool IsLevelEnabled(LogLevel level) => level >= _minimumLevel;
 
     /// <summary>
     /// Constructs a <see cref="LogEntry"/> and writes it to the active sink.
@@ -300,21 +300,16 @@ public sealed class DualSenseClientLogger
         string category, string message, Exception? exception,
         string sourceFilePath, int sourceLine, string sourceMemberName)
     {
-        if (!IsEnabled(level))
+        if (!IsLevelEnabled(level))
         {
             return;
         }
 
         LogEntry entry = new LogEntry(DateTimeOffset.Now, level, category, message,
             Path.GetFileName(sourceFilePath), sourceLine, sourceMemberName,
-            exception);
+            exception, Environment.CurrentManagedThreadId, Thread.CurrentThread.Name ?? "");
 
-        ILogSink sink;
-        lock (Sync)
-        {
-            sink = _sink;
-        }
-
+        ILogSink sink = Volatile.Read(ref _sink);
         sink.Write(in entry);
     }
 
@@ -336,60 +331,77 @@ public sealed class DualSenseClientLogger
     public string Category { get; }
 
     /// <summary>
+    /// Determines whether an entry at the given level would be emitted.
+    /// </summary>
+    /// <param name="level">The level to check.</param>
+    /// <returns>
+    /// <c>true</c> when the level meets the current minimum; otherwise, <c>false</c>.
+    /// </returns>
+    public bool IsEnabled(LogLevel level) => IsLevelEnabled(level);
+
+    /// <summary>
     /// Logs a message at <see cref="LogLevel.Trace"/> with automatic caller context capture.
     /// </summary>
     /// <param name="message">The message to log.</param>
+    /// <param name="exception">An optional exception to include with the log entry.</param>
     /// <param name="sourceFilePath">Automatically captured source file path.</param>
     /// <param name="sourceLine">Automatically captured source line number.</param>
     /// <param name="sourceMemberName">Automatically captured caller member name.</param>
     public void Trace(
         string message,
+        Exception? exception = null,
         [CallerFilePath] string sourceFilePath = "",
         [CallerLineNumber] int sourceLine = 0,
         [CallerMemberName] string sourceMemberName = "")
-        => Write(LogLevel.Trace, Category, message, null, sourceFilePath, sourceLine, sourceMemberName);
+        => Write(LogLevel.Trace, Category, message, exception, sourceFilePath, sourceLine, sourceMemberName);
 
     /// <summary>
     /// Logs a message at <see cref="LogLevel.Debug"/> with automatic caller context capture.
     /// </summary>
     /// <param name="message">The message to log.</param>
+    /// <param name="exception">An optional exception to include with the log entry.</param>
     /// <param name="sourceFilePath">Automatically captured source file path.</param>
     /// <param name="sourceLine">Automatically captured source line number.</param>
     /// <param name="sourceMemberName">Automatically captured caller member name.</param>
     public void Debug(
         string message,
+        Exception? exception = null,
         [CallerFilePath] string sourceFilePath = "",
         [CallerLineNumber] int sourceLine = 0,
         [CallerMemberName] string sourceMemberName = "")
-        => Write(LogLevel.Debug, Category, message, null, sourceFilePath, sourceLine, sourceMemberName);
+        => Write(LogLevel.Debug, Category, message, exception, sourceFilePath, sourceLine, sourceMemberName);
 
     /// <summary>
     /// Logs a message at <see cref="LogLevel.Info"/> with automatic caller context capture.
     /// </summary>
     /// <param name="message">The message to log.</param>
+    /// <param name="exception">An optional exception to include with the log entry.</param>
     /// <param name="sourceFilePath">Automatically captured source file path.</param>
     /// <param name="sourceLine">Automatically captured source line number.</param>
     /// <param name="sourceMemberName">Automatically captured caller member name.</param>
     public void Info(
         string message,
+        Exception? exception = null,
         [CallerFilePath] string sourceFilePath = "",
         [CallerLineNumber] int sourceLine = 0,
         [CallerMemberName] string sourceMemberName = "")
-        => Write(LogLevel.Info, Category, message, null, sourceFilePath, sourceLine, sourceMemberName);
+        => Write(LogLevel.Info, Category, message, exception, sourceFilePath, sourceLine, sourceMemberName);
 
     /// <summary>
     /// Logs a message at <see cref="LogLevel.Warning"/> with automatic caller context capture.
     /// </summary>
     /// <param name="message">The message to log.</param>
+    /// <param name="exception">An optional exception to include with the log entry.</param>
     /// <param name="sourceFilePath">Automatically captured source file path.</param>
     /// <param name="sourceLine">Automatically captured source line number.</param>
     /// <param name="sourceMemberName">Automatically captured caller member name.</param>
     public void Warning(
         string message,
+        Exception? exception = null,
         [CallerFilePath] string sourceFilePath = "",
         [CallerLineNumber] int sourceLine = 0,
         [CallerMemberName] string sourceMemberName = "")
-        => Write(LogLevel.Warning, Category, message, null, sourceFilePath, sourceLine, sourceMemberName);
+        => Write(LogLevel.Warning, Category, message, exception, sourceFilePath, sourceLine, sourceMemberName);
 
     /// <summary>
     /// Logs a message at <see cref="LogLevel.Error"/> with automatic caller context capture.
@@ -424,131 +436,54 @@ public sealed class DualSenseClientLogger
         => Write(LogLevel.Critical, Category, message, exception, sourceFilePath, sourceLine, sourceMemberName);
 
     /// <summary>
-    /// Logs a detailed exception report at <see cref="LogLevel.Critical"/> level, including
-    /// the full exception chain, stack traces, and optional system environment information.
+    /// Logs an exception report as a single entry at the specified level, including the
+    /// exception type, message, and full exception chain.
     /// </summary>
     /// <param name="ex">The exception to log.</param>
     /// <param name="includeEnvironmentInfo">
-    /// If <c>true</c>, includes machine name, OS version, .NET runtime, process architecture,
-    /// and current directory in the report.
+    /// If <c>true</c>, appends machine name, OS version, .NET runtime, process architecture,
+    /// and current directory to the message.
+    /// </param>
+    /// <param name="level">
+    /// The level for the report. Defaults to <see cref="LogLevel.Error"/>; use
+    /// <see cref="LogLevel.Critical"/> for unhandled or terminating exceptions.
     /// </param>
     /// <param name="memberName">Automatically captured caller member name.</param>
     /// <param name="filePath">Automatically captured caller file path.</param>
     /// <param name="lineNumber">Automatically captured caller line number.</param>
-    public void LogExceptionDetails(Exception ex, bool includeEnvironmentInfo = true,
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="ex"/> is null.</exception>
+    public void LogExceptionDetails(Exception ex, bool includeEnvironmentInfo = false, LogLevel level = LogLevel.Error,
         [CallerMemberName] string? memberName = null, [CallerFilePath] string? filePath = null, [CallerLineNumber] int lineNumber = 0)
     {
-        string context = FormatContext(memberName, filePath, lineNumber);
-        string sourceFileName = filePath != null ? Path.GetFileName(filePath) : "";
-        WriteCritical($"[{context}] ===== Exception Report Start =====", sourceFileName, lineNumber, memberName);
-        WriteCritical($"[{context}] Timestamp (local): {DateTime.Now:O}", sourceFileName, lineNumber, memberName);
+        ArgumentNullException.ThrowIfNull(ex);
 
-        LogExceptionWithDepth(ex, context, sourceFileName, lineNumber, memberName);
+        if (!IsLevelEnabled(level))
+        {
+            return;
+        }
+
+        StringBuilder message = new StringBuilder();
+        message.Append(ex.GetType().FullName);
+        message.Append(": ");
+        message.Append(ex.Message);
 
         if (includeEnvironmentInfo)
         {
-            WriteCritical($"[{context}] === System Information ===", sourceFileName, lineNumber, memberName);
-            WriteCritical($"[{context}] Machine Name: {Environment.MachineName}", sourceFileName, lineNumber, memberName);
-            WriteCritical($"[{context}] OS Version: {Environment.OSVersion}", sourceFileName, lineNumber, memberName);
-            WriteCritical($"[{context}] .NET Runtime: {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}", sourceFileName, lineNumber,
-                memberName);
-            WriteCritical($"[{context}] Process Architecture: {System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture}", sourceFileName,
-                lineNumber, memberName);
-            WriteCritical($"[{context}] Current Directory: {Environment.CurrentDirectory}", sourceFileName, lineNumber, memberName);
+            message.AppendLine();
+            message.AppendLine("=== System Information ===");
+            message.Append("Machine Name: ");
+            message.AppendLine(Environment.MachineName);
+            message.Append("OS Version: ");
+            message.AppendLine(Environment.OSVersion.ToString());
+            message.Append(".NET Runtime: ");
+            message.AppendLine(RuntimeInformation.FrameworkDescription);
+            message.Append("Process Architecture: ");
+            message.AppendLine(RuntimeInformation.ProcessArchitecture.ToString());
+            message.Append("Current Directory: ");
+            message.Append(Environment.CurrentDirectory);
         }
 
-        WriteCritical($"[{context}] ===== Exception Report End =====", sourceFileName, lineNumber, memberName);
-    }
-
-    /// <summary>
-    /// Formats caller context into a standardized <c>FileName.MemberName:LineNumber</c> string
-    /// for inclusion in log output.
-    /// </summary>
-    private static string FormatContext(string? memberName, string? filePath, int lineNumber)
-    {
-        if (string.IsNullOrEmpty(memberName))
-        {
-            return "Unknown";
-        }
-
-        string fileName = filePath != null
-            ? Path.GetFileNameWithoutExtension(filePath)
-            : "Unknown";
-
-        return lineNumber > 0
-            ? $"{fileName}.{memberName}:{lineNumber}"
-            : $"{fileName}.{memberName}";
-    }
-
-    /// <summary>
-    /// Writes a Critical-level log entry directly, bypassing caller attribute capture
-    /// to preserve the correct source location from the original caller.
-    /// </summary>
-    private void WriteCritical(string message, string sourceFileName, int sourceLine, string? sourceMemberName)
-    {
-        Write(LogLevel.Critical, Category, message, null,
-            sourceFileName, sourceLine, sourceMemberName ?? "");
-    }
-
-    /// <summary>
-    /// Recursively logs each level of an exception chain with indented detail,
-    /// including type, message, source, stack trace, data entries, and inner exceptions.
-    /// </summary>
-    /// <param name="ex">The exception to log.</param>
-    /// <param name="context">The caller context prefix for each line.</param>
-    /// <param name="sourceFileName">Source file name for log entry metadata.</param>
-    /// <param name="sourceLine">Source line number for log entry metadata.</param>
-    /// <param name="sourceMemberName">Source member name for log entry metadata.</param>
-    /// <param name="depth">The current depth in the inner exception chain.</param>
-    private void LogExceptionWithDepth(Exception ex, string? context, string sourceFileName, int sourceLine, string? sourceMemberName, int depth = 0)
-    {
-        while (true)
-        {
-            string indent = new string(' ', depth * 2);
-            string prefix = context != null ? $"[{context}] " : "";
-
-            WriteCritical($"{prefix}{indent}Exception Level: {depth}", sourceFileName, sourceLine, sourceMemberName);
-            WriteCritical($"{prefix}{indent}Type: {ex.GetType().FullName}", sourceFileName, sourceLine, sourceMemberName);
-            WriteCritical($"{prefix}{indent}Message: {ex.Message}", sourceFileName, sourceLine, sourceMemberName);
-            WriteCritical($"{prefix}{indent}Source: {ex.Source}", sourceFileName, sourceLine, sourceMemberName);
-            WriteCritical($"{prefix}{indent}HResult: {ex.HResult}", sourceFileName, sourceLine, sourceMemberName);
-            if (ex.HelpLink != null)
-            {
-                WriteCritical($"{prefix}{indent}Help Link: {ex.HelpLink}", sourceFileName, sourceLine, sourceMemberName);
-            }
-
-            if (ex.Data.Count > 0)
-            {
-                WriteCritical($"{prefix}{indent}Data:", sourceFileName, sourceLine, sourceMemberName);
-                foreach (object? key in ex.Data.Keys)
-                {
-                    WriteCritical($"{prefix}{indent}  {key}: {ex.Data[key]}", sourceFileName, sourceLine, sourceMemberName);
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(ex.StackTrace))
-            {
-                WriteCritical($"{prefix}{indent}StackTrace:", sourceFileName, sourceLine, sourceMemberName);
-                foreach (string line in ex.StackTrace.Split(Environment.NewLine))
-                {
-                    WriteCritical($"{prefix}{indent}  {line}", sourceFileName, sourceLine, sourceMemberName);
-                }
-            }
-
-            if (ex.TargetSite != null)
-            {
-                WriteCritical($"{prefix}{indent}TargetSite: {ex.TargetSite}", sourceFileName, sourceLine, sourceMemberName);
-            }
-
-            if (ex.InnerException != null)
-            {
-                WriteCritical($"{prefix}{indent}--- Inner Exception ---", sourceFileName, sourceLine, sourceMemberName);
-                ex = ex.InnerException;
-                depth = depth + 1;
-                continue;
-            }
-
-            break;
-        }
+        Write(level, Category, message.ToString(), ex,
+            filePath != null ? Path.GetFileName(filePath) : "", lineNumber, memberName ?? "");
     }
 }

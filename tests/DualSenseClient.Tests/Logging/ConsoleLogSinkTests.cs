@@ -156,4 +156,50 @@ public class ConsoleLogSinkTests
             Console.SetOut(originalOut);
         }
     }
+
+    [Test]
+    public void Write_WithThreadMetadata_IncludesThreadSegment()
+    {
+        ConsoleLogSink sink = new ConsoleLogSink(false);
+        LogEntry entry = new LogEntry(
+            DateTimeOffset.UtcNow, LogLevel.Info, "TestCat", "hello", "File.cs", 1, "Method", null, 7, "Audio Pump");
+
+        TextWriter originalOut = Console.Out;
+        StringWriter captured = new StringWriter();
+        Console.SetOut(captured);
+
+        try
+        {
+            sink.Write(in entry);
+            Assert.That(captured.ToString(), Does.Contain("[T7:Audio Pump]"));
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
+
+    [Test]
+    public void Write_WithUnnamedThread_IncludesThreadIdOnly()
+    {
+        ConsoleLogSink sink = new ConsoleLogSink(false);
+        LogEntry entry = new LogEntry(
+            DateTimeOffset.UtcNow, LogLevel.Info, "TestCat", "hello", "File.cs", 1, "Method", null, 7, "");
+
+        TextWriter originalOut = Console.Out;
+        StringWriter captured = new StringWriter();
+        Console.SetOut(captured);
+
+        try
+        {
+            sink.Write(in entry);
+            string output = captured.ToString();
+            Assert.That(output, Does.Contain("[T7]"));
+            Assert.That(output, Does.Not.Contain("[T7:]"));
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
 }
