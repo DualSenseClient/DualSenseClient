@@ -66,7 +66,8 @@ internal static class WindowsBluetooth
         IntPtr hFind = BluetoothFindFirstRadio(ref findParams, out IntPtr hRadio);
         if (hFind == IntPtr.Zero)
         {
-            _log.Warning($"BluetoothFindFirstRadio failed: {new Win32Exception(Marshal.GetLastWin32Error()).Message}");
+            int error = Marshal.GetLastWin32Error();
+            _log.Warning($"BluetoothFindFirstRadio failed (0x{error:X8}): {new Win32Exception(error).Message}");
             return false;
         }
 
@@ -97,7 +98,7 @@ internal static class WindowsBluetooth
             BluetoothFindRadioClose(hFind);
         }
 
-        _log.Warning($"Bluetooth disconnect failed for device 0x{address:X12}");
+        _log.Warning($"Bluetooth disconnect failed for device 0x{address:X12}: no radio accepted the request");
         return false;
     }
 
@@ -113,7 +114,8 @@ internal static class WindowsBluetooth
             return true;
         }
 
-        _log.Debug($"IOCTL_BTH_DISCONNECT_DEVICE failed on radio: {new Win32Exception(Marshal.GetLastWin32Error()).Message}");
+        int error = Marshal.GetLastWin32Error();
+        _log.Debug($"IOCTL_BTH_DISCONNECT_DEVICE failed for 0x{address:X12} on radio (0x{error:X8}): {new Win32Exception(error).Message}");
         return false;
     }
 }

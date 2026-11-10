@@ -40,7 +40,7 @@ public static class BluetoothService
             return LinuxBluetooth.Disconnect(address.Value);
         }
 
-        _log.Warning("Bluetooth disconnect is not supported on this platform yet");
+        _log.Info($"Bluetooth disconnect is not supported on {Environment.OSVersion.Platform}; request ignored");
         return false;
     }
 }

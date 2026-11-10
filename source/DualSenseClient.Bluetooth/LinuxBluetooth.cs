@@ -63,7 +63,7 @@ internal static class LinuxBluetooth
                 return true;
             }
 
-            _log.Warning($"Bluetooth device {mac} not found in BlueZ");
+            _log.Info($"Bluetooth device {mac} is not known to BlueZ (already disconnected or not paired)");
             return false;
         }
         catch (Exception ex)
