@@ -138,7 +138,7 @@ public sealed class DualSenseSpecialActionSoundPlayer : ISpecialActionSoundPlaye
         }
         catch (Exception ex)
         {
-            _log.Error($"Failed to reset audio output after sound action: {ex.Message}");
+            _log.Error("Failed to reset audio output after sound action", ex);
         }
     }
 }

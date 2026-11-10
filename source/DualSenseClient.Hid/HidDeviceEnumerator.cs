@@ -289,7 +289,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                 }
                 catch (Exception ex)
                 {
-                    _log.Warning($"Device scan failed: {ex.Message}");
+                    _log.Warning("Device scan failed", ex);
                 }
             }
         }
@@ -389,7 +389,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
         }
         catch (Exception ex)
         {
-            _log.Warning($"{(connected ? "DeviceConnected" : "DeviceDisconnected")} handler threw: {ex.Message}");
+            _log.Warning($"{(connected ? "DeviceConnected" : "DeviceDisconnected")} handler threw", ex);
         }
     }
 
@@ -596,7 +596,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
         }
         catch (Exception ex)
         {
-            _log.Trace($"Device '{devicePath}' not reachable: {ex.Message}");
+            _log.Trace($"Device '{devicePath}' not reachable", ex);
             return false;
         }
     }

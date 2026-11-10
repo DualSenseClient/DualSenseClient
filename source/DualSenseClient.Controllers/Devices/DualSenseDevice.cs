@@ -542,12 +542,12 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
                 // A failed read is the normal symptom of the controller being
                 // unplugged or the link dropping, so log it as a disconnect
                 // rather than an error.
-                _log.Warning($"Read failed, controller disconnected: {ex.Message}");
+                _log.Warning($"Read failed for {Info.ProductName}; controller disconnected", ex);
                 break;
             }
             catch (Exception ex)
             {
-                _log.LogExceptionDetails(ex);
+                _log.Error($"Controller read loop failed for {Info.ProductName}", ex);
                 break;
             }
         }
@@ -625,7 +625,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         byte[]? usbRaw = null;
         DualSenseRawReport.TryBuildUsbRaw64(data, bytesRead, ConnectionType, out usbRaw);
         InputReport report = new InputReport(data, offset, usbRaw);
-        if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
+        if (_log.IsEnabled(LogLevel.Trace))
         {
             _log.Trace($"Input report 0x{reportId:X2} ({bytesRead} byte(s)): {BitConverter.ToString(data, 0, bytesRead)}");
         }
@@ -769,7 +769,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
                     : OutputReport.ForUsb(payload, IsEdge ? 63 : SetStateData.PayloadSize);
                 _outputSequence = (byte)((_outputSequence + 1) & 0x0F);
 
-                if (DualSenseClientLogger.MinimumLevel <= LogLevel.Debug)
+                if (_log.IsEnabled(LogLevel.Debug))
                 {
                     _log.Debug($"Sending output report 0x{report.Raw[0]:X2} ({report.Length} byte(s))");
                 }
@@ -839,7 +839,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         }
         catch (HidException ex)
         {
-            _log.Error($"Failed to apply profile '{profile.Name}': {ex.Message}");
+            _log.Error($"Failed to apply profile '{profile.Name}' to {Info.ProductName}", ex);
         }
     }
 
@@ -888,7 +888,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         }
         catch (HidException ex)
         {
-            _log.Error($"Failed to set vibration (left={left}, right={right}): {ex.Message}");
+            _log.Error($"Failed to set vibration on {Info.ProductName} (left={left}, right={right})", ex);
         }
     }
 
@@ -989,7 +989,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         }
         catch (HidException ex)
         {
-            _log.Error($"Failed to set trigger effects: {ex.Message}");
+            _log.Error($"Failed to set trigger effects on {Info.ProductName}", ex);
         }
     }
 
@@ -1142,7 +1142,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         }
         catch (HidException ex)
         {
-            _log.Error($"Failed to set audio output: {ex.Message}");
+            _log.Error($"Failed to set audio output on {Info.ProductName}", ex);
         }
     }
 
@@ -1170,7 +1170,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
 
         try
         {
-            if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
+            if (_log.IsEnabled(LogLevel.Trace))
             {
                 _log.Trace($"Sending audio report 0x{report[0]:X2} ({report.Length} byte(s)): {BitConverter.ToString(report, 0, report.Length)}");
             }
@@ -1184,7 +1184,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         }
         catch (HidException ex)
         {
-            _log.Error($"Failed to send audio report 0x{report[0]:X2}: {ex.Message}");
+            _log.Error($"Failed to send audio report 0x{report[0]:X2} to {Info.ProductName}", ex);
         }
     }
 
@@ -1335,7 +1335,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         // blocked in hid_read_timeout corrupts the pending native I/O and AVs.
         if (!_readThread.Join(TimeSpan.FromSeconds(2)))
         {
-            _log.Warning("Read loop did not stop cleanly on dispose");
+            _log.Warning($"Read loop for {Info.ProductName} did not stop cleanly on dispose");
         }
 
         base.Dispose();

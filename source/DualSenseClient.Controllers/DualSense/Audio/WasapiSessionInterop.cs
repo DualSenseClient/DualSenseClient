@@ -45,9 +45,9 @@ internal static class WasapiSessionInterop
     /// enumeration fails; failures are logged so an empty picker can be told apart from
     /// "nothing is playing".
     /// </summary>
-    /// <param name="logWarning">Receives a message when the enumeration fails.</param>
+    /// <param name="logWarning">Receives a message and exception when the enumeration fails.</param>
     /// <param name="logDebug">Receives a message with the session count on success.</param>
-    public static HashSet<int> GetRenderSessionProcessIds(Action<string> logWarning, Action<string> logDebug)
+    public static HashSet<int> GetRenderSessionProcessIds(Action<string, Exception?> logWarning, Action<string> logDebug)
     {
         HashSet<int> processIds = new HashSet<int>();
         IMMDeviceEnumerator? enumerator = null;
@@ -111,7 +111,7 @@ internal static class WasapiSessionInterop
         }
         catch (Exception ex)
         {
-            logWarning($"Enumerating audio sessions failed: {ex.Message}");
+            logWarning("Enumerating audio sessions failed", ex);
         }
         finally
         {

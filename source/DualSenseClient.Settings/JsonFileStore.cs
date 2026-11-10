@@ -133,8 +133,7 @@ public class JsonFileStore<T> where T : class, new()
                 }
                 catch (Exception ex)
                 {
-                    _log.Error($"Failed to load from '{FilePath}'");
-                    _log.LogExceptionDetails(ex);
+                    _log.Error($"Failed to load from '{FilePath}'", ex);
                     Item = new T();
                 }
             }
@@ -193,8 +192,7 @@ public class JsonFileStore<T> where T : class, new()
         }
         catch (Exception ex)
         {
-            _log.Error($"Failed to save to '{FilePath}'");
-            _log.LogExceptionDetails(ex);
+            _log.Error($"Failed to save to '{FilePath}'", ex);
         }
     }
 
@@ -209,8 +207,7 @@ public class JsonFileStore<T> where T : class, new()
         }
         catch (Exception ex)
         {
-            _log.Error($"Failed to create backup at '{BackupPath}'");
-            _log.LogExceptionDetails(ex);
+            _log.Error($"Failed to create backup at '{BackupPath}'", ex);
         }
     }
 }

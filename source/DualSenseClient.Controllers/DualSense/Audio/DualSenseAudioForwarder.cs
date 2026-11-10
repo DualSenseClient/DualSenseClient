@@ -950,7 +950,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
                 }
                 catch (Exception ex)
                 {
-                    _log.LogExceptionDetails(ex);
+                    _log.Error("Audio forwarding pump failed", ex);
                     break;
                 }
 
@@ -1503,8 +1503,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         }
         catch (InvalidOperationException ex)
         {
-            _log.Error("Failed to encode the Bluetooth preroll silence packet; skipping warmup");
-            _log.LogExceptionDetails(ex);
+            _log.Error("Failed to encode the Bluetooth preroll silence packet; skipping warmup", ex);
             return;
         }
 

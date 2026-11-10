@@ -231,7 +231,7 @@ public class ThemeService
             }
             catch (Exception ex)
             {
-                _log.Error($"Failed to load theme resources for {theme}: {ex.Message}");
+                _log.Error($"Failed to load theme resources for {theme}", ex);
                 return;
             }
         }

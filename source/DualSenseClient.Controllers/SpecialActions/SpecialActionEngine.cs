@@ -963,7 +963,7 @@ public sealed class SpecialActionEngine : IDisposable
                     }
                     catch (HidException ex)
                     {
-                        _log.Error($"Failed to apply special-action lighting: {ex.Message}");
+                        _log.Error($"Failed to apply lighting for special action '{action.Name}'", ex);
                     }
 
                     _device.Lighting.Clear(LightingOwner.SpecialAction);
@@ -974,7 +974,7 @@ public sealed class SpecialActionEngine : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogExceptionDetails(ex);
+            _log.Error($"Special action '{action.Name}' failed", ex);
         }
     }
 
@@ -1090,7 +1090,7 @@ public sealed class SpecialActionEngine : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogExceptionDetails(ex);
+            _log.Error($"Failed to restore profile '{profile.Name}' after a special action", ex);
         }
     }
 
@@ -1250,7 +1250,7 @@ public sealed class SpecialActionEngine : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogExceptionDetails(ex);
+            _log.Error("Failed to stop the special action sound", ex);
         }
     }
 
@@ -1316,7 +1316,7 @@ public sealed class SpecialActionEngine : IDisposable
                 }
                 catch (HidException ex)
                 {
-                    _log.Error($"Failed to apply special-action lighting: {ex.Message}");
+                    _log.Error($"Failed to apply combined special-action lighting for {_outputOverrides.Count} active action(s)", ex);
                 }
             }
 

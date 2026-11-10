@@ -118,8 +118,7 @@ public partial class MainWindow : FAAppWindow
         }
         catch (Exception ex)
         {
-            _log.Warning("Failed to show what's-new popup");
-            _log.LogExceptionDetails(ex);
+            _log.Warning("Failed to show what's-new popup", ex);
         }
     }
 
@@ -161,8 +160,7 @@ public partial class MainWindow : FAAppWindow
         }
         catch (Exception ex)
         {
-            _log.Warning("Skipping what's-new popup");
-            _log.LogExceptionDetails(ex);
+            _log.Warning("Skipping what's-new popup", ex);
         }
     }
 

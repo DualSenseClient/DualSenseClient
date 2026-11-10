@@ -181,7 +181,7 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
             }
             catch (Exception ex)
             {
-                _log.Debug($"Stopping the application audio capture failed: {ex.Message}");
+                _log.Debug("Stopping the application audio capture failed", ex);
             }
         }
 
@@ -210,7 +210,7 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
         }
         catch (Exception ex)
         {
-            _log.Warning($"Application audio capture failed to start for '{_applicationPath}': {ex.Message}");
+            _log.Warning($"Application audio capture failed to start for '{_applicationPath}'", ex);
             ReleaseComObjects();
             initialized = false;
         }
@@ -244,7 +244,7 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
         }
         catch (Exception ex)
         {
-            _log.LogExceptionDetails(ex);
+            _log.Error($"Application audio capture pump failed for '{_applicationPath}'", ex);
         }
         finally
         {

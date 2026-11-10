@@ -201,8 +201,7 @@ public sealed class TouchpadMouseCoordinator : IDisposable
         }
         catch (Exception ex)
         {
-            _log.Error($"Failed to dispose touchpad mouse engine: {ex.Message}");
-            _log.LogExceptionDetails(ex);
+            _log.Error("Failed to dispose touchpad mouse engine", ex);
         }
     }
 }

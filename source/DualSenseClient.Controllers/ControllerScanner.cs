@@ -155,7 +155,7 @@ public sealed class ControllerScanner : IControllerScanner
         catch (Exception ex)
         {
             _log.Warning(
-                $"Skipping device that could not be opened: {info.ProductName} (VID=0x{info.VendorId:X4}, PID=0x{info.ProductId:X4}, bus={info.BusType}) — {ex.Message}");
+                $"Skipping device that could not be opened: {info.ProductName} (VID=0x{info.VendorId:X4}, PID=0x{info.ProductId:X4}, bus={info.BusType})", ex);
             return null;
         }
     }

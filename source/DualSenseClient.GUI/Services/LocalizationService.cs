@@ -121,7 +121,7 @@ public static class LocalizationService
             }
             catch (Exception ex)
             {
-                _log.Error($"Failed to load language '{langCode}', falling back to '{DefaultLanguageCode}': {ex.Message}");
+                _log.Error($"Failed to load language '{langCode}', falling back to '{DefaultLanguageCode}'", ex);
                 langCode = DefaultLanguageCode;
             }
         }

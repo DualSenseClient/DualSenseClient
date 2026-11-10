@@ -290,7 +290,7 @@ public sealed class ControllerIllustrationService
         }
         catch (Exception ex)
         {
-            _log.Warning($"Could not load illustration skin '{skin}': {ex.Message}");
+            _log.Warning($"Could not load illustration skin '{skin}'", ex);
             return null;
         }
     }
@@ -320,7 +320,7 @@ public sealed class ControllerIllustrationService
         }
         catch (Exception ex)
         {
-            _log.Warning($"Could not load monitor base '{file}': {ex.Message}");
+            _log.Warning($"Could not load monitor base '{file}'", ex);
 
             return string.Equals(file, GetBaseFile(DefaultSkin), StringComparison.OrdinalIgnoreCase)
                 ? null
@@ -846,7 +846,7 @@ public sealed class ControllerIllustrationService
         }
         catch (Exception ex)
         {
-            _log.Warning($"Could not load monitor base '{file}': {ex.Message}");
+            _log.Warning($"Could not load monitor base '{file}'", ex);
             return null;
         }
     }
@@ -906,7 +906,7 @@ public sealed class ControllerIllustrationService
         {
             if (logOnFailure)
             {
-                _log.Warning($"Could not load overlay sprite '{folder}/{name}.png': {ex.Message}");
+                _log.Warning($"Could not load overlay sprite '{folder}/{name}.png'", ex);
             }
 
             return null;

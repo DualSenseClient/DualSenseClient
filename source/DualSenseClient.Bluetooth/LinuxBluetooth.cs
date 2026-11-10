@@ -68,8 +68,7 @@ internal static class LinuxBluetooth
         }
         catch (Exception ex)
         {
-            _log.Warning($"Bluetooth disconnect failed for device {mac}: {ex.Message}");
-            _log.LogExceptionDetails(ex);
+            _log.Warning($"Bluetooth disconnect failed for device {mac}", ex);
             return false;
         }
     }

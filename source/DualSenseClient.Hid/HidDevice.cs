@@ -149,7 +149,7 @@ public sealed class HidDevice : IHidDevice
             throw new HidException("hid_read_timeout failed");
         }
 
-        if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
+        if (_log.IsEnabled(LogLevel.Trace))
         {
             _log.Trace($"Read {result} byte(s) from '{DevicePath}'");
         }
@@ -196,7 +196,7 @@ public sealed class HidDevice : IHidDevice
             throw new HidException($"hid_write failed: {error}");
         }
 
-        if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
+        if (_log.IsEnabled(LogLevel.Trace))
         {
             _log.Trace($"Wrote {result} byte(s) to '{DevicePath}'");
         }

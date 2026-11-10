@@ -421,7 +421,7 @@ public partial class CustomizationPageViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _log.Error($"Failed to export special actions: {ex.Message}");
+            _log.Error("Failed to export special actions", ex);
             await _messageBox.ShowErrorAsync(
                 LocalizationService.GetText("CustomizationPage.SpecialActions.Export.Error.Title"),
                 LocalizationService.GetText("CustomizationPage.SpecialActions.Export.Error.Message"));
@@ -441,7 +441,7 @@ public partial class CustomizationPageViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _log.Error($"Failed to export special action '{item.Action.Name}': {ex.Message}");
+            _log.Error($"Failed to export special action '{item.Action.Name}'", ex);
             await _messageBox.ShowErrorAsync(
                 LocalizationService.GetText("CustomizationPage.SpecialActions.Export.Error.Title"),
                 LocalizationService.GetText("CustomizationPage.SpecialActions.Export.Error.Message"));
@@ -473,7 +473,7 @@ public partial class CustomizationPageViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _log.Error($"Failed to import special actions: {ex.Message}");
+            _log.Error("Failed to import special actions", ex);
             await _messageBox.ShowErrorAsync(
                 LocalizationService.GetText("CustomizationPage.SpecialActions.Import.Error.Title"),
                 LocalizationService.GetText("CustomizationPage.SpecialActions.Import.Error.Message"));

@@ -43,7 +43,7 @@ public sealed class HidHideService : IControllerHidingService
             }
             catch (Exception ex)
             {
-                _log.Debug($"HidHide availability check failed: {ex.Message}");
+                _log.Debug("HidHide availability check failed", ex);
                 return false;
             }
         }
@@ -66,7 +66,7 @@ public sealed class HidHideService : IControllerHidingService
         }
         catch (Exception ex)
         {
-            _log.Warning($"Failed to read HidHide blacklist: {ex.Message}");
+            _log.Warning("Failed to read HidHide blacklist", ex);
             return false;
         }
     }
@@ -114,7 +114,7 @@ public sealed class HidHideService : IControllerHidingService
         }
         catch (Exception ex)
         {
-            _log.Warning($"Failed to update HidHide blacklist: {ex.Message}");
+            _log.Warning("Failed to update HidHide blacklist", ex);
         }
     }
 
@@ -158,7 +158,7 @@ public sealed class HidHideService : IControllerHidingService
             }
             catch (Exception ex)
             {
-                _log.Debug($"SetupAPI instance ID conversion failed for '{devicePath}': {ex.Message}");
+                _log.Debug($"SetupAPI instance ID conversion failed for '{devicePath}'", ex);
             }
         }
 
@@ -213,7 +213,7 @@ public sealed class HidHideService : IControllerHidingService
             }
             catch (Exception ex)
             {
-                _log.Warning($"Failed to read HidHide whitelist: {ex.Message}");
+                _log.Warning("Failed to read HidHide whitelist", ex);
                 return false;
             }
         }
@@ -249,7 +249,7 @@ public sealed class HidHideService : IControllerHidingService
         }
         catch (Exception ex)
         {
-            _log.Warning($"Failed to update HidHide whitelist: {ex.Message}");
+            _log.Warning("Failed to update HidHide whitelist", ex);
         }
     }
 }

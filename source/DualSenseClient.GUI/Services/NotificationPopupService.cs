@@ -269,7 +269,7 @@ public sealed class NotificationPopupService : INotificationPopupService
             }
             catch (Exception ex)
             {
-                _log.Warning($"Failed to show sticky notification popup: {ex.Message}");
+                _log.Warning("Failed to show sticky notification popup", ex);
             }
 
             lock (_sync)
@@ -285,7 +285,7 @@ public sealed class NotificationPopupService : INotificationPopupService
                         }
                         catch (Exception ex)
                         {
-                            _log.Warning($"Failed to close sticky notification popup: {ex.Message}");
+                            _log.Warning("Failed to close sticky notification popup", ex);
                         }
                     }
                 }
@@ -337,7 +337,7 @@ public sealed class NotificationPopupService : INotificationPopupService
             }
             catch (Exception ex)
             {
-                _log.Warning($"Failed to close sticky notification popup: {ex.Message}");
+                _log.Warning("Failed to close sticky notification popup", ex);
             }
         });
     }
@@ -428,7 +428,7 @@ public sealed class NotificationPopupService : INotificationPopupService
             }
             catch (Exception ex)
             {
-                _log.Warning($"Failed to show notification popup: {ex.Message}");
+                _log.Warning("Failed to show notification popup", ex);
                 closedTcs.TrySetResult(true);
                 return null;
             }
@@ -451,7 +451,7 @@ public sealed class NotificationPopupService : INotificationPopupService
             }
             catch (Exception ex)
             {
-                _log.Warning($"Failed to close notification popup: {ex.Message}");
+                _log.Warning("Failed to close notification popup", ex);
             }
         });
     }
@@ -470,8 +470,7 @@ public sealed class NotificationPopupService : INotificationPopupService
         }
         catch (Exception ex)
         {
-            _log.Warning($"Failed to open URL '{url}'");
-            _log.LogExceptionDetails(ex);
+            _log.Warning($"Failed to open URL '{url}'", ex);
         }
     }
 

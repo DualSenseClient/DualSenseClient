@@ -158,8 +158,7 @@ public sealed class AutoProfileCoordinator : IDisposable
         }
         catch (Exception ex)
         {
-            _log.Error("Auto profile poll failed");
-            _log.LogExceptionDetails(ex);
+            _log.Error("Auto profile poll failed", ex);
         }
         finally
         {
@@ -495,7 +494,7 @@ public sealed class AutoProfileCoordinator : IDisposable
             }
             catch (Exception ex)
             {
-                _log.Debug($"Failed to restore hidden state on dispose: {ex.Message}");
+                _log.Debug("Failed to restore hidden state on dispose", ex);
             }
         }
 

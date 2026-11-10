@@ -899,15 +899,13 @@ public partial class SettingsPageViewModel : ObservableObject
                 }
                 catch (Exception ex)
                 {
-                    _log.Error($"Could not delete update temp directory '{tempDir}'");
-                    _log.LogExceptionDetails(ex);
+                    _log.Error($"Could not delete update temp directory '{tempDir}'", ex);
                 }
             }
         }
         catch (Exception ex)
         {
-            _log.Warning($"Update {release.Tag} failed");
-            _log.LogExceptionDetails(ex);
+            _log.Warning($"Update {release.Tag} failed", ex);
             await _messageBox.ShowErrorAsync(
                 LocalizationService.GetText("Notification.Update.Failed.Title"),
                 LocalizationService.GetText("Notification.Update.Failed.Message"));

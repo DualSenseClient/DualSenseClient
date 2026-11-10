@@ -280,7 +280,7 @@ public sealed class DualSenseUsbAudioTarget : IDisposable
         catch (Exception ex)
         {
             _log.Warning(
-                $"Could not open the DualSense render endpoint ({format.Channels}-channel, {(config is null ? "shared" : "exclusive")}): {ex.Message}");
+                $"Could not open the DualSense render endpoint ({format.Channels}-channel, {(config is null ? "shared" : "exclusive")})", ex);
             player?.Dispose();
             device?.Dispose();
             return false;

@@ -51,7 +51,7 @@ public static class FeatureReader
         }
         catch (HidException ex)
         {
-            _log.Error($"GetFeatureReport(0x05) failed: {ex.Message}");
+            _log.Error("GetFeatureReport(0x05) failed", ex);
             return null;
         }
     }
@@ -86,7 +86,7 @@ public static class FeatureReader
         }
         catch (HidException ex)
         {
-            _log.Error($"GetFeatureReport(0x09) failed: {ex.Message}");
+            _log.Error("GetFeatureReport(0x09) failed", ex);
             return null;
         }
     }
@@ -121,7 +121,7 @@ public static class FeatureReader
         }
         catch (HidException ex)
         {
-            _log.Error($"GetFeatureReport(0x20) failed: {ex.Message}");
+            _log.Error("GetFeatureReport(0x20) failed", ex);
             return null;
         }
     }

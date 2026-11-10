@@ -162,7 +162,7 @@ public sealed class SystemOutputAudioCapture : IDisposable, IForwardedAudioCaptu
             }
             catch (Exception ex)
             {
-                _log.Warning($"Could not open the system output loopback capture: {ex.Message}");
+                _log.Warning("Could not open the system output loopback capture", ex);
                 if (device is not null)
                 {
                     device.OnAudioProcessed -= _callback;
@@ -217,7 +217,7 @@ public sealed class SystemOutputAudioCapture : IDisposable, IForwardedAudioCaptu
         }
         catch (Exception ex)
         {
-            _log.Debug($"Stopping the system output loopback capture failed: {ex.Message}");
+            _log.Debug("Stopping the system output loopback capture failed", ex);
         }
 
         device.Dispose();

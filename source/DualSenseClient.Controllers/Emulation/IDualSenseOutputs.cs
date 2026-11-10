@@ -179,7 +179,7 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
                 // A dropped link (e.g. Bluetooth disconnect) makes the write fail;
                 // log instead of letting the exception escape the engine's callback
                 // thread and crash the process.
-                _log.Error($"Failed to send output state to the physical controller: {ex.Message}");
+                _log.Error("Failed to send output state to the physical controller", ex);
             }
         }
     }

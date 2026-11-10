@@ -317,7 +317,7 @@ public sealed class SpecialActionService
         }
         catch (Exception ex)
         {
-            _log.Warning($"Failed to parse special actions export: {ex.Message}");
+            _log.Warning("Failed to parse special actions export", ex);
             return null;
         }
     }

@@ -66,8 +66,7 @@ public static class Changelog
         }
         catch (Exception ex)
         {
-            _log.Error("Changelog fetch failed");
-            _log.LogExceptionDetails(ex);
+            _log.Error("Changelog fetch failed", ex);
             return null;
         }
     }
@@ -88,8 +87,7 @@ public static class Changelog
         }
         catch (Exception ex)
         {
-            _log.Error("Changelog fetch failed");
-            _log.LogExceptionDetails(ex);
+            _log.Error("Changelog fetch failed", ex);
             return null;
         }
     }

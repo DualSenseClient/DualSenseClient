@@ -472,7 +472,7 @@ public sealed class EmulationService : IEmulationService
             }
             catch (Exception ex)
             {
-                _log.LogExceptionDetails(ex);
+                _log.Error("Emulation refresh failed", ex);
             }
             finally
             {
@@ -614,7 +614,7 @@ public sealed class EmulationService : IEmulationService
         }
         catch (Exception ex)
         {
-            _log.LogExceptionDetails(ex);
+            _log.Error($"Failed to create the emulated {mode} controller", ex);
             entry.MarkFailed(mode, ex.Message);
         }
         finally
@@ -902,7 +902,7 @@ public sealed class EmulationService : IEmulationService
         }
         catch (Exception ex)
         {
-            _log.LogExceptionDetails(ex);
+            _log.Error($"Failed to attach the emulated {mode} device", ex);
         }
 
         if (creation is not null)
@@ -1508,7 +1508,7 @@ public sealed class EmulationService : IEmulationService
         }
         catch (Exception ex)
         {
-            _log.LogExceptionDetails(ex);
+            _log.Error("Failed to start the Emulation server", ex);
             server?.Dispose();
             return false;
         }
