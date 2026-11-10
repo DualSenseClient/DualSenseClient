@@ -285,7 +285,7 @@ public sealed class NotificationPopupService : INotificationPopupService
                         }
                         catch (Exception ex)
                         {
-                            _log.Warning("Failed to close sticky notification popup", ex);
+                            _log.Debug("Failed to close sticky notification popup", ex);
                         }
                     }
                 }
@@ -337,7 +337,7 @@ public sealed class NotificationPopupService : INotificationPopupService
             }
             catch (Exception ex)
             {
-                _log.Warning("Failed to close sticky notification popup", ex);
+                _log.Debug("Failed to close sticky notification popup", ex);
             }
         });
     }
@@ -451,7 +451,7 @@ public sealed class NotificationPopupService : INotificationPopupService
             }
             catch (Exception ex)
             {
-                _log.Warning("Failed to close notification popup", ex);
+                _log.Debug("Failed to close notification popup", ex);
             }
         });
     }

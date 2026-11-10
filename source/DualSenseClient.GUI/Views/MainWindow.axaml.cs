@@ -118,7 +118,7 @@ public partial class MainWindow : FAAppWindow
         }
         catch (Exception ex)
         {
-            _log.Warning("Failed to show what's-new popup", ex);
+            _log.Warning("Failed during first-open setup (what's-new or backdrop)", ex);
         }
     }
 
@@ -160,7 +160,7 @@ public partial class MainWindow : FAAppWindow
         }
         catch (Exception ex)
         {
-            _log.Warning("Skipping what's-new popup", ex);
+            _log.Warning("Skipping what's-new popup and continuing startup", ex);
         }
     }
 

@@ -125,13 +125,13 @@ public sealed class TouchpadMouseCoordinator : IDisposable
                         engine = new TouchpadMouseEngine(_injectorFactory(), CreateOptions(settings));
                         engine.Attach(device);
                         _engines.Add(device, engine);
-                        _log.Info($"Touchpad mouse enabled for {device.Info.ProductName}");
+                        _log.Debug($"Touchpad mouse enabled for {device.Info.ProductName}");
                     }
                 }
                 else if (_engines.Remove(device, out TouchpadMouseEngine? disabled))
                 {
                     DisposeEngine(disabled);
-                    _log.Info($"Touchpad mouse disabled for {device.Info.ProductName}");
+                    _log.Debug($"Touchpad mouse disabled for {device.Info.ProductName}");
                 }
 
                 _specialActions.SetTouchpadActionsSuspended(device, enabled);

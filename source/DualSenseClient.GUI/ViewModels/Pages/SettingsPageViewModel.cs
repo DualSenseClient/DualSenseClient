@@ -114,7 +114,7 @@ public partial class SettingsPageViewModel : ObservableObject
             return;
         }
 
-        _log.Info($"Language changed to '{AppLanguages[newValue].Culture.Name}'");
+        _log.Debug($"Language changed to '{AppLanguages[newValue].Culture.Name}'");
 
         LocalizationService.LoadLanguage(AppLanguages[newValue].Culture.Name);
         _settingsService.Settings.Ui.Language = AppLanguages[newValue].Culture.Name;
@@ -151,7 +151,7 @@ public partial class SettingsPageViewModel : ObservableObject
             return;
         }
 
-        _log.Info($"Theme changed from '{oldValue}' to '{newValue}'");
+        _log.Debug($"Theme changed from '{oldValue}' to '{newValue}'");
         OnPropertyChanged(nameof(SelectedThemeIndex));
         OnPropertyChanged(nameof(IsMicaOptionVisible));
     }
@@ -232,7 +232,7 @@ public partial class SettingsPageViewModel : ObservableObject
                 return;
             }
 
-            _log.Info($"Mica backdrop changed to '{value}'");
+            _log.Debug($"Mica backdrop changed to '{value}'");
             _settingsService.Settings.Ui.Mica = value;
             _settingsService.SaveSettings();
             OnPropertyChanged();
@@ -317,7 +317,7 @@ public partial class SettingsPageViewModel : ObservableObject
             return;
         }
 
-        _log.Info($"Close to tray changed to '{newValue}'");
+        _log.Debug($"Close to tray changed to '{newValue}'");
         _settingsService.Settings.Ui.CloseToTray = newValue;
         _settingsService.SaveSettings();
     }
@@ -338,7 +338,7 @@ public partial class SettingsPageViewModel : ObservableObject
             return;
         }
 
-        _log.Info($"Start in tray changed to '{newValue}'");
+        _log.Debug($"Start in tray changed to '{newValue}'");
         _settingsService.Settings.Ui.StartInTray = newValue;
         _settingsService.SaveSettings();
     }
@@ -359,7 +359,7 @@ public partial class SettingsPageViewModel : ObservableObject
             return;
         }
 
-        _log.Info($"Show battery percentage changed to '{newValue}'");
+        _log.Debug($"Show battery percentage changed to '{newValue}'");
         _settingsService.Settings.Ui.ShowBatteryPercentage = newValue;
         _settingsService.SaveSettings();
     }
@@ -381,7 +381,7 @@ public partial class SettingsPageViewModel : ObservableObject
             return;
         }
 
-        _log.Info($"Notifications changed to '{newValue}'");
+        _log.Debug($"Notifications changed to '{newValue}'");
         _settingsService.Settings.Ui.Notifications.Enabled = newValue;
         _settingsService.SaveSettings();
     }
@@ -402,7 +402,7 @@ public partial class SettingsPageViewModel : ObservableObject
             return;
         }
 
-        _log.Info($"Notify on connection changed to '{newValue}'");
+        _log.Debug($"Notify on connection changed to '{newValue}'");
         _settingsService.Settings.Ui.Notifications.NotifyOnConnection = newValue;
         _settingsService.SaveSettings();
     }
@@ -423,7 +423,7 @@ public partial class SettingsPageViewModel : ObservableObject
             return;
         }
 
-        _log.Info($"Notify on low battery changed to '{newValue}'");
+        _log.Debug($"Notify on low battery changed to '{newValue}'");
         _settingsService.Settings.Ui.Notifications.NotifyOnLowBattery = newValue;
         _settingsService.SaveSettings();
     }
@@ -444,7 +444,7 @@ public partial class SettingsPageViewModel : ObservableObject
             return;
         }
 
-        _log.Info($"Notify on charge changed to '{newValue}'");
+        _log.Debug($"Notify on charge changed to '{newValue}'");
         _settingsService.Settings.Ui.Notifications.NotifyOnCharge = newValue;
         _settingsService.SaveSettings();
     }
@@ -466,7 +466,7 @@ public partial class SettingsPageViewModel : ObservableObject
         }
 
         int threshold = (int)Math.Round(newValue);
-        _log.Info($"Low battery threshold changed to '{threshold}'");
+        _log.Debug($"Low battery threshold changed to {threshold}%");
         _settingsService.Settings.Ui.Notifications.LowBatteryThreshold = threshold;
         _settingsService.SaveSettings();
     }
@@ -488,7 +488,7 @@ public partial class SettingsPageViewModel : ObservableObject
         }
 
         int threshold = (int)Math.Round(newValue);
-        _log.Info($"Charge threshold changed to '{threshold}'");
+        _log.Debug($"Charge threshold changed to {threshold}%");
         _settingsService.Settings.Ui.Notifications.ChargeThreshold = threshold;
         _settingsService.SaveSettings();
     }
@@ -529,7 +529,7 @@ public partial class SettingsPageViewModel : ObservableObject
         }
 
         NotificationPosition position = PositionOrder[newValue];
-        _log.Info($"Notification position changed to '{position}'");
+        _log.Debug($"Notification position changed to '{position}'");
         _settingsService.Settings.Ui.Notifications.Position = position;
         _settingsService.SaveSettings();
     }
@@ -551,7 +551,7 @@ public partial class SettingsPageViewModel : ObservableObject
             return;
         }
 
-        _log.Info($"Auto check for updates changed to '{newValue}'");
+        _log.Debug($"Auto check for updates changed to '{newValue}'");
         _settingsService.Settings.Update.AutomaticCheck = newValue;
         _settingsService.SaveSettings();
     }
@@ -573,7 +573,7 @@ public partial class SettingsPageViewModel : ObservableObject
             return;
         }
 
-        _log.Info($"Update channel changed to '{(newValue ? "nightly" : "stable")}'");
+        _log.Debug($"Update channel changed to '{(newValue ? "nightly" : "stable")}'");
         _settingsService.Settings.Update.NightlyVersion = newValue;
         _settingsService.SaveSettings();
         ClearPendingUpdate();
@@ -758,7 +758,7 @@ public partial class SettingsPageViewModel : ObservableObject
         }
 
         int seconds = (int)Math.Round(newValue);
-        _log.Info($"Notification duration changed to '{seconds}'");
+        _log.Debug($"Notification duration changed to {seconds} s");
         _settingsService.Settings.Ui.Notifications.Duration = seconds;
         _settingsService.SaveSettings();
     }
@@ -857,7 +857,7 @@ public partial class SettingsPageViewModel : ObservableObject
                 await DownloadWithProgressAsync(release.Tag, assetUrl, downloadPath, cts.Token);
                 if (!await UpdateInstaller.VerifyHashAsync(downloadPath, assetUrl, token: cts.Token))
                 {
-                    _log.Warning($"Update {release.Tag} failed hash verification");
+                    _log.Error($"Update {release.Tag} failed hash verification or its sidecar was unavailable");
                     await _messageBox.ShowErrorAsync(
                         LocalizationService.GetText("Notification.Update.Failed.Title"),
                         LocalizationService.GetText("Notification.Update.Failed.Message"));
@@ -899,13 +899,13 @@ public partial class SettingsPageViewModel : ObservableObject
                 }
                 catch (Exception ex)
                 {
-                    _log.Error($"Could not delete update temp directory '{tempDir}'", ex);
+                    _log.Debug($"Could not delete update temp directory '{tempDir}'", ex);
                 }
             }
         }
         catch (Exception ex)
         {
-            _log.Warning($"Update {release.Tag} failed", ex);
+            _log.Error($"Update {release.Tag} failed while installing or restarting", ex);
             await _messageBox.ShowErrorAsync(
                 LocalizationService.GetText("Notification.Update.Failed.Title"),
                 LocalizationService.GetText("Notification.Update.Failed.Message"));

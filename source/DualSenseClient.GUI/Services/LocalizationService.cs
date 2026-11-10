@@ -114,7 +114,7 @@ public static class LocalizationService
 
                 if (removed > 0)
                 {
-                    _log.Warning($"Language '{langCode}': {removed} untranslated string(s) will fall back to '{DefaultLanguageCode}'");
+                    _log.Debug($"Language '{langCode}': {removed} untranslated string(s) will fall back to '{DefaultLanguageCode}'");
                 }
 
                 merged.Add(_currentOverlay);
@@ -183,7 +183,7 @@ public static class LocalizationService
     {
         if (_defaultLanguage is null || string.IsNullOrEmpty(_baseUri))
         {
-            _log.Warning("LocalizationService has not been initialized");
+            _log.Debug("LocalizationService initializing lazily");
             _log.Info($"Initializing LocalizationService with baseUri: {_baseUri}");
             Initialize(_baseUri);
         }

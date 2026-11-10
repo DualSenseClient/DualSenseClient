@@ -251,7 +251,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
             }
 
             string skin = Skins[value];
-            _log.Info($"Setting illustration skin of {CurrentMac} to '{skin}'");
+            _log.Debug($"Setting illustration skin of {CurrentMac} to '{skin}'");
             _skinIndex = value;
             _controllerService.SetSkin(CurrentKey, skin);
             OnPropertyChanged();
@@ -560,7 +560,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         selected.FirmwareInfo = FeatureReader.ReadFirmwareInfo(selected.Device);
         if (selected.FirmwareInfo is null)
         {
-            _log.Warning("Firmware info refresh returned no data");
+            _log.Warning($"Firmware info refresh returned no data for {CurrentMac}");
         }
 
         UpdateDevice();

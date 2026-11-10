@@ -242,7 +242,7 @@ public class ThemeService
 
         Application.Current!.Resources.MergedDictionaries.Add(dictionary);
         _activeDictionary = dictionary;
-        _log.Info($"Applied theme resources for {theme}");
+        _log.Debug($"Applied theme resources for {theme}");
     }
 
     /// <summary>

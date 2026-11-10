@@ -158,7 +158,7 @@ public sealed class AutoProfileCoordinator : IDisposable
         }
         catch (Exception ex)
         {
-            _log.Error("Auto profile poll failed", ex);
+            _log.Error("Auto profile poll failed; retrying on the next tick", ex);
         }
         finally
         {
@@ -304,7 +304,7 @@ public sealed class AutoProfileCoordinator : IDisposable
         }
         else
         {
-            _log.Warning($"Auto profile '{profileName}' not found; leaving lights unchanged");
+            _log.Warning($"Auto profile '{profileName}' not found for {device.Info.ProductName}; leaving lights unchanged");
         }
 
         _emulation.SetTemporaryOverride(device, new EmulationOverride(
@@ -494,7 +494,7 @@ public sealed class AutoProfileCoordinator : IDisposable
             }
             catch (Exception ex)
             {
-                _log.Debug("Failed to restore hidden state on dispose", ex);
+                _log.Warning($"Failed to restore HidHide state for {device.Info.ProductName}; it may stay hidden from games", ex);
             }
         }
 

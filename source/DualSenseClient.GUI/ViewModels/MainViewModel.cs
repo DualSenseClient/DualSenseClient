@@ -225,7 +225,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     AddController(controller);
                 }
 
-                _log.Info($"Found {Controllers.Count} controller(s) on initial scan");
+                _log.Debug($"Initial scan produced {Controllers.Count} controller(s)");
 
                 string? activePath = _tracker.ActiveController?.Info.Path;
                 if (activePath is not null)
@@ -307,7 +307,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        _log.Info($"Applying the bound profile to {device.Info.ProductName}");
+        _log.Debug($"Applying profile activation to {device.Info.ProductName}");
         _profileActivation.Activate(device);
     }
 
@@ -352,7 +352,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             string displayName = _controllerService.GetDisplayName(ControllerKeyFactory.From(controller),
                 controller.Info.ProductName);
             _popups.ShowConnection(displayName, controller.ConnectionType.ToString(), true);
-            _log.Info($"Controller connected: {controller.Info.ProductName}");
+            _log.Debug($"Controller connected: {controller.Info.ProductName} ({controller.ConnectionType})");
 
             SelectedItem ??= Controllers[^1];
             // Fix for Steam applying their own color profile when the device connects
@@ -419,7 +419,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     string displayName = _controllerService.GetDisplayName(ControllerKey.From(null, e.Info.Path),
                         e.Info.ProductName);
                     _popups.ShowConnection(displayName, e.Info.BusType.ToString(), false);
-                    _log.Info($"Controller disconnected: {e.Info.ProductName}");
+                    _log.Debug($"Controller disconnected: {e.Info.ProductName} ({e.Info.BusType})");
                     break;
                 }
             }

@@ -421,7 +421,7 @@ public partial class CustomizationPageViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _log.Error("Failed to export special actions", ex);
+            _log.Error($"Failed to export special actions to '{path}'", ex);
             await _messageBox.ShowErrorAsync(
                 LocalizationService.GetText("CustomizationPage.SpecialActions.Export.Error.Title"),
                 LocalizationService.GetText("CustomizationPage.SpecialActions.Export.Error.Message"));
@@ -441,7 +441,7 @@ public partial class CustomizationPageViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _log.Error($"Failed to export special action '{item.Action.Name}'", ex);
+            _log.Error($"Failed to export special action '{item.Action.Name}' to '{path}'", ex);
             await _messageBox.ShowErrorAsync(
                 LocalizationService.GetText("CustomizationPage.SpecialActions.Export.Error.Title"),
                 LocalizationService.GetText("CustomizationPage.SpecialActions.Export.Error.Message"));
@@ -473,7 +473,7 @@ public partial class CustomizationPageViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _log.Error("Failed to import special actions", ex);
+            _log.Error($"Failed to import special actions from '{path}'", ex);
             await _messageBox.ShowErrorAsync(
                 LocalizationService.GetText("CustomizationPage.SpecialActions.Import.Error.Title"),
                 LocalizationService.GetText("CustomizationPage.SpecialActions.Import.Error.Message"));
@@ -592,7 +592,7 @@ public partial class CustomizationPageViewModel : ObservableObject
             return;
         }
 
-        _log.Info($"Applying the bound profile to {CurrentMac}");
+        _log.Info($"Applying the active profile to {CurrentMac}");
         _profileActivation.Activate(device);
     }
 
@@ -752,7 +752,7 @@ public partial class CustomizationPageViewModel : ObservableObject
                 return;
             }
 
-            _log.Info($"Setting forwarded audio output of {CurrentMac} to {output}");
+            _log.Debug($"Setting forwarded audio output of {CurrentMac} to {output}");
             settings.Forward.AudioOutput = output;
             _controllerService.SaveEmulationSettings(CurrentKey, settings);
             OnPropertyChanged(nameof(ForwardAudioOutputIndex));
@@ -883,7 +883,7 @@ public partial class CustomizationPageViewModel : ObservableObject
                 return;
             }
 
-            _log.Info($"Setting forwarded audio packet mode of {CurrentMac} to {mode}");
+            _log.Debug($"Setting forwarded audio packet mode of {CurrentMac} to {mode}");
             settings.Forward.PacketMode = mode;
             ScheduleEmulationSave();
             OnPropertyChanged(nameof(ForwardAudioPacketModeIndex));
@@ -944,7 +944,7 @@ public partial class CustomizationPageViewModel : ObservableObject
                 return;
             }
 
-            _log.Info($"Setting audio-only haptics of {CurrentMac} to {value}");
+            _log.Debug($"Setting forced audio-derived haptics of {CurrentMac} to {value}");
             settings.Forward.ForceAudioHaptics = value;
             _controllerService.SaveEmulationSettings(CurrentKey, settings);
             OnPropertyChanged(nameof(ForceAudioHaptics));
@@ -977,7 +977,7 @@ public partial class CustomizationPageViewModel : ObservableObject
                 return;
             }
 
-            _log.Info($"Setting forwarded audio source of {CurrentMac} to {source}");
+            _log.Debug($"Setting forwarded audio source of {CurrentMac} to {source}");
             settings.Forward.AudioSource = source;
             _controllerService.SaveEmulationSettings(CurrentKey, settings);
             OnPropertyChanged(nameof(ForwardAudioSourceIndex));
@@ -1034,7 +1034,7 @@ public partial class CustomizationPageViewModel : ObservableObject
                 return;
             }
 
-            _log.Info($"Setting forwarded audio application mode of {CurrentMac} to {mode}");
+            _log.Debug($"Setting forwarded audio application mode of {CurrentMac} to {mode}");
             settings.Forward.AudioAppMode = mode;
             _controllerService.SaveEmulationSettings(CurrentKey, settings);
             OnPropertyChanged(nameof(ForwardAudioAppModeIndex));
@@ -1226,7 +1226,7 @@ public partial class CustomizationPageViewModel : ObservableObject
             return;
         }
 
-        _log.Info($"Setting forwarded audio application of {CurrentMac} to '{applicationPath}'");
+        _log.Debug($"Setting forwarded audio application of {CurrentMac} to '{applicationPath}'");
         settings.Forward.AudioApp = applicationPath;
         _controllerService.SaveEmulationSettings(CurrentKey, settings);
         OnPropertyChanged(nameof(ForwardAudioAppIndex));
