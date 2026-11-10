@@ -507,7 +507,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     /// <param name="ct">Cancellation token to signal when the loop should stop.</param>
     private void ReadLoop(CancellationToken ct)
     {
-        _log.Debug("Read Loop Start");
+        _log.Debug($"Read loop started for {Info.ProductName} ({ConnectionType})");
         // Size by input, not output: USB 0x01 is 64B while the USB output report is
         // 48B (DualSense) or 64B (Edge); BT 0x31 fills 78B. A 63B buffer would truncate
         // the USB AES tail needed for verbatim raw passthrough.
@@ -542,7 +542,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
                 // A failed read is the normal symptom of the controller being
                 // unplugged or the link dropping, so log it as a disconnect
                 // rather than an error.
-                _log.Warning($"Read failed for {Info.ProductName}; controller disconnected", ex);
+                _log.Warning($"Input link lost for {Info.ProductName} ({ConnectionType}); read loop stopping", ex);
                 break;
             }
             catch (Exception ex)
@@ -560,7 +560,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
             Volatile.Write(ref _linkLost, 1);
         }
 
-        _log.Debug("Read Loop End");
+        _log.Debug($"Read loop ended for {Info.ProductName} (cancelled={ct.IsCancellationRequested}, linkLost={IsLinkLost})");
     }
 
     /// <summary>
@@ -581,7 +581,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
                 case 0x31:
                     if (bytesRead < 2 + 63)
                     {
-                        _log.Warning($"Dropping truncated Bluetooth input report ({bytesRead} byte(s))");
+                        _log.Warning($"{Info.ProductName}: dropping truncated Bluetooth input report: {bytesRead} byte(s), expected at least {2 + 63}");
                         return;
                     }
 
@@ -590,7 +590,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
                     // stale or mangled state to the application.
                     if (bytesRead >= 78 && !HasValidBluetoothInputCrc(data))
                     {
-                        _log.Warning("Dropping Bluetooth input report with an invalid CRC");
+                        _log.Warning($"{Info.ProductName}: dropping Bluetooth input report with an invalid CRC ({bytesRead} byte(s))");
                         return;
                     }
 
@@ -604,10 +604,11 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
                     offset = 2;
                     break;
                 case 0x01:
-                    _log.Warning("Controller is in simple Bluetooth state");
+                    _log.Warning(
+                        $"{Info.ProductName}: controller is in simple Bluetooth mode; input is ignored until feature report 0x05 moves it to the full 0x31 report");
                     return;
                 default:
-                    _log.Warning($"Unknown Bluetooth report ID: 0x{reportId:X2}");
+                    _log.Warning($"{Info.ProductName}: unknown Bluetooth report ID 0x{reportId:X2} ({bytesRead} byte(s))");
                     return;
             }
         }
@@ -615,7 +616,8 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         {
             if (reportId != 0x01 || bytesRead < 1 + 63)
             {
-                _log.Warning($"Invalid USB input report ID 0x{reportId:X2} or truncated length {bytesRead}");
+                _log.Warning(
+                    $"{Info.ProductName}: invalid USB input report: ID 0x{reportId:X2}, {bytesRead} byte(s); expected ID 0x01 with at least {1 + 63} bytes");
                 return;
             }
 
@@ -769,9 +771,9 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
                     : OutputReport.ForUsb(payload, IsEdge ? 63 : SetStateData.PayloadSize);
                 _outputSequence = (byte)((_outputSequence + 1) & 0x0F);
 
-                if (_log.IsEnabled(LogLevel.Debug))
+                if (_log.IsEnabled(LogLevel.Trace))
                 {
-                    _log.Debug($"Sending output report 0x{report.Raw[0]:X2} ({report.Length} byte(s))");
+                    _log.Trace($"Sending output report 0x{report.Raw[0]:X2} ({report.Length} byte(s))");
                 }
 
                 SendOutput(report.Raw, 0, report.Length);
@@ -831,7 +833,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         _lightbarEffect.Apply(lightbar);
 
         _log.Debug(
-            $"Applying profile: {lightbar.Mode} RGB({baseRed}, {baseGreen}, {baseBlue}), mic LED {profile.MicLed.Mode}, player LEDs {profile.PlayerLeds.Mask}");
+            $"Applying profile '{profile.Name}' to {Info.ProductName}: {lightbar.Mode} RGB({baseRed}, {baseGreen}, {baseBlue}), mic LED {profile.MicLed.Mode}, player LEDs {profile.PlayerLeds.Mask}");
 
         try
         {
@@ -1317,9 +1319,11 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         {
             SetVibration(0, 0);
         }
-        catch
+        catch (Exception ex)
         {
-            //
+            // The link may already be gone; the motors will stop when it drops.
+            // Keep the reason at Debug so a disposal bug is still diagnosable.
+            _log.Debug($"Stopping vibration during dispose failed for {Info.ProductName}", ex);
         }
 
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
@@ -1335,7 +1339,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         // blocked in hid_read_timeout corrupts the pending native I/O and AVs.
         if (!_readThread.Join(TimeSpan.FromSeconds(2)))
         {
-            _log.Warning($"Read loop for {Info.ProductName} did not stop cleanly on dispose");
+            _log.Error($"Read loop for {Info.ProductName} did not stop within 2 s; closing the HID handle anyway");
         }
 
         base.Dispose();

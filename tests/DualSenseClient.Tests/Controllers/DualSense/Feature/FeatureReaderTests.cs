@@ -103,6 +103,21 @@ public class FeatureReaderTests
         Assert.That(info!.Value.ClientMac, Is.EqualTo("02:D5:11:22:33:44"));
     }
 
+    [Test]
+    public void ReadFirmwareInfo_FeatureReadAndProductNameThrow_ReturnsNull()
+    {
+        // A disposed controller makes both the feature read and the product-name
+        // lookup fail. Logging the failure must not replace the reader's null result
+        // with a HidException.
+        FakeControllerDevice device = new FakeControllerDevice(new byte[0])
+        {
+            ThrowOnGetFeatureReport = true,
+            ThrowOnGetProductName = true
+        };
+
+        Assert.That(FeatureReader.ReadFirmwareInfo(device), Is.Null);
+    }
+
     private static byte[] CreateSignedFirmwareReport()
     {
         byte[] report = new byte[64];
@@ -138,6 +153,16 @@ public class FeatureReaderTests
         }
 
         public ConnectionType ConnectionType { get; set; } = ConnectionType.Usb;
+
+        /// <summary>
+        /// When <c>true</c>, <see cref="GetProductName"/> throws like a disposed controller.
+        /// </summary>
+        public bool ThrowOnGetProductName { get; set; }
+
+        /// <summary>
+        /// When <c>true</c>, <see cref="GetFeatureReport"/> throws like a dropped link.
+        /// </summary>
+        public bool ThrowOnGetFeatureReport { get; set; }
 
         public FakeControllerDevice WithReport(byte reportId, byte[] report)
         {
@@ -195,13 +220,16 @@ public class FeatureReaderTests
             Task.FromResult(0);
 
         public byte[] GetFeatureReport(byte reportId, int bufferSize = 64) =>
-            _reports.GetValueOrDefault(reportId, []);
+            ThrowOnGetFeatureReport
+                ? throw new HidException("simulated feature read failure")
+                : _reports.GetValueOrDefault(reportId, []);
 
         public void SendFeatureReport(byte[] buffer, int offset, int count)
         {
         }
 
-        public string GetProductName() => "Test";
+        public string GetProductName() =>
+            ThrowOnGetProductName ? throw new HidException("simulated product name failure") : "Test";
 
         public bool DisconnectController() => false;
 

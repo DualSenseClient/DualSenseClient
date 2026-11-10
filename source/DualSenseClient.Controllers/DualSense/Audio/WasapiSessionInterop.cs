@@ -57,28 +57,47 @@ internal static class WasapiSessionInterop
         IAudioSessionEnumerator? sessions = null;
         try
         {
-            if (CreateDeviceEnumerator() is not { } deviceEnumerator)
+            if (CreateDeviceEnumerator(logWarning) is not { } deviceEnumerator)
             {
                 return processIds;
             }
 
             enumerator = deviceEnumerator;
-            if (enumerator.GetDefaultAudioEndpoint(DataFlowRender, RoleConsole, out device) < 0 || device is null)
+            int endpointHr = enumerator.GetDefaultAudioEndpoint(DataFlowRender, RoleConsole, out device);
+            if (endpointHr < 0 || device is null)
             {
+                logDebug(
+                    $"GetDefaultAudioEndpoint returned HRESULT 0x{endpointHr:X8}{(device is null ? " and no endpoint" : string.Empty)}; no render device is available");
                 return processIds;
             }
 
             Guid managerIid = AudioSessionManager2Iid;
-            if (device.Activate(ref managerIid, ClsCtxInProcServer, IntPtr.Zero, out managerObject) < 0
-                || managerObject is not IAudioSessionManager2 sessionManager)
+            int activateHr = device.Activate(ref managerIid, ClsCtxInProcServer, IntPtr.Zero, out managerObject);
+            if (activateHr < 0 || managerObject is not IAudioSessionManager2 sessionManager)
             {
+                string type = managerObject is null ? "null" : managerObject.GetType().FullName ?? "unknown";
+                logWarning(
+                    $"IMMDevice::Activate(IAudioSessionManager2) failed: HRESULT 0x{activateHr:X8}, result type {type}; the application list will be empty",
+                    null);
                 return processIds;
             }
 
             manager = sessionManager;
-            if (manager.GetSessionEnumerator(out sessions) < 0 || sessions is null
-                                                               || sessions.GetCount(out int count) < 0)
+            int enumeratorHr = manager.GetSessionEnumerator(out sessions);
+            if (enumeratorHr < 0 || sessions is null)
             {
+                logWarning(
+                    $"IAudioSessionManager2::GetSessionEnumerator failed: HRESULT 0x{enumeratorHr:X8}; the application list will be empty",
+                    null);
+                return processIds;
+            }
+
+            int countHr = sessions.GetCount(out int count);
+            if (countHr < 0)
+            {
+                logWarning(
+                    $"IAudioSessionEnumerator::GetCount failed: HRESULT 0x{countHr:X8}; the application list will be empty",
+                    null);
                 return processIds;
             }
 
@@ -87,19 +106,29 @@ internal static class WasapiSessionInterop
                 object? session = null;
                 try
                 {
-                    if (sessions.GetSession(i, out session) < 0 || session is not IAudioSessionControl2 control)
+                    int sessionHr = sessions.GetSession(i, out session);
+                    if (sessionHr < 0 || session is not IAudioSessionControl2 control)
                     {
+                        logDebug(
+                            $"Skipping audio session {i}: GetSession returned HRESULT 0x{sessionHr:X8}{(session is null ? " and no object" : $", type {session.GetType().FullName}")}");
                         continue;
                     }
 
                     // IsSystemSoundsSession returns S_OK (0) for the system-sounds
                     // session, S_FALSE (1) otherwise.
-                    if (control.IsSystemSoundsSession() != 0
-                        && control.GetProcessId(out uint processId) >= 0
-                        && processId != 0)
+                    if (control.IsSystemSoundsSession() == 0)
                     {
-                        processIds.Add((int)processId);
+                        continue;
                     }
+
+                    int processHr = control.GetProcessId(out uint processId);
+                    if (processHr < 0 || processId == 0)
+                    {
+                        logDebug($"Skipping audio session {i}: GetProcessId returned HRESULT 0x{processHr:X8} and PID {processId}");
+                        continue;
+                    }
+
+                    processIds.Add((int)processId);
                 }
                 finally
                 {
@@ -111,7 +140,7 @@ internal static class WasapiSessionInterop
         }
         catch (Exception ex)
         {
-            logWarning("Enumerating audio sessions failed", ex);
+            logWarning("Enumerating audio sessions failed; the application list will be empty", ex);
         }
         finally
         {
@@ -127,9 +156,11 @@ internal static class WasapiSessionInterop
 
     /// <summary>
     /// Creates the default audio endpoint enumerator, or <c>null</c> when the COM class
-    /// is unavailable.
+    /// is unavailable. Failures are reported through <paramref name="logWarning"/> with
+    /// the failing HRESULT so an empty picker can be diagnosed.
     /// </summary>
-    private static IMMDeviceEnumerator? CreateDeviceEnumerator()
+    /// <param name="logWarning">Receives a failure message and optional exception.</param>
+    private static IMMDeviceEnumerator? CreateDeviceEnumerator(Action<string, Exception?> logWarning)
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -142,19 +173,33 @@ internal static class WasapiSessionInterop
         try
         {
             int hr = CoCreateInstance(ref clsid, IntPtr.Zero, ClsCtxInProcServer, ref iid, out instance);
+            if (hr < 0)
+            {
+                ReleaseComObject(instance);
+                logWarning(
+                    $"CoCreateInstance(MMDeviceEnumerator) failed: HRESULT 0x{hr:X8}; the application list will be empty",
+                    null);
+                return null;
+            }
+
             // The returned RCW is the caller's to release: releasing it here would hand
             // back a detached RCW whose every call throws InvalidComObjectException.
             IMMDeviceEnumerator? enumerator = instance as IMMDeviceEnumerator;
             if (enumerator is null)
             {
+                string type = instance is null ? "null" : instance.GetType().FullName ?? "unknown";
                 ReleaseComObject(instance);
+                logWarning(
+                    $"CoCreateInstance(MMDeviceEnumerator) returned an unexpected type {type}; the application list will be empty",
+                    null);
             }
 
             return enumerator;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             ReleaseComObject(instance);
+            logWarning("Creating the audio device enumerator failed; the application list will be empty", ex);
             return null;
         }
     }

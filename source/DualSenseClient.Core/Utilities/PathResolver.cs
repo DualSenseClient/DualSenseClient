@@ -77,7 +77,7 @@ public static class PathResolver
         }
 
         string fallbackDir = Directory.GetCurrentDirectory();
-        _log.Debug($"Base directory resolved from current working directory: '{fallbackDir}'");
+        _log.Warning($"Base directory is not usable; storing configuration in the current working directory: '{fallbackDir}'");
         return fallbackDir;
     }
 

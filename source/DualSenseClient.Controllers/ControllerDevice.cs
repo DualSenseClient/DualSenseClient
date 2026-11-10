@@ -283,18 +283,18 @@ public abstract class ControllerDevice(IHidDevice device, IHidDeviceInfo info) :
     {
         if (ConnectionType != ConnectionType.Bluetooth)
         {
-            _log.Warning($"{GetProductName()} is not connected via Bluetooth, nothing to disconnect");
+            _log.Debug($"{GetProductName()} is not connected via Bluetooth, nothing to disconnect");
             return false;
         }
 
         string? mac = BluetoothMacAddress;
         if (string.IsNullOrEmpty(mac))
         {
-            _log.Warning($"Could not read the Bluetooth MAC address of {GetProductName()}");
+            _log.Debug($"Could not read the Bluetooth MAC address of {GetProductName()}; disconnect request ignored");
             return false;
         }
 
-        _log.Info($"Disconnecting Bluetooth controller {GetProductName()} ({mac})");
+        _log.Info($"Requesting Bluetooth disconnect for {GetProductName()} ({mac})");
         return BluetoothService.Disconnect(mac);
     }
 

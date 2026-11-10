@@ -142,7 +142,7 @@ public sealed class SystemOutputAudioCapture : IDisposable, IForwardedAudioCaptu
     {
         if (!OperatingSystem.IsWindows())
         {
-            _log.Warning("System output loopback capture is only available on Windows");
+            _log.Debug("System output loopback capture is only available on Windows; capture not started");
             return false;
         }
 
@@ -162,7 +162,9 @@ public sealed class SystemOutputAudioCapture : IDisposable, IForwardedAudioCaptu
             }
             catch (Exception ex)
             {
-                _log.Warning("Could not open the system output loopback capture", ex);
+                _log.Warning(
+                    $"Could not open the system output loopback capture ({RequestFormat.Channels}-channel, {RequestFormat.SampleRate} Hz); forwarded system audio is unavailable",
+                    ex);
                 if (device is not null)
                 {
                     device.OnAudioProcessed -= _callback;
@@ -324,7 +326,7 @@ public sealed class SystemOutputAudioCapture : IDisposable, IForwardedAudioCaptu
         {
             _firstChunkLogged = true;
             _statsTimestamp = now;
-            _log.Info($"System output capture first chunk ({capability}): {frames} frames, {nonZero}/{stereo.Length} non-zero samples");
+            _log.Debug($"System output capture first chunk ({capability}): {frames} frames, {nonZero}/{stereo.Length} non-zero samples");
         }
         else if (now - _statsTimestamp >= Stopwatch.Frequency * 2)
         {

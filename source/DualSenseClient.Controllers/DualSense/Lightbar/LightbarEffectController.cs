@@ -249,7 +249,7 @@ public sealed class LightbarEffectController : IDisposable
             }
             catch (Exception ex)
             {
-                _log.Error("Lightbar effect frame failed", ex);
+                _log.Error($"Lightbar effect frame failed for {_device.Info.ProductName}; stopping the effect", ex);
                 StopLocked();
             }
         }
@@ -292,7 +292,7 @@ public sealed class LightbarEffectController : IDisposable
         }
         catch (HidException ex)
         {
-            _log.Error("Failed to send lightbar effect frame", ex);
+            _log.Error($"Failed to send lightbar effect frame to {_device.Info.ProductName}", ex);
         }
         catch (ObjectDisposedException)
         {

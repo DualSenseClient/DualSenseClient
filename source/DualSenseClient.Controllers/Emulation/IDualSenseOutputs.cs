@@ -167,6 +167,7 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
     /// <inheritdoc/>
     public void SendOutputState(SetStateData payload)
     {
+        HidException? failure = null;
         lock (_writeLock)
         {
             try
@@ -177,10 +178,15 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
             catch (HidException ex)
             {
                 // A dropped link (e.g. Bluetooth disconnect) makes the write fail;
-                // log instead of letting the exception escape the engine's callback
-                // thread and crash the process.
-                _log.Error("Failed to send output state to the physical controller", ex);
+                // capture the exception and log after releasing the lock so an
+                // unbuffered Error flush cannot stall the shared write lane.
+                failure = ex;
             }
+        }
+
+        if (failure is not null)
+        {
+            _log.Error($"Failed to send output state to {_device.Info.ProductName}", failure);
         }
     }
 

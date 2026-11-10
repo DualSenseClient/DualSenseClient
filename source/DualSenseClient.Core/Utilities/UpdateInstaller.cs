@@ -146,7 +146,7 @@ public static class UpdateInstaller
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
-            _log.Warning($"No {HashSuffix} sidecar for '{assetUrl}'");
+            _log.Warning($"No {HashSuffix} sidecar for '{assetUrl}'; installing without verification");
             return true;
         }
         catch (Exception ex)
@@ -211,7 +211,7 @@ public static class UpdateInstaller
         }
         catch (Exception ex)
         {
-            _log.Error($"Could not delete stale update backup '{backup}'", ex);
+            _log.Warning($"Could not delete stale update backup '{backup}'; continuing, but the swap will fail while it is locked", ex);
         }
 
         File.Move(exePath, backup);
@@ -228,7 +228,7 @@ public static class UpdateInstaller
             }
             catch (Exception restoreEx)
             {
-                _log.Error($"Could not restore update backup '{backup}'", restoreEx);
+                _log.Critical($"Could not restore update backup '{backup}'; the install is left without an executable", restoreEx);
             }
 
             throw;

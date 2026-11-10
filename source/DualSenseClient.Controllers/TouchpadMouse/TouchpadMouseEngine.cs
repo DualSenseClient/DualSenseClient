@@ -144,7 +144,7 @@ public sealed class TouchpadMouseEngine : IDisposable
 
             if (logFailure)
             {
-                _log.Error("Touchpad mouse input handling failed", ex);
+                _log.Error($"Touchpad mouse input handling failed for {_device?.Info.ProductName ?? "the controller"}", ex);
             }
         }
     }

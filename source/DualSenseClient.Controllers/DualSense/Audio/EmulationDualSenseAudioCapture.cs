@@ -196,10 +196,14 @@ public sealed class EmulationDualSenseAudioCapture : IDisposable, IVirtualAudioC
             {
                 _firstChunkLogged = true;
                 _statsTimestamp = now;
-                string head = string.Join(
-                    " ",
-                    _rawScratch.AsSpan(0, Math.Min(16, byteCount)).ToArray().Select(b => b.ToString("X2")));
-                _log.Info($"Emulation audio capture first chunk: {byteCount} bytes, {samples} stereo samples, {nonZero}/{samples} non-zero; head {head}");
+                _log.Debug($"Emulation audio capture first chunk: {byteCount} bytes, {samples} stereo samples, {nonZero}/{samples} non-zero");
+                if (_log.IsEnabled(LogLevel.Trace))
+                {
+                    string head = string.Join(
+                        " ",
+                        _rawScratch.AsSpan(0, Math.Min(16, byteCount)).ToArray().Select(b => b.ToString("X2")));
+                    _log.Trace($"Emulation audio capture first chunk head: {head}");
+                }
             }
             else if (now - _statsTimestamp >= Stopwatch.Frequency * 2)
             {

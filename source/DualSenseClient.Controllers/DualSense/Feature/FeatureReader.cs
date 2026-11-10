@@ -34,14 +34,15 @@ public static class FeatureReader
                 // Still serve the structurally valid report: this GET is what switches a
                 // Bluetooth controller from the minimal 0x01 report to the full 0x31
                 // report, and the app uses the raw motion words without rescaling.
-                _log.Warning("Calibration report failed the Bluetooth CRC check; using its structural content");
+                _log.Warning($"Calibration report from {GetProductNameForLog(device)} failed the Bluetooth CRC check; using its structural content");
             }
 
             CalibrationInfo info = new CalibrationInfo(raw);
             if (!info.IsValid)
             {
                 byte reportId = raw.Length > 0 ? raw[0] : (byte)0;
-                _log.Warning($"Calibration report was not valid (report ID 0x{reportId:X2}, {raw.Length} byte(s))");
+                _log.Warning(
+                    $"Calibration report from {GetProductNameForLog(device)} was not valid (report ID 0x{reportId:X2}, {raw.Length} byte(s)); calibration unavailable");
                 return null;
             }
 
@@ -51,7 +52,7 @@ public static class FeatureReader
         }
         catch (HidException ex)
         {
-            _log.Error("GetFeatureReport(0x05) failed", ex);
+            _log.Error($"GetFeatureReport(0x05) failed for {GetProductNameForLog(device)}", ex);
             return null;
         }
     }
@@ -69,7 +70,7 @@ public static class FeatureReader
             byte[] raw = device.GetFeatureReport(0x09, 20);
             if (!HasValidBluetoothCrc(device, raw, 16, DualSenseCRC32.FeatureGetSeed))
             {
-                _log.Warning("Pairing info report failed the Bluetooth CRC check");
+                _log.Warning($"Pairing info report from {GetProductNameForLog(device)} failed the Bluetooth CRC check; pairing info unavailable");
                 return null;
             }
 
@@ -77,7 +78,8 @@ public static class FeatureReader
             if (!info.IsValid)
             {
                 byte reportId = raw.Length > 0 ? raw[0] : (byte)0;
-                _log.Warning($"Pairing info report was not valid (report ID 0x{reportId:X2})");
+                _log.Warning(
+                    $"Pairing info report from {GetProductNameForLog(device)} was not valid (report ID 0x{reportId:X2}); pairing info unavailable");
                 return null;
             }
 
@@ -86,7 +88,7 @@ public static class FeatureReader
         }
         catch (HidException ex)
         {
-            _log.Error("GetFeatureReport(0x09) failed", ex);
+            _log.Error($"GetFeatureReport(0x09) failed for {GetProductNameForLog(device)}", ex);
             return null;
         }
     }
@@ -104,7 +106,7 @@ public static class FeatureReader
             byte[] raw = device.GetFeatureReport(0x20, 64);
             if (!HasValidBluetoothCrc(device, raw, 60, DualSenseCRC32.FeatureGetSeed))
             {
-                _log.Warning("Firmware info report failed the Bluetooth CRC check");
+                _log.Warning($"Firmware info report from {GetProductNameForLog(device)} failed the Bluetooth CRC check; firmware info unavailable");
                 return null;
             }
 
@@ -112,7 +114,8 @@ public static class FeatureReader
             if (!info.IsValid)
             {
                 byte reportId = raw.Length > 0 ? raw[0] : (byte)0;
-                _log.Warning($"Firmware info report was not valid (report ID 0x{reportId:X2})");
+                _log.Warning(
+                    $"Firmware info report from {GetProductNameForLog(device)} was not valid (report ID 0x{reportId:X2}); firmware info unavailable");
                 return null;
             }
 
@@ -121,8 +124,25 @@ public static class FeatureReader
         }
         catch (HidException ex)
         {
-            _log.Error("GetFeatureReport(0x20) failed", ex);
+            _log.Error($"GetFeatureReport(0x20) failed for {GetProductNameForLog(device)}", ex);
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Returns the controller's product name for log context without letting a disposed
+    /// or otherwise failing HID handle escape the reader's null-returning contract.
+    /// </summary>
+    /// <param name="device">Controller to describe.</param>
+    private static string GetProductNameForLog(IControllerDevice device)
+    {
+        try
+        {
+            return device.GetProductName();
+        }
+        catch (Exception)
+        {
+            return "Unknown";
         }
     }
 

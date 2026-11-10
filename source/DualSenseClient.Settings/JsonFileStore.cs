@@ -133,7 +133,7 @@ public class JsonFileStore<T> where T : class, new()
                 }
                 catch (Exception ex)
                 {
-                    _log.Error($"Failed to load from '{FilePath}'", ex);
+                    _log.Error($"Failed to load from '{FilePath}'; continuing with defaults", ex);
                     Item = new T();
                 }
             }
@@ -157,7 +157,7 @@ public class JsonFileStore<T> where T : class, new()
     {
         if (_isLoading)
         {
-            _log.Debug($"Skipped save to '{FilePath}' while loading is in progress");
+            _log.Warning($"Skipped save to '{FilePath}' while loading is in progress; that change was not persisted");
             return;
         }
 
@@ -165,7 +165,7 @@ public class JsonFileStore<T> where T : class, new()
         {
             if (_isLoading)
             {
-                _log.Debug($"Skipped save to '{FilePath}' while loading is in progress");
+                _log.Warning($"Skipped save to '{FilePath}' while loading is in progress; that change was not persisted");
                 return;
             }
 
@@ -192,7 +192,7 @@ public class JsonFileStore<T> where T : class, new()
         }
         catch (Exception ex)
         {
-            _log.Error($"Failed to save to '{FilePath}'", ex);
+            _log.Error($"Failed to save to '{FilePath}'; changes were not persisted", ex);
         }
     }
 
@@ -207,7 +207,7 @@ public class JsonFileStore<T> where T : class, new()
         }
         catch (Exception ex)
         {
-            _log.Error($"Failed to create backup at '{BackupPath}'", ex);
+            _log.Warning($"Failed to create backup at '{BackupPath}'; saving without a backup", ex);
         }
     }
 }

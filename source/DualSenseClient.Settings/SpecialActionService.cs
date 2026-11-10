@@ -274,10 +274,10 @@ public sealed class SpecialActionService
     {
         lock (_lock)
         {
-            List<SpecialAction>? imported = ParseActionList(File.ReadAllText(path));
+            List<SpecialAction>? imported = ParseActionList(File.ReadAllText(path), path);
             if (imported is null || imported.Count == 0)
             {
-                _log.Warning($"No importable special actions found in '{path}'");
+                _log.Info($"Export file '{path}' contains no importable special actions");
                 return 0;
             }
 
@@ -299,7 +299,7 @@ public sealed class SpecialActionService
     /// <c>null</c> when the file has no recognized shape (no <c>actions</c> array and not a
     /// bare array). Unknown properties are ignored and missing ones use defaults.
     /// </summary>
-    private List<SpecialAction>? ParseActionList(string json)
+    private List<SpecialAction>? ParseActionList(string json, string path)
     {
         try
         {
@@ -317,7 +317,7 @@ public sealed class SpecialActionService
         }
         catch (Exception ex)
         {
-            _log.Warning("Failed to parse special actions export", ex);
+            _log.Warning($"Failed to parse special actions export '{path}'", ex);
             return null;
         }
     }

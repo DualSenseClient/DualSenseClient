@@ -48,8 +48,9 @@ public sealed class EmulationLoggerAdapter : IEmulationLogger
                     _log.Error(text);
                     break;
                 default:
-                    // The engine only emits the five defined levels; anything else is still logged.
-                    _log.Info(text);
+                    // A future engine severity (Critical/Fatal) must not be downgraded
+                    // to Info and disappear at the default level.
+                    _log.Error($"[{level}] {text}");
                     break;
             }
         }

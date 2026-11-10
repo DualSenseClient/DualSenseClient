@@ -1036,7 +1036,7 @@ public sealed class SpecialActionEngine : IDisposable
                     PlayerLeds = SendPlayerLeds(effect.PlayerLeds.Mask)
                 };
             case SpecialActionTypes.PlaySound:
-                PlaySound(effect);
+                PlaySound(effect, actionId);
                 return default;
             case SpecialActionTypes.ShowBatteryLevel:
                 (byte Red, byte Green, byte Blue)? color;
@@ -1048,7 +1048,7 @@ public sealed class SpecialActionEngine : IDisposable
                     PlayerLeds = playerLeds
                 };
             default:
-                _log.Warning($"Unknown special action effect type '{effect.Type}'");
+                _log.Warning($"Unknown special action effect type '{effect.Type}' in action '{DescribeAction(actionId)}'");
                 return default;
         }
     }
@@ -1126,14 +1126,14 @@ public sealed class SpecialActionEngine : IDisposable
     {
         if (_device!.InputReport is not { } report)
         {
-            _log.Warning("No input report received yet; battery special action skipped");
+            _log.Debug($"No input report received yet; battery action '{DescribeAction(actionId)}' skipped");
             return (null, null, -1);
         }
 
         int percentage = report.Battery.DisplayPercentage;
         if (percentage < 0)
         {
-            _log.Warning("Battery level unknown; battery special action skipped");
+            _log.Debug($"Battery level unknown; battery action '{DescribeAction(actionId)}' skipped");
             return (null, null, -1);
         }
 
@@ -1204,16 +1204,23 @@ public sealed class SpecialActionEngine : IDisposable
     }
 
     /// <summary>
+    /// Returns the display name of an action by id, for log context on paths that only
+    /// carry the id.
+    /// </summary>
+    private string DescribeAction(Guid actionId) =>
+        _actions.FirstOrDefault(action => action.Id == actionId)?.Name ?? actionId.ToString();
+
+    /// <summary>
     /// Starts playing the sound effect's file through the controller speaker, creating the
     /// player from <see cref="SoundPlayerFactory"/> on first use. Missing files and a
     /// missing factory are logged and ignored, so a broken sound effect never disturbs
     /// matching.
     /// </summary>
-    private void PlaySound(SpecialActionEffect effect)
+    private void PlaySound(SpecialActionEffect effect, Guid actionId)
     {
         if (string.IsNullOrEmpty(effect.Sound.Path))
         {
-            _log.Warning("Special action sound effect has no sound file selected");
+            _log.Warning($"Sound action '{DescribeAction(actionId)}' has no sound file selected");
             return;
         }
 
@@ -1221,7 +1228,7 @@ public sealed class SpecialActionEngine : IDisposable
         {
             if (_device is null || SoundPlayerFactory is null)
             {
-                _log.Warning("Sound player unavailable; sound special action skipped");
+                _log.Warning($"Sound player unavailable; action '{DescribeAction(actionId)}' skipped");
                 return;
             }
 
