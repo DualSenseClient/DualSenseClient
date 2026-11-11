@@ -31,7 +31,6 @@ These rules override convenience and speed. If a request conflicts with them, sa
 - **Read before editing.** Read the files you will change and the files that call them. Do not rely on search snippets for broad changes.
 - **Keep changes surgical.** Touch only what the task needs. No drive-by refactors, formatting sweeps, or unrelated dependency updates.
 - **Verify before saying done.** A plausible diff is not proof. Run the relevant build, tests, and lint, and report the exact results.
-- **Finish available hardware checks.** Run requested checks that the local hardware supports before reporting test limitations; identify missing hardware or platform support concretely.
 - **Never fabricate.** Do not invent file paths, symbols, command output, test results, or API behavior. If you did not run it, say so.
 - **Stop when ambiguity matters.** If two interpretations would produce materially different changes, ask before editing.
 - **Do not open or update a PR unless the user explicitly asks.**

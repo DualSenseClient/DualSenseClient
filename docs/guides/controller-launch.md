@@ -121,9 +121,8 @@ may not have the display/session variables needed by the GUI.
 Save the following as `controller-launch.py`. Replace `ADDRESS` with the paired
 controller address and `COMMAND` with the full executable path (or an executable
 AppImage's permanent path). Keep arguments as separate list items so paths with
-spaces work. Close other copies of the app and temporarily stop any other
-controller-connection watcher before starting this example. Restore the previous
-watcher after you finish testing and stop this example.
+spaces work. Close other copies of the app and stop any other controller-connection
+watcher before running this example to avoid duplicate launches.
 
 ```python
 import subprocess
