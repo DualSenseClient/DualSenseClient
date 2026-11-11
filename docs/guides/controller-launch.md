@@ -119,7 +119,9 @@ shell may not have the display/session variables needed by the GUI.
 Save the following as `controller-launch.py`. Replace `ADDRESS` with the paired
 controller address and `COMMAND` with the full executable path (or an executable
 AppImage's permanent path). Keep arguments as separate list items so paths with
-spaces work. Close other copies of the app before starting this example.
+spaces work. Close other copies of the app and temporarily stop any other
+controller-connection watcher before starting this example. Restore the previous
+watcher after you finish testing and stop this example.
 
 ```python
 import subprocess
@@ -147,7 +149,7 @@ def set_connected(path, connected):
         connected_paths.discard(path)
     if connected_paths and not was_connected and (child is None or child.poll() is not None):
         try:
-            child = subprocess.Popen(COMMAND)
+            child = subprocess.Popen(COMMAND, start_new_session=True)
         except OSError as error:
             print(f"Could not launch the app: {error}", flush=True)
 
@@ -206,7 +208,8 @@ See the [BlueZ Device API](https://github.com/bluez/bluez/blob/master/doc/org.bl
 and [dbus-python signal documentation](https://dbus.freedesktop.org/doc/dbus-python/tutorial.html#receiving-signals)
 for the underlying interfaces.
 
-It leaves the app running after disconnect or when you stop the watcher. After
+The app starts in its own session so Ctrl+C stops the watcher without also
+interrupting the app. It leaves the app running after disconnect. After
 exiting the app, disconnect/reconnect the controller to launch it again.
 A failed launch is reported in the terminal; correct the executable path and
 reconnect to retry.
