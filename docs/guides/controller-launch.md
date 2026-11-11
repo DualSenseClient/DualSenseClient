@@ -113,8 +113,10 @@ interpreter you run can import `dbus` and `gi`. BlueZ must already be running,
 and your user must be able to read its system-bus device data.
 
 Run it from a terminal in the graphical session where the app should appear.
-That session supplies the appropriate Xorg or Wayland environment. A headless
-shell may not have the display/session variables needed by the GUI.
+That session supplies the display environment needed by the GUI. The Linux
+client uses X11; in a Wayland session, Xwayland must be available and `DISPLAY`
+must point to it. `WAYLAND_DISPLAY` alone is not sufficient. A headless shell
+may not have the display/session variables needed by the GUI.
 
 Save the following as `controller-launch.py`. Replace `ADDRESS` with the paired
 controller address and `COMMAND` with the full executable path (or an executable
@@ -216,8 +218,10 @@ reconnect to retry.
 
 This small example tracks only the child it started. Run one watcher, and avoid
 starting another copy of the app manually while it runs. Restarting the watcher
-while the app is running can also start another copy. Restart the watcher after
-restarting the Bluetooth service. If you need a persistent service or broader
+while the app is running can also start another copy. Exit the app before
+restarting the watcher. After restarting the Bluetooth service, check a real
+disconnect/reconnect; if the watcher stops responding, exit the app and restart
+the watcher. If you need a persistent service or broader
 single-instance handling, adapt the example to your desktop
 and service manager, including its graphical-session environment and shutdown
 behavior. No login or service configuration is provided here.
