@@ -1,5 +1,7 @@
-﻿using Avalonia;
-using System;
+﻿using System;
+using Avalonia;
+using DualSenseClient.GUI.Services;
+using DualSenseClient.Logging;
 
 namespace DualSenseClient.GUI;
 
@@ -13,12 +15,27 @@ namespace DualSenseClient.GUI;
 internal sealed class Program
 {
     /// <summary>
-    /// The application entry point. Configures the Avalonia app builder and starts the classic desktop lifetime.
+    /// The application entry point. Configures bootstrap logging, then starts the Avalonia
+    /// classic desktop lifetime.
     /// </summary>
     /// <param name="args">Command-line arguments passed to the application.</param>
     [STAThread]
-    public static void Main(string[] args) => BuildAvaloniaApp()
-        .StartWithClassicDesktopLifetime(args);
+    public static void Main(string[] args)
+    {
+        LoggingSetup.Initialize();
+
+        try
+        {
+            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        }
+        catch (Exception ex)
+        {
+            DualSenseClientLogger.For("Program")
+                .LogExceptionDetails(ex, true, LogLevel.Critical);
+            DualSenseClientLogger.Shutdown();
+            throw;
+        }
+    }
 
     /// <summary>
     /// Configures the Avalonia application builder with platform detection, developer tools (in debug mode),

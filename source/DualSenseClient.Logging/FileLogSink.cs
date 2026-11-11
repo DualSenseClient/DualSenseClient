@@ -20,6 +20,11 @@ public sealed class FileLogSink : ILogSink, IDisposable
     private static readonly TimeSpan FlushInterval = TimeSpan.FromMilliseconds(500);
 
     /// <summary>
+    /// Minimum delay between attempts to reopen a log file after an open or rotation failure.
+    /// </summary>
+    private static readonly TimeSpan ReopenRetryInterval = TimeSpan.FromSeconds(5);
+
+    /// <summary>
     /// Synchronizes access to the log sink state.
     /// </summary>
     private readonly Lock _sync = new Lock();
@@ -70,6 +75,21 @@ public sealed class FileLogSink : ILogSink, IDisposable
     private DateOnly _currentDate;
 
     /// <summary>
+    /// The full path of the currently open log file, or <c>null</c> when no file is open.
+    /// </summary>
+    private string? _currentFilePath;
+
+    /// <summary>
+    /// The time of the last open attempt, used to throttle retries after a failure.
+    /// </summary>
+    private DateTimeOffset _lastOpenAttempt;
+
+    /// <summary>
+    /// Provides the clock used for retry throttling and initial date selection.
+    /// </summary>
+    private readonly TimeProvider _timeProvider;
+
+    /// <summary>
     /// True once the sink has been disposed.
     /// </summary>
     private bool _disposed;
@@ -94,10 +114,14 @@ public sealed class FileLogSink : ILogSink, IDisposable
     /// If <c>true</c> (default), creates a new log file each day with the date appended to the filename.
     /// If <c>false</c>, writes to a single file without rotation.
     /// </param>
+    /// <param name="timeProvider">
+    /// The clock used for retry throttling and the initial date. Defaults to <see cref="TimeProvider.System"/>.
+    /// </param>
     /// <exception cref="ArgumentException">
     /// Thrown when <paramref name="path"/> is null or whitespace.
     /// </exception>
-    public FileLogSink(string path, bool append = true, bool includeTimestamp = true, bool rotateDaily = true)
+    public FileLogSink(string path, bool append = true, bool includeTimestamp = true, bool rotateDaily = true,
+        TimeProvider? timeProvider = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
@@ -110,17 +134,26 @@ public sealed class FileLogSink : ILogSink, IDisposable
 
         string? directory = Path.GetDirectoryName(path);
         _directory = string.IsNullOrEmpty(directory) ? "." : directory;
-        if (!Directory.Exists(_directory))
-        {
-            Directory.CreateDirectory(_directory);
-        }
 
         _append = append;
         _includeTimestamp = includeTimestamp;
         _rotateDaily = rotateDaily;
-        _currentDate = DateOnly.FromDateTime(DateTime.Today);
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        _currentDate = DateOnly.FromDateTime(_timeProvider.GetLocalNow().DateTime);
 
-        OpenWriter(_currentDate);
+        try
+        {
+            OpenWriter(_currentDate);
+        }
+        catch
+        {
+            // Logging must never prevent the application from starting. The writer stays
+            // null and the next write retries after ReopenRetryInterval.
+            _writer = null;
+            _currentFilePath = null;
+        }
+
+        _lastOpenAttempt = _timeProvider.GetUtcNow();
 
         _flushTimer = new Timer(
             static state => ((FileLogSink)state!).FlushBuffered(),
@@ -141,6 +174,21 @@ public sealed class FileLogSink : ILogSink, IDisposable
         set
         {
             _includeTimestamp = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets the full path of the log file currently being written, or <c>null</c>
+    /// when no file is open.
+    /// </summary>
+    public string? CurrentFilePath
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _currentFilePath;
+            }
         }
     }
 
@@ -167,6 +215,21 @@ public sealed class FileLogSink : ILogSink, IDisposable
                 }
             }
 
+            if (_writer is null && _timeProvider.GetUtcNow() - _lastOpenAttempt >= ReopenRetryInterval)
+            {
+                _lastOpenAttempt = _timeProvider.GetUtcNow();
+                DateOnly targetDate = _rotateDaily ? DateOnly.FromDateTime(entry.Timestamp.Date) : _currentDate;
+                try
+                {
+                    OpenWriter(targetDate);
+                    _currentDate = targetDate;
+                }
+                catch
+                {
+                    _writer = null;
+                }
+            }
+
             if (_writer is null)
             {
                 return;
@@ -186,6 +249,7 @@ public sealed class FileLogSink : ILogSink, IDisposable
             _writer.Write(entry.Category);
             _writer.Write(']');
             _writer.Write(' ');
+            WriteThreadSegment(_writer, in entry);
 
             _writer.Write(entry.SourceFileName);
             if (entry.SourceLine > 0)
@@ -210,6 +274,29 @@ public sealed class FileLogSink : ILogSink, IDisposable
     }
 
     /// <summary>
+    /// Writes the thread segment <c>[TId]</c> or <c>[TId:Name]</c> to the writer,
+    /// when the entry carries a thread identifier.
+    /// </summary>
+    private static void WriteThreadSegment(TextWriter writer, in LogEntry entry)
+    {
+        if (entry.ThreadId <= 0)
+        {
+            return;
+        }
+
+        writer.Write("[T");
+        writer.Write(entry.ThreadId);
+        if (!string.IsNullOrEmpty(entry.ThreadName))
+        {
+            writer.Write(':');
+            writer.Write(entry.ThreadName);
+        }
+
+        writer.Write(']');
+        writer.Write(' ');
+    }
+
+    /// <summary>
     /// Flushes buffered log entries to disk.
     /// Called periodically by the background timer.
     /// </summary>
@@ -228,10 +315,19 @@ public sealed class FileLogSink : ILogSink, IDisposable
 
     /// <summary>
     /// Rotates to a new log file for the given date, flushing and disposing the previous writer.
-    /// If opening the new file fails, the sink enters a broken state and silently drops entries.
+    /// When the previous open failed, rotation attempts are throttled by
+    /// <see cref="ReopenRetryInterval"/>; a failed open leaves the writer null and a later
+    /// write retries.
     /// </summary>
     private void Rotate(DateOnly newDate)
     {
+        DateTimeOffset now = _timeProvider.GetUtcNow();
+        if (_writer is null && now - _lastOpenAttempt < ReopenRetryInterval)
+        {
+            return;
+        }
+
+        _lastOpenAttempt = now;
         CloseWriter();
         try
         {
@@ -254,6 +350,9 @@ public sealed class FileLogSink : ILogSink, IDisposable
             : $"{_baseName}{_extension}";
         string fullPath = Path.Combine(_directory, fileName);
 
+        _currentFilePath = null;
+        Directory.CreateDirectory(_directory);
+
         FileStream fileStream = new FileStream(
             fullPath,
             _append ? FileMode.Append : FileMode.Create,
@@ -265,6 +364,7 @@ public sealed class FileLogSink : ILogSink, IDisposable
         {
             AutoFlush = false
         };
+        _currentFilePath = Path.GetFullPath(fullPath);
     }
 
     /// <summary>
@@ -278,6 +378,8 @@ public sealed class FileLogSink : ILogSink, IDisposable
             _writer.Dispose();
             _writer = null;
         }
+
+        _currentFilePath = null;
     }
 
     /// <summary>

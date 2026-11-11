@@ -77,8 +77,7 @@ public static class UpdateChecker
         }
         catch (Exception ex)
         {
-            _log.Error($"Update check failed");
-            _log.LogExceptionDetails(ex);
+            _log.Warning("Update check failed; updates will not be offered by this check", ex);
             return null;
         }
     }
@@ -96,8 +95,7 @@ public static class UpdateChecker
         }
         catch (Exception ex)
         {
-            _log.Error($"Update check tag lookup failed");
-            _log.LogExceptionDetails(ex);
+            _log.Warning($"Update check tag lookup failed for '{tag}'; falling back to the releases list", ex);
             return null;
         }
     }

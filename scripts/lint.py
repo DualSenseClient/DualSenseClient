@@ -38,7 +38,7 @@ from pathlib import PurePosixPath
 SOLUTION = Path("DualSenseClient.sln")
 TOOL_PACKAGE = "JetBrains.ReSharper.GlobalTools"
 TOOL_COMMAND = "jb"
-TOOL_VERSION = "2026.2.1"
+TOOL_VERSION = "2026.2.4.1"
 DEFAULT_PROFILE = "Built-in: Reformat & Apply Syntax Style"
 
 logger = logging.getLogger(__name__)

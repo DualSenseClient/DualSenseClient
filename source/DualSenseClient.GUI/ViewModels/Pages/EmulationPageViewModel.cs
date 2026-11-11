@@ -476,7 +476,7 @@ public partial class EmulationPageViewModel : ObservableObject
             return;
         }
 
-        _log.Info($"Setting {propertyName} of {CurrentMac} to {value}");
+        _log.Debug($"Setting {propertyName} of {CurrentMac} to {value}");
         setter(settings.Forward, value);
         _controllerService.SaveEmulationSettings(CurrentKey, settings);
         OnPropertyChanged(propertyName);
@@ -702,7 +702,7 @@ public partial class EmulationPageViewModel : ObservableObject
                 return;
             }
 
-            _log.Info($"Setting touchpad mouse of {CurrentMac} to {value}");
+            _log.Debug($"Setting touchpad mouse of {CurrentMac} to {value}");
             settings.Enabled = value;
             _controllerService.SaveTouchpadMouseSettings(CurrentKey, settings);
             OnPropertyChanged();

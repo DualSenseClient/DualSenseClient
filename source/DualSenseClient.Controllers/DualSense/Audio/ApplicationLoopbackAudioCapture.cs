@@ -129,13 +129,13 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
 
             if (!AudioApplicationService.IsProcessLoopbackSupported)
             {
-                _log.Warning("Application audio capture requires Windows 10 build 20348 (Windows 11) or later");
+                _log.Debug("Application audio capture requires Windows 10 build 20348 (Windows 11) or later; capture not started");
                 return false;
             }
 
             if (_processId == 0)
             {
-                _log.Warning($"No running process resolves to '{_applicationPath}'; nothing to capture");
+                _log.Debug($"No running process resolves to '{_applicationPath}'; capture not started");
                 return false;
             }
 
@@ -150,7 +150,8 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
 
         if (!ready.Wait(ActivationTimeoutMs))
         {
-            _log.Warning($"Timed out activating application audio capture for '{_applicationPath}'");
+            _log.Warning(
+                $"Timed out after {ActivationTimeoutMs} ms activating application audio capture for '{_applicationPath}' (PID {_processId}); capture not started");
             Stop();
             return false;
         }
@@ -173,6 +174,7 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
         _sampleReady?.Set();
 
         IAudioClient? audioClient = _audioClient;
+        bool wasActive = thread is not null || audioClient is not null;
         if (audioClient is not null)
         {
             try
@@ -181,7 +183,7 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
             }
             catch (Exception ex)
             {
-                _log.Debug($"Stopping the application audio capture failed: {ex.Message}");
+                _log.Debug("Stopping the application audio capture failed", ex);
             }
         }
 
@@ -191,7 +193,10 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
         }
 
         ReleaseComObjects();
-        _log.Info($"Application audio capture stopped for '{_applicationPath}'");
+        if (wasActive)
+        {
+            _log.Debug($"Application audio capture stopped for '{_applicationPath}'");
+        }
     }
 
     /// <inheritdoc/>
@@ -210,7 +215,7 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
         }
         catch (Exception ex)
         {
-            _log.Warning($"Application audio capture failed to start for '{_applicationPath}': {ex.Message}");
+            _log.Warning($"Application audio capture failed to start for '{_applicationPath}'", ex);
             ReleaseComObjects();
             initialized = false;
         }
@@ -244,7 +249,7 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
         }
         catch (Exception ex)
         {
-            _log.LogExceptionDetails(ex);
+            _log.Error($"Application audio capture pump failed for '{_applicationPath}'", ex);
         }
         finally
         {
@@ -265,14 +270,21 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
             int hr = WasapiAudioInterop.ActivateProcessLoopback(_processId, handler, out asyncOp);
             if (hr < 0)
             {
-                _log.Warning($"ActivateAudioInterfaceAsync failed (HRESULT 0x{hr:X8})");
+                _log.Warning($"ActivateAudioInterfaceAsync failed for '{_applicationPath}' (PID {_processId}): HRESULT 0x{hr:X8}; capture not started");
                 return false;
             }
 
-            if (!handler.Completed.Wait(ActivationTimeoutMs) || handler.AudioClient is not { } audioClient)
+            if (!handler.Completed.Wait(ActivationTimeoutMs))
             {
                 _log.Warning(
-                    $"The application audio interface could not be activated (HRESULT 0x{handler.ActivateResult:X8})");
+                    $"Timed out after {ActivationTimeoutMs} ms activating application audio capture for '{_applicationPath}' (PID {_processId}); capture not started");
+                return false;
+            }
+
+            if (handler.AudioClient is not { } audioClient)
+            {
+                _log.Warning(
+                    $"Application audio interface activation failed for '{_applicationPath}' (PID {_processId}): GetActivateResult HRESULT 0x{handler.ActivateOperationResult:X8}, activation HRESULT 0x{handler.ActivateResult:X8}{(handler.AudioClient is null ? ", no audio client" : string.Empty)}; capture not started");
                 return false;
             }
 
@@ -281,14 +293,14 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
                 BufferDurationHns, 0, ref format, IntPtr.Zero);
             if (hr < 0)
             {
-                _log.Warning($"The application audio stream could not be initialized (HRESULT 0x{hr:X8})");
+                _log.Warning($"IAudioClient::Initialize failed for '{_applicationPath}' (PID {_processId}): HRESULT 0x{hr:X8}; capture not started");
                 return false;
             }
 
             hr = audioClient.GetBufferSize(out uint bufferFrames);
             if (hr < 0)
             {
-                _log.Warning($"The application audio buffer size could not be read (HRESULT 0x{hr:X8})");
+                _log.Warning($"GetBufferSize failed for '{_applicationPath}' (PID {_processId}): HRESULT 0x{hr:X8}; capture not started");
                 return false;
             }
 
@@ -296,7 +308,7 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
             hr = audioClient.GetService(ref captureClientIid, out object service);
             if (hr < 0 || service is not IAudioCaptureClient captureClient)
             {
-                _log.Warning($"The application audio capture client is unavailable (HRESULT 0x{hr:X8})");
+                _log.Warning($"GetService(IAudioCaptureClient) failed for '{_applicationPath}' (PID {_processId}): HRESULT 0x{hr:X8}; capture not started");
                 return false;
             }
 
@@ -304,7 +316,7 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
             hr = audioClient.SetEventHandle(sampleReady.SafeWaitHandle.DangerousGetHandle());
             if (hr < 0)
             {
-                _log.Warning($"The application audio event handle could not be set (HRESULT 0x{hr:X8})");
+                _log.Warning($"SetEventHandle failed for '{_applicationPath}' (PID {_processId}): HRESULT 0x{hr:X8}; capture not started");
                 sampleReady.Dispose();
                 return false;
             }
@@ -312,7 +324,7 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
             hr = audioClient.Start();
             if (hr < 0)
             {
-                _log.Warning($"The application audio stream could not be started (HRESULT 0x{hr:X8})");
+                _log.Warning($"IAudioClient::Start failed for '{_applicationPath}' (PID {_processId}): HRESULT 0x{hr:X8}; capture not started");
                 sampleReady.Dispose();
                 return false;
             }
@@ -433,7 +445,7 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
         {
             _firstChunkLogged = true;
             _statsTimestamp = now;
-            _log.Info(
+            _log.Debug(
                 $"Application audio capture first chunk ('{_applicationPath}'): {frames} frames, {nonZero}/{count} non-zero samples");
         }
         else if (now - _statsTimestamp >= Stopwatch.Frequency * 2)
@@ -506,21 +518,29 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
         /// </summary>
         public int ActivateResult;
 
+        /// <summary>
+        /// The HRESULT returned by <c>GetActivateResult</c> itself, which can fail
+        /// independently of the activation result.
+        /// </summary>
+        public int ActivateOperationResult;
+
         /// <inheritdoc/>
         public void ActivateCompleted(IActivateAudioInterfaceAsyncOperation activateOperation)
         {
             try
             {
                 int hr = activateOperation.GetActivateResult(out int activateResult, out object activated);
+                ActivateOperationResult = hr;
                 ActivateResult = activateResult;
                 if (hr >= 0 && activateResult >= 0 && activated is IAudioClient client)
                 {
                     AudioClient = client;
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 // The waiting start observes the missing client and reports the failure.
+                ActivateOperationResult = ex.HResult;
             }
             finally
             {

@@ -105,7 +105,11 @@ public sealed class HidDevice : IHidDevice
         if (_device == null)
         {
             string error = HidApi.GetError();
-            _log.Error($"hid_open_path failed for '{path}': {error}");
+
+            // The caller owns the failure report: enumeration probes open every
+            // paired-but-unreachable Bluetooth node on each poll, so logging here
+            // at Error would flood the log. Real opens are reported by the scanner.
+            _log.Debug($"hid_open_path failed for '{path}': {error}");
             throw new HidException($"hid_open_path failed for '{path}': {error}");
         }
 
@@ -144,12 +148,13 @@ public sealed class HidDevice : IHidDevice
         if (result < 0)
         {
             // A failed read is the normal symptom of a disconnected controller;
-            // the read loop reports it at the appropriate level.
+            // the read loop reports it at the appropriate level. Keep the native
+            // error text on the exception so the caller can log the cause.
             _log.Debug($"hid_read_timeout failed on '{DevicePath}': {error}");
-            throw new HidException("hid_read_timeout failed");
+            throw new HidException($"hid_read_timeout failed on '{DevicePath}': {error}");
         }
 
-        if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
+        if (_log.IsEnabled(LogLevel.Trace))
         {
             _log.Trace($"Read {result} byte(s) from '{DevicePath}'");
         }
@@ -196,7 +201,7 @@ public sealed class HidDevice : IHidDevice
             throw new HidException($"hid_write failed: {error}");
         }
 
-        if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
+        if (_log.IsEnabled(LogLevel.Trace))
         {
             _log.Trace($"Wrote {result} byte(s) to '{DevicePath}'");
         }
@@ -261,8 +266,8 @@ public sealed class HidDevice : IHidDevice
 
         if (result < 0)
         {
-            _log.Error($"hid_send_feature_report failed on '{DevicePath}': {error}");
-            throw new HidException($"hid_send_feature_report failed: {error}");
+            _log.Error($"hid_send_feature_report(0x{buffer[offset]:X2}) failed on '{DevicePath}': {error}");
+            throw new HidException($"hid_send_feature_report(0x{buffer[offset]:X2}) failed: {error}");
         }
 
         _log.Trace($"SendFeatureReport wrote {count} byte(s) to '{DevicePath}'");

@@ -604,7 +604,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
                        && _usbTarget.Start();
             if (!bluetooth && !usb)
             {
-                _log.Info("No forwarding transport available (neither Bluetooth audio lane nor USB render endpoint)");
+                _log.Debug("No forwarding transport available (neither Bluetooth audio lane nor USB render endpoint)");
                 return false;
             }
 
@@ -788,11 +788,14 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         {
             if (Interlocked.Exchange(ref _gameHapticsRejectedLogged, 1) == 0)
             {
-                string head = pcm is null
-                    ? "(null)"
-                    : string.Join(" ", pcm.AsSpan(0, Math.Min(16, pcm.Length)).ToArray().Select(b => b.ToString("X2")));
-                _log.Info(
-                    $"Realtime-haptics PCM rejected (expected whole 2ch S16LE frames); head {head}");
+                _log.Warning("Realtime-haptics PCM rejected (expected whole 2ch S16LE frames); using audio-derived haptics");
+                if (_log.IsEnabled(LogLevel.Trace))
+                {
+                    string head = pcm is null
+                        ? "(null)"
+                        : string.Join(" ", pcm.AsSpan(0, Math.Min(16, pcm.Length)).ToArray().Select(b => b.ToString("X2")));
+                    _log.Trace($"Rejected realtime-haptics PCM: {pcm?.Length ?? 0} byte(s), head {head}");
+                }
             }
 
             return;
@@ -843,7 +846,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
 
         if (producedBlock && _gameHapticsActive && Interlocked.Exchange(ref _gameHapticsAcceptedLogged, 1) == 0)
         {
-            _log.Info("Game haptics active: the pad now reproduces the game's own haptics payload");
+            _log.Debug("Game haptics active: the pad now reproduces the game's own haptics payload");
         }
     }
 
@@ -950,7 +953,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
                 }
                 catch (Exception ex)
                 {
-                    _log.LogExceptionDetails(ex);
+                    _log.Error($"Audio forwarding pump failed ({_outputs?.ConnectionType.ToString() ?? "unknown transport"})", ex);
                     break;
                 }
 
@@ -1503,8 +1506,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         }
         catch (InvalidOperationException ex)
         {
-            _log.Error("Failed to encode the Bluetooth preroll silence packet; skipping warmup");
-            _log.LogExceptionDetails(ex);
+            _log.Warning("Failed to encode the Bluetooth preroll silence packet; skipping warmup and later Bluetooth audio may not start", ex);
             return;
         }
 

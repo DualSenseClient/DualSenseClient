@@ -294,6 +294,100 @@ public class DualSenseDeviceOutputEffectsTests
     }
 
     [Test]
+    public void SetManualVibration_IsReappliedToLaterOutputReports()
+    {
+        CapturingHidDevice hid = new CapturingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Usb));
+
+        device.SetManualVibration(0x55, 0x66);
+        device.SendOutputState(new SetStateData
+        {
+            ValidFlag1 = ValidFlags.AllowLedColor,
+            LedRed = 0x10,
+            LedGreen = 0x20,
+            LedBlue = 0x30
+        });
+
+        Assert.Multiple(() =>
+        {
+            // A report without the rumble bits would stop the motors, so the lightbar
+            // frame must carry the v1 selection and the active motor values.
+            Assert.That(hid.LastWrite![1], Is.EqualTo(0x03));
+            Assert.That(hid.LastWrite[1 + 2], Is.EqualTo(0x66));
+            Assert.That(hid.LastWrite[1 + 3], Is.EqualTo(0x55));
+            Assert.That(hid.LastWrite[1 + 44], Is.EqualTo(0x10),
+                "the lightbar fields must still be applied");
+        });
+    }
+
+    [Test]
+    public void SetManualVibration_V2_IsReappliedToLaterOutputReports()
+    {
+        CapturingHidDevice hid = new CapturingHidDevice(FirmwareReport(0x02, 0x15));
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Usb));
+
+        device.SetManualVibration(0x10, 0x20);
+        device.SendOutputState(new SetStateData
+        {
+            ValidFlag1 = ValidFlags.AllowLedColor,
+            LedRed = 0x10,
+            LedGreen = 0x20,
+            LedBlue = 0x30
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hid.LastWrite![1], Is.EqualTo(0x02));
+            Assert.That(hid.LastWrite[1 + 38], Is.EqualTo(0x04));
+            Assert.That(hid.LastWrite[1 + 2], Is.EqualTo(0x20));
+            Assert.That(hid.LastWrite[1 + 3], Is.EqualTo(0x10));
+        });
+    }
+
+    [Test]
+    public void SetManualVibration_IsReappliedToTriggerEffectReports()
+    {
+        CapturingHidDevice hid = new CapturingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Usb));
+
+        device.SetManualVibration(0x11, 0x22);
+        device.SetTriggerEffects(TriggerEffectBuilder.Feedback(0, 8), TriggerEffectBuilder.Off());
+
+        Assert.Multiple(() =>
+        {
+            // trigger allow bits (0x0C) plus the v1 rumble selection (0x03)
+            Assert.That(hid.LastWrite![1], Is.EqualTo(0x0F));
+            Assert.That(hid.LastWrite[1 + 2], Is.EqualTo(0x22));
+            Assert.That(hid.LastWrite[1 + 3], Is.EqualTo(0x11));
+        });
+    }
+
+    [Test]
+    public void SetManualVibration_Stopped_DoesNotAlterLaterOutputReports()
+    {
+        CapturingHidDevice hid = new CapturingHidDevice();
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Usb));
+
+        device.SetManualVibration(0x55, 0x66);
+        device.SetManualVibration(0, 0);
+        device.SendOutputState(new SetStateData
+        {
+            ValidFlag1 = ValidFlags.AllowLedColor,
+            LedRed = 0x10,
+            LedGreen = 0x20,
+            LedBlue = 0x30
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hid.LastWrite![1] & 0x03, Is.Zero, "no rumble selection after the test stops");
+            Assert.That(hid.LastWrite[1 + 38] & 0x04, Is.Zero);
+            Assert.That(hid.LastWrite[1 + 2], Is.Zero);
+            Assert.That(hid.LastWrite[1 + 3], Is.Zero);
+        });
+    }
+
+    [Test]
     public void SetTriggerEffects_SendsTriggerFlagsAndBlocks()
     {
         CapturingHidDevice hid = new CapturingHidDevice();

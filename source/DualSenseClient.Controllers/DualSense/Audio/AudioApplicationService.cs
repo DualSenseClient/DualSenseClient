@@ -45,7 +45,8 @@ public sealed class AudioApplicationService
         }
 
         HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (int processId in WasapiSessionInterop.GetRenderSessionProcessIds(message => _log.Warning(message),
+        foreach (int processId in WasapiSessionInterop.GetRenderSessionProcessIds(
+                     (message, exception) => _log.Warning($"Application audio list unavailable: {message}", exception),
                      message => _log.Debug(message)))
         {
             string? path = TryGetProcessPath(processId);
@@ -82,7 +83,9 @@ public sealed class AudioApplicationService
         string target = executablePath.Trim();
 
         // A process already rendering audio is the best match: its session is live.
-        foreach (int candidate in WasapiSessionInterop.GetRenderSessionProcessIds(message => _log.Warning(message),
+        foreach (int candidate in WasapiSessionInterop.GetRenderSessionProcessIds(
+                     (message, exception) => _log.Warning(
+                         $"Resolving a process for '{executablePath}' failed; falling back to a full process scan: {message}", exception),
                      message => _log.Debug(message)))
         {
             if (PathMatches(candidate, target))

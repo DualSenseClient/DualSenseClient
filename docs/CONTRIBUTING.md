@@ -28,7 +28,7 @@ code quality and consistency across the project.
 
 ## Project Structure
 
-The solution follows a multi-project layout: each distinct concern lives in its own library project under `source/`, named `DualSenseClient.<Area>` (e.g., `DualSenseClient.Core`, `DualSenseClient.Hid`, `DualSenseClient.Settings`). **DualSenseClient.GUI** is the main application project containing Views, ViewModels, and UI-related logic; everything else is a supporting library.
+The solution follows a multi-project layout: each distinct concern lives in its own project under `source/`, named `DualSenseClient.<Area>` (e.g., `DualSenseClient.Core`, `DualSenseClient.Hid`, `DualSenseClient.Settings`). **DualSenseClient.GUI** is the main application project containing Views, ViewModels, and UI-related logic; everything else is a supporting library.
 
 For the current list of projects, see the solution file or the `source/` directory.
 
@@ -44,7 +44,7 @@ All shared logic should be placed in the appropriate library project to facilita
 - Methods should clearly describe their purpose
 - Example:
   ```csharp
-  public void LoadLibrary()
+  public void LoadSettings()
   {
       // Implementation here
   }
@@ -52,15 +52,15 @@ All shared logic should be placed in the appropriate library project to facilita
 
 ### UI Elements (AXAML)
 
-- Use **Hungarian Notation** with type prefixes:
-    - `ComboBox` → `Cmb`
-    - `TextBox` → `Txt`
-    - `Button` → `Btn`
-    - `TextBlock` → `Tbl`
-    - `StackPanel` → `Sp`
-    - `Grid` → `Grd`
-    - `ScrollViewer` → `Sv`
-    - `Expander` → `Exp`
+- Use descriptive **PascalCase** names that say what the control is for.
+- Add a short type suffix when it improves clarity:
+    - `ComboBox` → `...Combo`
+    - `TextBlock` → `...Block`
+    - `Border` → `...Border`
+    - `View` → `...View`
+    - `Frame` → `...Frame`
+    - Navigation item → `...NavItem`
+- Examples from the current views: `ScopeCombo`, `ControllerCombo`, `ProfileCombo`, `TitleBlock`, `MessageBlock`, `ContentBorder`, `NavigationView`, `ContentFrame`, `AutoProfilesNavItem`.
 
 - Property order in AXAML elements:
     1. `x:Name` / `x:Class`
@@ -73,42 +73,40 @@ All shared logic should be placed in the appropriate library project to facilita
 
 - Example:
   ```xaml
-  <ComboBox x:Name="CmbLanguage"
-            Grid.Column="1"
-            AutomationProperties.Name="{DynamicResource SettingsPage_LanguageSelector}"
-            AutomationProperties.HelpText="{DynamicResource SettingsPage_LanguageSelectorTooltip}"
-            DisplayMemberPath="Name"
-            SelectedValuePath="Name"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Center"
-            MinWidth="150"
-            SelectionChanged="CmbLanguage_SelectionChanged" />
+  <ComboBox x:Name="ScopeCombo"
+            ItemsSource="{Binding MatchScopeOptions}"
+            SelectedIndex="{Binding SelectedMatchScopeIndex}"
+            MinWidth="220" />
   ```
 
 ### Variables and Fields
 
 - **Private instance fields**: Use `_camelCase` with leading underscore
-    - Example: `_settings`, `_releaseService`
+    - Example: `_settingsService`, `_controllerInfo`
 - **Local variables**: Use `camelCase`
-    - Example: `gameId`, `userInput`
-- **Static fields**: Use `PascalCase` or `_camelCase` depending on visibility
-    - Example: `Games` (public), `_isRunning` (private)
+    - Example: `controllerId`, `devicePath`
+- **Static fields**: Use `PascalCase` for public/protected/internal fields and `_camelCase` for private fields
+    - Example: `DefaultTheme` (public), `_isRunning` (private)
 
 ### Properties
 
 - **Public properties**: Use **PascalCase**
-    - Example: `TitleId`, `Games`
+    - Example: `DisplayName`, `SelectedTheme`
 - **Partial methods for property changes** (CommunityToolkit.Mvvm):
   ```csharp
   [ObservableProperty]
-  private bool _checkForUpdatesOnStartup;
+  private bool _closeToTray;
 
-  partial void OnCheckForUpdatesOnStartupChanged(bool oldValue, bool newValue)
+  partial void OnCloseToTrayChanged(bool oldValue, bool newValue)
   {
-      if (oldValue == newValue) return;
-      _log.Info($"Check for Updates on Startup changed from '{oldValue}' to '{newValue}'");
-      _settings.Settings.UpdateChecks.CheckForUpdatesOnStartup = newValue;
-      _settings.SaveSettings();
+      if (_suppressUpdates || oldValue == newValue)
+      {
+          return;
+      }
+
+      _log.Info($"Close to tray changed to '{newValue}'");
+      _settingsService.Settings.Ui.CloseToTray = newValue;
+      _settingsService.SaveSettings();
   }
   ```
 
@@ -138,7 +136,7 @@ All shared logic should be placed in the appropriate library project to facilita
   /// <summary>
   /// Manages application settings by loading from and saving to a JSON file
   /// </summary>
-  public class SettingsService
+  public sealed class SettingsService
   {
       /// <summary>
       /// Loads settings from the JSON file.
@@ -167,10 +165,11 @@ All shared logic should be placed in the appropriate library project to facilita
   }
   catch (Exception ex)
   {
-      _log.Error("Error description");
-      _log.LogExceptionDetails(ex);
+      _log.Error("Error description", ex);
   }
   ```
+
+- Pass the exception object instead of interpolating `ex.Message`; this preserves the stack trace. Use the logger methods that accept an `Exception?` (`Debug`, `Warning`, `Error`, `Critical`). Reserve `LogExceptionDetails` for unhandled-exception and crash reports.
 
 - Use appropriate log levels:
     - `Trace`: Detailed debugging information
@@ -180,7 +179,7 @@ All shared logic should be placed in the appropriate library project to facilita
     - `Error`: Errors that cause operations to fail
     - `Critical`: Critical errors that may cause application termination
 
-- Throw `Exception` (or specific exception types) for unimplemented features or invalid states
+- Throw a specific exception type (for example `ArgumentException` or `NotSupportedException`) for invalid states or unimplemented features
 
 ### Formatting
 
@@ -189,9 +188,9 @@ All shared logic should be placed in the appropriate library project to facilita
 - Use expression-bodied bodies only for simple single-line methods; properties and accessors always use block bodies (`get { return ...; }`)
 - Use file-scoped namespaces:
   ```csharp
-  namespace DualSenseClient.Core.Models;
+  namespace DualSenseClient.Settings;
 
-  public class Game
+  public sealed class SettingsService
   {
       // Implementation
   }
@@ -204,11 +203,11 @@ The rules in this section are encoded in the root `.editorconfig` and enforced b
 
 ### Unit Testing
 
-The project uses **NUnit** as the testing framework. Tests are located in `tests/DualSenseClient.Tests/` and are organized by component: each folder corresponds to one `DualSenseClient.<Area>` source project:
+The project uses **NUnit** as the testing framework. Tests are located in `tests/DualSenseClient.Tests/` and are organized by component: each folder corresponds to one tested `DualSenseClient.<Area>` source project:
 
 ```
 tests/DualSenseClient.Tests/
-├── <Area>/        # One folder per source project, e.g. Core/, Hid/, Logging/, ...
+├── <Area>/        # One folder per tested source project, e.g. Core/, Hid/, Logging/, ...
 └── ...
 ```
 
@@ -219,7 +218,7 @@ tests/DualSenseClient.Tests/
 - Name test files `{ClassName}Tests.cs` (e.g., `FileLogSinkTests.cs`)
 - Use `[SetUp]` and `[TearDown]` for test initialization and cleanup (especially for file-based tests using temp directories)
 - Follow the `MethodName_Scenario_ExpectedResult` naming convention where clarity is needed
-- Use `Assert.That()` with constraint-based assertions (NUnit 4 style)
+- Use `Assert.That()` with constraint-based assertions (NUnit 5 style)
 
 #### Running Tests
 
@@ -274,27 +273,25 @@ DualSense Client supports custom themes. To create a new theme:
        System,
        Light,
        Dark,
+       Amoled,
+       Playstation,
        MyCustom // Add your theme here
    }
    ```
    - Open `source/DualSenseClient.GUI/Services/ThemeService.cs`
-   - Add your theme to the `SwapDictionary` switch expression:
+   - Add your theme to the `SwapDictionary` switch expression. The resource assembly is `DualSenseClient` (the GUI project's assembly name), not `DualSenseClient.GUI`:
    ```csharp
    string resourcePath = theme switch
    {
-       Theme.Dark => "avares://DualSenseClient.GUI/Resources/Theme/Dark.axaml",
-       Theme.MyCustom => "avares://DualSenseClient.GUI/Resources/Theme/MyCustomTheme.axaml",
-       _ => "avares://DualSenseClient.GUI/Resources/Theme/Light.axaml"
+       Theme.System => "avares://DualSenseClient/Resources/Theme/System.axaml",
+       Theme.Dark => "avares://DualSenseClient/Resources/Theme/Dark.axaml",
+       Theme.Amoled => "avares://DualSenseClient/Resources/Theme/Amoled.axaml",
+       Theme.Playstation => "avares://DualSenseClient/Resources/Theme/Playstation.axaml",
+       Theme.MyCustom => "avares://DualSenseClient/Resources/Theme/MyCustomTheme.axaml",
+       _ => "avares://DualSenseClient/Resources/Theme/Light.axaml"
    };
    ```
-   - If your theme uses a dark variant, add a case in `ApplyTheme`:
-   ```csharp
-   ThemeVariant targetVariant = theme switch
-   {
-       Theme.Light => ThemeVariant.Light,
-       _ => ThemeVariant.Dark // Dark, MyCustom, etc.
-   };
-   ```
+   - `ApplyTheme` sets `PreferSystemTheme` for `Theme.System`, uses `ThemeVariant.Light` for `Theme.Light`, and `ThemeVariant.Dark` for the remaining themes. If your theme needs a different variant, update that logic in `ApplyTheme`.
 
 4. **Add localization strings** (optional)
    - Add display name entries to `source/DualSenseClient.GUI/Resources/Language/en.axaml`:
@@ -303,7 +300,7 @@ DualSense Client supports custom themes. To create a new theme:
    ```
 
 5. **Build and test**
-   - Build the project and verify your theme loads correctly
+   - Build and run the app, then switch to the new theme and verify it loads correctly
    - Test with various controls (buttons, textboxes, lists, etc.)
 
 ### Theme Color Guidelines
@@ -321,7 +318,7 @@ DualSense Client supports custom themes. To create a new theme:
 
 1. Create a new `.axaml` file in `source/DualSenseClient.GUI/Resources/Language/` named with the language code (e.g., `de.axaml` for German)
 2. Copy all `<sys:String x:Key="...">` entries from `en.axaml` and translate the values
-3. Add the language code to the chart script's `LANGUAGE_NAMES` mapping in `scripts/generate_translation_progress.py`:
+3. Add the language code and display name to the chart script's `LANGUAGE_NAMES` mapping in `scripts/generate_translation_progress.py` (the script discovers language files automatically; this mapping controls the chart label):
    ```python
    LANGUAGE_NAMES = {
        "en": "English",
@@ -329,8 +326,9 @@ DualSense Client supports custom themes. To create a new theme:
        # Add language code -> display name mappings here when adding new languages
    }
    ```
-4. Run the progress checker to verify:
+4. Install the chart dependency once, then run the progress checker:
    ```bash
+   pip install Pillow
    python scripts/generate_translation_progress.py --verbose
    python scripts/generate_translation_progress.py --chart
    ```
@@ -349,6 +347,7 @@ DualSense Client supports custom themes. To create a new theme:
 ## Submitting Changes
 
 1. **Create a Branch**:
+   Branch from `dev` when it exists; otherwise branch from `main`.
    ```bash
    git checkout -b feature/your-feature-name
    ```
@@ -361,26 +360,28 @@ DualSense Client supports custom themes. To create a new theme:
 2. **Run the Linter**:
    - Format your changes before committing:
      ```bash
-     python scripts/lint.py
+     python scripts/lint.py --changed
      ```
-   - To verify without modifying files (same check CI runs):
+   - If the ReSharper command-line tool is not installed, run `python scripts/lint.py --install` once (`--install --pin-version` to match CI's pinned version).
+   - To run the same formatting check CI uses:
      ```bash
      python scripts/lint.py --check
      ```
+     `--check` still applies formatting to the working tree before reporting whether anything changed. Review the resulting diff.
 
 3. **Write Meaningful Commits**:
    - Use conventional commit format:
      ```bash
-     git commit -m "feat(dualsense): Add game details editor dialog"
-     git commit -m "fix(ci): Fix crash when loading corrupted library file"
-     git commit -m "refactor(misc): Extract logging logic to separate service"
+     git commit -m "feat(touchpad-mouse): Add two-finger scrolling"
+     git commit -m "fix(settings): Recover from a corrupt settings file"
+     git commit -m "refactor(hid): Run the device watcher on one thread"
      ```
    - Keep commits atomic and focused on a single change
    - Write clear, descriptive commit messages
 
 4. **Submit a Pull Request**:
    - Push your branch to the remote repository
-   - Open a pull request targeting the `dev` branch
+   - Open a pull request targeting `dev` when it exists; otherwise target `main`
    - Link to any related issues
    - Provide a clear description of:
      - What changes were made

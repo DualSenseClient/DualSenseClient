@@ -84,10 +84,12 @@
                                    Description="{DynamicResource SettingsPage.Updates.Description}"
                                    IconSource="{icm:SymbolIconSource Symbol=ArrowSync}"
                                    IsExpanded="False">
-                <ui:FASettingsExpanderItem Content="{Binding ChannelLabel}"
+                <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Updates.Channel.Title}"
                                            Description="{DynamicResource SettingsPage.Updates.Channel.Description}">
                     <ui:FASettingsExpanderItem.Footer>
-                        <ToggleSwitch IsChecked="{Binding IncludeNightlyUpdates, Mode=TwoWay}" />
+                        <ToggleSwitch OnContent="{DynamicResource SettingsPage.Updates.Channel.Nightly}"
+                                      OffContent="{DynamicResource SettingsPage.Updates.Channel.Stable}"
+                                      IsChecked="{Binding IncludeNightlyUpdates, Mode=TwoWay}" />
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>
                 <ui:FASettingsExpanderItem Content="{DynamicResource SettingsPage.Updates.AutoCheck.Title}"

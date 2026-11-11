@@ -144,8 +144,8 @@ public sealed class ControllerScanner : IControllerScanner
             IControllerDevice? controller = ControllerFactory.Create(_enumerator, info);
             if (controller is DualSenseDevice device && VirtualDeviceFilter.IsKnownVirtualMac(device.PairingInfo?.ClientMac))
             {
-                _log.Warning(
-                    $"Ignoring virtual controller: {info.ProductName} (MAC={device.PairingInfo?.ClientMac}, path={info.Path})");
+                _log.Debug(
+                    $"Ignoring this app's virtual controller: {info.ProductName} (MAC={device.PairingInfo?.ClientMac}, path={info.Path})");
                 device.Dispose();
                 return null;
             }
@@ -154,8 +154,9 @@ public sealed class ControllerScanner : IControllerScanner
         }
         catch (Exception ex)
         {
-            _log.Warning(
-                $"Skipping device that could not be opened: {info.ProductName} (VID=0x{info.VendorId:X4}, PID=0x{info.ProductId:X4}, bus={info.BusType}) — {ex.Message}");
+            _log.Info(
+                $"Skipping controller that could not be opened: {info.ProductName} (VID=0x{info.VendorId:X4}, PID=0x{info.ProductId:X4}, bus={info.BusType}, path={info.Path}); it will be picked up again when it reconnects",
+                ex);
             return null;
         }
     }
@@ -173,7 +174,7 @@ public sealed class ControllerScanner : IControllerScanner
             return;
         }
 
-        _log.Info($"Controller connected: {e.Device.ProductName} ({controller.ControllerType}, bus={controller.ConnectionType})");
+        _log.Info($"Controller connected: {e.Device.ProductName} ({controller.ControllerType}, bus={controller.ConnectionType}, path={e.Device.Path})");
         ControllerConnected?.Invoke(this,
             new ControllerConnectionEventArgs(DeviceChangeType.Connected, e.Device, controller.ControllerType, controller));
     }
@@ -192,7 +193,7 @@ public sealed class ControllerScanner : IControllerScanner
             return;
         }
 
-        _log.Info($"Controller disconnected: {e.Device.ProductName} ({type})");
+        _log.Info($"Controller disconnected: {e.Device.ProductName} ({type}, path={e.Device.Path})");
         ControllerDisconnected?.Invoke(this,
             new ControllerConnectionEventArgs(DeviceChangeType.Disconnected, e.Device, type, null));
     }

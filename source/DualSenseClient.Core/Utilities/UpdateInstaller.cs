@@ -146,13 +146,12 @@ public static class UpdateInstaller
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
-            _log.Warning($"No {HashSuffix} sidecar for '{assetUrl}'");
+            _log.Warning($"No {HashSuffix} sidecar for '{assetUrl}'; installing without verification");
             return true;
         }
         catch (Exception ex)
         {
-            _log.Warning($"Could not fetch {HashSuffix} sidecar for '{assetUrl}', refusing update");
-            _log.LogExceptionDetails(ex);
+            _log.Warning($"Could not fetch {HashSuffix} sidecar for '{assetUrl}', refusing update", ex);
             return false;
         }
 
@@ -212,8 +211,7 @@ public static class UpdateInstaller
         }
         catch (Exception ex)
         {
-            _log.Error($"Could not delete stale update backup '{backup}'");
-            _log.LogExceptionDetails(ex);
+            _log.Warning($"Could not delete stale update backup '{backup}'; continuing, but the swap will fail while it is locked", ex);
         }
 
         File.Move(exePath, backup);
@@ -223,16 +221,14 @@ public static class UpdateInstaller
         }
         catch (Exception ex)
         {
-            _log.Error($"Could not swap update into '{exePath}', restoring backup");
-            _log.LogExceptionDetails(ex);
+            _log.Error($"Could not swap update into '{exePath}', restoring backup", ex);
             try
             {
                 File.Move(backup, exePath);
             }
             catch (Exception restoreEx)
             {
-                _log.Error($"Could not restore update backup '{backup}'");
-                _log.LogExceptionDetails(restoreEx);
+                _log.Critical($"Could not restore update backup '{backup}'; the install is left without an executable", restoreEx);
             }
 
             throw;
@@ -259,8 +255,7 @@ public static class UpdateInstaller
         }
         catch (Exception ex)
         {
-            _log.Debug($"Could not delete update backup '{exePath + BackupSuffix}'");
-            _log.LogExceptionDetails(ex);
+            _log.Debug($"Could not delete update backup '{exePath + BackupSuffix}'", ex);
         }
     }
 }

@@ -21,9 +21,13 @@
         <StackPanel Spacing="4"
                     Margin="24,12,24,24">
             <!-- Empty state shown where focus tracking is unavailable -->
-            <cards:EmptyStateCard Title="{DynamicResource AutoProfilesPage.Unsupported.Title}"
-                                  Description="{DynamicResource AutoProfilesPage.Unsupported.Description}"
-                                  IsVisible="{Binding !IsSupported}" />
+            <Grid IsVisible="{Binding !IsSupported}">
+                <cards:EmptyStateCard Title="{DynamicResource AutoProfilesPage.Unsupported.Title}"
+                                      Description="{DynamicResource AutoProfilesPage.Unsupported.Description}"
+                                      Icon="TargetEdit"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center" />
+            </Grid>
 
             <StackPanel Spacing="4"
                         IsVisible="{Binding IsSupported}">

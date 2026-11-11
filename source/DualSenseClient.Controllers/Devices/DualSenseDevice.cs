@@ -90,6 +90,14 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     private readonly ControllerAudioLane _audioLane;
 
     /// <summary>
+    /// Active manual (Output Test) rumble state encoded as <c>(left &lt;&lt; 8) | right</c>,
+    /// or -1 when no manual vibration is held. It is merged into every outgoing output
+    /// report because the pad stops the classic motors as soon as a report without the
+    /// rumble-selection bits arrives (for example the profile's animated lightbar frames).
+    /// </summary>
+    private int _manualRumble = -1;
+
+    /// <summary>
     /// Runs the profile's animated lightbar effect.
     /// </summary>
     private readonly LightbarEffectController _lightbarEffect;
@@ -499,7 +507,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     /// <param name="ct">Cancellation token to signal when the loop should stop.</param>
     private void ReadLoop(CancellationToken ct)
     {
-        _log.Debug("Read Loop Start");
+        _log.Debug($"Read loop started for {Info.ProductName} ({ConnectionType})");
         // Size by input, not output: USB 0x01 is 64B while the USB output report is
         // 48B (DualSense) or 64B (Edge); BT 0x31 fills 78B. A 63B buffer would truncate
         // the USB AES tail needed for verbatim raw passthrough.
@@ -534,12 +542,12 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
                 // A failed read is the normal symptom of the controller being
                 // unplugged or the link dropping, so log it as a disconnect
                 // rather than an error.
-                _log.Warning($"Read failed, controller disconnected: {ex.Message}");
+                _log.Warning($"Input link lost for {Info.ProductName} ({ConnectionType}); read loop stopping", ex);
                 break;
             }
             catch (Exception ex)
             {
-                _log.LogExceptionDetails(ex);
+                _log.Error($"Controller read loop failed for {Info.ProductName}", ex);
                 break;
             }
         }
@@ -552,7 +560,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
             Volatile.Write(ref _linkLost, 1);
         }
 
-        _log.Debug("Read Loop End");
+        _log.Debug($"Read loop ended for {Info.ProductName} (cancelled={ct.IsCancellationRequested}, linkLost={IsLinkLost})");
     }
 
     /// <summary>
@@ -573,7 +581,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
                 case 0x31:
                     if (bytesRead < 2 + 63)
                     {
-                        _log.Warning($"Dropping truncated Bluetooth input report ({bytesRead} byte(s))");
+                        _log.Warning($"{Info.ProductName}: dropping truncated Bluetooth input report: {bytesRead} byte(s), expected at least {2 + 63}");
                         return;
                     }
 
@@ -582,7 +590,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
                     // stale or mangled state to the application.
                     if (bytesRead >= 78 && !HasValidBluetoothInputCrc(data))
                     {
-                        _log.Warning("Dropping Bluetooth input report with an invalid CRC");
+                        _log.Warning($"{Info.ProductName}: dropping Bluetooth input report with an invalid CRC ({bytesRead} byte(s))");
                         return;
                     }
 
@@ -596,10 +604,11 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
                     offset = 2;
                     break;
                 case 0x01:
-                    _log.Warning("Controller is in simple Bluetooth state");
+                    _log.Warning(
+                        $"{Info.ProductName}: controller is in simple Bluetooth mode; input is ignored until feature report 0x05 moves it to the full 0x31 report");
                     return;
                 default:
-                    _log.Warning($"Unknown Bluetooth report ID: 0x{reportId:X2}");
+                    _log.Warning($"{Info.ProductName}: unknown Bluetooth report ID 0x{reportId:X2} ({bytesRead} byte(s))");
                     return;
             }
         }
@@ -607,7 +616,8 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         {
             if (reportId != 0x01 || bytesRead < 1 + 63)
             {
-                _log.Warning($"Invalid USB input report ID 0x{reportId:X2} or truncated length {bytesRead}");
+                _log.Warning(
+                    $"{Info.ProductName}: invalid USB input report: ID 0x{reportId:X2}, {bytesRead} byte(s); expected ID 0x01 with at least {1 + 63} bytes");
                 return;
             }
 
@@ -617,7 +627,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         byte[]? usbRaw = null;
         DualSenseRawReport.TryBuildUsbRaw64(data, bytesRead, ConnectionType, out usbRaw);
         InputReport report = new InputReport(data, offset, usbRaw);
-        if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
+        if (_log.IsEnabled(LogLevel.Trace))
         {
             _log.Trace($"Input report 0x{reportId:X2} ({bytesRead} byte(s)): {BitConverter.ToString(data, 0, bytesRead)}");
         }
@@ -714,6 +724,16 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
             return;
         }
 
+        int manualRumble = Volatile.Read(ref _manualRumble);
+        if (manualRumble >= 0)
+        {
+            payload = ApplyRumbleEncoding(
+                payload,
+                (byte)(manualRumble >> 8),
+                (byte)(manualRumble & 0xFF),
+                UsesVibrationV2);
+        }
+
         if ((payload.ValidFlag1 & ValidFlags.AllowLedColor) != 0
             && (payload.LedRed, payload.LedGreen, payload.LedBlue) != CurrentLightbarColor)
         {
@@ -751,9 +771,9 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
                     : OutputReport.ForUsb(payload, IsEdge ? 63 : SetStateData.PayloadSize);
                 _outputSequence = (byte)((_outputSequence + 1) & 0x0F);
 
-                if (DualSenseClientLogger.MinimumLevel <= LogLevel.Debug)
+                if (_log.IsEnabled(LogLevel.Trace))
                 {
-                    _log.Debug($"Sending output report 0x{report.Raw[0]:X2} ({report.Length} byte(s))");
+                    _log.Trace($"Sending output report 0x{report.Raw[0]:X2} ({report.Length} byte(s))");
                 }
 
                 SendOutput(report.Raw, 0, report.Length);
@@ -813,7 +833,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         _lightbarEffect.Apply(lightbar);
 
         _log.Debug(
-            $"Applying profile: {lightbar.Mode} RGB({baseRed}, {baseGreen}, {baseBlue}), mic LED {profile.MicLed.Mode}, player LEDs {profile.PlayerLeds.Mask}");
+            $"Applying profile '{profile.Name}' to {Info.ProductName}: {lightbar.Mode} RGB({baseRed}, {baseGreen}, {baseBlue}), mic LED {profile.MicLed.Mode}, player LEDs {profile.PlayerLeds.Mask}");
 
         try
         {
@@ -821,7 +841,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         }
         catch (HidException ex)
         {
-            _log.Error($"Failed to apply profile '{profile.Name}': {ex.Message}");
+            _log.Error($"Failed to apply profile '{profile.Name}' to {Info.ProductName}", ex);
         }
     }
 
@@ -862,14 +882,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
             return;
         }
 
-        SetStateData payload = new SetStateData
-        {
-            ValidFlag0 = ValidFlags.UseRumbleNotHaptics
-                         | (UsesVibrationV2 ? ValidFlags.None : ValidFlags.EnableRumbleEmulation),
-            ValidFlag2 = UsesVibrationV2 ? ValidFlags.EnableImprovedRumbleEmu : ValidFlags.None,
-            RumbleLeft = left,
-            RumbleRight = right
-        };
+        SetStateData payload = ApplyRumbleEncoding(new SetStateData(), left, right, UsesVibrationV2);
 
         try
         {
@@ -877,8 +890,42 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         }
         catch (HidException ex)
         {
-            _log.Error($"Failed to set vibration (left={left}, right={right}): {ex.Message}");
+            _log.Error($"Failed to set vibration on {Info.ProductName} (left={left}, right={right})", ex);
         }
+    }
+
+    /// <summary>
+    /// Applies the classic rumble selection bits and motor values to an output payload.
+    /// The selection bits must accompany every report while classic rumble is active: a
+    /// report without them sends the pad back to its haptics path and stops the motors.
+    /// </summary>
+    /// <param name="payload">Payload to extend; its other fields and flags are preserved.</param>
+    /// <param name="left">Left (low-frequency) motor strength (0-255).</param>
+    /// <param name="right">Right (high-frequency) motor strength (0-255).</param>
+    /// <param name="vibrationV2">Whether the controller uses the improved rumble encoding.</param>
+    /// <returns>The payload with the rumble bits and motor values applied.</returns>
+    private static SetStateData ApplyRumbleEncoding(SetStateData payload, byte left, byte right, bool vibrationV2)
+    {
+        ValidFlags flag0 = payload.ValidFlag0 | ValidFlags.UseRumbleNotHaptics;
+        ValidFlags flag2 = payload.ValidFlag2;
+        if (vibrationV2)
+        {
+            flag0 &= ~ValidFlags.EnableRumbleEmulation;
+            flag2 |= ValidFlags.EnableImprovedRumbleEmu;
+        }
+        else
+        {
+            flag0 |= ValidFlags.EnableRumbleEmulation;
+            flag2 &= ~ValidFlags.EnableImprovedRumbleEmu;
+        }
+
+        return payload with
+        {
+            ValidFlag0 = flag0,
+            ValidFlag2 = flag2,
+            RumbleLeft = left,
+            RumbleRight = right
+        };
     }
 
     /// <summary>
@@ -888,10 +935,18 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     /// motors returns the lane to the previous owner.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The Bluetooth audio stream puts the pad into its haptics path, where the motor
     /// bytes of a <c>0x31</c> report are ignored. Forwarded game rumble therefore rides
     /// the haptics PCM instead. Manual testing still needs the classic encoding, so it
     /// takes the lane rather than synthesizing haptics frames.
+    /// </para>
+    /// <para>
+    /// The motor state is also kept in <see cref="_manualRumble"/> and merged into every
+    /// outgoing output report while it is set. A single classic rumble report is not
+    /// enough: the next report without the rumble-selection bits (such as the profile's
+    /// lightbar effect frames) sends the pad back to haptics and stops the motors.
+    /// </para>
     /// </remarks>
     /// <param name="left">Left (low-frequency) motor strength (0-255).</param>
     /// <param name="right">Right (high-frequency) motor strength (0-255).</param>
@@ -899,7 +954,12 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     {
         if (left != 0 || right != 0)
         {
+            Volatile.Write(ref _manualRumble, (left << 8) | right);
             _audioLane.TryEnter(this, AudioPriority.ManualRumble);
+        }
+        else
+        {
+            Volatile.Write(ref _manualRumble, -1);
         }
 
         SetVibration(left, right);
@@ -931,7 +991,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         }
         catch (HidException ex)
         {
-            _log.Error($"Failed to set trigger effects: {ex.Message}");
+            _log.Error($"Failed to set trigger effects on {Info.ProductName}", ex);
         }
     }
 
@@ -1084,7 +1144,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         }
         catch (HidException ex)
         {
-            _log.Error($"Failed to set audio output: {ex.Message}");
+            _log.Error($"Failed to set audio output on {Info.ProductName}", ex);
         }
     }
 
@@ -1112,7 +1172,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
 
         try
         {
-            if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
+            if (_log.IsEnabled(LogLevel.Trace))
             {
                 _log.Trace($"Sending audio report 0x{report[0]:X2} ({report.Length} byte(s)): {BitConverter.ToString(report, 0, report.Length)}");
             }
@@ -1126,7 +1186,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         }
         catch (HidException ex)
         {
-            _log.Error($"Failed to send audio report 0x{report[0]:X2}: {ex.Message}");
+            _log.Error($"Failed to send audio report 0x{report[0]:X2} to {Info.ProductName}", ex);
         }
     }
 
@@ -1259,9 +1319,11 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         {
             SetVibration(0, 0);
         }
-        catch
+        catch (Exception ex)
         {
-            //
+            // The link may already be gone; the motors will stop when it drops.
+            // Keep the reason at Debug so a disposal bug is still diagnosable.
+            _log.Debug($"Stopping vibration during dispose failed for {Info.ProductName}", ex);
         }
 
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
@@ -1277,7 +1339,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         // blocked in hid_read_timeout corrupts the pending native I/O and AVs.
         if (!_readThread.Join(TimeSpan.FromSeconds(2)))
         {
-            _log.Warning("Read loop did not stop cleanly on dispose");
+            _log.Error($"Read loop for {Info.ProductName} did not stop within 2 s; closing the HID handle anyway");
         }
 
         base.Dispose();

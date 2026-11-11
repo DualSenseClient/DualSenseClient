@@ -32,7 +32,7 @@ public sealed partial class LightsItem : ObservableObject, IDisposable
     /// <summary>
     /// Logger instance.
     /// </summary>
-    private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("ProfilePage");
+    private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("LightsItem");
 
     /// <summary>
     /// The concrete controller the light state is written to, or <c>null</c> for
@@ -331,7 +331,7 @@ public sealed partial class LightsItem : ObservableObject, IDisposable
         }
         catch (HidException ex)
         {
-            _log.Error($"Failed to send light state: {ex.Message}");
+            _log.Error($"Failed to send light state to {_device.Info.ProductName}", ex);
         }
     }
 

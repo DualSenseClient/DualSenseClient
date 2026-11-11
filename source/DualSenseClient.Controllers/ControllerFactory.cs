@@ -58,7 +58,7 @@ public static class ControllerFactory
         ControllerType type = GetType(info);
         if (type == ControllerType.Unknown)
         {
-            _log.Warning($"Create called for unknown device: {info.ProductName} (VID=0x{info.VendorId:X4}, PID=0x{info.ProductId:X4})");
+            _log.Debug($"Create called for unknown device: {info.ProductName} (VID=0x{info.VendorId:X4}, PID=0x{info.ProductId:X4})");
             return null;
         }
 

@@ -21,9 +21,14 @@
     <ScrollViewer>
         <StackPanel Spacing="4"
                     Margin="24,12,24,24">
-            <cards:EmptyStateCard Title="{DynamicResource DeviceInfoPage.NoDevice.Title}"
-                                  Description="{DynamicResource DeviceInfoPage.NoDevice.Description}"
-                                  IsVisible="{Binding !HasDevice}" />
+            <!-- Empty state centered in the page when no controller is selected -->
+            <Grid IsVisible="{Binding !HasDevice}">
+                <cards:EmptyStateCard Title="{DynamicResource DeviceInfoPage.NoDevice.Title}"
+                                      Description="{DynamicResource DeviceInfoPage.NoDevice.Description}"
+                                      Icon="XboxController"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center" />
+            </Grid>
 
             <!-- Emulation -->
             <ui:FASettingsExpander Header="{DynamicResource EmulationPage.Emulation.Title}"

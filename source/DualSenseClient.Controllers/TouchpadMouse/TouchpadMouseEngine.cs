@@ -144,7 +144,7 @@ public sealed class TouchpadMouseEngine : IDisposable
 
             if (logFailure)
             {
-                _log.LogExceptionDetails(ex);
+                _log.Error($"Touchpad mouse input handling failed for {_device?.Info.ProductName ?? "the controller"}", ex);
             }
         }
     }
@@ -171,7 +171,7 @@ public sealed class TouchpadMouseEngine : IDisposable
         }
         catch (Exception ex)
         {
-            _log.LogExceptionDetails(ex);
+            _log.Error($"Failed to reset touchpad mouse state for {device.Info.ProductName}", ex);
         }
 
         _log.Debug("Touchpad mouse detached");

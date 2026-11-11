@@ -201,11 +201,15 @@ public sealed class EmulationDualShock4AudioCapture : IDisposable, IVirtualAudio
             {
                 _firstChunkLogged = true;
                 _statsTimestamp = now;
-                string head = string.Join(
-                    " ",
-                    _rawScratch.AsSpan(0, Math.Min(16, byteCount)).ToArray().Select(b => b.ToString("X2")));
-                _log.Info(
-                    $"Emulation DS4 audio capture first chunk: {byteCount} bytes, {stereo.Length} stereo samples, {nonZero}/{stereo.Length} non-zero; head {head}");
+                _log.Debug(
+                    $"Emulation DS4 audio capture first chunk: {byteCount} bytes, {stereo.Length} stereo samples, {nonZero}/{stereo.Length} non-zero");
+                if (_log.IsEnabled(LogLevel.Trace))
+                {
+                    string head = string.Join(
+                        " ",
+                        _rawScratch.AsSpan(0, Math.Min(16, byteCount)).ToArray().Select(b => b.ToString("X2")));
+                    _log.Trace($"Emulation DS4 audio capture first chunk head: {head}");
+                }
             }
             else if (now - _statsTimestamp >= Stopwatch.Frequency * 2)
             {

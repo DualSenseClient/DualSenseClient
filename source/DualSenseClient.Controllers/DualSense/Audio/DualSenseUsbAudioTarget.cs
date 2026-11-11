@@ -167,24 +167,24 @@ public sealed class DualSenseUsbAudioTarget : IDisposable
             DeviceInfo? endpoint = _endpointFinder.FindRenderDevice();
             if (endpoint is null)
             {
-                _log.Info("DualSense render endpoint not found; USB audio forwarding unavailable");
+                _log.Debug("DualSense render endpoint not found; USB audio forwarding unavailable (is the controller connected by USB?)");
                 return false;
             }
 
             if (!TryOpen(endpoint.Value, QuadFormat, CreateExclusiveQuadConfig(), true)
                 && !TryOpen(endpoint.Value, QuadFormat, null, true))
             {
-                _log.Info("Shared quadraphonic stream unavailable; falling back to shared stereo — haptics are dropped");
+                _log.Info($"Shared quadraphonic stream unavailable for '{endpoint.Value.Name}'; falling back to shared stereo — haptics are dropped");
                 TryOpen(endpoint.Value, StereoFormat, null, false);
             }
 
             if (_player is not null)
             {
-                _log.Info($"USB audio forwarding started ({(_fourChannel ? "quadraphonic" : "stereo")})");
+                _log.Debug($"USB audio forwarding started on '{endpoint.Value.Name}' ({(_fourChannel ? "quadraphonic" : "stereo")})");
             }
             else
             {
-                _log.Info("DualSense render endpoint could not be opened; USB audio forwarding unavailable");
+                _log.Warning($"DualSense render endpoint '{endpoint.Value.Name}' could not be opened; USB audio forwarding is unavailable for this session");
             }
 
             return _player is not null;
@@ -279,8 +279,8 @@ public sealed class DualSenseUsbAudioTarget : IDisposable
         }
         catch (Exception ex)
         {
-            _log.Warning(
-                $"Could not open the DualSense render endpoint ({format.Channels}-channel, {(config is null ? "shared" : "exclusive")}): {ex.Message}");
+            _log.Debug(
+                $"Could not open the DualSense render endpoint '{endpoint.Name}' ({format.Channels}-channel, {(config is null ? "shared" : "exclusive")})", ex);
             player?.Dispose();
             device?.Dispose();
             return false;

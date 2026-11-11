@@ -43,7 +43,7 @@ public sealed class HidHideService : IControllerHidingService
             }
             catch (Exception ex)
             {
-                _log.Debug($"HidHide availability check failed: {ex.Message}");
+                _log.Debug("HidHide availability check failed", ex);
                 return false;
             }
         }
@@ -66,7 +66,7 @@ public sealed class HidHideService : IControllerHidingService
         }
         catch (Exception ex)
         {
-            _log.Warning($"Failed to read HidHide blacklist: {ex.Message}");
+            _log.Warning($"Failed to read HidHide blacklist for '{instanceId}'; treating the controller as visible", ex);
             return false;
         }
     }
@@ -76,6 +76,7 @@ public sealed class HidHideService : IControllerHidingService
     {
         if (!IsAvailable)
         {
+            _log.Debug($"HidHide is unavailable; cannot {(hidden ? "hide" : "unhide")} '{instanceId}'");
             return;
         }
 
@@ -114,7 +115,7 @@ public sealed class HidHideService : IControllerHidingService
         }
         catch (Exception ex)
         {
-            _log.Warning($"Failed to update HidHide blacklist: {ex.Message}");
+            _log.Warning($"Failed to {(hidden ? "hide" : "unhide")} '{instanceId}' in the HidHide blacklist", ex);
         }
     }
 
@@ -158,7 +159,7 @@ public sealed class HidHideService : IControllerHidingService
             }
             catch (Exception ex)
             {
-                _log.Debug($"SetupAPI instance ID conversion failed for '{devicePath}': {ex.Message}");
+                _log.Debug($"SetupAPI instance ID conversion failed for '{devicePath}'", ex);
             }
         }
 
@@ -213,7 +214,7 @@ public sealed class HidHideService : IControllerHidingService
             }
             catch (Exception ex)
             {
-                _log.Warning($"Failed to read HidHide whitelist: {ex.Message}");
+                _log.Warning($"Failed to read the HidHide whitelist while checking '{exePath}'; assuming not whitelisted", ex);
                 return false;
             }
         }
@@ -249,7 +250,7 @@ public sealed class HidHideService : IControllerHidingService
         }
         catch (Exception ex)
         {
-            _log.Warning($"Failed to update HidHide whitelist: {ex.Message}");
+            _log.Warning($"Failed to {(whitelisted ? "add" : "remove")} '{exePath}' in the HidHide whitelist", ex);
         }
     }
 }

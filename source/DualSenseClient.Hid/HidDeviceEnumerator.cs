@@ -289,7 +289,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                 }
                 catch (Exception ex)
                 {
-                    _log.Warning($"Device scan failed: {ex.Message}");
+                    _log.Warning($"Device scan failed; retrying in {intervalMs} ms", ex);
                 }
             }
         }
@@ -335,7 +335,8 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                 }
 
                 _pendingConnected.Remove(pair.Key);
-                _log.Info($"Device connected: {pair.Value.ProductName} (VID=0x{pair.Value.VendorId:X4}, PID=0x{pair.Value.ProductId:X4})");
+                _log.Debug(
+                    $"Device connected: {pair.Value.ProductName} (VID=0x{pair.Value.VendorId:X4}, PID=0x{pair.Value.ProductId:X4}, path={pair.Value.Path})");
                 changes.Add((true, pair.Value));
             }
 
@@ -357,7 +358,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                     continue;
                 }
 
-                _log.Info($"Device disconnected: {device.ProductName} (VID=0x{device.VendorId:X4}, PID=0x{device.ProductId:X4})");
+                _log.Debug($"Device disconnected: {device.ProductName} (VID=0x{device.VendorId:X4}, PID=0x{device.ProductId:X4}, path={device.Path})");
                 changes.Add((false, device));
             }
 
@@ -389,7 +390,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
         }
         catch (Exception ex)
         {
-            _log.Warning($"{(connected ? "DeviceConnected" : "DeviceDisconnected")} handler threw: {ex.Message}");
+            _log.Warning($"{(connected ? "DeviceConnected" : "DeviceDisconnected")} handler threw for {device.ProductName} ({device.Path})", ex);
         }
     }
 
@@ -423,10 +424,15 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
         return FilterConnected(all);
     }
 
+    /// <summary>
+    /// Formats an optional USB identifier for log output, using <c>any</c> when absent.
+    /// </summary>
+    private static string FormatVendorFilter(ushort? value) => value is { } id ? $"0x{id:X4}" : "any";
+
     /// <inheritdoc/>
     public IReadOnlyList<IHidDeviceInfo> Enumerate(ushort? vendorId = null, ushort? productId = null)
     {
-        _log.Debug($"Enumerating devices (vendorId=0x{vendorId:X4}, productId=0x{productId:X4})");
+        _log.Debug($"Enumerating devices (vendorId={FormatVendorFilter(vendorId)}, productId={FormatVendorFilter(productId)})");
         List<IHidDeviceInfo> all = _enumerateNative(vendorId, productId);
         all.RemoveAll(device => IsExcluded(device.Path));
         return FilterConnected(all);
@@ -435,7 +441,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     /// <inheritdoc/>
     public IReadOnlyList<IHidDeviceInfo> EnumerateIncludingExcluded(ushort? vendorId = null, ushort? productId = null)
     {
-        _log.Debug($"Enumerating devices including excluded (vendorId=0x{vendorId:X4}, productId=0x{productId:X4})");
+        _log.Debug($"Enumerating devices including excluded (vendorId={FormatVendorFilter(vendorId)}, productId={FormatVendorFilter(productId)})");
         return FilterConnected(_enumerateNative(vendorId, productId));
     }
 
@@ -472,7 +478,8 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
             {
                 if (!IsDeviceConnected(device.Path))
                 {
-                    _log.Debug($"Filtered out disconnected Bluetooth device: {device.ProductName} (VID=0x{device.VendorId:X4}, PID=0x{device.ProductId:X4})");
+                    _log.Trace(
+                        $"Filtered out disconnected Bluetooth device: {device.ProductName} (VID=0x{device.VendorId:X4}, PID=0x{device.ProductId:X4}, path={device.Path})");
                     return;
                 }
 
@@ -482,7 +489,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
             result.AddRange(btDevices.Where(device => connected.ContainsKey(device.Path)));
         }
 
-        _log.Debug($"Enumerate returned {result.Count} device(s) (filtered from {all.Count})");
+        _log.Debug($"Enumeration kept {result.Count} device(s) (filtered from {all.Count})");
         return result;
     }
 
@@ -499,7 +506,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
         }
 
         IReadOnlyList<IHidDeviceInfo> result = EnumerateCore(new HashSet<(ushort VendorId, ushort ProductId)>(filter));
-        _log.Debug($"Filtered enumerate returned {result.Count} device(s)");
+        _log.Debug($"Filtered enumeration kept {result.Count} device(s)");
         return result;
     }
 
@@ -551,7 +558,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                 });
             }
 
-            _log.Debug($"hid_enumerate returned {count} device(s)");
+            _log.Debug($"Enumeration kept {count} gamepad/joystick device(s)");
             HidApi.FreeEnumeration(devices);
         }
 
@@ -596,7 +603,7 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
         }
         catch (Exception ex)
         {
-            _log.Trace($"Device '{devicePath}' not reachable: {ex.Message}");
+            _log.Trace($"Device '{devicePath}' not reachable", ex);
             return false;
         }
     }
@@ -605,7 +612,6 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     public IHidDevice OpenDevice(string path)
     {
         EnsureInitialized();
-        _log.Debug($"Opening HID device '{path}'");
         return new HidDevice(path);
     }
 

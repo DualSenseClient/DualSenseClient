@@ -15,6 +15,12 @@
 /// <param name="SourceLine">The line number in the source file where the log call originated.</param>
 /// <param name="SourceMemberName">The name of the method or property where the log call originated.</param>
 /// <param name="Exception">An optional exception associated with this log entry.</param>
+/// <param name="ThreadId">
+/// The managed thread identifier that created the entry, or <c>0</c> when unknown.
+/// </param>
+/// <param name="ThreadName">
+/// The name of the thread that created the entry, or an empty string when unnamed.
+/// </param>
 public readonly record struct LogEntry(
     DateTimeOffset Timestamp,
     LogLevel Level,
@@ -23,4 +29,6 @@ public readonly record struct LogEntry(
     string SourceFileName,
     int SourceLine,
     string SourceMemberName,
-    Exception? Exception = null);
+    Exception? Exception = null,
+    int ThreadId = 0,
+    string ThreadName = "");

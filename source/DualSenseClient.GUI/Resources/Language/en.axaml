@@ -15,6 +15,7 @@
     <sys:String x:Key="MainWindow.Customization">Customization</sys:String>
     <sys:String x:Key="MainWindow.Devices">Device Info</sys:String>
     <sys:String x:Key="MainWindow.Emulation">Emulation</sys:String>
+    <sys:String x:Key="MainWindow.NoControllers">No controllers connected</sys:String>
     <sys:String x:Key="MainWindow.Settings">Settings</sys:String>
     <sys:String x:Key="MainWindow.Title">DualSense Client</sys:String>
     <!-- DisconnectController -->
@@ -554,6 +555,7 @@
     <sys:String x:Key="SettingsPage.Updates.Channel.Description">Stable follows versioned releases, nightly follows pre-release builds</sys:String>
     <sys:String x:Key="SettingsPage.Updates.Channel.Nightly">Nightly</sys:String>
     <sys:String x:Key="SettingsPage.Updates.Channel.Stable">Stable</sys:String>
+    <sys:String x:Key="SettingsPage.Updates.Channel.Title">Release</sys:String>
     <sys:String x:Key="SettingsPage.Updates.Check.Title">Check for updates</sys:String>
     <sys:String x:Key="SettingsPage.Updates.Description">Release channel and automatic update checks</sys:String>
     <sys:String x:Key="SettingsPage.Updates.Open.Description">Updates the app to the latest version</sys:String>

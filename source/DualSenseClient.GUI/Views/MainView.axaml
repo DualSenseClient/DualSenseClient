@@ -48,21 +48,38 @@
                     Padding="6">
                 <StackPanel Orientation="Horizontal"
                             Spacing="8">
-                    <ComboBox ItemsSource="{Binding Controllers}"
-                              SelectedItem="{Binding SelectedItem}"
-                              MinWidth="220"
-                              WindowDecorationProperties.ElementRole="User">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="models:ControllerItem">
-                                <StackPanel Orientation="Horizontal"
-                                            Spacing="8">
-                                    <TextBlock Text="{Binding DisplayName}" />
-                                    <TextBlock Text="{Binding ConnectionType}"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
+                    <Panel VerticalAlignment="Center">
+                        <ComboBox ItemsSource="{Binding Controllers}"
+                                  SelectedItem="{Binding SelectedItem}"
+                                  IsVisible="{Binding HasControllers}"
+                                  HorizontalAlignment="Stretch"
+                                  MinWidth="220"
+                                  WindowDecorationProperties.ElementRole="User">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="models:ControllerItem">
+                                    <StackPanel Orientation="Horizontal"
+                                                Spacing="8">
+                                        <TextBlock Text="{Binding DisplayName}" />
+                                        <TextBlock Text="{Binding ConnectionType}"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Border IsVisible="{Binding !HasControllers}"
+                                HorizontalAlignment="Stretch"
+                                MinWidth="220"
+                                Padding="12,6"
+                                VerticalAlignment="Center"
+                                Background="{DynamicResource ControlFillColorDefaultBrush}"
+                                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4">
+                            <TextBlock Text="{DynamicResource MainWindow.NoControllers}"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        </Border>
+                    </Panel>
                     <Button Command="{Binding ToggleScanningCommand}"
                             ToolTip.Tip="{Binding ScanButtonToolTip}"
                             WindowDecorationProperties.ElementRole="User">

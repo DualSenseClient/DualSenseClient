@@ -113,7 +113,7 @@ public static class DualSenseCRC32
     {
         uint hashResult = seed;
 
-        if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
+        if (_log.IsEnabled(LogLevel.Trace))
         {
             _log.Trace($"Computing CRC32: offset={offset}, length={length}, seed=0x{seed:X8}");
         }
@@ -123,7 +123,7 @@ public static class DualSenseCRC32
             hashResult = ChecksumTable[(hashResult & 0xFF) ^ data[i]] ^ (hashResult >> 8);
         }
 
-        if (DualSenseClientLogger.MinimumLevel <= LogLevel.Trace)
+        if (_log.IsEnabled(LogLevel.Trace))
         {
             _log.Trace($"CRC32 result: 0x{hashResult:X8}");
         }

@@ -362,7 +362,7 @@ public sealed partial class AudioPlayerItem : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            _log.Error($"Failed to open audio file '{path}': {ex.Message}");
+            _log.Error($"Failed to open audio file '{path}'", ex);
             return;
         }
 

@@ -103,7 +103,7 @@ public sealed class AutoProfileService
     {
         lock (_lock)
         {
-            _log.Info($"Loading auto profiles from '{_store.FilePath}'");
+            _log.Debug($"Loading auto profiles from '{_store.FilePath}'");
             _store.Load();
             NormalizeTriggerRanges();
             _loaded = true;

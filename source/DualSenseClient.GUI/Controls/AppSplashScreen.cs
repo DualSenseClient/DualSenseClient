@@ -204,8 +204,7 @@ internal class AppSplashScreen : IFAApplicationSplashScreen
         }
         catch (Exception ex)
         {
-            _log.Warning("Daily update check failed, skipping so startup is unaffected");
-            _log.LogExceptionDetails(ex);
+            _log.Warning("Daily update check failed, skipping so startup is unaffected", ex);
         }
     }
 }

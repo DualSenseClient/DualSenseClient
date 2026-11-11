@@ -607,7 +607,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
             }
             catch (Exception ex)
             {
-                _log.LogExceptionDetails(ex);
+                _log.Error($"Audio writer loop failed for '{_source?.FileName ?? "no file"}'", ex);
                 break;
             }
 
@@ -939,7 +939,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
             DeviceInfo? endpoint = _endpointFinder.FindRenderDevice();
             if (endpoint is null)
             {
-                _log.Info("DualSense render endpoint not found; USB audio unavailable");
+                _log.Debug("DualSense render endpoint not found; USB audio unavailable");
                 return;
             }
 
@@ -954,10 +954,9 @@ public sealed class DualSenseAudioPlayer : IDisposable
                 catch (Exception ex)
                 {
                     DisposeUsbTarget();
-                    _log.Info($"Exclusive quadraphonic stream unavailable ({ex.Message}); USB haptics need "
-                              + "\"Allow applications to take exclusive control\" on the DualSense in Windows "
-                              + "Sound settings — trying a shared quadraphonic stream");
-                    _log.LogExceptionDetails(ex);
+                    _log.Debug("Exclusive quadraphonic stream unavailable; USB haptics need "
+                               + "\"Allow applications to take exclusive control\" on the DualSense in Windows "
+                               + "Sound settings — trying a shared quadraphonic stream", ex);
                 }
             }
 
@@ -970,10 +969,9 @@ public sealed class DualSenseAudioPlayer : IDisposable
             catch (Exception ex)
             {
                 DisposeUsbTarget();
-                _log.Info($"Shared quadraphonic stream unavailable ({ex.Message}); falling back to shared "
-                          + "stereo — haptics may pulse with the audio because the host up-mixes stereo "
-                          + "into the haptic channels");
-                _log.LogExceptionDetails(ex);
+                _log.Debug("Shared quadraphonic stream unavailable; falling back to shared "
+                           + "stereo — haptics may pulse with the audio because the host up-mixes stereo "
+                           + "into the haptic channels", ex);
             }
 
             _usbFourChannel = false;
@@ -981,7 +979,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
         }
         catch (Exception ex)
         {
-            _log.Error($"Failed to open DualSense render endpoint: {ex.Message}");
+            _log.Error($"Failed to open the DualSense render endpoint; USB audio is unavailable until the render targets are rebuilt", ex);
             DisposeUsbTarget();
         }
     }
@@ -1126,8 +1124,7 @@ public sealed class DualSenseAudioPlayer : IDisposable
         }
         catch (InvalidOperationException ex)
         {
-            _log.Error("Failed to encode the Bluetooth preroll silence packet; skipping warmup");
-            _log.LogExceptionDetails(ex);
+            _log.Warning("Failed to encode the Bluetooth preroll silence packet; skipping warmup and later Bluetooth audio may not start", ex);
             return;
         }
 

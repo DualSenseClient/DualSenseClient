@@ -1912,7 +1912,7 @@ public partial class AutoProfilePageViewModel : ObservableObject
     {
         AutoProfileRule rule = new AutoProfileRule();
         _rules.AddRule(rule);
-        _log.Info("Added auto profile rule");
+        _log.Debug($"Added auto profile rule ({_rules.Settings.Rules.Count} rule(s) total)");
         Rules.Add(rule);
         SelectedRule = rule;
     }

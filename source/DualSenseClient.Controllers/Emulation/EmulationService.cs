@@ -472,7 +472,7 @@ public sealed class EmulationService : IEmulationService
             }
             catch (Exception ex)
             {
-                _log.LogExceptionDetails(ex);
+                _log.Error("Emulation refresh failed", ex);
             }
             finally
             {
@@ -494,7 +494,18 @@ public sealed class EmulationService : IEmulationService
         {
             EmulationStatus status = slot.Status;
             string detail = status.IsCreating ? "creating" : status.Detail ?? status.VirtualDevicePath ?? status.State.ToString();
-            _log.Info($"Emulation status: {slot.Device.Info.ProductName} {status.Mode} running={status.Running} ({detail})");
+            if (status.State == EmulationState.Failed)
+            {
+                _log.Warning($"Emulation failed for {slot.Device.Info.ProductName} ({status.Mode}): {detail}");
+            }
+            else if (status.State == EmulationState.Running)
+            {
+                _log.Info($"Emulation running for {slot.Device.Info.ProductName} ({status.Mode})");
+            }
+            else
+            {
+                _log.Debug($"Emulation status: {slot.Device.Info.ProductName} {status.Mode} state={status.State} ({detail})");
+            }
         }
 
         StateChanged?.Invoke(this, EventArgs.Empty);
@@ -614,7 +625,9 @@ public sealed class EmulationService : IEmulationService
         }
         catch (Exception ex)
         {
-            _log.LogExceptionDetails(ex);
+            _log.Error(
+                $"Failed to create the emulated {mode} controller for {entry.Device.Info.ProductName}; the slot is marked failed and retries on the next settings change",
+                ex);
             entry.MarkFailed(mode, ex.Message);
         }
         finally
@@ -696,7 +709,7 @@ public sealed class EmulationService : IEmulationService
             forwarding);
         if (creation is null)
         {
-            _log.Warning(
+            _log.Debug(
                 $"Failed to create the virtual {mode} device for {entry.Device.Info.ProductName}; retrying in {(int)CreateRetryDelay.TotalMilliseconds} ms");
             await Task.Delay(CreateRetryDelay);
 
@@ -763,9 +776,9 @@ public sealed class EmulationService : IEmulationService
                 // virtual device is left behind. All candidates were already excluded on
                 // first sighting during discovery; afterwards, any that survived removal
                 // was real hardware and is unexcluded again.
-                _log.Warning(candidates.Count == 0
-                    ? "Could not discover the virtual device in HID enumeration; removing it again"
-                    : $"Found {candidates.Count} new matching devices; removing them again");
+                _log.Warning(entry.Device.Info.ProductName + ": " + (candidates.Count == 0
+                    ? $"could not discover the virtual {mode} device in HID enumeration; emulation stays off for this controller"
+                    : $"found {candidates.Count} new matching devices instead of one; emulation stays off for this controller"));
                 CleanupAttachedPersona();
                 await UnexcludeSurvivingCandidatesAsync(vid, pid, candidates);
                 entry.MarkFailed(mode,
@@ -898,11 +911,11 @@ public sealed class EmulationService : IEmulationService
                 return creation;
             }
 
-            _log.Warning($"Failed to attach the virtual {mode} device for the Emulation engine: {error}");
+            _log.Warning($"Failed to attach the virtual {mode} device for {entry.Device.Info.ProductName}: {error}");
         }
         catch (Exception ex)
         {
-            _log.LogExceptionDetails(ex);
+            _log.Error($"Failed to create or attach the emulated {mode} controller for {entry.Device.Info.ProductName}", ex);
         }
 
         if (creation is not null)
@@ -1140,7 +1153,7 @@ public sealed class EmulationService : IEmulationService
             {
                 // Nothing to capture yet: leave the controller's own audio running rather
                 // than streaming silence. Re-selecting the application retries.
-                _log.Warning($"The application '{audioApp}' is not running; the virtual controller's audio keeps driving the controller");
+                _log.Info($"The application '{Path.GetFileName(audioApp)}' is not running; the virtual controller's audio keeps driving the controller");
                 forwarder.Flush();
                 if (entry.Capture is IVirtualAudioCapture resumeCapture)
                 {
@@ -1172,9 +1185,9 @@ public sealed class EmulationService : IEmulationService
 
         if (!capture.Start())
         {
-            _log.Warning(entry.Capture is IVirtualAudioCapture
-                ? "The direct audio source could not be captured; the virtual controller's audio keeps driving the controller"
-                : "The direct audio source could not be captured; no audio will be forwarded");
+            _log.Warning(entry.Device.Info.ProductName + ": " + (entry.Capture is IVirtualAudioCapture
+                ? "the direct audio source could not be captured; the virtual controller's audio keeps driving the controller"
+                : "the direct audio source could not be captured; no audio will be forwarded"));
             capture.Stop();
             if (entry.Capture is IVirtualAudioCapture fallbackCapture)
             {
@@ -1189,8 +1202,8 @@ public sealed class EmulationService : IEmulationService
         entry.DirectApp = audioApp;
         entry.DirectAudioActive = true;
         _log.Info(audioSource == EmulationAudioSource.Application
-            ? $"Host audio forwarding now follows the application '{audioApp}'"
-            : "Host audio forwarding now follows the system's default output");
+            ? $"Host audio forwarding now follows the application '{Path.GetFileName(audioApp)}' for {entry.Device.Info.ProductName}"
+            : $"Host audio forwarding now follows the system's default output for {entry.Device.Info.ProductName}");
     }
 
     /// <summary>
@@ -1336,7 +1349,15 @@ public sealed class EmulationService : IEmulationService
         entry.Forwarder = forwarder;
         entry.Device.AudioLevelProvider = () => forwarder.AudioLevel;
         WireGameCallbacksLocked(entry);
-        _log.Info($"Host audio forwarding {(forwarder.Start() ? "started" : "unavailable")} for {entry.Device.Info.ProductName}");
+        bool started = forwarder.Start();
+        if (started)
+        {
+            _log.Debug($"Host audio forwarding started for {entry.Device.Info.ProductName}");
+        }
+        else
+        {
+            _log.Warning($"Host audio forwarding is unavailable for {entry.Device.Info.ProductName}; no forwarded audio will reach the controller");
+        }
     }
 
     /// <summary>
@@ -1436,7 +1457,7 @@ public sealed class EmulationService : IEmulationService
                 if (discovered.Add(candidate))
                 {
                     _enumerator.ExcludeDevice(candidate);
-                    _log.Info($"Discovered virtual device candidate: {candidate}");
+                    _log.Debug($"Discovered virtual device candidate: {candidate}");
                 }
             }
 
@@ -1482,7 +1503,7 @@ public sealed class EmulationService : IEmulationService
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (string candidate in candidates.Where(remaining.Contains))
         {
-            _log.Info($"Restoring non-virtual discovery candidate: {candidate}");
+            _log.Debug($"Restoring non-virtual discovery candidate: {candidate}");
             _enumerator.RemoveExcludedDevice(candidate);
         }
     }
@@ -1508,13 +1529,13 @@ public sealed class EmulationService : IEmulationService
         }
         catch (Exception ex)
         {
-            _log.LogExceptionDetails(ex);
+            _log.Error("Failed to start the Emulation server; virtual controllers cannot start. Verify that usbip-win2 is installed", ex);
             server?.Dispose();
             return false;
         }
 
         _emulationServer = server;
-        _log.Info("Emulation server ready");
+        _log.Debug("Emulation server ready");
         return true;
     }
 
@@ -1555,7 +1576,7 @@ public sealed class EmulationService : IEmulationService
             }
         }
 
-        _log.Info("Stopping the Emulation server");
+        _log.Debug("Stopping the Emulation server");
         _emulationServer.Stop();
         _emulationServer.Dispose();
         _emulationServer = null;
@@ -1603,7 +1624,8 @@ public sealed class EmulationService : IEmulationService
         {
             if (!emulationServer.TryDetach(persona, out string? error))
             {
-                _log.Warning($"Failed to detach the Emulation virtual device for {entry.Device.Info.ProductName}: {error}");
+                _log.Warning(
+                    $"Failed to detach the Emulation virtual device for {entry.Device.Info.ProductName}: {error}; it may stay attached until the server stops");
             }
 
             emulationServer.RemoveDevice(persona);
