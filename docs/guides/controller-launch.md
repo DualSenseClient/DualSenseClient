@@ -14,25 +14,88 @@ They do not change pairing or start the app at sign-in.
 ## Windows: Task Scheduler
 
 1. Find the controller's Bluetooth address on the app's **Device Info** page.
-2. Open Event Viewer and enable **Applications and Services Logs → Microsoft →
-   Windows → Bluetooth-Policy → Operational** if it is disabled. Enabling the log
-   may require administrator approval; ordinary task launches should not.
+2. Open Event Viewer. Expand **Applications and Services Logs → Microsoft →
+   Windows → Bluetooth-Policy**, right-click **Operational**, select **Properties**,
+   tick **Enable logging**, then click **OK**. Enabling the log may require
+   administrator approval; ordinary task launches should not.
 3. Reconnect the controller and find its connection event. On supported Windows
    versions this is event **9**, with a `bthAddr` field. Confirm the event on your
    own machine rather than assuming all adapters and versions log the same event.
-4. Create a Task Scheduler task for your current user, using **Run only when user
-   is logged on**, without **Run with highest privileges**. Add an event trigger
-   filtered to that connection event and the controller's address. `bthAddr` uses
-   the decimal representation of the hexadecimal Bluetooth address.
-5. Set the action to a launcher that checks whether this installation of DualSense
-   Client is already running before starting it. A direct executable action can
-   create duplicates on reconnect. The separately maintained
-   [Windows session launcher](https://github.com/rwflan/dualsense-session-launcher)
-   is one option; review its source and installation instructions before use.
-   Do not add a sign-in trigger if you only want connection-triggered launches.
-6. Set **If the task is already running** to **Do not start a new instance**, and
-   remove the default time limit if your chosen launcher remains running. Note
-   that this setting alone does not prevent duplicates after a launcher exits.
+   Under **Details → XML View**, check that `bthAddr` matches your controller.
+   It uses the decimal representation of the hexadecimal Bluetooth address.
+   For example, this PowerShell command converts `AA:BB:CC:DD:EE:FF` to
+   `187723572702975`; replace the address with your own:
+
+   ```powershell
+   [Convert]::ToUInt64(('AA:BB:CC:DD:EE:FF' -replace '[:-]', ''), 16)
+   ```
+
+   If no matching event is logged, this trigger cannot be used as written.
+
+### Prepare the launch action
+
+Save this as `controller-launch.ps1` in a permanent folder, and replace `$exe` with
+the full path to your installed app. It checks for that executable in the current
+Windows session, so reconnecting leaves an existing window alone.
+
+```powershell
+$exe = 'C:\path\to\DualSenseClient.exe'
+$sessionId = (Get-Process -Id $PID).SessionId
+$running = Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($exe)) -ErrorAction SilentlyContinue |
+    Where-Object { $_.SessionId -eq $sessionId -and $_.Path -eq $exe }
+if (-not $running) {
+    Start-Process -FilePath $exe -WorkingDirectory (Split-Path -Parent $exe)
+}
+```
+
+Test it with the app closed, then again with the app open to check that it does
+not create another instance. Replace the script path in this command:
+
+```text
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File "C:\path\to\controller-launch.ps1"
+```
+
+`-ExecutionPolicy RemoteSigned` allows this locally saved script for that process;
+it does not change your saved execution policy. Managed policies can still take
+precedence. The script passes no arguments that override **Start in tray**.
+
+### Create the task
+
+1. Open Task Scheduler and select **Create Task**. Give it a name such as
+   `DualSense Client on connection`. On **General**, select your current user and
+   **Run only when user is logged on**. Leave **Run with highest privileges** off.
+2. On **Triggers**, click **New**. Set **Begin the task** to **On an event**, select
+   **Custom**, then **New Event Filter**. Open **XML**, tick **Edit query manually**
+   and paste the following. Replace `187723572702975` with your controller's
+   decimal `bthAddr`. Click **OK** to save the filter, then **OK** to save the trigger.
+
+   ```xml
+   <QueryList>
+     <Query Id="0" Path="Microsoft-Windows-Bluetooth-Policy/Operational">
+       <Select Path="Microsoft-Windows-Bluetooth-Policy/Operational">
+         *[System[Provider[@Name='Microsoft-Windows-Bluetooth-Policy'] and EventID=9]]
+         and *[EventData[Data[@Name='bthAddr']='187723572702975']]
+       </Select>
+     </Query>
+   </QueryList>
+   ```
+
+3. On **Actions**, click **New**, select **Start a program** and enter
+   `powershell.exe` in **Program/script**. In **Add arguments**, enter the following,
+   replacing the script path:
+
+   ```text
+   -NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File "C:\path\to\controller-launch.ps1"
+   ```
+
+4. On **Conditions**, clear **Start the task only if the computer is on AC power**
+   if you also want it to work on battery. Leave idle and network requirements off.
+5. On **Settings**, set **If the task is already running** to **Do not start a new
+   instance**. Save the task. Do not add a sign-in or disconnect trigger.
+6. Right-click the task and select **Run** to check the saved action. Then test
+   actual controller connections. **Do not start a new instance** prevents
+   overlapping script runs; the script's process check prevents duplicate app
+   launches after the script exits.
 
 Test by connecting, disconnecting and reconnecting. The app should launch once,
 remain running through disconnect, and remain hidden on reconnect if it was
@@ -40,11 +103,15 @@ hidden. Exit the app from its tray menu, reconnect again, and check that it star
 To undo the automation, disable or delete the task. Leave the shared event log
 alone if other tasks use it.
 
-## Linux: choose an approach for your desktop
+## Linux: BlueZ connection events
 
-Bluetooth stacks, desktop sessions and service managers vary. The example below
-uses Python 3 and BlueZ's `bluetoothctl`; check both are installed first. It does
-not require a particular display server or systemd, and does not install itself.
+This example listens for BlueZ D-Bus connection signals instead of polling or
+repeatedly running `bluetoothctl`. It uses Python with `dbus-python` and PyGObject's
+GLib bindings. Install these through your distribution's package manager; on
+Debian/Ubuntu the packages are `python3-dbus` and `python3-gi`. Check that the
+interpreter you run can import `dbus` and `gi`. BlueZ must already be running,
+and your user must be able to read its system-bus device data.
+
 Run it from a terminal in the graphical session where the app should appear.
 That session supplies the appropriate Xorg or Wayland environment. A headless
 shell may not have the display/session variables needed by the GUI.
@@ -55,42 +122,73 @@ AppImage's permanent path). Keep arguments as separate list items so paths with
 spaces work. Close other copies of the app before starting this example.
 
 ```python
-import re
 import subprocess
-import time
+
+import dbus
+from dbus.mainloop.glib import DBusGMainLoop
+from gi.repository import GLib
 
 ADDRESS = "AA:BB:CC:DD:EE:FF"
 COMMAND = ["/absolute/path/to/DualSenseClient"]
+DEVICE = "org.bluez.Device1"
+DEVICE_SUFFIX = "/dev_" + ADDRESS.upper().replace(":", "_")
+connected_paths = set()
+child = None
 
 
-def is_connected():
-    result = subprocess.run(
-        ["bluetoothctl", "info", ADDRESS],
-        capture_output=True, text=True, timeout=10, check=True,
-    )
-    return bool(re.search(r"^\s*Connected:\s+yes\s*$", result.stdout, re.MULTILINE))
+def set_connected(path, connected):
+    global child
+    if not str(path).endswith(DEVICE_SUFFIX):
+        return
+    was_connected = bool(connected_paths)
+    if connected:
+        connected_paths.add(path)
+    else:
+        connected_paths.discard(path)
+    if connected_paths and not was_connected and (child is None or child.poll() is not None):
+        try:
+            child = subprocess.Popen(COMMAND)
+        except OSError as error:
+            print(f"Could not launch the app: {error}", flush=True)
+
+
+def properties_changed(interface, changed, invalidated, path=None):
+    if interface == DEVICE and "Connected" in changed:
+        set_connected(path, bool(changed["Connected"]))
+
+
+def interfaces_added(path, interfaces):
+    if DEVICE in interfaces:
+        set_connected(path, bool(interfaces[DEVICE].get("Connected", False)))
+
+
+def interfaces_removed(path, interfaces):
+    if DEVICE in interfaces:
+        set_connected(path, False)
 
 
 def main():
-    child = None
-    was_connected = False
-    while True:
-        try:
-            connected = is_connected()
-        except (OSError, subprocess.SubprocessError) as error:
-            print(f"Bluetooth query failed: {error}", flush=True)
-            time.sleep(2)
-            continue
-
-        if connected and not was_connected and (child is None or child.poll() is not None):
-            try:
-                child = subprocess.Popen(COMMAND)
-            except OSError as error:
-                print(f"Could not launch the app: {error}", flush=True)
-                time.sleep(2)
-                continue
-        was_connected = connected
-        time.sleep(2)
+    DBusGMainLoop(set_as_default=True)
+    bus = dbus.SystemBus()
+    bus.add_signal_receiver(
+        properties_changed, bus_name="org.bluez",
+        dbus_interface="org.freedesktop.DBus.Properties",
+        signal_name="PropertiesChanged", path_keyword="path", arg0=DEVICE,
+    )
+    for signal, callback in [
+        ("InterfacesAdded", interfaces_added),
+        ("InterfacesRemoved", interfaces_removed),
+    ]:
+        bus.add_signal_receiver(
+            callback, bus_name="org.bluez",
+            dbus_interface="org.freedesktop.DBus.ObjectManager", signal_name=signal,
+        )
+    manager = dbus.Interface(
+        bus.get_object("org.bluez", "/"), "org.freedesktop.DBus.ObjectManager",
+    )
+    for path, interfaces in manager.GetManagedObjects().items():
+        interfaces_added(path, interfaces)
+    GLib.MainLoop().run()
 
 
 if __name__ == "__main__":
@@ -100,15 +198,24 @@ if __name__ == "__main__":
         pass
 ```
 
-Run `python3 /path/to/controller-launch.py`. It checks every two seconds and
-launches on connection, including a controller connected when the watcher starts.
+Run `python /path/to/controller-launch.py`. It reads the initial device list once,
+then waits for BlueZ's `PropertiesChanged`, `InterfacesAdded` and
+`InterfacesRemoved` signals. A matching controller connected when the watcher
+starts also launches the app. There is no periodic Bluetooth query or timer.
+See the [BlueZ Device API](https://github.com/bluez/bluez/blob/master/doc/org.bluez.Device.rst)
+and [dbus-python signal documentation](https://dbus.freedesktop.org/doc/dbus-python/tutorial.html#receiving-signals)
+for the underlying interfaces.
+
 It leaves the app running after disconnect or when you stop the watcher. After
 exiting the app, disconnect/reconnect the controller to launch it again.
+A failed launch is reported in the terminal; correct the executable path and
+reconnect to retry.
 
 This small example tracks only the child it started. Run one watcher, and avoid
 starting another copy of the app manually while it runs. Restarting the watcher
-while the app is running can also start another copy. If you need a persistent
-service or broader single-instance handling, adapt the example to your desktop
+while the app is running can also start another copy. Restart the watcher after
+restarting the Bluetooth service. If you need a persistent service or broader
+single-instance handling, adapt the example to your desktop
 and service manager, including its graphical-session environment and shutdown
 behavior. No login or service configuration is provided here.
 

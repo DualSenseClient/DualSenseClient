@@ -392,10 +392,3 @@ DualSense Client supports custom themes. To create a new theme:
 ---
 
 Thank you for contributing to DualSense Client!
-
-## Platform automation examples
-
-Keep optional OS task, service and desktop-session setup in the user guides.
-Document dependencies and platform limitations so users can choose a setup that
-fits their desktop. Keep local verification reports out of the repository; put
-relevant test evidence and limitations in the pull request description.
