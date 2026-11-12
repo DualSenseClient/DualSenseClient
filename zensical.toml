@@ -28,6 +28,7 @@ nav = [
     { "Auto Profiles" = "guides/auto-profiles.md" },
     { "Controller Hiding" = "guides/controller-hiding.md" },
     { "Settings" = "guides/settings.md" },
+    { "Launch on Connection" = "guides/controller-launch.md" },
   ] },
   { "FAQ" = "faq.md" },
   { "Troubleshooting" = "troubleshooting.md" },
