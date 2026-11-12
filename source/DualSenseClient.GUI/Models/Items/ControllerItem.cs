@@ -46,6 +46,17 @@ public sealed partial class ControllerItem : ObservableObject
     public PairingInfo? PairingInfo { get; set; }
 
     /// <summary>
+    /// Bridge status read from a DS5Dongle, or <c>null</c> for other connections.
+    /// </summary>
+    public DongleStatus? DongleStatus
+    {
+        get
+        {
+            return (Device as DualSenseDongle)?.DongleStatus;
+        }
+    }
+
+    /// <summary>
     /// Creates a new controller item wrapping the given device.
     /// </summary>
     /// <param name="device">The controller device to display.</param>

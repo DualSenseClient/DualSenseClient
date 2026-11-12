@@ -270,6 +270,17 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Whether the selected controller is connected through a DS5Dongle bridge.
+    /// </summary>
+    public bool IsDongle
+    {
+        get
+        {
+            return CurrentDevice?.IsDongle == true;
+        }
+    }
+
     // ── Profile assignment ─────────────────────────────────────
 
     /// <summary>
@@ -563,6 +574,17 @@ public partial class DeviceInfoPageViewModel : ObservableObject
             _log.Warning($"Firmware info refresh returned no data for {CurrentMac}");
         }
 
+        selected.PairingInfo = FeatureReader.ReadPairingInfo(selected.Device);
+
+        if (selected.Device is DualSenseDongle dongle)
+        {
+            dongle.RefreshDongleStatus();
+            if (dongle.DongleStatus is null)
+            {
+                _log.Warning($"Dongle status refresh returned no data for {CurrentMac}");
+            }
+        }
+
         UpdateDevice();
     }
 
@@ -616,6 +638,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         OnPropertyChanged(nameof(MonitorState));
         OnPropertyChanged(nameof(Lights));
         OnPropertyChanged(nameof(HasDevice));
+        OnPropertyChanged(nameof(IsDongle));
         OnPropertyChanged(nameof(ControllerName));
         OnPropertyChanged(nameof(SkinIndex));
         OnPropertyChanged(nameof(SkinName));

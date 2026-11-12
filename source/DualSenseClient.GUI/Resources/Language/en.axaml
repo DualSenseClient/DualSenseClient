@@ -104,6 +104,20 @@
     <sys:String x:Key="DeviceInfoPage.Device.Name">Name</sys:String>
     <sys:String x:Key="DeviceInfoPage.Device.Skin">Skin</sys:String>
     <sys:String x:Key="DeviceInfoPage.Device.Skin.Description">The controller illustration shown above. Stored per controller.</sys:String>
+    <!-- Dongle -->
+    <sys:String x:Key="DeviceInfoPage.Dongle.BridgeMac">Bridge Bluetooth Address</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Dongle.Description">DS5Dongle link and audio bridge status</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Dongle.Firmware">Dongle Firmware</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Dongle.LinkSignal">Link Signal</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Dongle.LinkSignal.Description">dB relative to the ideal range; 0 is ideal</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Dongle.MicrophoneStream">Microphone Stream</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Dongle.Refresh">Re-read bridge status</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Dongle.Signal.Excellent">Excellent</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Dongle.Signal.Fair">Fair</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Dongle.Signal.Good">Good</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Dongle.Signal.Weak">Weak</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Dongle.SpeakerStream">Speaker Stream</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Dongle.Title">Bridge Status</sys:String>
     <!-- Firmware -->
     <sys:String x:Key="DeviceInfoPage.Firmware.BuildDate">Build Date</sys:String>
     <sys:String x:Key="DeviceInfoPage.Firmware.BuildTime">Build Time</sys:String>

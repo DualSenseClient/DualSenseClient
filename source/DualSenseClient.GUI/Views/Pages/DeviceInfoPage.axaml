@@ -443,6 +443,67 @@
                 </ui:FASettingsExpanderItem>
             </ui:FASettingsExpander>
 
+            <!-- Dongle bridge status -->
+            <ui:FASettingsExpander IconSource="{icm:SymbolIconSource Symbol=Bluetooth}"
+                                   IsExpanded="False"
+                                   IsVisible="{Binding IsDongle}">
+                <ui:FASettingsExpander.Header>
+                    <Panel HorizontalAlignment="Stretch">
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Dongle.Title}" />
+                            <TextBlock Text="{DynamicResource DeviceInfoPage.Dongle.Description}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <Button Command="{Binding RefreshCommand}"
+                                ToolTip.Tip="{DynamicResource DeviceInfoPage.Dongle.Refresh}"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Padding="6,4">
+                            <ic:FluentIcon Icon="ArrowSync"
+                                           IconVariant="Regular"
+                                           IconSize="Size16" />
+                        </Button>
+                    </Panel>
+                </ui:FASettingsExpander.Header>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Dongle.Firmware}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.DongleFirmwareVersion}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Dongle.LinkSignal}"
+                                           Description="{DynamicResource DeviceInfoPage.Dongle.LinkSignal.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.DongleLinkSignal}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Dongle.BridgeMac}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.DongleBridgeAddress}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Dongle.MicrophoneStream}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.DongleMicrophoneStream}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Dongle.SpeakerStream}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <TextBlock Text="{Binding CurrentDevice.DongleSpeakerStream}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
+            </ui:FASettingsExpander>
+
         </StackPanel>
     </ScrollViewer>
 </UserControl>

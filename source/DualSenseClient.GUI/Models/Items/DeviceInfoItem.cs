@@ -86,13 +86,101 @@ public sealed partial class DeviceInfoItem : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Physical transport (USB or Bluetooth).
+    /// Physical transport (USB, Bluetooth, or a USB dongle).
     /// </summary>
     public ConnectionType ConnectionType
     {
         get
         {
             return Controller.ConnectionType;
+        }
+    }
+
+    /// <summary>
+    /// Whether this controller is connected through a DS5Dongle bridge.
+    /// </summary>
+    public bool IsDongle
+    {
+        get
+        {
+            return Controller.Device is DualSenseDongle;
+        }
+    }
+
+    // ── Dongle Bridge Status ──────────────────────────────────
+
+    /// <summary>
+    /// Dongle firmware version, or "-" when unavailable.
+    /// </summary>
+    public string DongleFirmwareVersion
+    {
+        get
+        {
+            string version = Controller.DongleStatus?.FirmwareVersion ?? string.Empty;
+            return string.IsNullOrEmpty(version) ? Unavailable : version;
+        }
+    }
+
+    /// <summary>
+    /// Bluetooth link signal as dB relative to the ideal range, with a quality label,
+    /// or "-" when unavailable.
+    /// </summary>
+    public string DongleLinkSignal
+    {
+        get
+        {
+            if (Controller.DongleStatus?.RssiDb is not { } rssi)
+            {
+                return Unavailable;
+            }
+
+            return $"{rssi} dB ({FormatSignalQuality(rssi)})";
+        }
+    }
+
+    /// <summary>
+    /// Bluetooth address the controller is paired to, or "-" when unavailable.
+    /// </summary>
+    public string DongleBridgeAddress
+    {
+        get
+        {
+            string address = Controller.PairingInfo?.HostMac ?? string.Empty;
+            return string.IsNullOrEmpty(address) ? Unavailable : address;
+        }
+    }
+
+    /// <summary>
+    /// Whether the dongle's USB microphone stream is active, or "-" when the firmware
+    /// does not report audio flags.
+    /// </summary>
+    public string DongleMicrophoneStream
+    {
+        get
+        {
+            if (Controller.DongleStatus is not { HasAudioFlags: true } status)
+            {
+                return Unavailable;
+            }
+
+            return IsActive(status.MicrophoneStreaming);
+        }
+    }
+
+    /// <summary>
+    /// Whether the dongle's USB speaker stream is active, or "-" when the firmware
+    /// does not report audio flags.
+    /// </summary>
+    public string DongleSpeakerStream
+    {
+        get
+        {
+            if (Controller.DongleStatus is not { HasAudioFlags: true } status)
+            {
+                return Unavailable;
+            }
+
+            return IsActive(status.SpeakerActive);
         }
     }
 
@@ -374,6 +462,21 @@ public sealed partial class DeviceInfoItem : ObservableObject, IDisposable
         {
             return ConnectionText(status => status.UsbPower, IsConnected);
         }
+    }
+
+    /// <summary>
+    /// Formats an RSSI value as a localized quality label.
+    /// </summary>
+    /// <param name="rssi">RSSI in dB relative to the ideal range.</param>
+    private static string FormatSignalQuality(sbyte rssi)
+    {
+        return rssi switch
+        {
+            >= -5 => LocalizationService.GetText("DeviceInfoPage.Dongle.Signal.Excellent"),
+            >= -15 => LocalizationService.GetText("DeviceInfoPage.Dongle.Signal.Good"),
+            >= -25 => LocalizationService.GetText("DeviceInfoPage.Dongle.Signal.Fair"),
+            _ => LocalizationService.GetText("DeviceInfoPage.Dongle.Signal.Weak")
+        };
     }
 
     /// <summary>
