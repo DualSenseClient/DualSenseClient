@@ -105,6 +105,8 @@
     <sys:String x:Key="DeviceInfoPage.Device.Skin">Skin</sys:String>
     <sys:String x:Key="DeviceInfoPage.Device.Skin.Description">The controller illustration shown above. Stored per controller.</sys:String>
     <!-- Dongle -->
+    <sys:String x:Key="DeviceInfoPage.Dongle.AutoRefresh">Auto-refresh status</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Dongle.AutoRefresh.Description">Refresh the firmware, link signal, and audio-stream status every 5 seconds</sys:String>
     <sys:String x:Key="DeviceInfoPage.Dongle.BridgeMac">Bridge Bluetooth Address</sys:String>
     <sys:String x:Key="DeviceInfoPage.Dongle.Description">DS5Dongle link and audio bridge status</sys:String>
     <sys:String x:Key="DeviceInfoPage.Dongle.Firmware">Dongle Firmware</sys:String>

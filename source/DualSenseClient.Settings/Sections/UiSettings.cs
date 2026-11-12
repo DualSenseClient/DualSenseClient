@@ -67,6 +67,13 @@ public class UiSettings
     public bool Mica { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets whether the device info page periodically refreshes the DS5Dongle
+    /// bridge status. Defaults to <c>false</c>.
+    /// </summary>
+    [JsonPropertyName("autoRefreshDongleStatus")]
+    public bool AutoRefreshDongleStatus { get; set; }
+
+    /// <summary>
     /// Gets or sets the desktop notification popup settings.
     /// </summary>
     [JsonPropertyName("notifications")]

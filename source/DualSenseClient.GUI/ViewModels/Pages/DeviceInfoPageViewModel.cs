@@ -1,6 +1,9 @@
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Threading;
+using System.Threading.Tasks;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,6 +14,7 @@ using DualSenseClient.Controllers.Profiles;
 using DualSenseClient.Core.Models;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Services;
+using DualSenseClient.Hid;
 using DualSenseClient.HidHide;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
@@ -63,6 +67,36 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// (HidHide driver on Windows, other backends on other platforms).
     /// </summary>
     private readonly IControllerHidingService _hiding;
+
+    /// <summary>
+    /// Persisted UI settings, backing the dongle auto-refresh toggle.
+    /// </summary>
+    private readonly SettingsService _settingsService;
+
+    /// <summary>
+    /// Periodic bridge-status refresh timer.
+    /// </summary>
+    private readonly DispatcherTimer _dongleStatusTimer;
+
+    /// <summary>
+    /// Whether the page is currently loaded, so the timer may run.
+    /// </summary>
+    private bool _pageActive;
+
+    /// <summary>
+    /// Guards against overlapping bridge-status reads.
+    /// </summary>
+    private bool _refreshingDongleStatus;
+
+    /// <summary>
+    /// Cancels the one-shot post-connect RSSI refresh when the page or selection changes.
+    /// </summary>
+    private CancellationTokenSource? _initialDongleRefreshCts;
+
+    /// <summary>
+    /// Interval between automatic bridge-status reads.
+    /// </summary>
+    private const int DongleStatusRefreshIntervalSeconds = 5;
 
     /// <summary>
     /// The controller currently shown on this page, or <c>null</c> when none is selected.
@@ -278,6 +312,31 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         get
         {
             return CurrentDevice?.IsDongle == true;
+        }
+    }
+
+    /// <summary>
+    /// Whether the bridge status refreshes automatically while the page is visible.
+    /// Persisted in the UI settings and off by default.
+    /// </summary>
+    public bool AutoRefreshDongleStatus
+    {
+        get
+        {
+            return _settingsService.Settings.Ui.AutoRefreshDongleStatus;
+        }
+        set
+        {
+            if (_settingsService.Settings.Ui.AutoRefreshDongleStatus == value)
+            {
+                return;
+            }
+
+            _log.Debug($"Dongle bridge auto-refresh changed to '{value}'");
+            _settingsService.Settings.Ui.AutoRefreshDongleStatus = value;
+            _settingsService.SaveSettings();
+            OnPropertyChanged();
+            UpdateDongleRefreshTimer();
         }
     }
 
@@ -539,6 +598,12 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         _hiding = App.Services.GetRequiredService<IControllerHidingService>();
         _profileService = App.Services.GetRequiredService<ProfileService>();
         _profileActivation = App.Services.GetRequiredService<IProfileActivation>();
+        _settingsService = App.Services.GetRequiredService<SettingsService>();
+        _dongleStatusTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(DongleStatusRefreshIntervalSeconds)
+        };
+        _dongleStatusTimer.Tick += (_, _) => _ = RefreshDongleStatusAsync();
         foreach (string skin in _illustrationService.GetSkins())
         {
             Skins.Add(skin);
@@ -549,6 +614,120 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         _profileService.ProfilesChanged += OnProfilesChanged;
         _mainViewModel.PropertyChanged += OnMainViewModelPropertyChanged;
         UpdateDevice();
+    }
+
+    /// <summary>
+    /// Starts or stops the automatic bridge refresh when the page becomes visible or hidden.
+    /// </summary>
+    /// <param name="active">Whether the page is currently loaded.</param>
+    public void SetPageActive(bool active)
+    {
+        _pageActive = active;
+        if (active)
+        {
+            ScheduleInitialDongleStatusRefresh();
+        }
+        else
+        {
+            CancelInitialDongleStatusRefresh();
+        }
+
+        UpdateDongleRefreshTimer();
+    }
+
+    /// <summary>
+    /// Schedules one delayed bridge read so the firmware's asynchronous RSSI measurement
+    /// replaces the cached zero that the first 0xF9 read returns.
+    /// </summary>
+    private void ScheduleInitialDongleStatusRefresh()
+    {
+        CancelInitialDongleStatusRefresh();
+        if (!_pageActive || !IsDongle)
+        {
+            return;
+        }
+
+        CancellationTokenSource cts = new CancellationTokenSource();
+        _initialDongleRefreshCts = cts;
+        _ = RefreshDongleStatusAfterDelayAsync(cts.Token);
+    }
+
+    /// <summary>
+    /// Completes the delayed initial bridge read unless the page or selection changed.
+    /// </summary>
+    private async Task RefreshDongleStatusAfterDelayAsync(CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(500, ct);
+            await RefreshDongleStatusAsync();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Cancels any pending initial bridge read.
+    /// </summary>
+    private void CancelInitialDongleStatusRefresh()
+    {
+        CancellationTokenSource? cts = Interlocked.Exchange(ref _initialDongleRefreshCts, null);
+        if (cts is null)
+        {
+            return;
+        }
+
+        cts.Cancel();
+        cts.Dispose();
+    }
+
+    /// <summary>
+    /// Starts the bridge-status timer only while the page is visible, a dongle is
+    /// selected, and the user enabled automatic refresh.
+    /// </summary>
+    private void UpdateDongleRefreshTimer()
+    {
+        if (_pageActive && IsDongle && AutoRefreshDongleStatus)
+        {
+            _dongleStatusTimer.Start();
+        }
+        else
+        {
+            _dongleStatusTimer.Stop();
+        }
+    }
+
+    /// <summary>
+    /// Refreshes the selected dongle's bridge snapshot without blocking the UI thread.
+    /// The <see cref="DualSenseDongle.DongleStatusChanged"/> event updates the bound item.
+    /// </summary>
+    private async Task RefreshDongleStatusAsync()
+    {
+        if (_refreshingDongleStatus)
+        {
+            return;
+        }
+
+        ControllerItem? selected = _mainViewModel.SelectedItem;
+        if (selected?.Device is not DualSenseDongle device)
+        {
+            return;
+        }
+
+        _refreshingDongleStatus = true;
+        try
+        {
+            await Task.Run(device.RefreshDongleStatus);
+        }
+        catch (Exception ex)
+        {
+            _log.Warning($"Failed to auto-refresh the DS5Dongle bridge status for {CurrentMac}", ex);
+        }
+        finally
+        {
+            _refreshingDongleStatus = false;
+        }
     }
 
     /// <summary>
@@ -605,6 +784,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     /// </summary>
     private void UpdateDevice()
     {
+        CancelInitialDongleStatusRefresh();
         _previousItem?.Dispose();
         _previousMonitorState?.Dispose();
         _previousLights?.Dispose();
@@ -639,6 +819,8 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         OnPropertyChanged(nameof(Lights));
         OnPropertyChanged(nameof(HasDevice));
         OnPropertyChanged(nameof(IsDongle));
+        UpdateDongleRefreshTimer();
+        ScheduleInitialDongleStatusRefresh();
         OnPropertyChanged(nameof(ControllerName));
         OnPropertyChanged(nameof(SkinIndex));
         OnPropertyChanged(nameof(SkinName));

@@ -466,6 +466,12 @@
                         </Button>
                     </Panel>
                 </ui:FASettingsExpander.Header>
+                <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Dongle.AutoRefresh}"
+                                           Description="{DynamicResource DeviceInfoPage.Dongle.AutoRefresh.Description}">
+                    <ui:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch IsChecked="{Binding AutoRefreshDongleStatus, Mode=TwoWay}" />
+                    </ui:FASettingsExpanderItem.Footer>
+                </ui:FASettingsExpanderItem>
                 <ui:FASettingsExpanderItem Content="{DynamicResource DeviceInfoPage.Dongle.Firmware}">
                     <ui:FASettingsExpanderItem.Footer>
                         <TextBlock Text="{Binding CurrentDevice.DongleFirmwareVersion}"

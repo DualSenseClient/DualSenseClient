@@ -65,6 +65,11 @@ public sealed partial class DeviceInfoItem : ObservableObject, IDisposable
     private readonly DualSenseDevice? _device;
 
     /// <summary>
+    /// The dongle bridge backing this controller, or <c>null</c> for other connections.
+    /// </summary>
+    private readonly DualSenseDongle? _dongle;
+
+    /// <summary>
     /// Tracks whether the event subscriptions have been released.
     /// </summary>
     private bool _disposed;
@@ -86,7 +91,7 @@ public sealed partial class DeviceInfoItem : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Physical transport (USB, Bluetooth, or a USB dongle).
+    /// Physical transport (USB or Bluetooth).
     /// </summary>
     public ConnectionType ConnectionType
     {
@@ -103,7 +108,7 @@ public sealed partial class DeviceInfoItem : ObservableObject, IDisposable
     {
         get
         {
-            return Controller.Device is DualSenseDongle;
+            return _dongle is not null;
         }
     }
 
@@ -488,10 +493,16 @@ public sealed partial class DeviceInfoItem : ObservableObject, IDisposable
     {
         Controller = controller;
         _device = controller.Device as DualSenseDevice;
+        _dongle = controller.Device as DualSenseDongle;
         if (_device is not null)
         {
             _device.BatteryStateChanged += OnBatteryStateChanged;
             _device.ConnectionStatusChanged += OnConnectionStatusChanged;
+        }
+
+        if (_dongle is not null)
+        {
+            _dongle.DongleStatusChanged += OnDongleStatusChanged;
         }
     }
 
@@ -510,6 +521,11 @@ public sealed partial class DeviceInfoItem : ObservableObject, IDisposable
         {
             _device.BatteryStateChanged -= OnBatteryStateChanged;
             _device.ConnectionStatusChanged -= OnConnectionStatusChanged;
+        }
+
+        if (_dongle is not null)
+        {
+            _dongle.DongleStatusChanged -= OnDongleStatusChanged;
         }
     }
 
@@ -576,6 +592,21 @@ public sealed partial class DeviceInfoItem : ObservableObject, IDisposable
             OnPropertyChanged(nameof(MicrophoneMuted));
             OnPropertyChanged(nameof(UsbData));
             OnPropertyChanged(nameof(UsbPower));
+        });
+    }
+
+    /// <summary>
+    /// Re-raises dongle bridge property changes on the UI thread when the bridge status
+    /// is refreshed.
+    /// </summary>
+    private void OnDongleStatusChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            OnPropertyChanged(nameof(DongleFirmwareVersion));
+            OnPropertyChanged(nameof(DongleLinkSignal));
+            OnPropertyChanged(nameof(DongleMicrophoneStream));
+            OnPropertyChanged(nameof(DongleSpeakerStream));
         });
     }
 }

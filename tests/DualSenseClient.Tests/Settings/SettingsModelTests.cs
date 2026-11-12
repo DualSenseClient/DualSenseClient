@@ -75,6 +75,21 @@ public class SettingsModelTests
     }
 
     [Test]
+    public void UiSettings_Default_AutoRefreshDongleStatusIsFalse()
+    {
+        UiSettings ui = new UiSettings();
+        Assert.That(ui.AutoRefreshDongleStatus, Is.False);
+    }
+
+    [Test]
+    public void UiSettings_CanSetAutoRefreshDongleStatus()
+    {
+        UiSettings ui = new UiSettings();
+        ui.AutoRefreshDongleStatus = true;
+        Assert.That(ui.AutoRefreshDongleStatus, Is.True);
+    }
+
+    [Test]
     public void UiSettings_Default_StartInTrayIsFalse()
     {
         UiSettings ui = new UiSettings();
