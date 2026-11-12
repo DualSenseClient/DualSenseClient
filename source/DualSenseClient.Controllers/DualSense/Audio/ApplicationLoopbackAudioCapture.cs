@@ -94,6 +94,37 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
     private long _nonZeroSamples;
 
     /// <summary>
+    /// Stopwatch timestamp of the previous drain call, or 0 when the current stats window
+    /// has none. Used to measure the capture delivery gap.
+    /// </summary>
+    private long _lastDrainTimestamp;
+
+    /// <summary>
+    /// Capture packets received in the current stats window.
+    /// </summary>
+    private int _packetsSinceStats;
+
+    /// <summary>
+    /// Drain calls with at least one packet in the current stats window.
+    /// </summary>
+    private int _drainsSinceStats;
+
+    /// <summary>
+    /// Largest packet size observed in the current stats window, in interleaved frames.
+    /// </summary>
+    private int _maxPacketFrames;
+
+    /// <summary>
+    /// Longest gap between drain calls in the current stats window, in milliseconds.
+    /// </summary>
+    private double _maxDrainGapMs;
+
+    /// <summary>
+    /// Packets the engine marked as discontinuous in the current stats window.
+    /// </summary>
+    private int _discontinuitiesSinceStats;
+
+    /// <summary>
     /// Creates a capture of the given process feeding the given forwarder. The capture
     /// takes no ownership of the forwarder.
     /// </summary>
@@ -358,6 +389,12 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
         }
 
         _log.Debug($"Application audio pump started (PID {_processId})");
+        _lastDrainTimestamp = 0;
+        _packetsSinceStats = 0;
+        _drainsSinceStats = 0;
+        _maxPacketFrames = 0;
+        _maxDrainGapMs = 0;
+        _discontinuitiesSinceStats = 0;
         float[] scratch = new float[4096 * Channels];
         while (_running)
         {
@@ -384,18 +421,30 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
             return;
         }
 
+        long now = Stopwatch.GetTimestamp();
+        if (_lastDrainTimestamp != 0)
+        {
+            double gapMs = (now - _lastDrainTimestamp) * 1000.0 / Stopwatch.Frequency;
+            if (gapMs > _maxDrainGapMs)
+            {
+                _maxDrainGapMs = gapMs;
+            }
+        }
+
+        _lastDrainTimestamp = now;
+        int packets = 0;
         while (_running)
         {
             int hr = captureClient.GetNextPacketSize(out uint frames);
             if (hr < 0 || frames == 0)
             {
-                return;
+                break;
             }
 
             hr = captureClient.GetBuffer(out IntPtr data, out uint framesRead, out int flags, out ulong _, out ulong _);
             if (hr < 0)
             {
-                return;
+                break;
             }
 
             if (framesRead > 0)
@@ -415,10 +464,27 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
                     Marshal.Copy(data, scratch, 0, samples);
                 }
 
+                packets++;
+                if (framesRead > _maxPacketFrames)
+                {
+                    _maxPacketFrames = (int)framesRead;
+                }
+
+                if ((flags & WasapiAudioInterop.BufferFlagDataDiscontinuity) != 0)
+                {
+                    _discontinuitiesSinceStats++;
+                }
+
                 ReportAndFeed(scratch, samples);
             }
 
             captureClient.ReleaseBuffer(framesRead);
+        }
+
+        if (packets > 0)
+        {
+            _drainsSinceStats++;
+            _packetsSinceStats += packets;
         }
     }
 
@@ -453,7 +519,14 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
             _statsTimestamp = now;
             double pct = _totalFrames == 0 ? 0 : _nonZeroSamples * 100.0 / (_totalFrames * Channels);
             _log.Debug(
-                $"Application audio capture stats: {_totalFrames / 48.0 / 1000.0:F0} s fed, {pct:F1}% non-zero samples");
+                $"Application audio capture stats: {_totalFrames / 48.0 / 1000.0:F0} s fed, {pct:F1}% non-zero samples, "
+                + $"{_packetsSinceStats} packet(s) in {_drainsSinceStats} drain(s) (max packet {_maxPacketFrames} frames), "
+                + $"max drain gap {_maxDrainGapMs:F1} ms, {_discontinuitiesSinceStats} discontinuity");
+            _packetsSinceStats = 0;
+            _drainsSinceStats = 0;
+            _maxPacketFrames = 0;
+            _maxDrainGapMs = 0;
+            _discontinuitiesSinceStats = 0;
         }
 
         _forwarder.FeedPcm(samples.AsSpan(0, count));

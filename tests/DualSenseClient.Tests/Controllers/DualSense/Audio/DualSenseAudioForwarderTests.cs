@@ -31,6 +31,24 @@ public class DualSenseAudioForwarderTests
 
         public bool ThrowOnCombinedReport { get; set; }
 
+        /// <summary>
+        /// When non-negative, the combined-report send waits on <see cref="CombinedSendGate"/>
+        /// once this many reports have already been sent. Simulates a slow HID write.
+        /// </summary>
+        public int BlockCombinedAfter { get; set; } = -1;
+
+        /// <summary>Gate the blocked combined-report send waits on.</summary>
+        public ManualResetEventSlim? CombinedSendGate { get; set; }
+
+        /// <summary>Signalled when the combined-report send reaches the gate.</summary>
+        public ManualResetEventSlim? CombinedSendStarted { get; set; }
+
+        /// <summary>Gate the stream prime waits on, simulating a slow preroll.</summary>
+        public ManualResetEventSlim? PrimeGate { get; set; }
+
+        /// <summary>Signalled when the stream prime reaches the gate.</summary>
+        public ManualResetEventSlim? PrimeStarted { get; set; }
+
         public byte AudioBufferLength { get; set; } = BluetoothAudioReportBuilder.DefaultAudioBufferLength;
 
         public bool HeadphonesConnected { get; set; }
@@ -76,6 +94,8 @@ public class DualSenseAudioForwarderTests
 
         public void SendBluetoothAudioPrime(SetStateData state)
         {
+            PrimeStarted?.Set();
+            PrimeGate?.Wait(TimeSpan.FromSeconds(5));
             PrimeCount++;
             state.CopyTo(LastPrimeStateBlock, 0);
         }
@@ -85,6 +105,12 @@ public class DualSenseAudioForwarderTests
             if (ThrowOnCombinedReport)
             {
                 throw new InvalidOperationException("synthetic send failure");
+            }
+
+            if (BlockCombinedAfter >= 0 && CombinedReportCount >= BlockCombinedAfter)
+            {
+                CombinedSendStarted?.Set();
+                CombinedSendGate?.Wait(TimeSpan.FromSeconds(5));
             }
 
             CombinedReportCount++;
@@ -663,6 +689,70 @@ public class DualSenseAudioForwarderTests
 
         forwarder.Stop();
         Assert.That(forwarder.AudioLevel, Is.Zero, "stopping must reset the level");
+    }
+
+    [Test]
+    public void FeedPcm_DoesNotBlockDuringTheStreamPrime()
+    {
+        using ManualResetEventSlim primeGate = new ManualResetEventSlim(false);
+        using ManualResetEventSlim primeStarted = new ManualResetEventSlim(false);
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth,
+            PrimeGate = primeGate,
+            PrimeStarted = primeStarted
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        try
+        {
+            forwarder.Start();
+            forwarder.FeedPcm(AudioBlock);
+            Assert.That(primeStarted.Wait(TimeSpan.FromSeconds(3)), Is.True, "the pump must start the stream prime");
+
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            forwarder.FeedPcm(AudioBlock);
+            stopwatch.Stop();
+
+            Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromMilliseconds(200)),
+                "feeding captured audio must not wait for the blocking stream prime");
+        }
+        finally
+        {
+            primeGate.Set();
+        }
+    }
+
+    [Test]
+    public void FeedPcm_DoesNotBlockWhileThePumpWritesAReport()
+    {
+        using ManualResetEventSlim sendGate = new ManualResetEventSlim(false);
+        using ManualResetEventSlim sendStarted = new ManualResetEventSlim(false);
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth,
+            BlockCombinedAfter = 8,
+            CombinedSendGate = sendGate,
+            CombinedSendStarted = sendStarted
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        try
+        {
+            forwarder.Start();
+            forwarder.FeedPcm(AudioBlock);
+            Assert.That(sendStarted.Wait(TimeSpan.FromSeconds(3)), Is.True,
+                "the pump must reach the first real report after the 8 preroll packets");
+
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            forwarder.FeedPcm(AudioBlock);
+            stopwatch.Stop();
+
+            Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromMilliseconds(200)),
+                "feeding captured audio must not wait for a blocking HID write");
+        }
+        finally
+        {
+            sendGate.Set();
+        }
     }
 
     [Test]
@@ -1539,11 +1629,17 @@ public class DualSenseAudioForwarderTests
             forwarder.FeedPcm(MakeAudioBlock(0f));
         }
 
-        WaitUntil(() => fake.ReportCount >= 8 && fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
+        // Wait for the first real report: the post-prime trim keeps only the newest
+        // blocks captured during the preroll, so feeds racing the prime are discarded.
+        WaitUntil(() => fake.ReportCount >= 9 && fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
 
+        // Feed one block per report so the ring never exceeds its target latency and
+        // the pump cannot discard a burst block.
         for (int i = 0; i < 4; i++)
         {
+            int before = fake.ReportCount;
             forwarder.FeedPcm(MakeAudioBlock(0f));
+            WaitUntil(() => fake.ReportCount > before, TimeSpan.FromSeconds(3));
         }
 
         WaitUntil(() => fake.ReportCount >= 16, TimeSpan.FromSeconds(3));
@@ -1735,14 +1831,21 @@ public class DualSenseAudioForwarderTests
             forwarder.FeedPcm(AudioBlock);
         }
 
-        WaitUntil(() => fake.ReportCount >= 8 && fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
+        // Wait for the first real report: the post-prime trim keeps only the newest
+        // blocks captured during the preroll, so feeds racing the prime are discarded.
+        WaitUntil(() => fake.ReportCount >= 9 && fake.PrimeCount == 1, TimeSpan.FromSeconds(3));
 
         // A fresh game payload must still be ignored: deliver post-prime while audio
         // keeps the pump ticking, so staleness cannot explain the fallback.
         forwarder.UpdateGameHaptics(MakeRearPcm(0x10));
+
+        // Feed one block per report so the ring never exceeds its target latency and
+        // the pump cannot discard a burst block.
         for (int i = 0; i < 4; i++)
         {
+            int before = fake.ReportCount;
             forwarder.FeedPcm(AudioBlock);
+            WaitUntil(() => fake.ReportCount > before, TimeSpan.FromSeconds(3));
         }
 
         WaitUntil(() => fake.ReportCount >= 16, TimeSpan.FromSeconds(3));

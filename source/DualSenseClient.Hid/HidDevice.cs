@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 using DualSenseClient.Hid.Interop;
 using DualSenseClient.Logging;
@@ -105,6 +106,36 @@ public sealed class HidDevice : IHidDevice
     private int _disposed;
 
     /// <summary>
+    /// Serializes input reads. HIDAPI's Windows backend keeps one OVERLAPPED read and one
+    /// pending-read flag per handle, so only one read may be in flight at a time.
+    /// </summary>
+    private readonly Lock _readSync = new Lock();
+
+    /// <summary>
+    /// Serializes output writes. HIDAPI reuses one write OVERLAPPED and one scratch
+    /// buffer per handle, so only one write may be in flight at a time.
+    /// </summary>
+    private readonly Lock _writeSync = new Lock();
+
+    /// <summary>
+    /// Serializes feature-report and product-string control transfers. They use their own
+    /// HIDAPI state, so they must not wait behind a blocking input read.
+    /// </summary>
+    private readonly Lock _featureSync = new Lock();
+
+    /// <summary>
+    /// Keeps the native handle open for the duration of every I/O call and excludes new
+    /// calls while <see cref="Dispose"/> closes it. Readers (all I/O) run concurrently;
+    /// the writer is disposal.
+    /// </summary>
+    private readonly ReaderWriterLockSlim _lifecycle = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
+
+    /// <summary>
+    /// Stopwatch timestamp of the last slow-I/O diagnostic, used to rate-limit the log.
+    /// </summary>
+    private long _lastIoDiagnosticsTimestamp;
+
+    /// <summary>
     /// Opens a HID device by its platform path.
     /// </summary>
     /// <param name="path">The platform device path.</param>
@@ -150,38 +181,49 @@ public sealed class HidDevice : IHidDevice
     /// <inheritdoc/>
     public int Read(byte[] buffer, int offset, int count, int timeoutMs)
     {
-        ObjectDisposedException.ThrowIf(_disposed == 1, this);
-
-        int result;
-        string error = string.Empty;
-        unsafe
+        _lifecycle.EnterReadLock();
+        try
         {
-            fixed (byte* buf = &buffer[offset])
+            lock (_readSync)
             {
-                result = HidApi.ReadTimeout(_device, buf, (nuint)count, timeoutMs);
+                ObjectDisposedException.ThrowIf(_disposed == 1, this);
+
+                int result;
+                string error = string.Empty;
+                unsafe
+                {
+                    fixed (byte* buf = &buffer[offset])
+                    {
+                        result = HidApi.ReadTimeout(_device, buf, (nuint)count, timeoutMs);
+                    }
+
+                    if (result < 0)
+                    {
+                        error = HidApi.GetError(_device);
+                    }
+                }
+
+                if (result < 0)
+                {
+                    // A failed read is the normal symptom of a disconnected controller;
+                    // the read loop reports it at the appropriate level. Keep the native
+                    // error text on the exception so the caller can log the cause.
+                    _log.Debug($"hid_read_timeout failed on '{DevicePath}': {error}");
+                    throw new HidException($"hid_read_timeout failed on '{DevicePath}': {error}");
+                }
+
+                if (_log.IsEnabled(LogLevel.Trace))
+                {
+                    _log.Trace($"Read {result} byte(s) from '{DevicePath}'");
+                }
+
+                return result;
             }
-
-            if (result < 0)
-            {
-                error = HidApi.GetError(_device);
-            }
         }
-
-        if (result < 0)
+        finally
         {
-            // A failed read is the normal symptom of a disconnected controller;
-            // the read loop reports it at the appropriate level. Keep the native
-            // error text on the exception so the caller can log the cause.
-            _log.Debug($"hid_read_timeout failed on '{DevicePath}': {error}");
-            throw new HidException($"hid_read_timeout failed on '{DevicePath}': {error}");
+            _lifecycle.ExitReadLock();
         }
-
-        if (_log.IsEnabled(LogLevel.Trace))
-        {
-            _log.Trace($"Read {result} byte(s) from '{DevicePath}'");
-        }
-
-        return result;
     }
 
     /// <inheritdoc/>
@@ -200,35 +242,53 @@ public sealed class HidDevice : IHidDevice
     /// <inheritdoc/>
     public int Write(byte[] buffer, int offset, int count)
     {
-        ObjectDisposedException.ThrowIf(_disposed == 1, this);
-
-        int result;
-        string error = string.Empty;
-        unsafe
+        _lifecycle.EnterReadLock();
+        try
         {
-            fixed (byte* buf = &buffer[offset])
+            lock (_writeSync)
             {
-                result = HidApi.Write(_device, buf, (nuint)count);
+                ObjectDisposedException.ThrowIf(_disposed == 1, this);
+
+                long nativeStarted = Stopwatch.GetTimestamp();
+                int result;
+                string error = string.Empty;
+                unsafe
+                {
+                    fixed (byte* buf = &buffer[offset])
+                    {
+                        result = HidApi.Write(_device, buf, (nuint)count);
+                    }
+
+                    if (result < 0)
+                    {
+                        error = HidApi.GetError(_device);
+                    }
+                }
+
+                double nativeMs = ElapsedMilliseconds(nativeStarted);
+                if (nativeMs > 5.0)
+                {
+                    LogSlowIo($"HID write to '{DevicePath}' took {nativeMs:F1} ms natively");
+                }
+
+                if (result < 0)
+                {
+                    _log.Error($"hid_write failed on '{DevicePath}': {error}");
+                    throw new HidException($"hid_write failed: {error}");
+                }
+
+                if (_log.IsEnabled(LogLevel.Trace))
+                {
+                    _log.Trace($"Wrote {result} byte(s) to '{DevicePath}'");
+                }
+
+                return result;
             }
-
-            if (result < 0)
-            {
-                error = HidApi.GetError(_device);
-            }
         }
-
-        if (result < 0)
+        finally
         {
-            _log.Error($"hid_write failed on '{DevicePath}': {error}");
-            throw new HidException($"hid_write failed: {error}");
+            _lifecycle.ExitReadLock();
         }
-
-        if (_log.IsEnabled(LogLevel.Trace))
-        {
-            _log.Trace($"Wrote {result} byte(s) to '{DevicePath}'");
-        }
-
-        return result;
     }
 
     // ── Feature Reports ────────────────────────────────────────
@@ -236,91 +296,124 @@ public sealed class HidDevice : IHidDevice
     /// <inheritdoc/>
     public byte[] GetFeatureReport(byte reportId, int bufferSize = 64)
     {
-        ObjectDisposedException.ThrowIf(_disposed == 1, this);
-
-        byte[] buffer = new byte[bufferSize];
-        buffer[0] = reportId;
-
-        int result;
-        string error = string.Empty;
-        unsafe
+        _lifecycle.EnterReadLock();
+        try
         {
-            fixed (byte* buf = buffer)
+            lock (_featureSync)
             {
-                result = HidApi.GetFeatureReport(_device, buf, (nuint)bufferSize);
-            }
+                ObjectDisposedException.ThrowIf(_disposed == 1, this);
 
-            if (result < 0)
-            {
-                error = HidApi.GetError(_device);
+                byte[] buffer = new byte[bufferSize];
+                buffer[0] = reportId;
+
+                int result;
+                string error = string.Empty;
+                unsafe
+                {
+                    fixed (byte* buf = buffer)
+                    {
+                        result = HidApi.GetFeatureReport(_device, buf, (nuint)bufferSize);
+                    }
+
+                    if (result < 0)
+                    {
+                        error = HidApi.GetError(_device);
+                    }
+                }
+
+                if (result < 0)
+                {
+                    _log.Error($"hid_get_feature_report(0x{reportId:X2}) failed on '{DevicePath}': {error}");
+                    throw new HidException($"hid_get_feature_report(0x{reportId:X2}) failed: {error}");
+                }
+
+                _log.Trace($"GetFeatureReport(0x{reportId:X2}) returned {result} byte(s) from '{DevicePath}'");
+                return buffer[..result];
             }
         }
-
-        if (result < 0)
+        finally
         {
-            _log.Error($"hid_get_feature_report(0x{reportId:X2}) failed on '{DevicePath}': {error}");
-            throw new HidException($"hid_get_feature_report(0x{reportId:X2}) failed: {error}");
+            _lifecycle.ExitReadLock();
         }
-
-        _log.Trace($"GetFeatureReport(0x{reportId:X2}) returned {result} byte(s) from '{DevicePath}'");
-        return buffer[..result];
     }
 
     /// <inheritdoc/>
     public bool TryGetFeatureReport(byte reportId, int bufferSize, out byte[] report)
     {
-        ObjectDisposedException.ThrowIf(_disposed == 1, this);
-
-        byte[] buffer = new byte[bufferSize];
-        buffer[0] = reportId;
-
-        int result;
-        unsafe
+        _lifecycle.EnterReadLock();
+        try
         {
-            fixed (byte* buf = buffer)
+            lock (_featureSync)
             {
-                result = HidApi.GetFeatureReport(_device, buf, (nuint)bufferSize);
+                ObjectDisposedException.ThrowIf(_disposed == 1, this);
+
+                byte[] buffer = new byte[bufferSize];
+                buffer[0] = reportId;
+
+                int result;
+                unsafe
+                {
+                    fixed (byte* buf = buffer)
+                    {
+                        result = HidApi.GetFeatureReport(_device, buf, (nuint)bufferSize);
+                    }
+                }
+
+                if (result < 0)
+                {
+                    report = [];
+                    return false;
+                }
+
+                _log.Trace($"TryGetFeatureReport(0x{reportId:X2}) returned {result} byte(s) from '{DevicePath}'");
+                report = buffer[..result];
+                return true;
             }
         }
-
-        if (result < 0)
+        finally
         {
-            report = [];
-            return false;
+            _lifecycle.ExitReadLock();
         }
-
-        _log.Trace($"TryGetFeatureReport(0x{reportId:X2}) returned {result} byte(s) from '{DevicePath}'");
-        report = buffer[..result];
-        return true;
     }
 
     /// <inheritdoc/>
     public void SendFeatureReport(byte[] buffer, int offset, int count)
     {
-        ObjectDisposedException.ThrowIf(_disposed == 1, this);
-
-        int result;
-        string error = string.Empty;
-        unsafe
+        _lifecycle.EnterReadLock();
+        try
         {
-            fixed (byte* buf = &buffer[offset])
+            lock (_featureSync)
             {
-                result = HidApi.SendFeatureReport(_device, buf, (nuint)count);
-            }
+                ObjectDisposedException.ThrowIf(_disposed == 1, this);
 
-            if (result < 0)
-            {
-                error = HidApi.GetError(_device);
+                int result;
+                string error = string.Empty;
+                unsafe
+                {
+                    fixed (byte* buf = &buffer[offset])
+                    {
+                        result = HidApi.SendFeatureReport(_device, buf, (nuint)count);
+                    }
+
+                    if (result < 0)
+                    {
+                        error = HidApi.GetError(_device);
+                    }
+                }
+
+                if (result < 0)
+                {
+                    _log.Error($"hid_send_feature_report(0x{buffer[offset]:X2}) failed on '{DevicePath}': {error}");
+                    throw new HidException($"hid_send_feature_report(0x{buffer[offset]:X2}) failed: {error}");
+                }
+
+                _log.Trace($"SendFeatureReport wrote {count} byte(s) to '{DevicePath}'");
             }
         }
-
-        if (result < 0)
+        finally
         {
-            _log.Error($"hid_send_feature_report(0x{buffer[offset]:X2}) failed on '{DevicePath}': {error}");
-            throw new HidException($"hid_send_feature_report(0x{buffer[offset]:X2}) failed: {error}");
+            _lifecycle.ExitReadLock();
         }
-
-        _log.Trace($"SendFeatureReport wrote {count} byte(s) to '{DevicePath}'");
     }
 
     // ── Info ─────────────────────────────────────────────────────
@@ -328,30 +421,41 @@ public sealed class HidDevice : IHidDevice
     /// <inheritdoc/>
     public unsafe string GetProductName()
     {
-        ObjectDisposedException.ThrowIf(_disposed == 1, this);
-
-        string name;
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        _lifecycle.EnterReadLock();
+        try
         {
-            char* buf = stackalloc char[256];
-            int result = HidApi.GetProductString(_device, (IntPtr)buf, 256);
-            name = result < 0 ? string.Empty : HidStringMarshal.BufferToString((IntPtr)buf, result);
-        }
-        else
-        {
-            // Linux wchar_t is 4 bytes (UTF-32), unlike Windows UTF-16.
-            int* buf = stackalloc int[256];
-            int result = HidApi.GetProductString(_device, (IntPtr)buf, 256);
-            name = result < 0 ? string.Empty : HidStringMarshal.BufferToString((IntPtr)buf, result);
-        }
+            lock (_featureSync)
+            {
+                ObjectDisposedException.ThrowIf(_disposed == 1, this);
 
-        if (string.IsNullOrEmpty(name))
-        {
-            name = "Unknown";
-        }
+                string name;
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    char* buf = stackalloc char[256];
+                    int result = HidApi.GetProductString(_device, (IntPtr)buf, 256);
+                    name = result < 0 ? string.Empty : HidStringMarshal.BufferToString((IntPtr)buf, result);
+                }
+                else
+                {
+                    // Linux wchar_t is 4 bytes (UTF-32), unlike Windows UTF-16.
+                    int* buf = stackalloc int[256];
+                    int result = HidApi.GetProductString(_device, (IntPtr)buf, 256);
+                    name = result < 0 ? string.Empty : HidStringMarshal.BufferToString((IntPtr)buf, result);
+                }
 
-        _log.Trace($"GetProductName on '{DevicePath}': \"{name}\"");
-        return name;
+                if (string.IsNullOrEmpty(name))
+                {
+                    name = "Unknown";
+                }
+
+                _log.Trace($"GetProductName on '{DevicePath}': \"{name}\"");
+                return name;
+            }
+        }
+        finally
+        {
+            _lifecycle.ExitReadLock();
+        }
     }
 
     /// <inheritdoc/>
@@ -370,36 +474,71 @@ public sealed class HidDevice : IHidDevice
     {
         get
         {
-            ObjectDisposedException.ThrowIf(_disposed == 1, this);
-
-            byte[] buffer = new byte[64];
-            int read;
-            unsafe
+            _lifecycle.EnterReadLock();
+            try
             {
-                fixed (byte* buf = buffer)
+                lock (_readSync)
                 {
-                    read = HidApi.ReadTimeout(_device, buf, (nuint)buffer.Length, 200);
+                    ObjectDisposedException.ThrowIf(_disposed == 1, this);
+
+                    byte[] buffer = new byte[64];
+                    int read;
+                    unsafe
+                    {
+                        fixed (byte* buf = buffer)
+                        {
+                            read = HidApi.ReadTimeout(_device, buf, (nuint)buffer.Length, 200);
+                        }
+                    }
+
+                    if (read <= 0)
+                    {
+                        _log.Trace($"IsConnected on '{DevicePath}': false (read returned {read})");
+                        return false;
+                    }
+
+                    for (int i = 0; i < read; i++)
+                    {
+                        if (buffer[i] != 0)
+                        {
+                            _log.Trace($"IsConnected on '{DevicePath}': true");
+                            return true;
+                        }
+                    }
+
+                    _log.Trace($"IsConnected on '{DevicePath}': false (all zeros)");
+                    return false;
                 }
             }
-
-            if (read <= 0)
+            finally
             {
-                _log.Trace($"IsConnected on '{DevicePath}': false (read returned {read})");
-                return false;
+                _lifecycle.ExitReadLock();
             }
-
-            for (int i = 0; i < read; i++)
-            {
-                if (buffer[i] != 0)
-                {
-                    _log.Trace($"IsConnected on '{DevicePath}': true");
-                    return true;
-                }
-            }
-
-            _log.Trace($"IsConnected on '{DevicePath}': false (all zeros)");
-            return false;
         }
+    }
+
+    /// <summary>
+    /// Converts a stopwatch timestamp delta to milliseconds.
+    /// </summary>
+    /// <param name="startedTimestamp">The timestamp taken before the operation.</param>
+    /// <returns>The elapsed time in milliseconds.</returns>
+    private static double ElapsedMilliseconds(long startedTimestamp) => (Stopwatch.GetTimestamp() - startedTimestamp) * 1000.0 / Stopwatch.Frequency;
+
+    /// <summary>
+    /// Logs one slow-I/O diagnostic at most once per second so a persistently slow link
+    /// cannot flood the log.
+    /// </summary>
+    /// <param name="message">The diagnostic message.</param>
+    private void LogSlowIo(string message)
+    {
+        long now = Stopwatch.GetTimestamp();
+        if (_lastIoDiagnosticsTimestamp != 0 && now - _lastIoDiagnosticsTimestamp < Stopwatch.Frequency)
+        {
+            return;
+        }
+
+        _lastIoDiagnosticsTimestamp = now;
+        _log.Debug(message);
     }
 
     // ── Dispose ─────────────────────────────────────────────────
@@ -407,21 +546,31 @@ public sealed class HidDevice : IHidDevice
     /// <inheritdoc/>
     public void Dispose()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        // The write lock excludes every in-flight read and write, so HIDAPI's CancelIo
+        // cannot race a pending operation on the handle.
+        _lifecycle.EnterWriteLock();
+        try
         {
-            return;
-        }
-
-        _log.Debug($"Closing HID device '{DevicePath}'");
-
-        unsafe
-        {
-            if (_device != null)
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
             {
-                HidApi.Close(_device);
+                return;
             }
 
-            _device = null;
+            _log.Debug($"Closing HID device '{DevicePath}'");
+
+            unsafe
+            {
+                if (_device != null)
+                {
+                    HidApi.Close(_device);
+                }
+
+                _device = null;
+            }
+        }
+        finally
+        {
+            _lifecycle.ExitWriteLock();
         }
     }
 }

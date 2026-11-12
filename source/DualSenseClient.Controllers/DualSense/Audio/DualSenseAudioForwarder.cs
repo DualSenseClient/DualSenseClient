@@ -141,14 +141,24 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     private readonly AudioLevelMeter _levelMeter = new AudioLevelMeter();
 
     /// <summary>
-    /// Serializes start/stop and the pump's per-tick work with feed/stop calls.
+    /// Serializes start/stop, the pump's per-tick work and the game-state/haptics
+    /// snapshots. The capture feed deliberately does not take this lock: HID writes and
+    /// the stream prime run under it, and blocking the capture thread there would
+    /// overflow the WASAPI capture buffer and drop audio.
     /// </summary>
     private readonly Lock _sync = new Lock();
 
     /// <summary>
-    /// Cancels the running pump loop; <c>null</c> while the forwarder is stopped.
+    /// Serializes the partial-block accumulator between concurrent feed callers. The
+    /// pump never takes it; the ring's own lock handles producer/consumer exclusion.
     /// </summary>
-    private CancellationTokenSource? _cts;
+    private readonly Lock _feedSync = new Lock();
+
+    /// <summary>
+    /// Cancels the running pump loop; <c>null</c> while the forwarder is stopped.
+    /// Volatile because <see cref="FeedPcm"/> checks it without taking <see cref="_sync"/>.
+    /// </summary>
+    private volatile CancellationTokenSource? _cts;
 
     /// <summary>
     /// The background task running the pump loop.
@@ -248,6 +258,108 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// </summary>
     private static readonly long RePrimeIdleTicks =
         (long)(Stopwatch.Frequency * TimeSpan.FromMilliseconds(150).TotalSeconds);
+
+    /// <summary>
+    /// Period of the pump diagnostics summary. Long enough to be readable, short enough
+    /// to expose a stuttering stream while the user is still reproducing it.
+    /// </summary>
+    private const int DiagnosticsWindowMs = 2000;
+
+    /// <summary>
+    /// A tick that starts more than this many milliseconds after its deadline is
+    /// counted as late. Jitter below it is normal scheduler noise.
+    /// </summary>
+    private const double DiagnosticsLateThresholdMs = 2.0;
+
+    /// <summary>
+    /// Stopwatch timestamp when the current diagnostics window started; 0 before the
+    /// first window was initialized.
+    /// </summary>
+    private long _diagWindowStart;
+
+    /// <summary>
+    /// Pump ticks processed in the current diagnostics window.
+    /// </summary>
+    private int _diagTicks;
+
+    /// <summary>
+    /// Reports actually sent in the current diagnostics window.
+    /// </summary>
+    private int _diagReports;
+
+    /// <summary>
+    /// Blocks discarded to catch up with the ring target in the current window.
+    /// </summary>
+    private int _diagDroppedBlocks;
+
+    /// <summary>
+    /// Number of times the pump found no audio and no fresh game haptics in the current
+    /// window. Each gap drains the pad's shallow receive buffer.
+    /// </summary>
+    private int _diagIdleGaps;
+
+    /// <summary>
+    /// Total idle time in the current window, in stopwatch ticks.
+    /// </summary>
+    private double _diagIdleTicks;
+
+    /// <summary>
+    /// Longest single idle gap in the current window, in stopwatch ticks.
+    /// </summary>
+    private long _diagMaxIdleTicks;
+
+    /// <summary>
+    /// Ticks that started more than <see cref="DiagnosticsLateThresholdMs"/> after their
+    /// deadline in the current window.
+    /// </summary>
+    private int _diagLateTicks;
+
+    /// <summary>
+    /// Longest tick start lateness in the current window, in milliseconds.
+    /// </summary>
+    private double _diagMaxLateMs;
+
+    /// <summary>
+    /// Ticks whose work overran the tick period, meaning the pump cannot hold the
+    /// report cadence.
+    /// </summary>
+    private int _diagBehindTicks;
+
+    /// <summary>
+    /// Longest tick work duration in the current window, in milliseconds.
+    /// </summary>
+    private double _diagMaxWorkMs;
+
+    /// <summary>
+    /// Longest Bluetooth report write in the current window, in milliseconds.
+    /// </summary>
+    private double _diagMaxSendMs;
+
+    /// <summary>
+    /// Bluetooth stream primes completed in the current window.
+    /// </summary>
+    private int _diagPrimes;
+
+    /// <summary>
+    /// Longest stream prime in the current window, in milliseconds.
+    /// </summary>
+    private double _diagMaxPrimeMs;
+
+    /// <summary>
+    /// Smallest ring occupancy observed after a tick in the current window, or
+    /// <see cref="int.MaxValue"/> when the window has no samples.
+    /// </summary>
+    private int _diagMinRing = int.MaxValue;
+
+    /// <summary>
+    /// Largest ring occupancy observed after a tick in the current window.
+    /// </summary>
+    private int _diagMaxRing;
+
+    /// <summary>
+    /// Sum of the ring occupancy samples in the current window.
+    /// </summary>
+    private long _diagRingSum;
 
     /// <summary>
     /// Speaker volume (0-255) applied to the controller's speaker/headset hardware.
@@ -618,7 +730,11 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
 
             _btStreamPrimed = false;
             _appliedConfigSignature = -1;
-            _audioRing.Clear();
+            lock (_feedSync)
+            {
+                _audioRing.Clear();
+            }
+
             _gameHapticsActive = false;
             _gameHapticsInputFrames = 0;
             _gameHapticsInput.AsSpan().Clear();
@@ -708,21 +824,23 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// <summary>
     /// Feeds one chunk of interleaved 48 kHz stereo float PCM captured from the host.
     /// Blocks are accumulated and pushed to the ring whole; a partially filled tail
-    /// block is kept for the next call. Safe to call from the capture callback.
+    /// block is kept for the next call. Safe to call from the capture callback: it never
+    /// waits for the pump's HID writes or stream prime, so an audio write cannot starve
+    /// the capture buffer.
     /// </summary>
     public void FeedPcm(ReadOnlySpan<float> stereo)
     {
-        lock (_sync)
+        if (_cts is null)
         {
-            if (_cts is null)
-            {
-                return;
-            }
+            return;
+        }
 
-            _levelMeter.Process(stereo, stereo.Length / 2.0 / 48000.0);
-            float gain = _outputs?.AudioLane.SoftwareGain ?? 1f;
-            _outputs?.AudioLane.SetAudioLevel(this, Math.Clamp(_levelMeter.Level * gain, 0f, 1f));
+        _levelMeter.Process(stereo, stereo.Length / 2.0 / 48000.0);
+        float gain = _outputs?.AudioLane.SoftwareGain ?? 1f;
+        _outputs?.AudioLane.SetAudioLevel(this, Math.Clamp(_levelMeter.Level * gain, 0f, 1f));
 
+        lock (_feedSync)
+        {
             int offset = 0;
             int partial = _audioRing.PartialCount;
             if (partial > 0)
@@ -863,7 +981,11 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     {
         lock (_sync)
         {
-            _audioRing.Clear();
+            lock (_feedSync)
+            {
+                _audioRing.Clear();
+            }
+
             _levelMeter.Reset();
             _btStreamPrimed = false;
             _doubleFramePending = false;
@@ -900,6 +1022,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
             long tickPeriodTicks = (long)(Stopwatch.Frequency * TickInterval.TotalSeconds);
             long nextTick = Stopwatch.GetTimestamp() + tickPeriodTicks;
             long idleSinceTicks = long.MinValue;
+            _diagWindowStart = Stopwatch.GetTimestamp();
             while (!ct.IsCancellationRequested)
             {
                 bool wasIdle = false;
@@ -919,12 +1042,21 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
                     break;
                 }
 
+                long tickStarted = Stopwatch.GetTimestamp();
                 if (wasIdle)
                 {
+                    long idleTicks = tickStarted - idleSinceTicks;
+                    _diagIdleGaps++;
+                    _diagIdleTicks += idleTicks;
+                    if (idleTicks > _diagMaxIdleTicks)
+                    {
+                        _diagMaxIdleTicks = idleTicks;
+                    }
+
                     // After a long enough empty gap the pad's audio buffer has
                     // underrun, so the next session must open the lane again.
                     if (_outputs is not null && _outputs.ConnectionType == ConnectionType.Bluetooth
-                                             && Stopwatch.GetTimestamp() - idleSinceTicks >= RePrimeIdleTicks)
+                                             && idleTicks >= RePrimeIdleTicks)
                     {
                         _btStreamPrimed = false;
                     }
@@ -932,7 +1064,18 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
                     // Re-anchor after an idle gap: the accumulated deadline would be far
                     // in the past, so the loop would burst catch-up frames into the pad's
                     // shallow receive buffer (which drops audio and crackles).
-                    nextTick = Stopwatch.GetTimestamp();
+                    nextTick = tickStarted;
+                }
+
+                double lateMs = (tickStarted - nextTick) * 1000.0 / Stopwatch.Frequency;
+                if (lateMs > _diagMaxLateMs)
+                {
+                    _diagMaxLateMs = lateMs;
+                }
+
+                if (lateMs > DiagnosticsLateThresholdMs)
+                {
+                    _diagLateTicks++;
                 }
 
                 lock (_sync)
@@ -941,6 +1084,15 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
                     if (_outputs is not null && _outputs.ConnectionType == ConnectionType.Bluetooth && !_btStreamPrimed)
                     {
                         PrimeBluetoothStream();
+                        if (_btStreamPrimed)
+                        {
+                            // The capture never stops during the ~85 ms preroll, so the
+                            // ring may hold more than the steady-state cushion. Keep the
+                            // newest blocks and skip the stale head once, before real
+                            // audio starts, rather than dropping blocks mid-stream. One
+                            // extra block covers the frame the pump consumes immediately.
+                            _audioRing.TrimToNewest(TargetBlocks + 1);
+                        }
                     }
                 }
 
@@ -958,7 +1110,33 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
                     break;
                 }
 
-                nextTick = Math.Max(nextTick + tickPeriodTicks, Stopwatch.GetTimestamp());
+                long tickFinished = Stopwatch.GetTimestamp();
+                double workMs = (tickFinished - tickStarted) * 1000.0 / Stopwatch.Frequency;
+                if (workMs > _diagMaxWorkMs)
+                {
+                    _diagMaxWorkMs = workMs;
+                }
+
+                if (tickFinished > nextTick + tickPeriodTicks)
+                {
+                    _diagBehindTicks++;
+                }
+
+                int ringCount = _audioRing.Count;
+                if (ringCount < _diagMinRing)
+                {
+                    _diagMinRing = ringCount;
+                }
+
+                if (ringCount > _diagMaxRing)
+                {
+                    _diagMaxRing = ringCount;
+                }
+
+                _diagRingSum += ringCount;
+                _diagTicks++;
+                nextTick = Math.Max(nextTick + tickPeriodTicks, tickFinished);
+                MaybeLogDiagnostics();
                 WaitUntil(nextTick);
             }
         }
@@ -986,6 +1164,56 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     }
 
     /// <summary>
+    /// Emits one pump diagnostics summary per <see cref="DiagnosticsWindowMs"/> window.
+    /// Call from the pump thread after a tick. The counters expose the conditions that
+    /// make the pad's shallow receive buffer underrun: capture starvation, ticks that
+    /// overrun the report cadence, and report writes that take longer than a tick.
+    /// </summary>
+    private void MaybeLogDiagnostics()
+    {
+        long now = Stopwatch.GetTimestamp();
+        double elapsedMs = (now - _diagWindowStart) * 1000.0 / Stopwatch.Frequency;
+        if (elapsedMs < DiagnosticsWindowMs)
+        {
+            return;
+        }
+
+        if (_diagTicks > 0)
+        {
+            double seconds = elapsedMs / 1000.0;
+            double rate = _diagTicks / seconds;
+            double averageRing = _diagRingSum / (double)_diagTicks;
+            double idleMs = _diagIdleTicks * 1000.0 / Stopwatch.Frequency;
+            double maxIdleMs = _diagMaxIdleTicks * 1000.0 / Stopwatch.Frequency;
+            _log.Debug(
+                $"Audio pump stats: {seconds:F1}s, {_diagTicks} tick(s) ({rate:F1} Hz), {_diagReports} report(s), "
+                + $"ring {_diagMinRing}-{_diagMaxRing} blocks (avg {averageRing:F1}), {_diagDroppedBlocks} dropped, "
+                + $"{_diagIdleGaps} idle gap(s) {idleMs:F0} ms (max {maxIdleMs:F0} ms), "
+                + $"{_diagLateTicks} late tick(s) (max {_diagMaxLateMs:F1} ms), "
+                + $"{_diagBehindTicks} behind (max work {_diagMaxWorkMs:F1} ms), "
+                + $"max send {_diagMaxSendMs:F1} ms, {_diagPrimes} prime(s) (max {_diagMaxPrimeMs:F0} ms)");
+        }
+
+        _diagWindowStart = now;
+        _diagTicks = 0;
+        _diagReports = 0;
+        _diagDroppedBlocks = 0;
+        _diagIdleGaps = 0;
+        _diagIdleTicks = 0;
+        _diagMaxIdleTicks = 0;
+        _diagLateTicks = 0;
+        _diagMaxLateMs = 0;
+        _diagBehindTicks = 0;
+        _diagMaxWorkMs = 0;
+        _diagMaxSendMs = 0;
+        _diagPrimes = 0;
+        _diagMaxPrimeMs = 0;
+        _diagMinRing = int.MaxValue;
+        _diagMaxRing = 0;
+        _diagRingSum = 0;
+    }
+
+    /// <summary>
     /// Consumes one block from the ring and feeds every active transport.
     /// </summary>
     private void ProcessBlock(CancellationToken ct)
@@ -1000,7 +1228,10 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
             }
             else if (_audioRing.Count > TargetBlocks)
             {
-                _audioRing.TryPop(_discardBlock);
+                if (_audioRing.TryPop(_discardBlock))
+                {
+                    _diagDroppedBlocks++;
+                }
             }
 
             DualSenseBtAudioPipeline.ConvertToPcm16(_floatBlock, _pcmBlock);
@@ -1169,6 +1400,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         // while overriding state and let the single path resume cleanly afterwards.
         _doubleFramePending = false;
 
+        long sendStarted = Stopwatch.GetTimestamp();
         if (_hapticsEnabled || stateBlock)
         {
             _outputs.AudioLane.SendAudioAndHaptics(this, CreateAudioState(), _opusFrame, _hapticsPcm, route);
@@ -1176,6 +1408,23 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
         else
         {
             _outputs.AudioLane.SendAudio(this, _opusFrame, route);
+        }
+
+        _diagReports++;
+        RecordSendDuration(sendStarted);
+    }
+
+    /// <summary>
+    /// Records how long one Bluetooth report write took. A write longer than a tick
+    /// delays the next report and can starve the pad's shallow receive buffer.
+    /// </summary>
+    /// <param name="startedTimestamp">The stopwatch timestamp taken before the write.</param>
+    private void RecordSendDuration(long startedTimestamp)
+    {
+        double elapsedMs = (Stopwatch.GetTimestamp() - startedTimestamp) * 1000.0 / Stopwatch.Frequency;
+        if (elapsedMs > _diagMaxSendMs)
+        {
+            _diagMaxSendMs = elapsedMs;
         }
     }
 
@@ -1197,7 +1446,10 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
 
         _opusFrame.CopyTo(_doubleOpusFrames, BluetoothAudioReportBuilder.AudioPayloadSize);
         _hapticsPcm.CopyTo(_doubleHapticsPcm, BluetoothAudioReportBuilder.HapticsPayloadSize);
+        long sendStarted = Stopwatch.GetTimestamp();
         _outputs!.AudioLane.SendDouble(this, _doubleOpusFrames, _doubleHapticsPcm, route);
+        _diagReports++;
+        RecordSendDuration(sendStarted);
         _doubleFramePending = false;
     }
 
@@ -1446,6 +1698,7 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// </summary>
     private void PrimeBluetoothStream()
     {
+        long primeStarted = Stopwatch.GetTimestamp();
         if (_outputs is null || !_outputs.AudioLane.ResetBluetoothStream(this))
         {
             return;
@@ -1483,6 +1736,13 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
 
         _appliedConfigSignature = volume | (headset ? 1 << 8 : 0);
         _btStreamPrimed = true;
+        double primeMs = (Stopwatch.GetTimestamp() - primeStarted) * 1000.0 / Stopwatch.Frequency;
+        if (primeMs > _diagMaxPrimeMs)
+        {
+            _diagMaxPrimeMs = primeMs;
+        }
+
+        _diagPrimes++;
         _log.Debug("Bluetooth audio stream primed");
     }
 
@@ -1687,6 +1947,24 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
                 _read = 0;
                 _count = 0;
                 _partialCount = 0;
+            }
+        }
+
+        /// <summary>
+        /// Keeps at most <paramref name="keep"/> of the newest blocks, dropping the oldest
+        /// ones. Used after a stream prime so the audio captured while the prime blocked
+        /// does not arrive as a burst that forces whole-block drops mid-stream.
+        /// </summary>
+        /// <param name="keep">Number of newest blocks to retain.</param>
+        public void TrimToNewest(int keep)
+        {
+            lock (_lock)
+            {
+                while (_count > keep)
+                {
+                    _read = (_read + 1) % _capacity;
+                    _count--;
+                }
             }
         }
 

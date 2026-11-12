@@ -40,6 +40,12 @@ internal static class WasapiAudioInterop
     public const int StreamFlags = 0x00020000 | 0x00040000 | unchecked((int)0x80000000);
 
     /// <summary>
+    /// <c>AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY</c>: the engine lost or skipped audio
+    /// before this packet. Diagnostics use it to detect capture-side gaps.
+    /// </summary>
+    public const int BufferFlagDataDiscontinuity = 0x1;
+
+    /// <summary>
     /// <c>AUDCLNT_BUFFERFLAGS_SILENT</c>: the packet carries no valid data and must be
     /// treated as silence.
     /// </summary>
