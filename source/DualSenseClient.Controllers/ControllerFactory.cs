@@ -79,12 +79,9 @@ public static class ControllerFactory
 
             return type switch
             {
-                ControllerType.DualSense => isDongle
-                    ? new DualSenseDongle(device, info)
-                    : new DualSenseDevice(device, info),
-                ControllerType.DualSenseEdge => isDongle
-                    ? new DualSenseEdgeDongle(device, info)
-                    : new DualSenseEdgeDevice(device, info),
+                ControllerType.DualSense or ControllerType.DualSenseEdge => isDongle
+                    ? new DualSenseDongle(device, info, type)
+                    : new DualSenseDevice(device, info, type),
                 _ => null
             };
         }

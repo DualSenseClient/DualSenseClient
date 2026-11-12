@@ -222,7 +222,7 @@ public class ControllerFactoryTests
     public void Create_EdgeIds_CreatesEdgeDeviceWithVibrationV2()
     {
         using StubHidEnumerator enumerator = new StubHidEnumerator();
-        using DualSenseEdgeDevice? device = ControllerFactory.Create(enumerator, new StubHidDeviceInfo(0x054C, 0x0DF2)) as DualSenseEdgeDevice;
+        using DualSenseDevice? device = ControllerFactory.Create(enumerator, new StubHidDeviceInfo(0x054C, 0x0DF2)) as DualSenseDevice;
 
         Assert.Multiple(() =>
         {
@@ -243,7 +243,6 @@ public class ControllerFactoryTests
         Assert.Multiple(() =>
         {
             Assert.That(device, Is.Not.Null);
-            Assert.That(device, Is.Not.InstanceOf<DualSenseEdgeDevice>());
             Assert.That(device!.ConnectionType, Is.EqualTo(ConnectionType.Usb));
             Assert.That(device.Info.BusType, Is.EqualTo(ConnectionType.Usb));
             Assert.That(device.IsEdge, Is.False);
@@ -255,7 +254,7 @@ public class ControllerFactoryTests
     {
         using StubHidEnumerator enumerator = new StubHidEnumerator(() => new StubHidDevice(reportId =>
             reportId == 0xF8 ? [0xF8, (byte)'d', (byte)'e', (byte)'v'] : []));
-        using DualSenseEdgeDongle? device = ControllerFactory.Create(enumerator, new StubHidDeviceInfo(0x054C, 0x0DF2)) as DualSenseEdgeDongle;
+        using DualSenseDongle? device = ControllerFactory.Create(enumerator, new StubHidDeviceInfo(0x054C, 0x0DF2)) as DualSenseDongle;
 
         Assert.Multiple(() =>
         {

@@ -1,3 +1,4 @@
+using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.DualSense.Utilities;
@@ -238,9 +239,10 @@ public class DualSenseDeviceOutputTests
     public void MaxOutputReportLength_FollowsTheActiveDescriptorAndTransport()
     {
         using DualSenseDevice usb = new DualSenseDevice(new CapturingHidDevice(), new StubHidDeviceInfo(ConnectionType.Usb));
-        using DualSenseEdgeDevice edge = new DualSenseEdgeDevice(new CapturingHidDevice(), new StubHidDeviceInfo(ConnectionType.Usb));
+        using DualSenseDevice edge = new DualSenseDevice(new CapturingHidDevice(), new StubHidDeviceInfo(ConnectionType.Usb), ControllerType.DualSenseEdge);
         using DualSenseDongle dongle = new DualSenseDongle(new CapturingHidDevice(), new StubHidDeviceInfo(ConnectionType.Usb));
-        using DualSenseEdgeDongle dongleEdge = new DualSenseEdgeDongle(new CapturingHidDevice(), new StubHidDeviceInfo(ConnectionType.Usb));
+        using DualSenseDongle dongleEdge =
+            new DualSenseDongle(new CapturingHidDevice(), new StubHidDeviceInfo(ConnectionType.Usb), ControllerType.DualSenseEdge);
         using DualSenseDevice bluetooth = new DualSenseDevice(new CapturingHidDevice(), new StubHidDeviceInfo(ConnectionType.Bluetooth));
 
         Assert.Multiple(() =>
@@ -257,7 +259,7 @@ public class DualSenseDeviceOutputTests
     public void UsbEdge_SendOutputState_UsesTheDescriptorSized64ByteTransfer()
     {
         CapturingHidDevice hid = new CapturingHidDevice();
-        using DualSenseEdgeDevice device = new DualSenseEdgeDevice(hid, new StubHidDeviceInfo(ConnectionType.Usb));
+        using DualSenseDevice device = new DualSenseDevice(hid, new StubHidDeviceInfo(ConnectionType.Usb), ControllerType.DualSenseEdge);
 
         device.SendOutputState(new SetStateData
         {

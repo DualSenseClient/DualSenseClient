@@ -8,7 +8,7 @@ namespace DualSenseClient.Controllers.Devices;
 /// DualSense connected through a DS5Dongle Bluetooth bridge. The host sees a wired USB
 /// DualSense; this type owns the bridge status and firmware configuration endpoints.
 /// </summary>
-public class DualSenseDongle : DualSenseDevice
+public sealed class DualSenseDongle : DualSenseDevice
 {
     /// <summary>
     /// Settle time between a configuration command and the read-back, matching the
@@ -41,7 +41,19 @@ public class DualSenseDongle : DualSenseDevice
     /// </summary>
     /// <param name="device">The opened HID device for this controller.</param>
     /// <param name="info">The device info that was used to discover and open the device.</param>
-    public DualSenseDongle(IHidDevice device, IHidDeviceInfo info) : base(device, info, false)
+    public DualSenseDongle(IHidDevice device, IHidDeviceInfo info)
+        : this(device, info, ControllerType.DualSense)
+    {
+    }
+
+    /// <summary>
+    /// Creates a new DS5Dongle bridge wrapper with an explicit controller model.
+    /// </summary>
+    /// <param name="device">The opened HID device for this controller.</param>
+    /// <param name="info">The device info that was used to discover and open the device.</param>
+    /// <param name="controllerType">The DualSense model presented by the bridge.</param>
+    public DualSenseDongle(IHidDevice device, IHidDeviceInfo info, ControllerType controllerType)
+        : base(device, info, controllerType, false)
     {
         SetDongleStatus(DongleStatusReader.Read(this));
         StartReadLoop();

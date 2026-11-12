@@ -60,6 +60,11 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     private int _readLoopStarted;
 
     /// <summary>
+    /// Controller model reported by this device.
+    /// </summary>
+    private readonly ControllerType _controllerType;
+
+    /// <summary>
     /// The last payload written over Bluetooth, used to skip duplicate reports: games
     /// tend to rewrite an unchanged state every frame, and each suppressed report
     /// frees interrupt-channel bandwidth for input (lower latency) on Bluetooth.
@@ -155,20 +160,19 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     {
         get
         {
-            return ControllerType.DualSense;
+            return _controllerType;
         }
     }
 
     /// <summary>
     /// Whether this controller is a DualSense Edge, which has the extra Fn
-    /// buttons and back paddles. Base DualSense hardware returns <c>false</c>;
-    /// <see cref="DualSenseEdgeDevice"/> and <see cref="DualSenseEdgeDongle"/> override this.
+    /// buttons and back paddles.
     /// </summary>
-    public virtual bool IsEdge
+    public bool IsEdge
     {
         get
         {
-            return false;
+            return _controllerType == ControllerType.DualSenseEdge;
         }
     }
 
@@ -484,20 +488,47 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     /// </summary>
     /// <param name="device">The opened HID device for this controller.</param>
     /// <param name="info">The device info that was used to discover and open the device.</param>
-    public DualSenseDevice(IHidDevice device, IHidDeviceInfo info) : this(device, info, true)
+    public DualSenseDevice(IHidDevice device, IHidDeviceInfo info)
+        : this(device, info, ControllerType.DualSense, true)
     {
     }
 
     /// <summary>
-    /// Creates a DualSense wrapper without starting the input read loop immediately.
+    /// Creates a DualSense controller wrapper with an explicit controller model.
+    /// </summary>
+    /// <param name="device">The opened HID device for this controller.</param>
+    /// <param name="info">The device info that was used to discover and open the device.</param>
+    /// <param name="controllerType">The DualSense model to report.</param>
+    public DualSenseDevice(IHidDevice device, IHidDeviceInfo info, ControllerType controllerType)
+        : this(device, info, controllerType, true)
+    {
+    }
+
+    /// <summary>
+    /// Creates a DualSense wrapper without necessarily starting the input read loop.
     /// Derived types use this to finish their own initialization before input reports
     /// are consumed.
     /// </summary>
     /// <param name="device">The opened HID device for this controller.</param>
     /// <param name="info">The device info that was used to discover and open the device.</param>
+    /// <param name="controllerType">The DualSense model to report.</param>
     /// <param name="startReading">Whether to start the background input read loop.</param>
-    protected DualSenseDevice(IHidDevice device, IHidDeviceInfo info, bool startReading) : base(device, info)
+    protected DualSenseDevice(
+        IHidDevice device,
+        IHidDeviceInfo info,
+        ControllerType controllerType,
+        bool startReading) : base(device, info)
     {
+        if (controllerType is not (ControllerType.DualSense or ControllerType.DualSenseEdge))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(controllerType),
+                controllerType,
+                "Only DualSense controller models are supported.");
+        }
+
+        _controllerType = controllerType;
+
         // Probe order follows the Linux driver: pairing MAC, firmware/update version,
         // then calibration. The calibration GET is also what moves a Bluetooth
         // controller from the minimal 0x01 report to the full 0x31 report.
