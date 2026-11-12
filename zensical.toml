@@ -17,6 +17,7 @@ nav = [
   { "Installation" = "installation.md" },
   { "Guides" = [
     { "Device Information" = "guides/device-info.md" },
+    { "DS5Dongle Bridge" = "guides/dongle.md" },
     { "Input Monitoring" = "guides/input-monitor.md" },
     { "Profiles" = "guides/profiles.md" },
     { "Light Control" = "guides/light-control.md" },

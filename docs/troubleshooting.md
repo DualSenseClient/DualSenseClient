@@ -34,6 +34,33 @@ This is almost always a permissions issue: without a udev rule, only root can op
 - Restart the Bluetooth service, or remove ("forget") the controller in your system's Bluetooth settings and pair it again
 - Hold the PS button + Create button simultaneously until the lightbar rapidly flashes double blinks to put the controller into pairing mode, then pair from your system settings
 
+### DS5Dongle Issues
+
+The DS5Dongle is a USB bridge: the host sees a wired DualSense and DualSense Client
+labels it **Dongle** while keeping the transport USB.
+
+- **The dongle is not detected** — make sure the controller is paired to the bridge, then
+  reconnect the bridge over USB. The bridge must expose its firmware/configuration vendor
+  reports; update the bridge firmware if it is very old. Support tracks the latest commit in
+  the official [DualSenseClient/DS5Dongle](https://github.com/DualSenseClient/DS5Dongle)
+  repository.
+- **Dongle Configuration is unavailable** — update the bridge firmware. The page supports
+  current v5 firmware (24/25-byte layout) and the original 19-byte legacy layout, and
+  rejects unsupported intermediate layouts.
+- **Link signal stays at 0** — the firmware returns its cached reading and starts a new
+  measurement in the background. Turn the controller on, then open Device Info with
+  **Auto-refresh status** enabled. See
+  [Bridge Status](guides/dongle.md#bridge-status).
+- **Volume changes are ignored** — check **Customization → Dongle Configuration → Lock
+  volume**. **Games & software** ignores HID volume changes; **System volume (UAC)** ignores
+  USB Audio changes. See [Lock volume modes](guides/dongle.md#lock-volume-modes).
+- **A USB setting did not take effect** — polling rate, controller mode, USB serial number,
+  keyboard interface, and USB wake need **Reconnect USB** from the Dongle Configuration
+  footer.
+- **Extra keyboard or consumer-control controllers appear** — the app filters the bridge's
+  non-gamepad HID interfaces. Update to a build that includes the dongle HID fix if you
+  still see phantom controllers.
+
 ## Runtime Errors
 
 ### Missing .NET Runtime on Windows

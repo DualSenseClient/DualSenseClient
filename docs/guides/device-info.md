@@ -8,7 +8,7 @@ The **Device Info** page shows everything the controller reports about itself an
 - **Name** — rename the selected controller. The name is stored per controller and used in the title-bar picker, tray menu, and notifications.
 - **Skin** — choose the illustration skin used for the visualization above. Skins are stored per controller.
 - **Assigned profile** — choose which profile the controller uses. The profile is applied automatically when the controller connects; the **Re-apply profile** button pushes its settings to the controller again. See [Profiles](profiles.md).
-- **Connection** — the current transport: USB or Bluetooth.
+- **Connection** — the current transport: USB, Dongle, or Bluetooth.
 - **Controller MAC** — the Bluetooth MAC address, or `-` when the controller does not report one. Profile and controller identity fall back to the HID path where needed.
 - **Polling rate** — how often input reports are arriving from the controller.
 
@@ -38,6 +38,16 @@ Live status indicators show whether:
 - The microphone is muted
 - USB carries data and/or power only
 
+## Bridge Status
+
+When the selected controller is connected through a **DS5Dongle**, a **Bridge Status**
+expander shows the dongle firmware version, bridge Bluetooth address, link signal, and
+microphone/speaker stream state. **Auto-refresh status** re-reads those values every five
+seconds while the page is visible; it is off by default.
+
+See [DS5Dongle Bridge](dongle.md#bridge-status) for the signal thresholds, cached-reading
+behavior, and configuration options.
+
 ## Firmware & Hardware
 
 Use the **Refresh** button in the Firmware header to re-read all values from the controller:
@@ -48,4 +58,4 @@ Use the **Refresh** button in the Firmware header to re-read all values from the
 
 ---
 
-Controller hiding lives on this page; virtual controller emulation has its own [Emulation page](virtual-controller.md). The title-bar Scan/Disconnect controls are described in [Settings](settings.md#other-window-controls).
+Controller hiding lives on this page; virtual controller emulation has its own [Emulation page](virtual-controller.md). DS5Dongle status and configuration are described in the [DS5Dongle Bridge guide](dongle.md). The title-bar Scan/Disconnect controls are described in [Settings](settings.md#other-window-controls).

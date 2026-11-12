@@ -91,7 +91,7 @@ Choose the minimum logging verbosity:
 
 Outside the Settings page, the title bar also exposes:
 
-- A **controller picker** dropdown (connected controllers with their name and connection type — Bluetooth/USB) for switching which device the pages act on.
+- A **controller picker** dropdown (connected controllers with their name and connection type — Bluetooth, USB, or Dongle) for switching which device the pages act on.
 - A **Scan** toggle that starts/stops HID scanning for newly connected controllers.
 - A **Disconnect** button (visible only for Bluetooth controllers) that disconnects the selected controller.
 

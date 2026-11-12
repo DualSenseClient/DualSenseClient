@@ -30,17 +30,22 @@ DualSense Client
 
 ## Overview
 
-**DualSense Client** is an open-source management tool for the **PlayStation 5 DualSense Controller** on Windows and Linux. It provides lightbar and LED control, profile management, real-time input monitoring, rumble and adaptive trigger output, and audio playback to the controller's speaker and haptics. It can also create virtual controllers (Xbox 360, DualShock 4, or DualSense; Windows only for now) through its built-in emulation engine, and hide physical controllers from other applications via HidHide (Windows only). Built with .NET 10 and Avalonia, it connects over USB or Bluetooth through HIDAPI with no drivers required.
+**DualSense Client** is an open-source management tool for the **PlayStation 5 DualSense Controller** on Windows and Linux. It provides lightbar and LED control, profile management, real-time input monitoring, rumble and adaptive trigger output, and audio playback to the controller's speaker and haptics. It can also create virtual controllers (Xbox 360, DualShock 4, or DualSense; Windows only for now) through its built-in emulation engine, and hide physical controllers from other applications via HidHide (Windows only). Built with .NET 10 and Avalonia, it connects over USB, Bluetooth, or a DS5Dongle USB bridge through HIDAPI with no drivers required.
 
 ## Supported Controllers
 
-| Controller            | Supported | Notes                                                     |
-| --------------------- | --------- | --------------------------------------------------------- |
-| DualSense (USB)       | ✅        | Full support                                              |
-| DualSense (Bluetooth) | ✅        | Full support including speaker and haptics audio          |
-| DualSense Edge        | ✅        | Full support including Fn buttons and paddles<sup>1</sup> |
+| Controller              | Supported | Notes                                                     |
+| ----------------------- | --------- | --------------------------------------------------------- |
+| DualSense (USB)         | ✅        | Full support                                              |
+| DualSense (Bluetooth)   | ✅        | Full support including speaker and haptics audio          |
+| DualSense Edge          | ✅        | Full support including Fn buttons and paddles<sup>1</sup> |
+| DualSense via DS5Dongle | ✅        | USB bridge; bridge status and on-bridge configuration     |
 
 <sup><i>1. Implemented but not yet verified on real hardware — no Edge device was available during development.</i></sup>
+
+DS5Dongle support tracks the latest commit in the
+[official DualSenseClient/DS5Dongle repository](https://github.com/DualSenseClient/DS5Dongle).
+Forked or unmerged firmware changes are not tracked.
 
 ## Features
 
@@ -60,7 +65,7 @@ DualSense Client
 ### Real-time Monitoring
 
 - Live controller illustration for buttons, sticks, triggers, and touchpad, plus numeric trigger, stick, touch, gyro, and accelerometer data
-- Connection type detection (USB / Bluetooth)
+- Connection type detection (USB / Bluetooth / Dongle), plus Bridge Status for DS5Dongle
 - Polling-rate display and support for multiple controllers with an in-window controller picker
 
 ### Output Control
@@ -72,6 +77,7 @@ DualSense Client
 
 - Play a loaded audio file through the desktop speakers, the controller's speaker or headset jack, and the controller haptics, in any combination
 - Opus-encoded haptics over Bluetooth, USB audio over the controller's audio endpoint
+- With a DS5Dongle, USB audio is carried by the bridge; microphone and speaker routes are configured on the **Dongle Configuration** page
 - Playback volume and haptic strength sliders with transport controls
 
 ### Device Information
@@ -79,6 +85,16 @@ DualSense Client
 - Battery level with power state (charging, discharging, etc.)
 - Firmware versions (main, SBL, DSP) and model revision with manual refresh
 - Connection status: headphones/mic jacked in, microphone muted, USB data and power
+
+### DS5Dongle Bridge
+
+- Detects the DS5Dongle as a USB DualSense bridge and labels the connection **Dongle**
+- Bridge Status shows dongle firmware, link signal, bridge Bluetooth address, and microphone/speaker stream state, with an optional five-second auto-refresh
+- On-bridge configuration covers haptics and speaker gain, trigger feedback reduction, audio buffer and packet mode, lock-volume modes, polling rate, idle/dock behavior, microphone/speaker routes, controller mode, USB serial/keyboard/wake, and status GPIO
+- Read, Save to Flash, Reconnect USB, and Reset to Defaults actions, with automatic apply and reconnect warnings
+- Supports current v5 firmware (24/25-byte layout) and the original 19-byte legacy layout
+
+See the [DS5Dongle Bridge guide](https://dualsenseclient.github.io/DualSenseClient/guides/dongle/) for details.
 
 ### Settings
 
@@ -109,7 +125,8 @@ DualSense Client
 
 - **Windows 10 or later** with the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) installed (the Windows build is framework-dependent)
 - **Linux** — no .NET installation required (self-contained build)
-- **PlayStation 5 DualSense controller** (wired USB or Bluetooth connection)
+- **PlayStation 5 DualSense controller** (wired USB, Bluetooth, or DS5Dongle USB bridge)
+- **DS5Dongle** (optional) — USB Bluetooth bridge; use the latest official firmware, no extra driver required
 - **HidHide** (optional, Windows only) — driver for hiding physical controllers from other applications; see [nefarius/HidHide](https://github.com/nefarius/HidHide)
 - **USB/IP** (optional, virtual controller emulation only; currently Windows-only) — the built-in emulation engine attaches virtual devices through it:
     - Windows: [usbip-win2](https://github.com/vadimgrn/usbip-win2)
@@ -165,6 +182,7 @@ Requires the .NET 10 SDK. Releases are produced automatically by CI for Windows 
 - **Controller not detected**: Make sure you have the latest DualSense firmware and try USB instead of Bluetooth
 - **Controller not detected on Linux**: Check that the udev rule is installed (see the [hidapi udev rules](https://github.com/libusb/hidapi/blob/master/udev/69-hid.rules) reference above), or run the application with elevated privileges
 - **Bluetooth connection issues**: Restart the Bluetooth service or pair the controller again through your system settings
+- **DS5Dongle issues**: Pair the controller to the bridge, update the bridge firmware from the [official repository](https://github.com/DualSenseClient/DS5Dongle), and use **Reconnect USB** after USB-descriptor changes. If the link signal stays at `0`, turn the controller on and enable **Auto-refresh status** on Device Info. See the [DS5Dongle Bridge guide](https://dualsenseclient.github.io/DualSenseClient/guides/dongle/)
 - **Missing .NET runtime on Windows**: Install the required .NET 10 Desktop Runtime from Microsoft's website
 - **Virtual controller does not appear**: Install the USB/IP driver (Windows: [usbip-win2](https://github.com/vadimgrn/usbip-win2)) and restart the app. Virtual controller emulation is currently Windows-only
 - **A game receives double input**: Install the HidHide driver and enable the hide toggle for the physical controller on its Device Info page

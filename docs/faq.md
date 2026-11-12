@@ -10,7 +10,7 @@ Yes. It is open source under the [GPL-3.0 license](https://github.com/DualSenseC
 
 ### Which controllers are supported?
 
-The PlayStation 5 **DualSense** and **DualSense Edge** controllers, over USB and Bluetooth. Other controllers (such as the DualShock 4) are not supported as physical devices. See [Supported Controllers](index.md#supported-controllers).
+The PlayStation 5 **DualSense** and **DualSense Edge** controllers, over USB and Bluetooth, including through a **DS5Dongle** USB bridge. Other controllers (such as the DualShock 4) are not supported as physical devices. See [Supported Controllers](index.md#supported-controllers).
 
 !!! note
     DualSense Edge support (Fn buttons and paddles) is implemented but not yet verified on real hardware.
@@ -49,9 +49,21 @@ Normally no:
 
 ## Features
 
+### Does the app support the DS5Dongle?
+
+Yes. The DS5Dongle is detected as a USB DualSense bridge. The app shows its firmware, link
+signal, and audio-stream state on the [Device Information](guides/device-info.md) page, and
+exposes its on-bridge settings under **Customization → Dongle Configuration**. See the
+[DS5Dongle Bridge guide](guides/dongle.md).
+
+Support is tracked against the official
+[DualSenseClient/DS5Dongle](https://github.com/DualSenseClient/DS5Dongle) repository. The
+latest commit there is the supported firmware revision; forked or unmerged firmware changes
+are not tracked.
+
 ### Can I play game audio through the controller?
 
-Yes — audio can be played to your desktop speakers, the DualSense speaker, or the haptics, each independently. See the [Audio Playback guide](guides/audio.md).
+Yes — audio can be played to your desktop speakers, the DualSense speaker, or the haptics, each independently. See the [Audio Playback guide](guides/audio.md). With a DS5Dongle, the bridge's microphone and speaker routes are configured on the [DS5Dongle Bridge](guides/dongle.md#dongle-configuration) page.
 
 ### Can the app update my controller's firmware?
 

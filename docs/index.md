@@ -4,7 +4,7 @@
 
 It can also create virtual controllers (Xbox 360, DualShock 4, or DualSense; Windows only for now) through its built-in emulation engine, and hide physical controllers from other applications via HidHide (Windows only).
 
-Built with .NET and Avalonia, it connects over USB or Bluetooth through HIDAPI with no drivers required.
+Built with .NET and Avalonia, it connects over USB, Bluetooth, or a DS5Dongle USB bridge through HIDAPI with no drivers required.
 
 ![DualSense Client main window](assets/images/overview.png)
 
@@ -17,8 +17,13 @@ Built with .NET and Avalonia, it connects over USB or Bluetooth through HIDAPI w
 | DualSense (USB)       |    ✅     | Full support                                              |
 | DualSense (Bluetooth) |    ✅     | Full support including speaker and haptics audio          |
 | DualSense Edge        |    ✅     | Full support including Fn buttons and paddles<sup>1</sup> |
+| DualSense via DS5Dongle |  ✅     | USB bridge with bridge status and configuration           |
 
 <sup>1. Implemented but not yet verified on real hardware — no Edge device was available during development.</sup>
+
+DS5Dongle support tracks the latest commit in the official
+[DualSenseClient/DS5Dongle](https://github.com/DualSenseClient/DS5Dongle) repository;
+fork-only or unmerged firmware changes are not tracked.
 
 ---
 
@@ -33,6 +38,14 @@ Built with .NET and Avalonia, it connects over USB or Bluetooth through HIDAPI w
     Battery level, firmware versions, connection status, and live input data at a glance.
 
     [:material-arrow-right: Device Information](guides/device-info.md)
+
+- :material-usb:{ .lg .middle } **DS5Dongle Bridge**
+
+    ***
+
+    Bridge firmware, link signal, audio streams, and on-bridge configuration.
+
+    [:material-arrow-right: DS5Dongle Bridge](guides/dongle.md)
 
 - :material-gamepad-variant:{ .lg .middle } **Input Monitoring**
 

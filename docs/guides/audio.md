@@ -19,6 +19,11 @@ Open the **Emulation** page and expand **Audio Player**.
 - **Haptic audio over Bluetooth** is Opus-encoded specifically for the controller's haptic channels
 - **USB audio** uses the controller's standard audio endpoint
 
+!!! note
+    With a **DS5Dongle**, USB audio is carried by the bridge. Use
+    **Customization → Dongle Configuration** to choose the microphone and speaker routes and
+    to configure volume locking. See the [DS5Dongle Bridge guide](dongle.md#dongle-configuration).
+
 ## Controls
 
 - **File** — open an audio file (mp3, wav, flac, …) via the **Open** button. The file name, duration, position, and a seek bar with play/pause are shown in the transport row.

@@ -21,7 +21,7 @@ Optional components:
 
 See the [Emulation guide](guides/virtual-controller.md) for a full walkthrough.
 
-You will also need a **PlayStation 5 DualSense controller**, connected via wired USB or Bluetooth.
+You will also need a **PlayStation 5 DualSense controller**, connected via wired USB or Bluetooth. A **DS5Dongle** USB bridge also works and needs no extra driver — see the [DS5Dongle Bridge guide](guides/dongle.md).
 
 ---
 
