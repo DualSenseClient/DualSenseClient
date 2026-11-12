@@ -113,7 +113,7 @@ public partial class EmulationPageViewModel : ObservableObject
     {
         get
         {
-            return CurrentDevice?.Controller.Device is DualSenseEdgeDevice;
+            return CurrentDevice?.Controller.Device is DualSenseDevice { IsEdge: true };
         }
     }
 

@@ -46,6 +46,28 @@ public interface IHidDevice : IDisposable
     byte[] GetFeatureReport(byte reportId, int bufferSize = 64);
 
     /// <summary>
+    /// Tries to get a feature report without treating an unsupported report as an error.
+    /// Intended for best-effort interface probes.
+    /// </summary>
+    /// <param name="reportId">Report ID to request.</param>
+    /// <param name="bufferSize">Size of the report buffer, including the report ID.</param>
+    /// <param name="report">The returned report, or an empty array when the request failed.</param>
+    /// <returns><c>true</c> when the device answered; otherwise, <c>false</c>.</returns>
+    bool TryGetFeatureReport(byte reportId, int bufferSize, out byte[] report)
+    {
+        try
+        {
+            report = GetFeatureReport(reportId, bufferSize);
+            return true;
+        }
+        catch (HidException)
+        {
+            report = [];
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Sends a feature report to the device.
     /// </summary>
     void SendFeatureReport(byte[] buffer, int offset, int count);
@@ -242,6 +264,34 @@ public sealed class HidDevice : IHidDevice
 
         _log.Trace($"GetFeatureReport(0x{reportId:X2}) returned {result} byte(s) from '{DevicePath}'");
         return buffer[..result];
+    }
+
+    /// <inheritdoc/>
+    public bool TryGetFeatureReport(byte reportId, int bufferSize, out byte[] report)
+    {
+        ObjectDisposedException.ThrowIf(_disposed == 1, this);
+
+        byte[] buffer = new byte[bufferSize];
+        buffer[0] = reportId;
+
+        int result;
+        unsafe
+        {
+            fixed (byte* buf = buffer)
+            {
+                result = HidApi.GetFeatureReport(_device, buf, (nuint)bufferSize);
+            }
+        }
+
+        if (result < 0)
+        {
+            report = [];
+            return false;
+        }
+
+        _log.Trace($"TryGetFeatureReport(0x{reportId:X2}) returned {result} byte(s) from '{DevicePath}'");
+        report = buffer[..result];
+        return true;
     }
 
     /// <inheritdoc/>

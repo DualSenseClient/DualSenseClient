@@ -1,4 +1,5 @@
 ﻿using DualSenseClient.Controllers.Devices;
+using DualSenseClient.Controllers.DualSense.Feature;
 using DualSenseClient.Hid;
 using DualSenseClient.Logging;
 
@@ -67,10 +68,23 @@ public static class ControllerFactory
         IHidDevice device = enumerator.OpenDevice(info.Path);
         try
         {
+            bool isDongle = info.BusType == ConnectionType.Usb
+                            && (type == ControllerType.DualSense || type == ControllerType.DualSenseEdge)
+                            && DongleDetector.IsDongle(device);
+            if (isDongle)
+            {
+                _log.Info(
+                    $"Detected DS5Dongle bridge for '{info.ProductName}' (PID=0x{info.ProductId:X4}, path={info.Path})");
+            }
+
             return type switch
             {
-                ControllerType.DualSense => new DualSenseDevice(device, info),
-                ControllerType.DualSenseEdge => new DualSenseEdgeDevice(device, info),
+                ControllerType.DualSense => isDongle
+                    ? new DualSenseDongle(device, info)
+                    : new DualSenseDevice(device, info),
+                ControllerType.DualSenseEdge => isDongle
+                    ? new DualSenseEdgeDongle(device, info)
+                    : new DualSenseEdgeDevice(device, info),
                 _ => null
             };
         }

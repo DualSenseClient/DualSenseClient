@@ -579,7 +579,8 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
     /// name, so opening it in place of the physical pad would feed the forwarded audio
     /// back into the capture when that endpoint is the default output.
     /// </summary>
-    internal static bool ShouldUseUsbTarget(ConnectionType? connectionType) => connectionType == ConnectionType.Usb;
+    internal static bool ShouldUseUsbTarget(ConnectionType? connectionType)
+        => connectionType == ConnectionType.Usb;
 
     /// <summary>
     /// Starts the pump and opens the USB render endpoint when the physical pad is wired.

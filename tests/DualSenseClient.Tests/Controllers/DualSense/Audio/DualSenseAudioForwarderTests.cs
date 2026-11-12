@@ -10,6 +10,9 @@ namespace DualSenseClient.Tests.Controllers.DualSense.Audio;
 
 public class DualSenseAudioForwarderTests
 {
+    [Test]
+    public void ShouldUseUsbTarget_Usb_ReturnsTrue() => Assert.That(DualSenseAudioForwarder.ShouldUseUsbTarget(ConnectionType.Usb), Is.True);
+
     /// <summary>
     /// Fake physical-controller audio lane recording every call.
     /// </summary>

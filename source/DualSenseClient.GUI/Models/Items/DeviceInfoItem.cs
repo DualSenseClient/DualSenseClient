@@ -86,7 +86,7 @@ public sealed partial class DeviceInfoItem : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Physical transport (USB / Bluetooth).
+    /// Physical transport (USB or Bluetooth).
     /// </summary>
     public ConnectionType ConnectionType
     {

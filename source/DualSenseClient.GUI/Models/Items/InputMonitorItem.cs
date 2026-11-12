@@ -1219,7 +1219,7 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     }
 
     /// <summary>
-    /// Physical transport (USB / Bluetooth).
+    /// Physical transport (USB or Bluetooth).
     /// </summary>
     public ConnectionType ConnectionType
     {

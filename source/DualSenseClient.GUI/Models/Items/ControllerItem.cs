@@ -23,7 +23,7 @@ public sealed partial class ControllerItem : ObservableObject
     [ObservableProperty] private string _displayName;
 
     /// <summary>
-    /// Physical transport (USB / Bluetooth).
+    /// Physical transport (USB or Bluetooth).
     /// </summary>
     public ConnectionType ConnectionType
     {

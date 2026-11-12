@@ -6,7 +6,7 @@ namespace DualSenseClient.Tests.Controllers;
 
 public class ControllerFactoryTests
 {
-    private sealed class StubHidDevice : IHidDevice
+    private sealed class StubHidDevice(Func<byte, byte[]>? featureReports = null) : IHidDevice
     {
         public ushort VendorId
         {
@@ -38,7 +38,8 @@ public class ControllerFactoryTests
 
         public int Write(byte[] buffer, int offset, int count) => count;
 
-        public byte[] GetFeatureReport(byte reportId, int bufferSize = 64) => [];
+        public byte[] GetFeatureReport(byte reportId, int bufferSize = 64) =>
+            featureReports?.Invoke(reportId) ?? [];
 
         public void SendFeatureReport(byte[] buffer, int offset, int count)
         {
@@ -134,7 +135,7 @@ public class ControllerFactoryTests
         }
     }
 
-    private sealed class StubHidEnumerator : IHidDeviceEnumerator
+    private sealed class StubHidEnumerator(Func<IHidDevice>? deviceFactory = null) : IHidDeviceEnumerator
     {
         public IHidDevice? OpenedDevice { get; private set; }
 
@@ -147,7 +148,7 @@ public class ControllerFactoryTests
         public IHidDevice OpenDevice(string path)
         {
             OpenedDevice?.Dispose();
-            OpenedDevice = new StubHidDevice();
+            OpenedDevice = deviceFactory?.Invoke() ?? new StubHidDevice();
             return OpenedDevice;
         }
 
@@ -229,6 +230,54 @@ public class ControllerFactoryTests
             Assert.That(device!.ControllerType, Is.EqualTo(ControllerType.DualSenseEdge));
             Assert.That(device.IsEdge, Is.True);
             Assert.That(device.UsesVibrationV2, Is.True);
+        });
+    }
+
+    [Test]
+    public void Create_UsbDeviceAnsweringDongleVersion_CreatesDongleOverUsb()
+    {
+        using StubHidEnumerator enumerator = new StubHidEnumerator(() => new StubHidDevice(reportId =>
+            reportId == 0xF8 ? [0xF8, (byte)'d', (byte)'e', (byte)'v'] : []));
+        using DualSenseDongle? device = ControllerFactory.Create(enumerator, new StubHidDeviceInfo(0x054C, 0x0CE6)) as DualSenseDongle;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(device, Is.Not.Null);
+            Assert.That(device, Is.Not.InstanceOf<DualSenseEdgeDevice>());
+            Assert.That(device!.ConnectionType, Is.EqualTo(ConnectionType.Usb));
+            Assert.That(device.Info.BusType, Is.EqualTo(ConnectionType.Usb));
+            Assert.That(device.IsEdge, Is.False);
+        });
+    }
+
+    [Test]
+    public void Create_EdgeDeviceAnsweringDongleVersion_CreatesDongleEdgeOverUsb()
+    {
+        using StubHidEnumerator enumerator = new StubHidEnumerator(() => new StubHidDevice(reportId =>
+            reportId == 0xF8 ? [0xF8, (byte)'d', (byte)'e', (byte)'v'] : []));
+        using DualSenseEdgeDongle? device = ControllerFactory.Create(enumerator, new StubHidDeviceInfo(0x054C, 0x0DF2)) as DualSenseEdgeDongle;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(device, Is.Not.Null);
+            Assert.That(device!.ConnectionType, Is.EqualTo(ConnectionType.Usb));
+            Assert.That(device.Info.BusType, Is.EqualTo(ConnectionType.Usb));
+            Assert.That(device.ControllerType, Is.EqualTo(ControllerType.DualSenseEdge));
+            Assert.That(device.IsEdge, Is.True);
+        });
+    }
+
+    [Test]
+    public void Create_UsbDeviceWithoutDongleReports_StaysUsb()
+    {
+        using StubHidEnumerator enumerator = new StubHidEnumerator();
+        using DualSenseDevice? device = ControllerFactory.Create(enumerator, new StubHidDeviceInfo(0x054C, 0x0CE6)) as DualSenseDevice;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(device, Is.Not.Null);
+            Assert.That(device!.ConnectionType, Is.EqualTo(ConnectionType.Usb));
+            Assert.That(device.Info.BusType, Is.EqualTo(ConnectionType.Usb));
         });
     }
 }

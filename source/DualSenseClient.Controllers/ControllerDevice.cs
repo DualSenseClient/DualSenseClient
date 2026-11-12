@@ -64,6 +64,28 @@ public interface IControllerDevice : IDisposable
     byte[] GetFeatureReport(byte reportId, int bufferSize = 64);
 
     /// <summary>
+    /// Tries to get a feature report without treating an unsupported report as an error.
+    /// Intended for best-effort interface probes.
+    /// </summary>
+    /// <param name="reportId">Report ID to request.</param>
+    /// <param name="bufferSize">Size of the report buffer, including the report ID.</param>
+    /// <param name="report">The returned report, or an empty array when the request failed.</param>
+    /// <returns><c>true</c> when the controller answered; otherwise, <c>false</c>.</returns>
+    bool TryGetFeatureReport(byte reportId, int bufferSize, out byte[] report)
+    {
+        try
+        {
+            report = GetFeatureReport(reportId, bufferSize);
+            return true;
+        }
+        catch (HidException)
+        {
+            report = [];
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Sends a feature report to the controller.
     /// </summary>
     void SendFeatureReport(byte[] buffer, int offset, int count);
@@ -237,6 +259,20 @@ public abstract class ControllerDevice(IHidDevice device, IHidDeviceInfo info) :
         catch (ObjectDisposedException)
         {
             throw new HidException("Cannot read a feature report from a disposed device");
+        }
+    }
+
+    /// <inheritdoc/>
+    public virtual bool TryGetFeatureReport(byte reportId, int bufferSize, out byte[] report)
+    {
+        try
+        {
+            return device.TryGetFeatureReport(reportId, bufferSize, out report);
+        }
+        catch (ObjectDisposedException)
+        {
+            report = [];
+            return false;
         }
     }
 

@@ -239,12 +239,16 @@ public class DualSenseDeviceOutputTests
     {
         using DualSenseDevice usb = new DualSenseDevice(new CapturingHidDevice(), new StubHidDeviceInfo(ConnectionType.Usb));
         using DualSenseEdgeDevice edge = new DualSenseEdgeDevice(new CapturingHidDevice(), new StubHidDeviceInfo(ConnectionType.Usb));
+        using DualSenseDongle dongle = new DualSenseDongle(new CapturingHidDevice(), new StubHidDeviceInfo(ConnectionType.Usb));
+        using DualSenseEdgeDongle dongleEdge = new DualSenseEdgeDongle(new CapturingHidDevice(), new StubHidDeviceInfo(ConnectionType.Usb));
         using DualSenseDevice bluetooth = new DualSenseDevice(new CapturingHidDevice(), new StubHidDeviceInfo(ConnectionType.Bluetooth));
 
         Assert.Multiple(() =>
         {
             Assert.That(usb.MaxOutputReportLength, Is.EqualTo(48), "DualSense USB output report");
             Assert.That(edge.MaxOutputReportLength, Is.EqualTo(64), "DualSense Edge USB output report");
+            Assert.That(dongle.MaxOutputReportLength, Is.EqualTo(48), "DualSense dongle output report");
+            Assert.That(dongleEdge.MaxOutputReportLength, Is.EqualTo(64), "DualSense Edge dongle output report");
             Assert.That(bluetooth.MaxOutputReportLength, Is.EqualTo(78), "Bluetooth 0x31 state report");
         });
     }

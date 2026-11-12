@@ -55,6 +55,11 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     private readonly Lock _outputSync = new Lock();
 
     /// <summary>
+    /// Guards against starting the input read loop more than once.
+    /// </summary>
+    private int _readLoopStarted;
+
+    /// <summary>
     /// The last payload written over Bluetooth, used to skip duplicate reports: games
     /// tend to rewrite an unchanged state every frame, and each suppressed report
     /// frees interrupt-channel bandwidth for input (lower latency) on Bluetooth.
@@ -157,7 +162,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     /// <summary>
     /// Whether this controller is a DualSense Edge, which has the extra Fn
     /// buttons and back paddles. Base DualSense hardware returns <c>false</c>;
-    /// <see cref="DualSenseEdgeDevice"/> overrides this.
+    /// <see cref="DualSenseEdgeDevice"/> and <see cref="DualSenseEdgeDongle"/> override this.
     /// </summary>
     public virtual bool IsEdge
     {
@@ -479,7 +484,19 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     /// </summary>
     /// <param name="device">The opened HID device for this controller.</param>
     /// <param name="info">The device info that was used to discover and open the device.</param>
-    public DualSenseDevice(IHidDevice device, IHidDeviceInfo info) : base(device, info)
+    public DualSenseDevice(IHidDevice device, IHidDeviceInfo info) : this(device, info, true)
+    {
+    }
+
+    /// <summary>
+    /// Creates a DualSense wrapper without starting the input read loop immediately.
+    /// Derived types use this to finish their own initialization before input reports
+    /// are consumed.
+    /// </summary>
+    /// <param name="device">The opened HID device for this controller.</param>
+    /// <param name="info">The device info that was used to discover and open the device.</param>
+    /// <param name="startReading">Whether to start the background input read loop.</param>
+    protected DualSenseDevice(IHidDevice device, IHidDeviceInfo info, bool startReading) : base(device, info)
     {
         // Probe order follows the Linux driver: pairing MAC, firmware/update version,
         // then calibration. The calibration GET is also what moves a Bluetooth
@@ -487,6 +504,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         PairingInfo = FeatureReader.ReadPairingInfo(this);
         FirmwareInfo = FeatureReader.ReadFirmwareInfo(this);
         CalibrationInfo = FeatureReader.ReadCalibration(this);
+
         _lighting = new LightingAuthority(this);
         _audioLane = new ControllerAudioLane(this);
         _lightbarEffect = new LightbarEffectController(this);
@@ -496,6 +514,23 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
             Name = "DualSense Input Reader",
             Priority = ThreadPriority.AboveNormal
         };
+
+        if (startReading)
+        {
+            StartReadLoop();
+        }
+    }
+
+    /// <summary>
+    /// Starts the background input read loop. Calling this more than once has no effect.
+    /// </summary>
+    protected void StartReadLoop()
+    {
+        if (Interlocked.Exchange(ref _readLoopStarted, 1) != 0)
+        {
+            return;
+        }
+
         _readThread.Start();
     }
 

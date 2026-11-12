@@ -418,8 +418,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     Controllers.RemoveAt(i);
                     string displayName = _controllerService.GetDisplayName(ControllerKey.From(null, e.Info.Path),
                         e.Info.ProductName);
-                    _popups.ShowConnection(displayName, e.Info.BusType.ToString(), false);
-                    _log.Debug($"Controller disconnected: {e.Info.ProductName} ({e.Info.BusType})");
+                    _popups.ShowConnection(displayName, device.ConnectionType.ToString(), false);
+                    _log.Debug($"Controller disconnected: {e.Info.ProductName} ({device.ConnectionType})");
                     break;
                 }
             }

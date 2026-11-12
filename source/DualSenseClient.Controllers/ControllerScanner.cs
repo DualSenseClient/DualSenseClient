@@ -176,7 +176,7 @@ public sealed class ControllerScanner : IControllerScanner
 
         _log.Info($"Controller connected: {e.Device.ProductName} ({controller.ControllerType}, bus={controller.ConnectionType}, path={e.Device.Path})");
         ControllerConnected?.Invoke(this,
-            new ControllerConnectionEventArgs(DeviceChangeType.Connected, e.Device, controller.ControllerType, controller));
+            new ControllerConnectionEventArgs(DeviceChangeType.Connected, controller.Info, controller.ControllerType, controller));
     }
 
     /// <summary>
