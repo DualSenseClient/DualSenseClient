@@ -60,7 +60,7 @@
                                     <StackPanel Orientation="Horizontal"
                                                 Spacing="8">
                                         <TextBlock Text="{Binding DisplayName}" />
-                                        <TextBlock Text="{Binding ConnectionType}"
+                                        <TextBlock Text="{Binding ConnectionLabel}"
                                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
                                 </DataTemplate>

@@ -85,6 +85,10 @@
     <sys:String x:Key="DeviceInfoPage.Battery.Level">Battery Level</sys:String>
     <sys:String x:Key="DeviceInfoPage.Battery.PowerState">Power State</sys:String>
     <!-- Common -->
+    <sys:String x:Key="Common.Connection.Bluetooth">Bluetooth</sys:String>
+    <sys:String x:Key="Common.Connection.Dongle">Dongle</sys:String>
+    <sys:String x:Key="Common.Connection.Unknown">Unknown</sys:String>
+    <sys:String x:Key="Common.Connection.Usb">USB</sys:String>
     <sys:String x:Key="DeviceInfoPage.Common.Active">Active</sys:String>
     <sys:String x:Key="DeviceInfoPage.Common.Connected">Connected</sys:String>
     <sys:String x:Key="DeviceInfoPage.Common.Inactive">Inactive</sys:String>

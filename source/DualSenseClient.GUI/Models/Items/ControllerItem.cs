@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Feature;
+using DualSenseClient.GUI.Services;
 using DualSenseClient.Hid;
 
 namespace DualSenseClient.GUI.Models.Items;
@@ -30,6 +31,39 @@ public sealed partial class ControllerItem : ObservableObject
         get
         {
             return Device.ConnectionType;
+        }
+    }
+
+    /// <summary>
+    /// Whether this controller is connected through a DS5Dongle bridge.
+    /// </summary>
+    public bool IsDongle
+    {
+        get
+        {
+            return Device is DualSenseDongle;
+        }
+    }
+
+    /// <summary>
+    /// User-visible connection label that distinguishes a USB dongle from a direct
+    /// USB or Bluetooth connection.
+    /// </summary>
+    public string ConnectionLabel
+    {
+        get
+        {
+            if (IsDongle)
+            {
+                return LocalizationService.GetText("Common.Connection.Dongle");
+            }
+
+            return ConnectionType switch
+            {
+                ConnectionType.Usb => LocalizationService.GetText("Common.Connection.Usb"),
+                ConnectionType.Bluetooth => LocalizationService.GetText("Common.Connection.Bluetooth"),
+                _ => LocalizationService.GetText("Common.Connection.Unknown")
+            };
         }
     }
 

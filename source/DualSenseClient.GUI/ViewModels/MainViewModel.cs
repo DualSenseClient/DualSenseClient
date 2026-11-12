@@ -349,9 +349,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
             }
 
             AddController(controller);
+            ControllerItem controllerItem = Controllers[^1];
             string displayName = _controllerService.GetDisplayName(ControllerKeyFactory.From(controller),
                 controller.Info.ProductName);
-            _popups.ShowConnection(displayName, controller.ConnectionType.ToString(), true);
+            _popups.ShowConnection(displayName, controllerItem.ConnectionLabel, true);
             _log.Debug($"Controller connected: {controller.Info.ProductName} ({controller.ConnectionType})");
 
             SelectedItem ??= Controllers[^1];
@@ -412,13 +413,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
             {
                 if (Controllers[i].Device.Info.Path == e.Info.Path)
                 {
-                    IControllerDevice device = Controllers[i].Device;
+                    ControllerItem controllerItem = Controllers[i];
+                    IControllerDevice device = controllerItem.Device;
+                    string connectionLabel = controllerItem.ConnectionLabel;
                     _tracker.UntrackController(device);
                     device.Dispose();
                     Controllers.RemoveAt(i);
                     string displayName = _controllerService.GetDisplayName(ControllerKey.From(null, e.Info.Path),
                         e.Info.ProductName);
-                    _popups.ShowConnection(displayName, device.ConnectionType.ToString(), false);
+                    _popups.ShowConnection(displayName, connectionLabel, false);
                     _log.Debug($"Controller disconnected: {e.Info.ProductName} ({device.ConnectionType})");
                     break;
                 }

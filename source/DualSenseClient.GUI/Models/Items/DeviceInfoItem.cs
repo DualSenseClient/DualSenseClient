@@ -102,6 +102,17 @@ public sealed partial class DeviceInfoItem : ObservableObject, IDisposable
     }
 
     /// <summary>
+    /// User-visible connection label, including the USB dongle distinction.
+    /// </summary>
+    public string ConnectionLabel
+    {
+        get
+        {
+            return Controller.ConnectionLabel;
+        }
+    }
+
+    /// <summary>
     /// Whether this controller is connected through a DS5Dongle bridge.
     /// </summary>
     public bool IsDongle

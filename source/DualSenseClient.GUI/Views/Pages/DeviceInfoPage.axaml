@@ -261,7 +261,7 @@
                                        Content="{DynamicResource DeviceInfoPage.Device.ConnectionType}"
                                        IsVisible="{Binding HasDevice}">
                 <ui:FASettingsExpanderItem.Footer>
-                    <TextBlock Text="{Binding CurrentDevice.ConnectionType}"
+                    <TextBlock Text="{Binding CurrentDevice.ConnectionLabel}"
                                FontWeight="SemiBold"
                                VerticalAlignment="Center" />
                 </ui:FASettingsExpanderItem.Footer>
