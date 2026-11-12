@@ -1,14 +1,31 @@
 using DualSenseClient.Controllers.DualSense.Feature;
 using DualSenseClient.Hid;
+using DualSenseClient.Logging;
 
 namespace DualSenseClient.Controllers.Devices;
 
 /// <summary>
 /// DualSense connected through a DS5Dongle Bluetooth bridge. The host sees a wired USB
-/// DualSense; this type owns the bridge status endpoints.
+/// DualSense; this type owns the bridge status and firmware configuration endpoints.
 /// </summary>
 public class DualSenseDongle : DualSenseDevice
 {
+    /// <summary>
+    /// Settle time between a configuration command and the read-back, matching the
+    /// firmware tool and web configurator.
+    /// </summary>
+    private const int ConfigSettleDelayMs = 50;
+
+    /// <summary>
+    /// Logger instance.
+    /// </summary>
+    private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("DualSenseDongle");
+
+    /// <summary>
+    /// Serializes configuration reads and writes.
+    /// </summary>
+    private readonly Lock _configSync = new Lock();
+
     /// <summary>
     /// Guards the bridge status snapshot read by UI threads.
     /// </summary>
@@ -74,6 +91,72 @@ public class DualSenseDongle : DualSenseDevice
         lock (_statusSync)
         {
             _dongleStatus = status;
+        }
+    }
+
+    /// <summary>
+    /// Reads the DS5Dongle configuration snapshot.
+    /// </summary>
+    /// <returns>The configuration, or <c>null</c> when the report is unreadable.</returns>
+    public DongleConfig? ReadDongleConfig()
+    {
+        lock (_configSync)
+        {
+            DongleConfig? config = DongleConfigProtocol.Read(this);
+            if (config is null)
+            {
+                _log.Warning(
+                    $"DS5Dongle configuration report 0xF7 was unavailable or used an unsupported layout for {Info.ProductName}");
+            }
+
+            return config;
+        }
+    }
+
+    /// <summary>
+    /// Applies a DS5Dongle configuration to RAM and returns the firmware-validated snapshot.
+    /// </summary>
+    /// <param name="config">Configuration to write.</param>
+    /// <returns>The read-back configuration, or <c>null</c> when the report is unreadable.</returns>
+    public DongleConfig? ApplyDongleConfig(DongleConfig config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+
+        lock (_configSync)
+        {
+            DongleConfigProtocol.SendUpdate(this, config);
+            Thread.Sleep(ConfigSettleDelayMs);
+            DongleConfig? applied = DongleConfigProtocol.Read(this);
+            if (applied is null)
+            {
+                _log.Warning(
+                    $"DS5Dongle configuration read-back 0xF7 was unavailable after an update for {Info.ProductName}");
+            }
+
+            return applied;
+        }
+    }
+
+    /// <summary>
+    /// Persists the current DS5Dongle configuration to flash.
+    /// </summary>
+    public void SaveDongleConfigToFlash()
+    {
+        lock (_configSync)
+        {
+            DongleConfigProtocol.SendSave(this);
+            Thread.Sleep(ConfigSettleDelayMs);
+        }
+    }
+
+    /// <summary>
+    /// Asks the DS5Dongle to reconnect its USB device.
+    /// </summary>
+    public void ReconnectDongleUsb()
+    {
+        lock (_configSync)
+        {
+            DongleConfigProtocol.SendReconnect(this);
         }
     }
 }

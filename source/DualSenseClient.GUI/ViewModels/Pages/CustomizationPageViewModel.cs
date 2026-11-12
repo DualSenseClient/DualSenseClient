@@ -8,12 +8,14 @@ using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.Emulation;
 using SoundFlow.Abstracts;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.Devices;
+using DualSenseClient.Controllers.DualSense.Feature;
 using DualSenseClient.Controllers.Profiles;
 using DualSenseClient.Core.Models;
 using DualSenseClient.GUI.Models.Items;
@@ -101,6 +103,41 @@ public partial class CustomizationPageViewModel : ObservableObject
     private readonly AudioApplicationService _audioApplications;
 
     /// <summary>
+    /// Delay between the last dongle configuration edit and the auto-apply, so dragging a
+    /// slider coalesces into a single feature-report write.
+    /// </summary>
+    private const int DongleApplyDebounceMilliseconds = 300;
+
+    /// <summary>
+    /// Debounced dongle configuration auto-apply timer.
+    /// </summary>
+    private readonly DispatcherTimer _dongleApplyTimer = new DispatcherTimer
+    {
+        Interval = TimeSpan.FromMilliseconds(DongleApplyDebounceMilliseconds)
+    };
+
+    /// <summary>
+    /// Serializes dongle configuration reads, applies, saves, and reconnects.
+    /// </summary>
+    private readonly SemaphoreSlim _dongleIoSync = new SemaphoreSlim(1, 1);
+
+    /// <summary>
+    /// The configuration last read from or written to the selected dongle.
+    /// </summary>
+    private DongleConfig? _lastAppliedDongleConfig;
+
+    /// <summary>
+    /// USB-interface configuration captured at the last read or reconnect, used to warn
+    /// when a newly applied setting needs the USB device to re-enumerate.
+    /// </summary>
+    private UsbEffectiveDongleConfig? _usbEffectiveDongleBaseline;
+
+    /// <summary>
+    /// Suppresses the editor's change event while a device snapshot is loaded into it.
+    /// </summary>
+    private bool _suppressDongleConfigChanged;
+
+    /// <summary>
     /// The controller currently shown on this page, or <c>null</c> when none is selected.
     /// </summary>
     public DeviceInfoItem? CurrentDevice { get; private set; }
@@ -177,14 +214,13 @@ public partial class CustomizationPageViewModel : ObservableObject
     }
 
     /// <summary>
-    /// The concrete DualSense device of the selected controller, or <c>null</c> for
-    /// non-DualSense devices.
+    /// The dongle backing the selected controller, or <c>null</c> for non-dongle devices.
     /// </summary>
-    private DualSenseDevice? CurrentDualSenseDevice
+    private DualSenseDongle? CurrentDongleDevice
     {
         get
         {
-            return MonitorState?.Controller.Device as DualSenseDevice;
+            return MonitorState?.Controller.Device as DualSenseDongle;
         }
     }
 
@@ -198,6 +234,54 @@ public partial class CustomizationPageViewModel : ObservableObject
             return CurrentDevice is not null;
         }
     }
+
+    /// <summary>
+    /// Whether the selected controller is connected through a DS5Dongle bridge.
+    /// </summary>
+    public bool IsDongle
+    {
+        get
+        {
+            return CurrentDevice?.IsDongle == true;
+        }
+    }
+
+    /// <summary>
+    /// Whether the dongle configuration editor has loaded and can be shown.
+    /// </summary>
+    public bool HasDongleConfigEditor
+    {
+        get
+        {
+            return DongleConfigEditor is not null;
+        }
+    }
+
+    /// <summary>
+    /// The dongle configuration editor, or <c>null</c> when the selected controller is not
+    /// a DS5Dongle or its configuration has not loaded yet.
+    /// </summary>
+    [ObservableProperty] private DongleConfigItem? _dongleConfigEditor;
+
+    /// <summary>
+    /// User-visible state of the last dongle configuration operation.
+    /// </summary>
+    [ObservableProperty] private string _dongleStatusText = string.Empty;
+
+    /// <summary>
+    /// Whether one or more applied settings need a USB reconnect to take effect.
+    /// </summary>
+    [ObservableProperty] private bool _needsDongleUsbReconnect;
+
+    /// <summary>
+    /// Whether an explicit dongle configuration command is in progress.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ReadDongleConfigCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveDongleConfigToFlashCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ReconnectDongleUsbCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ResetDongleConfigCommand))]
+    private bool _isDongleBusy;
 
     /// <summary>
     /// The Bluetooth MAC address of the selected controller, or empty when unavailable.
@@ -292,6 +376,41 @@ public partial class CustomizationPageViewModel : ObservableObject
         LocalizationService.GetText("CustomizationPage.Lightbar.Mode.Battery"),
         LocalizationService.GetText("CustomizationPage.Lightbar.Mode.AudioReactive")
     ];
+
+    /// <summary>
+    /// Dongle polling-rate options for current firmware, in <see cref="DonglePollingRateMode"/> order.
+    /// </summary>
+    public ObservableCollection<string> DonglePollingRates { get; } = [];
+
+    /// <summary>
+    /// Dongle polling-rate options for legacy firmware, whose real-time mode is the third value.
+    /// </summary>
+    public ObservableCollection<string> DongleLegacyPollingRates { get; } = [];
+
+    /// <summary>
+    /// Dongle controller-identity options for the dropdown, in <see cref="DongleControllerMode"/> order.
+    /// </summary>
+    public ObservableCollection<string> DongleControllerModes { get; } = [];
+
+    /// <summary>
+    /// Dongle microphone/speaker route options for the dropdown, in <see cref="DongleAudioDevice"/> order.
+    /// </summary>
+    public ObservableCollection<string> DongleAudioDevices { get; } = [];
+
+    /// <summary>
+    /// Dongle volume-lock options for the dropdown, in <see cref="DongleVolumeLockMode"/> order.
+    /// </summary>
+    public ObservableCollection<string> DongleVolumeLockModes { get; } = [];
+
+    /// <summary>
+    /// Dongle status GPIO pin options for the dropdown, in <see cref="DongleConfigItem.GpioPinValues"/> order.
+    /// </summary>
+    public ObservableCollection<string> DongleGpioPins { get; } = [];
+
+    /// <summary>
+    /// Dongle status GPIO behaviour options for the dropdown, in <see cref="DongleStatusGpioMode"/> order.
+    /// </summary>
+    public ObservableCollection<string> DongleGpioModes { get; } = [];
 
     /// <summary>
     /// The profile currently being edited, or <c>null</c> when none exists.
@@ -1275,6 +1394,611 @@ public partial class CustomizationPageViewModel : ObservableObject
         _controllerService.SaveEmulationSettings(CurrentKey, GetEmulationSettings());
     }
 
+    // ── Dongle configuration ───────────────────────────────────
+
+    /// <summary>
+    /// Builds the localized dropdown options from the model enums and pin list.
+    /// </summary>
+    private void BuildDongleOptions()
+    {
+        DonglePollingRates.Add(LocalizationService.GetText("CustomizationPage.Dongle.PollingRate.250"));
+        DonglePollingRates.Add(LocalizationService.GetText("CustomizationPage.Dongle.PollingRate.500"));
+        DonglePollingRates.Add(LocalizationService.GetText("CustomizationPage.Dongle.PollingRate.1000"));
+        DonglePollingRates.Add(LocalizationService.GetText("CustomizationPage.Dongle.PollingRate.RealTime"));
+
+        DongleLegacyPollingRates.Add(LocalizationService.GetText("CustomizationPage.Dongle.PollingRate.250"));
+        DongleLegacyPollingRates.Add(LocalizationService.GetText("CustomizationPage.Dongle.PollingRate.500"));
+        DongleLegacyPollingRates.Add(LocalizationService.GetText("CustomizationPage.Dongle.PollingRate.RealTime"));
+
+        DongleControllerModes.Add(LocalizationService.GetText("CustomizationPage.Dongle.ControllerMode.DS5"));
+        DongleControllerModes.Add(LocalizationService.GetText("CustomizationPage.Dongle.ControllerMode.DSE"));
+        DongleControllerModes.Add(LocalizationService.GetText("CustomizationPage.Dongle.ControllerMode.Auto"));
+
+        DongleAudioDevices.Add(LocalizationService.GetText("CustomizationPage.Dongle.Audio.Auto"));
+        DongleAudioDevices.Add(LocalizationService.GetText("CustomizationPage.Dongle.Audio.BuiltIn"));
+        DongleAudioDevices.Add(LocalizationService.GetText("CustomizationPage.Dongle.Audio.Headphone"));
+        DongleAudioDevices.Add(LocalizationService.GetText("CustomizationPage.Dongle.Audio.Disabled"));
+
+        DongleVolumeLockModes.Add(LocalizationService.GetText("CustomizationPage.Dongle.LockVolume.Off"));
+        DongleVolumeLockModes.Add(LocalizationService.GetText("CustomizationPage.Dongle.LockVolume.GameAndSoftware"));
+        DongleVolumeLockModes.Add(LocalizationService.GetText("CustomizationPage.Dongle.LockVolume.SystemVolume"));
+
+        foreach (int pin in DongleConfigItem.GpioPinValues)
+        {
+            DongleGpioPins.Add(pin == DongleConfig.DisabledStatusGpioPin
+                ? LocalizationService.GetText("CustomizationPage.Dongle.GpioPin.Disabled")
+                : pin.ToString());
+        }
+
+        DongleGpioModes.Add(LocalizationService.GetText("CustomizationPage.Dongle.GpioMode.High"));
+        DongleGpioModes.Add(LocalizationService.GetText("CustomizationPage.Dongle.GpioMode.Pulse"));
+    }
+
+    /// <summary>
+    /// Subscribes the editor's change event when the selected dongle's editor is replaced.
+    /// </summary>
+    partial void OnDongleConfigEditorChanged(DongleConfigItem? oldValue, DongleConfigItem? newValue)
+    {
+        if (oldValue is not null)
+        {
+            oldValue.Changed -= OnDongleConfigChanged;
+        }
+
+        if (newValue is not null)
+        {
+            newValue.Changed += OnDongleConfigChanged;
+        }
+
+        OnPropertyChanged(nameof(HasDongleConfigEditor));
+        NotifyDongleCommands();
+    }
+
+    /// <summary>
+    /// Schedules a debounced apply when the user edits a dongle setting.
+    /// </summary>
+    private void OnDongleConfigChanged(object? sender, EventArgs e)
+    {
+        if (_suppressDongleConfigChanged || DongleConfigEditor is null)
+        {
+            return;
+        }
+
+        SetDongleStatus(DongleOperationStatus.Applying);
+        _dongleApplyTimer.Stop();
+        _dongleApplyTimer.Start();
+    }
+
+    /// <summary>
+    /// Loads the selected dongle's configuration and populates the editor.
+    /// </summary>
+    private async Task LoadDongleConfigAsync()
+    {
+        DeviceInfoItem? item = CurrentDevice;
+        DualSenseDongle? device = CurrentDongleDevice;
+        if (item is null || device is null || !item.IsDongle)
+        {
+            return;
+        }
+
+        SetDongleStatus(DongleOperationStatus.Reading);
+        await _dongleIoSync.WaitAsync();
+        try
+        {
+            DongleConfig? config = await Task.Run(device.ReadDongleConfig);
+            if (!ReferenceEquals(CurrentDevice, item) || !item.IsDongle)
+            {
+                return;
+            }
+
+            if (config is null)
+            {
+                SetDongleStatus(DongleOperationStatus.Unavailable);
+                return;
+            }
+
+            LoadDongleSnapshot(config);
+            _usbEffectiveDongleBaseline = UsbEffectiveDongleConfig.From(config);
+            NeedsDongleUsbReconnect = false;
+            SetDongleStatus(DongleOperationStatus.Loaded);
+        }
+        catch (Exception ex)
+        {
+            _log.Error("Failed to read the DS5Dongle configuration", ex);
+            if (ReferenceEquals(CurrentDevice, item))
+            {
+                SetDongleStatus(DongleOperationStatus.Failed);
+            }
+        }
+        finally
+        {
+            _dongleIoSync.Release();
+        }
+    }
+
+    /// <summary>
+    /// Replaces the editor's contents with a device snapshot without triggering an apply.
+    /// </summary>
+    private void LoadDongleSnapshot(DongleConfig config)
+    {
+        _lastAppliedDongleConfig = config;
+        _suppressDongleConfigChanged = true;
+        try
+        {
+            if (DongleConfigEditor is null)
+            {
+                DongleConfigEditor = new DongleConfigItem(config);
+            }
+            else
+            {
+                DongleConfigEditor.Load(config);
+            }
+        }
+        finally
+        {
+            _suppressDongleConfigChanged = false;
+        }
+    }
+
+    /// <summary>
+    /// Applies the editor's current values to the dongle and reloads the firmware-validated
+    /// snapshot. Returns <c>true</c> when the device already matched or the apply succeeded.
+    /// </summary>
+    private async Task<bool> ApplyDongleConfigAsync(bool force = false)
+    {
+        if (IsDongleBusy)
+        {
+            return false;
+        }
+
+        DeviceInfoItem? item = CurrentDevice;
+        await _dongleIoSync.WaitAsync();
+        try
+        {
+            return await ApplyDongleConfigCoreAsync(force);
+        }
+        catch (Exception ex)
+        {
+            _log.Error("Failed to apply the DS5Dongle configuration", ex);
+            if (ReferenceEquals(CurrentDevice, item))
+            {
+                SetDongleStatus(DongleOperationStatus.Failed);
+            }
+
+            return false;
+        }
+        finally
+        {
+            _dongleIoSync.Release();
+        }
+    }
+
+    /// <summary>
+    /// Applies the editor's current values while the caller holds <see cref="_dongleIoSync"/>.
+    /// </summary>
+    private async Task<bool> ApplyDongleConfigCoreAsync(bool force)
+    {
+        DongleConfigItem? editor = DongleConfigEditor;
+        DeviceInfoItem? item = CurrentDevice;
+        DualSenseDongle? device = CurrentDongleDevice;
+        if (editor is null || item is null || device is null || !item.IsDongle)
+        {
+            return false;
+        }
+
+        DongleConfig requested = editor.ToConfig();
+        if (!force
+            && _lastAppliedDongleConfig is { } current
+            && current.IsEquivalentTo(requested))
+        {
+            return true;
+        }
+
+        int revision = editor.Revision;
+        SetDongleStatus(DongleOperationStatus.Applying);
+        DongleConfig? applied = await Task.Run(() => device.ApplyDongleConfig(requested));
+        if (!ReferenceEquals(DongleConfigEditor, editor) || !ReferenceEquals(CurrentDevice, item))
+        {
+            return false;
+        }
+
+        if (applied is null)
+        {
+            SetDongleStatus(DongleOperationStatus.Unavailable);
+            return false;
+        }
+
+        _lastAppliedDongleConfig = applied;
+        UpdateDongleReconnectWarning(applied);
+
+        if (editor.Revision != revision)
+        {
+            // The user edited another field while the write was in flight. Keep the newer
+            // editor values and apply them next instead of replacing them with the read-back.
+            SetDongleStatus(DongleOperationStatus.Applying);
+            _dongleApplyTimer.Stop();
+            _dongleApplyTimer.Start();
+            return true;
+        }
+
+        _suppressDongleConfigChanged = true;
+        try
+        {
+            editor.Load(applied);
+        }
+        finally
+        {
+            _suppressDongleConfigChanged = false;
+        }
+
+        SetDongleStatus(DongleOperationStatus.Applied);
+
+        if (!applied.IsEquivalentTo(editor.ToConfig()))
+        {
+            _dongleApplyTimer.Stop();
+            _dongleApplyTimer.Start();
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Applies the editor until the firmware read-back matches it. If the user changes
+    /// another field while a write is in flight, the newer edit is applied on the next
+    /// pass instead of being saved or discarded by a follow-up action.
+    /// </summary>
+    private async Task<bool> ApplyDongleConfigUntilStableAsync()
+    {
+        const int MaxAttempts = 3;
+        for (int attempt = 0; attempt < MaxAttempts; attempt++)
+        {
+            if (!await ApplyDongleConfigCoreAsync(true))
+            {
+                return false;
+            }
+
+            DongleConfigItem? editor = DongleConfigEditor;
+            if (editor is null || _lastAppliedDongleConfig is not { } applied)
+            {
+                return false;
+            }
+
+            if (applied.IsEquivalentTo(editor.ToConfig()))
+            {
+                return true;
+            }
+        }
+
+        _log.Warning("DS5Dongle configuration did not stabilize after repeated edits");
+        return false;
+    }
+
+    /// <summary>
+    /// Re-reads the dongle configuration, discarding any pending editor changes.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanReadDongleConfig))]
+    private async Task ReadDongleConfig()
+    {
+        DeviceInfoItem? item = CurrentDevice;
+        DualSenseDongle? device = CurrentDongleDevice;
+        if (item is null || device is null)
+        {
+            return;
+        }
+
+        _dongleApplyTimer.Stop();
+        IsDongleBusy = true;
+        SetDongleStatus(DongleOperationStatus.Reading);
+        await _dongleIoSync.WaitAsync();
+        try
+        {
+            DongleConfig? config = await Task.Run(device.ReadDongleConfig);
+            if (!ReferenceEquals(CurrentDevice, item))
+            {
+                return;
+            }
+
+            if (config is null)
+            {
+                SetDongleStatus(DongleOperationStatus.Unavailable);
+                return;
+            }
+
+            LoadDongleSnapshot(config);
+            _usbEffectiveDongleBaseline = UsbEffectiveDongleConfig.From(config);
+            NeedsDongleUsbReconnect = false;
+            SetDongleStatus(DongleOperationStatus.Loaded);
+        }
+        catch (Exception ex)
+        {
+            _log.Error("Failed to read the DS5Dongle configuration", ex);
+            if (ReferenceEquals(CurrentDevice, item))
+            {
+                SetDongleStatus(DongleOperationStatus.Failed);
+            }
+        }
+        finally
+        {
+            _dongleIoSync.Release();
+            IsDongleBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// Persists the current dongle configuration to flash after applying any pending edit.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanUseDongleConfig))]
+    private async Task SaveDongleConfigToFlash()
+    {
+        DeviceInfoItem? item = CurrentDevice;
+        DualSenseDongle? device = CurrentDongleDevice;
+        if (item is null || device is null)
+        {
+            return;
+        }
+
+        IsDongleBusy = true;
+        _dongleApplyTimer.Stop();
+        await _dongleIoSync.WaitAsync();
+        try
+        {
+            if (!await ApplyDongleConfigUntilStableAsync() || !ReferenceEquals(CurrentDevice, item))
+            {
+                return;
+            }
+
+            _dongleApplyTimer.Stop();
+            SetDongleStatus(DongleOperationStatus.Saving);
+            await Task.Run(device.SaveDongleConfigToFlash);
+            if (!ReferenceEquals(CurrentDevice, item))
+            {
+                return;
+            }
+
+            SetDongleStatus(DongleOperationStatus.Saved);
+        }
+        catch (Exception ex)
+        {
+            _log.Error("Failed to save the DS5Dongle configuration to flash", ex);
+            if (ReferenceEquals(CurrentDevice, item))
+            {
+                SetDongleStatus(DongleOperationStatus.Failed);
+            }
+        }
+        finally
+        {
+            _dongleIoSync.Release();
+            IsDongleBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// Applies pending edits and asks the dongle to reconnect its USB device.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanUseDongleConfig))]
+    private async Task ReconnectDongleUsb()
+    {
+        DeviceInfoItem? item = CurrentDevice;
+        DualSenseDongle? device = CurrentDongleDevice;
+        if (item is null || device is null)
+        {
+            return;
+        }
+
+        IsDongleBusy = true;
+        _dongleApplyTimer.Stop();
+        await _dongleIoSync.WaitAsync();
+        try
+        {
+            if (!await ApplyDongleConfigUntilStableAsync() || !ReferenceEquals(CurrentDevice, item))
+            {
+                return;
+            }
+
+            _dongleApplyTimer.Stop();
+            SetDongleStatus(DongleOperationStatus.Reconnecting);
+            await Task.Run(device.ReconnectDongleUsb);
+
+            if (_lastAppliedDongleConfig is { } applied)
+            {
+                _usbEffectiveDongleBaseline = UsbEffectiveDongleConfig.From(applied);
+            }
+
+            NeedsDongleUsbReconnect = false;
+        }
+        catch (Exception ex)
+        {
+            _log.Error("Failed to reconnect the DS5Dongle USB device", ex);
+            if (ReferenceEquals(CurrentDevice, item))
+            {
+                SetDongleStatus(DongleOperationStatus.Failed);
+            }
+        }
+        finally
+        {
+            _dongleIoSync.Release();
+            IsDongleBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// Replaces the dongle configuration with defaults, applies it, and saves it to flash.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanUseDongleConfig))]
+    private async Task ResetDongleConfig()
+    {
+        DongleConfigItem? editor = DongleConfigEditor;
+        DeviceInfoItem? item = CurrentDevice;
+        DualSenseDongle? device = CurrentDongleDevice;
+        if (editor is null || item is null || device is null)
+        {
+            return;
+        }
+
+        bool confirmed = await _messageBox.ShowConfirmationAsync(
+            LocalizationService.GetText("CustomizationPage.Dongle.Reset.Confirm.Title"),
+            LocalizationService.GetText("CustomizationPage.Dongle.Reset.Confirm.Message"));
+        if (!confirmed)
+        {
+            return;
+        }
+
+        DongleConfig defaults = DongleConfig.CreateDefault(editor.Template.BodyLength) with
+        {
+            Version = editor.Template.Version,
+            SpeakerVolume = editor.Template.SpeakerVolume,
+            HeadsetVolume = editor.Template.HeadsetVolume,
+            SleepOnDock = editor.Template.SleepOnDock,
+            TrailingBytes = editor.Template.TrailingBytes
+        };
+
+        IsDongleBusy = true;
+        _dongleApplyTimer.Stop();
+        await _dongleIoSync.WaitAsync();
+        try
+        {
+            if (!ReferenceEquals(CurrentDevice, item) || !ReferenceEquals(DongleConfigEditor, editor))
+            {
+                return;
+            }
+
+            _suppressDongleConfigChanged = true;
+            try
+            {
+                editor.Load(defaults);
+            }
+            finally
+            {
+                _suppressDongleConfigChanged = false;
+            }
+
+            if (!await ApplyDongleConfigUntilStableAsync() || !ReferenceEquals(CurrentDevice, item))
+            {
+                return;
+            }
+
+            _dongleApplyTimer.Stop();
+            SetDongleStatus(DongleOperationStatus.Saving);
+            await Task.Run(device.SaveDongleConfigToFlash);
+            if (!ReferenceEquals(CurrentDevice, item))
+            {
+                return;
+            }
+
+            SetDongleStatus(DongleOperationStatus.Reset);
+        }
+        catch (Exception ex)
+        {
+            _log.Error("Failed to reset the DS5Dongle configuration", ex);
+            if (ReferenceEquals(CurrentDevice, item))
+            {
+                SetDongleStatus(DongleOperationStatus.Failed);
+            }
+        }
+        finally
+        {
+            _dongleIoSync.Release();
+            IsDongleBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// Updates the reconnect warning by comparing the applied USB-interface settings with
+    /// the baseline captured at the last read or reconnect.
+    /// </summary>
+    private void UpdateDongleReconnectWarning(DongleConfig config)
+    {
+        if (_usbEffectiveDongleBaseline is not { } baseline)
+        {
+            NeedsDongleUsbReconnect = false;
+            return;
+        }
+
+        NeedsDongleUsbReconnect = !baseline.Equals(UsbEffectiveDongleConfig.From(config));
+    }
+
+    /// <summary>
+    /// Whether the configuration can be read. Read stays available after a failed load so
+    /// the user can retry without switching controllers.
+    /// </summary>
+    private bool CanReadDongleConfig() => IsDongle && !IsDongleBusy;
+
+    /// <summary>
+    /// Whether a dongle configuration command that needs a loaded editor can run.
+    /// </summary>
+    private bool CanUseDongleConfig() => IsDongle && DongleConfigEditor is not null && !IsDongleBusy;
+
+    /// <summary>
+    /// Re-notifies the dongle commands after the selected device changes.
+    /// </summary>
+    private void NotifyDongleCommands()
+    {
+        ReadDongleConfigCommand.NotifyCanExecuteChanged();
+        SaveDongleConfigToFlashCommand.NotifyCanExecuteChanged();
+        ReconnectDongleUsbCommand.NotifyCanExecuteChanged();
+        ResetDongleConfigCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Publishes the localized status text for a dongle configuration operation.
+    /// </summary>
+    private void SetDongleStatus(DongleOperationStatus status)
+    {
+        DongleStatusText = status switch
+        {
+            DongleOperationStatus.Reading => LocalizationService.GetText("CustomizationPage.Dongle.Status.Reading"),
+            DongleOperationStatus.Applying => LocalizationService.GetText("CustomizationPage.Dongle.Status.Applying"),
+            DongleOperationStatus.Applied => LocalizationService.GetText("CustomizationPage.Dongle.Status.Applied"),
+            DongleOperationStatus.Saving => LocalizationService.GetText("CustomizationPage.Dongle.Status.Saving"),
+            DongleOperationStatus.Saved => LocalizationService.GetText("CustomizationPage.Dongle.Status.Saved"),
+            DongleOperationStatus.Reconnecting => LocalizationService.GetText("CustomizationPage.Dongle.Status.Reconnecting"),
+            DongleOperationStatus.Reset => LocalizationService.GetText("CustomizationPage.Dongle.Status.Reset"),
+            DongleOperationStatus.Loaded => LocalizationService.GetText("CustomizationPage.Dongle.Status.Loaded"),
+            DongleOperationStatus.Unavailable => LocalizationService.GetText("CustomizationPage.Dongle.Status.Unavailable"),
+            _ => LocalizationService.GetText("CustomizationPage.Dongle.Status.Failed")
+        };
+    }
+
+    /// <summary>
+    /// Dongle configuration operations shown in the status line.
+    /// </summary>
+    private enum DongleOperationStatus
+    {
+        Reading,
+        Applying,
+        Applied,
+        Saving,
+        Saved,
+        Reconnecting,
+        Reset,
+        Loaded,
+        Unavailable,
+        Failed
+    }
+
+    /// <summary>
+    /// USB-interface settings that only take effect after the dongle re-enumerates.
+    /// </summary>
+    private readonly record struct UsbEffectiveDongleConfig(
+        DonglePollingRateMode PollingRateMode,
+        DongleControllerMode ControllerMode,
+        bool EnableUsbSerialNumber,
+        bool EnableKeyboard,
+        bool EnableWake)
+    {
+        /// <summary>
+        /// Captures the USB-interface subset of a configuration snapshot.
+        /// </summary>
+        public static UsbEffectiveDongleConfig From(DongleConfig config)
+        {
+            return new UsbEffectiveDongleConfig(
+                config.PollingRateMode,
+                config.ControllerMode,
+                config.EnableUsbSerialNumber,
+                config.EnableKeyboard,
+                config.EnableWake);
+        }
+    }
+
     /// <summary>
     /// Creates the page ViewModel and subscribes to the shell's controller selection.
     /// </summary>
@@ -1295,6 +2019,12 @@ public partial class CustomizationPageViewModel : ObservableObject
             Interval = EmulationSaveDebounce
         };
         _emulationSaveTimer.Tick += (_, _) => SaveEmulationDebounced();
+        _dongleApplyTimer.Tick += (_, _) =>
+        {
+            _dongleApplyTimer.Stop();
+            _ = ApplyDongleConfigAsync();
+        };
+        BuildDongleOptions();
         _controllerService.ControllersChanged += OnControllerInfoChanged;
         _mainViewModel.PropertyChanged += OnMainViewModelPropertyChanged;
         Refresh();
@@ -1344,6 +2074,14 @@ public partial class CustomizationPageViewModel : ObservableObject
     /// </summary>
     private void UpdateDevice()
     {
+        _dongleApplyTimer.Stop();
+        IsDongleBusy = false;
+        DongleConfigEditor = null;
+        _lastAppliedDongleConfig = null;
+        _usbEffectiveDongleBaseline = null;
+        NeedsDongleUsbReconnect = false;
+        DongleStatusText = string.Empty;
+
         _previousItem?.Dispose();
 
         ControllerItem? selected = _mainViewModel.SelectedItem;
@@ -1356,6 +2094,8 @@ public partial class CustomizationPageViewModel : ObservableObject
 
         OnPropertyChanged(nameof(CurrentDevice));
         OnPropertyChanged(nameof(HasDevice));
+        OnPropertyChanged(nameof(IsDongle));
+        NotifyDongleCommands();
         OnPropertyChanged(nameof(HasFullPlayerLedSupport));
         OnPropertyChanged(nameof(CurrentMac));
         OnPropertyChanged(nameof(CurrentDevicePath));
@@ -1388,5 +2128,10 @@ public partial class CustomizationPageViewModel : ObservableObject
         }
 
         RebuildSpecialActions();
+
+        if (IsDongle)
+        {
+            _ = LoadDongleConfigAsync();
+        }
     }
 }

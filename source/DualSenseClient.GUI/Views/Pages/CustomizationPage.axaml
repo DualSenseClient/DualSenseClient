@@ -1,4 +1,4 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:DualSenseClient.GUI.ViewModels.Pages"
              xmlns:items="using:DualSenseClient.GUI.Models.Items"
@@ -1208,6 +1208,308 @@
                 <ui:FASettingsExpanderItem Content="{DynamicResource AudioSource.NoApplications}"
                                            IsVisible="{Binding IsForwardAudioAppEmpty}" />
             </ui:FASettingsExpander>
+
+            <!-- Dongle configuration -->
+            <ui:FASettingsExpander IconSource="{icm:SymbolIconSource Symbol=Bluetooth}"
+                                   IsExpanded="False"
+                                   IsVisible="{Binding IsDongle}">
+                <ui:FASettingsExpander.Header>
+                    <Panel HorizontalAlignment="Stretch">
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource CustomizationPage.Dongle.Title}" />
+                            <TextBlock Text="{DynamicResource CustomizationPage.Dongle.Description}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </Panel>
+                </ui:FASettingsExpander.Header>
+                <ui:FASettingsExpander.Footer>
+                    <StackPanel Orientation="Horizontal"
+                                Spacing="4"
+                                VerticalAlignment="Center">
+                        <Button Command="{Binding ReadDongleConfigCommand}"
+                                ToolTip.Tip="{DynamicResource CustomizationPage.Dongle.Read.ToolTip}"
+                                Padding="6,4">
+                            <ic:FluentIcon Icon="ArrowSync"
+                                           IconVariant="Regular"
+                                           IconSize="Size16" />
+                        </Button>
+                        <Button Command="{Binding SaveDongleConfigToFlashCommand}"
+                                ToolTip.Tip="{DynamicResource CustomizationPage.Dongle.Save.ToolTip}"
+                                Padding="6,4">
+                            <ic:FluentIcon Icon="Save"
+                                           IconVariant="Regular"
+                                           IconSize="Size16" />
+                        </Button>
+                        <Button Command="{Binding ReconnectDongleUsbCommand}"
+                                ToolTip.Tip="{DynamicResource CustomizationPage.Dongle.Reconnect.ToolTip}"
+                                Padding="6,4">
+                            <ic:FluentIcon Icon="PlugConnected"
+                                           IconVariant="Regular"
+                                           IconSize="Size16" />
+                        </Button>
+                        <Button Command="{Binding ResetDongleConfigCommand}"
+                                ToolTip.Tip="{DynamicResource CustomizationPage.Dongle.Reset.ToolTip}"
+                                Padding="6,4">
+                            <ic:FluentIcon Icon="ArrowCounterclockwise"
+                                           IconVariant="Regular"
+                                           IconSize="Size16" />
+                        </Button>
+                    </StackPanel>
+                </ui:FASettingsExpander.Footer>
+
+                <StackPanel Spacing="4">
+                    <TextBlock Text="{Binding DongleStatusText}"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap" />
+                    <TextBlock Text="{DynamicResource CustomizationPage.Dongle.NeedsReconnect}"
+                               IsVisible="{Binding NeedsDongleUsbReconnect}"
+                               Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                               TextWrapping="Wrap" />
+                    <StackPanel Spacing="4"
+                                IsVisible="{Binding HasDongleConfigEditor}"
+                                IsEnabled="{Binding !IsDongleBusy}">
+                        <TextBlock Text="{DynamicResource CustomizationPage.Dongle.LegacyWarning}"
+                                   IsVisible="{Binding DongleConfigEditor.IsLegacy}"
+                                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                   TextWrapping="Wrap" />
+
+                        <!-- Feedback output -->
+                        <ui:FASettingsExpander Theme="{StaticResource SettingsExpanderNoAnimationStyle}"
+                                               Header="{DynamicResource CustomizationPage.Dongle.Section.Feedback}"
+                                               Description="{DynamicResource CustomizationPage.Dongle.Section.Feedback.Description}"
+                                               IconSource="{icm:SymbolIconSource Symbol=Speaker2}"
+                                               IsExpanded="False">
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.HapticsGain}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.HapticsGain.Description}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <controls:SliderInput Minimum="1"
+                                                          Maximum="2"
+                                                          TickFrequency="0.05"
+                                                          IsSnapToTickEnabled="True"
+                                                          ValueFormat="F2"
+                                                          Width="240"
+                                                          Value="{Binding DongleConfigEditor.HapticsGain, Mode=TwoWay}" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.SpeakerGain}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.SpeakerGain.Description}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <controls:SliderInput Minimum="0"
+                                                          Maximum="7"
+                                                          Width="240"
+                                                          Value="{Binding DongleConfigEditor.SpeakerGain, Mode=TwoWay}" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.TriggerReduce}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.TriggerReduce.Description}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <controls:SliderInput Minimum="0"
+                                                          Maximum="{Binding DongleConfigEditor.TriggerReduceMax}"
+                                                          Width="240"
+                                                          Value="{Binding DongleConfigEditor.TriggerReduce, Mode=TwoWay}" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Description="{DynamicResource CustomizationPage.Dongle.AudioBufferLength.Description}">
+                                <ui:FASettingsExpanderItem.Content>
+                                    <StackPanel Orientation="Horizontal"
+                                                Spacing="6">
+                                        <TextBlock Text="{DynamicResource CustomizationPage.Dongle.AudioBufferLength}"
+                                                   VerticalAlignment="Center" />
+                                        <ic:FluentIcon Icon="Warning"
+                                                       IconVariant="Regular"
+                                                       IconSize="Size16"
+                                                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                                       IsVisible="{Binding DongleConfigEditor.ShowSinglePacketHint}"
+                                                       ToolTip.Tip="{DynamicResource CustomizationPage.Dongle.PacketModeHint}"
+                                                       VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </ui:FASettingsExpanderItem.Content>
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <controls:SliderInput Minimum="16"
+                                                          Maximum="128"
+                                                          Width="240"
+                                                          Value="{Binding DongleConfigEditor.AudioBufferLength, Mode=TwoWay}" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.LockVolume}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.LockVolume.Description}"
+                                                       IsVisible="{Binding DongleConfigEditor.SupportsModernSettings}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ComboBox ItemsSource="{Binding DongleVolumeLockModes}"
+                                              SelectedIndex="{Binding DongleConfigEditor.LockVolumeIndex}"
+                                              MinWidth="200" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                        </ui:FASettingsExpander>
+
+                        <!-- Performance -->
+                        <ui:FASettingsExpander Theme="{StaticResource SettingsExpanderNoAnimationStyle}"
+                                               Header="{DynamicResource CustomizationPage.Dongle.Section.Performance}"
+                                               Description="{DynamicResource CustomizationPage.Dongle.Section.Performance.Description}"
+                                               IconSource="{icm:SymbolIconSource Symbol=Gauge}"
+                                               IsExpanded="False">
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.PollingRate}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.PollingRate.Description}"
+                                                       IsVisible="{Binding DongleConfigEditor.SupportsModernSettings}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ComboBox ItemsSource="{Binding DonglePollingRates}"
+                                              SelectedIndex="{Binding DongleConfigEditor.PollingRateIndex}"
+                                              MinWidth="200" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.PollingRate}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.PollingRate.Description}"
+                                                       IsVisible="{Binding DongleConfigEditor.IsLegacy}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ComboBox ItemsSource="{Binding DongleLegacyPollingRates}"
+                                              SelectedIndex="{Binding DongleConfigEditor.LegacyPollingRateIndex}"
+                                              MinWidth="200" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.PacketMode}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.PacketMode.Description}"
+                                                       IsVisible="{Binding DongleConfigEditor.SupportsModernSettings}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ToggleSwitch IsChecked="{Binding DongleConfigEditor.SinglePacketMode, Mode=TwoWay}" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                        </ui:FASettingsExpander>
+
+                        <!-- Power and indicators -->
+                        <ui:FASettingsExpander Theme="{StaticResource SettingsExpanderNoAnimationStyle}"
+                                               Header="{DynamicResource CustomizationPage.Dongle.Section.Power}"
+                                               Description="{DynamicResource CustomizationPage.Dongle.Section.Power.Description}"
+                                               IconSource="{icm:SymbolIconSource Symbol=BatteryCharge}"
+                                               IsExpanded="False">
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.InactiveTime}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.InactiveTime.Description}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <controls:SliderInput Minimum="0"
+                                                          Maximum="60"
+                                                          Width="240"
+                                                          Value="{Binding DongleConfigEditor.InactiveTimeMinutes, Mode=TwoWay}" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.DisconnectOnDock}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.DisconnectOnDock.Description}"
+                                                       IsVisible="{Binding DongleConfigEditor.SupportsModernSettings}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ToggleSwitch IsChecked="{Binding DongleConfigEditor.DisconnectOnDock, Mode=TwoWay}" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.DisablePicoLed}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.DisablePicoLed.Description}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ToggleSwitch IsChecked="{Binding DongleConfigEditor.DisablePicoLed, Mode=TwoWay}" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.EnableWake}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.EnableWake.Description}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ToggleSwitch IsChecked="{Binding DongleConfigEditor.EnableWake, Mode=TwoWay}" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.Microphone}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.Microphone.Description}"
+                                                       IsVisible="{Binding DongleConfigEditor.SupportsModernSettings}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ComboBox ItemsSource="{Binding DongleAudioDevices}"
+                                              SelectedIndex="{Binding DongleConfigEditor.MicrophoneIndex}"
+                                              MinWidth="200" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.SpeakerSelect}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.SpeakerSelect.Description}"
+                                                       IsVisible="{Binding DongleConfigEditor.SupportsModernSettings}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ComboBox ItemsSource="{Binding DongleAudioDevices}"
+                                              SelectedIndex="{Binding DongleConfigEditor.SpeakerIndex}"
+                                              MinWidth="200" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.LegacyDisableMicrophone}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.LegacyDisableMicrophone.Description}"
+                                                       IsVisible="{Binding DongleConfigEditor.IsLegacy}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ToggleSwitch IsChecked="{Binding DongleConfigEditor.LegacyDisableMicrophone, Mode=TwoWay}" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.LegacyDisableSpeaker}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.LegacyDisableSpeaker.Description}"
+                                                       IsVisible="{Binding DongleConfigEditor.IsLegacy}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ToggleSwitch IsChecked="{Binding DongleConfigEditor.LegacyDisableSpeaker, Mode=TwoWay}" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                        </ui:FASettingsExpander>
+
+                        <!-- Compatibility -->
+                        <ui:FASettingsExpander Theme="{StaticResource SettingsExpanderNoAnimationStyle}"
+                                               Header="{DynamicResource CustomizationPage.Dongle.Section.Compatibility}"
+                                               Description="{DynamicResource CustomizationPage.Dongle.Section.Compatibility.Description}"
+                                               IconSource="{icm:SymbolIconSource Symbol=UsbPlug}"
+                                               IsExpanded="False">
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.ControllerMode}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.ControllerMode.Description}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ComboBox ItemsSource="{Binding DongleControllerModes}"
+                                              SelectedIndex="{Binding DongleConfigEditor.ControllerModeIndex}"
+                                              MinWidth="200" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.UsbSerial}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.UsbSerial.Description}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ToggleSwitch IsChecked="{Binding DongleConfigEditor.EnableUsbSerialNumber, Mode=TwoWay}" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.Keyboard}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.Keyboard.Description}"
+                                                       IsVisible="{Binding DongleConfigEditor.SupportsModernSettings}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ToggleSwitch IsChecked="{Binding DongleConfigEditor.EnableKeyboard, Mode=TwoWay}" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.LegacyPsShortcut}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.LegacyPsShortcut.Description}"
+                                                       IsVisible="{Binding DongleConfigEditor.IsLegacy}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ToggleSwitch IsChecked="{Binding DongleConfigEditor.LegacyPsShortcutEnabled, Mode=TwoWay}" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                        </ui:FASettingsExpander>
+
+                        <!-- GPIO integration -->
+                        <ui:FASettingsExpander Theme="{StaticResource SettingsExpanderNoAnimationStyle}"
+                                               Header="{DynamicResource CustomizationPage.Dongle.Section.Gpio}"
+                                               Description="{DynamicResource CustomizationPage.Dongle.Section.Gpio.Description}"
+                                               IconSource="{icm:SymbolIconSource Symbol=DeveloperBoard}"
+                                               IsVisible="{Binding DongleConfigEditor.SupportsGpio}"
+                                               IsExpanded="False">
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.GpioPin}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.GpioPin.Description}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ComboBox ItemsSource="{Binding DongleGpioPins}"
+                                              SelectedIndex="{Binding DongleConfigEditor.StatusGpioPinIndex}"
+                                              MinWidth="200" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Dongle.GpioMode}"
+                                                       Description="{DynamicResource CustomizationPage.Dongle.GpioMode.Description}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ComboBox ItemsSource="{Binding DongleGpioModes}"
+                                              SelectedIndex="{Binding DongleConfigEditor.StatusGpioModeIndex}"
+                                              IsEnabled="{Binding DongleConfigEditor.HasGpioPin}"
+                                              MinWidth="200" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                        </ui:FASettingsExpander>
+                    </StackPanel>
+                </StackPanel>
+            </ui:FASettingsExpander>
+
         </StackPanel>
     </ScrollViewer>
 </UserControl>

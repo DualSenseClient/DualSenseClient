@@ -35,6 +35,7 @@
         <ProjectReference Include="..\..\source\DualSenseClient.Controllers\DualSenseClient.Controllers.csproj" />
         <ProjectReference Include="..\..\source\DualSenseClient.Bluetooth\DualSenseClient.Bluetooth.csproj" />
         <ProjectReference Include="..\..\source\DualSenseClient.Emulation\DualSenseClient.Emulation.csproj" />
+        <ProjectReference Include="..\..\source\DualSenseClient.GUI\DualSenseClient.GUI.csproj" />
     </ItemGroup>
 
 </Project>
