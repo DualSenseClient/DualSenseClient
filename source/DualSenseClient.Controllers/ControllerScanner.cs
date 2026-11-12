@@ -139,6 +139,13 @@ public sealed class ControllerScanner : IControllerScanner
     /// </summary>
     private IControllerDevice? TryCreate(IHidDeviceInfo info)
     {
+        if (!HidDeviceEnumerator.IsControllerUsage(info.UsagePage, (ushort)info.Usage))
+        {
+            _log.Trace(
+                $"Ignoring non-controller HID interface: {info.ProductName} (VID=0x{info.VendorId:X4}, PID=0x{info.ProductId:X4}, usagePage=0x{info.UsagePage:X4}, usage=0x{(ushort)info.Usage:X4})");
+            return null;
+        }
+
         try
         {
             IControllerDevice? controller = ControllerFactory.Create(_enumerator, info);

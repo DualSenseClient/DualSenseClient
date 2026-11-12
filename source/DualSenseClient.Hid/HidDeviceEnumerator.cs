@@ -511,6 +511,20 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
     }
 
     /// <summary>
+    /// Returns whether a HID usage identifies a generic-desktop gamepad or joystick.
+    /// Keyboard and consumer-control interfaces exposed by the dongle must not be
+    /// mistaken for controllers.
+    /// </summary>
+    /// <param name="usagePage">HID usage page.</param>
+    /// <param name="usage">HID usage ID within the page.</param>
+    public static bool IsControllerUsage(ushort usagePage, ushort usage)
+    {
+        const ushort GenericDesktopUsagePage = 0x01;
+        return usagePage == GenericDesktopUsagePage
+               && (usage == (ushort)HidUsageId.GamePad || usage == (ushort)HidUsageId.Joystick);
+    }
+
+    /// <summary>
     /// Calls into HIDAPI to enumerate HID devices matching the given VID/PID filter.
     /// </summary>
     /// <param name="vendorId">Optional USB vendor ID to filter by.</param>
@@ -533,13 +547,6 @@ public class HidDeviceEnumerator : IHidDeviceEnumerator
                 string name = HidStringMarshal.PtrToString(cur->ProductString);
 
                 HidUsageId usage = (HidUsageId)cur->Usage;
-                if (usage == HidUsageId.Unknown)
-                {
-                    _log.Trace(
-                        $"  Skipped {name} (VID=0x{cur->VendorId:X4}, PID=0x{cur->ProductId:X4}, usage=0x{cur->Usage:X4}) — not a gamepad or joystick");
-                    continue;
-                }
-
                 count++;
                 _log.Debug(
                     $"  [{count}] {name} (VID=0x{cur->VendorId:X4}, PID=0x{cur->ProductId:X4}, bus={cur->BusType}, usagePage=0x{cur->UsagePage:X4}, usage=0x{cur->Usage:X4}, path={path})");
