@@ -857,8 +857,7 @@
                                        FontWeight="SemiBold" />
                             <controls:SliderInput Minimum="0"
                                                   Maximum="255"
-                                                  Value="{Binding MonitorState.LeftMotorStrength, Mode=TwoWay}"
-                                                  IsEnabled="{Binding MonitorState.LeftMotorEnabled}" />
+                                                  Value="{Binding MonitorState.LeftMotorStrength, Mode=TwoWay}" />
                             <ToggleSwitch Content="{DynamicResource CustomizationPage.OutputTest.Vibration.Enable}"
                                           IsChecked="{Binding MonitorState.LeftMotorEnabled, Mode=TwoWay}" />
                         </StackPanel>
@@ -868,8 +867,7 @@
                                        FontWeight="SemiBold" />
                             <controls:SliderInput Minimum="0"
                                                   Maximum="255"
-                                                  Value="{Binding MonitorState.RightMotorStrength, Mode=TwoWay}"
-                                                  IsEnabled="{Binding MonitorState.RightMotorEnabled}" />
+                                                  Value="{Binding MonitorState.RightMotorStrength, Mode=TwoWay}" />
                             <ToggleSwitch Content="{DynamicResource CustomizationPage.OutputTest.Vibration.Enable}"
                                           IsChecked="{Binding MonitorState.RightMotorEnabled, Mode=TwoWay}" />
                         </StackPanel>

@@ -595,6 +595,7 @@ public partial class CustomizationPageViewModel : ObservableObject
     private void RebuildVibrationModes()
     {
         bool supportsV2 = CurrentDualSenseDevice?.SupportsVibrationV2 == true;
+        NormalizeUnsupportedVibrationEncoding(supportsV2);
         if (VibrationModes.Count == 0)
         {
             VibrationModes.Add(new VibrationModeItem(
@@ -613,6 +614,29 @@ public partial class CustomizationPageViewModel : ObservableObject
         VibrationModes[0].IsEnabled = true;
         VibrationModes[1].IsEnabled = true;
         VibrationModes[2].IsEnabled = supportsV2;
+    }
+
+    /// <summary>
+    /// Downgrades a stored Improved (V2) preference when the selected controller cannot
+    /// use it, so the picker never shows a disabled item as the active selection. Auto
+    /// still resolves to V2 automatically if the controller later supports it.
+    /// </summary>
+    /// <param name="supportsV2">Whether the selected controller supports Improved (V2).</param>
+    private void NormalizeUnsupportedVibrationEncoding(bool supportsV2)
+    {
+        if (supportsV2)
+        {
+            return;
+        }
+
+        VibrationSettings settings = GetVibrationSettings();
+        if (settings.RumbleEncoding != VibrationEncodingMode.Improved)
+        {
+            return;
+        }
+
+        settings.RumbleEncoding = VibrationEncodingMode.Auto;
+        _controllerService.SaveVibrationSettings(CurrentKey, settings);
     }
 
     // ── Profiles ────────────────────────────────────────────────
