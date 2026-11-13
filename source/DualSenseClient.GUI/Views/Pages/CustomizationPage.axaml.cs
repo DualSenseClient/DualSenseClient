@@ -59,6 +59,7 @@ public partial class CustomizationPage : UserControl
     /// </summary>
     protected override void OnUnloaded(RoutedEventArgs e)
     {
+        _viewModel.FlushVibrationSettings();
         _viewModel.MonitorState?.ResetTestOutputs();
         base.OnUnloaded(e);
     }

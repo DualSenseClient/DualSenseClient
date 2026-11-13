@@ -143,6 +143,18 @@ public partial class CustomizationPageViewModel : ObservableObject
     public DeviceInfoItem? CurrentDevice { get; private set; }
 
     /// <summary>
+    /// The concrete DualSense device of the selected controller, or <c>null</c> for
+    /// non-DualSense devices.
+    /// </summary>
+    private DualSenseDevice? CurrentDualSenseDevice
+    {
+        get
+        {
+            return CurrentDevice?.Controller.Device as DualSenseDevice;
+        }
+    }
+
+    /// <summary>
     /// The live monitor item of the selected controller backing the output tests
     /// (vibration and adaptive triggers), or <c>null</c> when none is selected.
     /// </summary>
@@ -345,6 +357,262 @@ public partial class CustomizationPageViewModel : ObservableObject
             return CurrentDevice?.Controller.FirmwareInfo?.IsValid == true
                    && CurrentDevice.Controller.FirmwareInfo.Value.HasFullPlayerLedSupport;
         }
+    }
+
+    // ── Vibration ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Rumble encoding options for the picker. The list is created once so rebuilding the
+    /// page cannot desynchronize the ComboBox selection; Improved (V2) is disabled when
+    /// the selected controller's firmware does not support it.
+    /// </summary>
+    public ObservableCollection<VibrationModeItem> VibrationModes { get; } = [];
+
+    /// <summary>
+    /// The selected rumble encoding as an index into <see cref="VibrationModes"/>.
+    /// </summary>
+    public int VibrationEncodingIndex
+    {
+        get
+        {
+            VibrationEncodingMode encoding = GetVibrationSettings().RumbleEncoding;
+            for (int i = 0; i < VibrationModes.Count; i++)
+            {
+                if (VibrationModes[i].Value == encoding)
+                {
+                    return i;
+                }
+            }
+
+            return 0;
+        }
+        set
+        {
+            if (!HasDevice || value < 0 || value >= VibrationModes.Count)
+            {
+                return;
+            }
+
+            VibrationSettings settings = GetVibrationSettings();
+            VibrationEncodingMode encoding = VibrationModes[value].Value;
+            if (settings.RumbleEncoding == encoding)
+            {
+                return;
+            }
+
+            settings.RumbleEncoding = encoding;
+            PersistVibrationSettings(settings);
+            OnPropertyChanged(nameof(VibrationEncodingIndex));
+        }
+    }
+
+    /// <summary>
+    /// Whether the app enforces the motor power reductions (two-way, persisted).
+    /// </summary>
+    public bool MotorPowerLevelEnabled
+    {
+        get
+        {
+            return HasDevice && GetVibrationSettings().MotorPowerLevelEnabled;
+        }
+        set
+        {
+            if (!HasDevice)
+            {
+                return;
+            }
+
+            VibrationSettings settings = GetVibrationSettings();
+            if (settings.MotorPowerLevelEnabled == value)
+            {
+                return;
+            }
+
+            settings.MotorPowerLevelEnabled = value;
+            PersistVibrationSettings(settings);
+            OnPropertyChanged(nameof(MotorPowerLevelEnabled));
+        }
+    }
+
+    /// <summary>
+    /// Rumble-motor power reduction (0-15, two-way, persisted).
+    /// </summary>
+    public int RumblePowerReduction
+    {
+        get
+        {
+            return HasDevice ? GetVibrationSettings().RumblePowerReduction : 0;
+        }
+        set
+        {
+            if (!HasDevice)
+            {
+                return;
+            }
+
+            int clamped = Math.Clamp(value, 0, VibrationSettings.MaxRumblePowerReduction);
+            VibrationSettings settings = GetVibrationSettings();
+            if (settings.RumblePowerReduction == clamped)
+            {
+                return;
+            }
+
+            settings.RumblePowerReduction = clamped;
+            CurrentDualSenseDevice?.ApplyVibrationSettings(settings);
+            ScheduleVibrationSave();
+            OnPropertyChanged(nameof(RumblePowerReduction));
+        }
+    }
+
+    /// <summary>
+    /// Trigger-motor power reduction (0-10, two-way, persisted).
+    /// </summary>
+    public int TriggerPowerReduction
+    {
+        get
+        {
+            return HasDevice ? GetVibrationSettings().TriggerPowerReduction : 0;
+        }
+        set
+        {
+            if (!HasDevice)
+            {
+                return;
+            }
+
+            int clamped = Math.Clamp(value, 0, VibrationSettings.MaxTriggerPowerReduction);
+            VibrationSettings settings = GetVibrationSettings();
+            if (settings.TriggerPowerReduction == clamped)
+            {
+                return;
+            }
+
+            settings.TriggerPowerReduction = clamped;
+            CurrentDualSenseDevice?.ApplyVibrationSettings(settings);
+            ScheduleVibrationSave();
+            OnPropertyChanged(nameof(TriggerPowerReduction));
+        }
+    }
+
+    /// <summary>
+    /// Whether the app enforces the haptic low-pass filter. Off leaves the game's value
+    /// untouched (two-way, persisted).
+    /// </summary>
+    public bool HapticLowPassFilter
+    {
+        get
+        {
+            return HasDevice && GetVibrationSettings().HapticLowPassFilter;
+        }
+        set
+        {
+            if (!HasDevice)
+            {
+                return;
+            }
+
+            VibrationSettings settings = GetVibrationSettings();
+            if (settings.HapticLowPassFilter == value)
+            {
+                return;
+            }
+
+            settings.HapticLowPassFilter = value;
+            PersistVibrationSettings(settings);
+            OnPropertyChanged(nameof(HapticLowPassFilter));
+        }
+    }
+
+    /// <summary>
+    /// Gets the vibration settings stored for the selected controller, or defaults when
+    /// none are stored.
+    /// </summary>
+    private VibrationSettings GetVibrationSettings() => _controllerService.GetVibrationSettings(CurrentKey);
+
+    /// <summary>
+    /// Persists the vibration settings and applies them to the live controller.
+    /// </summary>
+    private void PersistVibrationSettings(VibrationSettings settings)
+    {
+        _vibrationSaveTimer.Stop();
+        _vibrationSavePending = false;
+        _controllerService.SaveVibrationSettings(CurrentKey, settings);
+        CurrentDualSenseDevice?.ApplyVibrationSettings(settings);
+    }
+
+    /// <summary>
+    /// Restarts the debounce timer for slider changes, so the live output updates
+    /// immediately but the settings file is written once after dragging stops.
+    /// </summary>
+    private void ScheduleVibrationSave()
+    {
+        _vibrationSavePending = true;
+        _vibrationSaveTimer.Stop();
+        _vibrationSaveTimer.Start();
+    }
+
+    /// <summary>
+    /// Persists a pending vibration settings change after the debounce delay.
+    /// </summary>
+    private void SaveVibrationDebounced()
+    {
+        _vibrationSaveTimer.Stop();
+        if (!_vibrationSavePending || !HasDevice)
+        {
+            _vibrationSavePending = false;
+            return;
+        }
+
+        _vibrationSavePending = false;
+        _controllerService.SaveVibrationSettings(CurrentKey, GetVibrationSettings());
+    }
+
+    /// <summary>
+    /// Flushes a pending vibration settings save immediately, for controller switches and
+    /// page navigation.
+    /// </summary>
+    public void FlushVibrationSettings()
+    {
+        _vibrationSaveTimer.Stop();
+        if (!_vibrationSavePending || !HasDevice)
+        {
+            _vibrationSavePending = false;
+            return;
+        }
+
+        _vibrationSavePending = false;
+        _controllerService.SaveVibrationSettings(CurrentKey, GetVibrationSettings());
+    }
+
+    /// <summary>
+    /// Applies the stored vibration settings when the page selection changes.
+    /// </summary>
+    private void ApplyStoredVibrationSettings() => CurrentDualSenseDevice?.ApplyVibrationSettings(GetVibrationSettings());
+
+    /// <summary>
+    /// Rebuilds the rumble encoding picker from the selected controller's capabilities.
+    /// </summary>
+    private void RebuildVibrationModes()
+    {
+        bool supportsV2 = CurrentDualSenseDevice?.SupportsVibrationV2 == true;
+        if (VibrationModes.Count == 0)
+        {
+            VibrationModes.Add(new VibrationModeItem(
+                VibrationEncodingMode.Auto,
+                LocalizationService.GetText("CustomizationPage.OutputTest.Vibration.Encoding.Auto")));
+            VibrationModes.Add(new VibrationModeItem(
+                VibrationEncodingMode.Compatible,
+                LocalizationService.GetText("CustomizationPage.OutputTest.Vibration.Encoding.Compatible")));
+            VibrationModes.Add(new VibrationModeItem(
+                VibrationEncodingMode.Improved,
+                LocalizationService.GetText("CustomizationPage.OutputTest.Vibration.Encoding.Improved"),
+                supportsV2));
+            return;
+        }
+
+        VibrationModes[0].IsEnabled = true;
+        VibrationModes[1].IsEnabled = true;
+        VibrationModes[2].IsEnabled = supportsV2;
     }
 
     // ── Profiles ────────────────────────────────────────────────
@@ -773,6 +1041,17 @@ public partial class CustomizationPageViewModel : ObservableObject
     /// save happens only after changes stop.
     /// </summary>
     private readonly DispatcherTimer _emulationSaveTimer;
+
+    /// <summary>
+    /// Debounced vibration settings save timer, so dragging a motor-power slider does not
+    /// write <c>controllers.json</c> on every tick.
+    /// </summary>
+    private readonly DispatcherTimer _vibrationSaveTimer;
+
+    /// <summary>
+    /// Whether a debounced vibration settings save is pending.
+    /// </summary>
+    private bool _vibrationSavePending;
 
     /// <summary>
     /// The applications currently producing audio, backing the application picker.
@@ -2025,6 +2304,11 @@ public partial class CustomizationPageViewModel : ObservableObject
             _ = ApplyDongleConfigAsync();
         };
         BuildDongleOptions();
+        _vibrationSaveTimer = new DispatcherTimer
+        {
+            Interval = EmulationSaveDebounce
+        };
+        _vibrationSaveTimer.Tick += (_, _) => SaveVibrationDebounced();
         _controllerService.ControllersChanged += OnControllerInfoChanged;
         _mainViewModel.PropertyChanged += OnMainViewModelPropertyChanged;
         Refresh();
@@ -2067,6 +2351,11 @@ public partial class CustomizationPageViewModel : ObservableObject
         OnPropertyChanged(nameof(ForwardHapticStrength));
         OnPropertyChanged(nameof(ForceAudioHaptics));
         OnPropertyChanged(nameof(ForwardAudioSourceIndex));
+        OnPropertyChanged(nameof(VibrationEncodingIndex));
+        OnPropertyChanged(nameof(MotorPowerLevelEnabled));
+        OnPropertyChanged(nameof(RumblePowerReduction));
+        OnPropertyChanged(nameof(TriggerPowerReduction));
+        OnPropertyChanged(nameof(HapticLowPassFilter));
     }
 
     /// <summary>
@@ -2074,6 +2363,8 @@ public partial class CustomizationPageViewModel : ObservableObject
     /// </summary>
     private void UpdateDevice()
     {
+        FlushVibrationSettings();
+
         _dongleApplyTimer.Stop();
         IsDongleBusy = false;
         DongleConfigEditor = null;
@@ -2102,6 +2393,14 @@ public partial class CustomizationPageViewModel : ObservableObject
         OnPropertyChanged(nameof(MonitorState));
         OnPropertyChanged(nameof(LeftTriggerMode));
         OnPropertyChanged(nameof(RightTriggerMode));
+
+        RebuildVibrationModes();
+        ApplyStoredVibrationSettings();
+        OnPropertyChanged(nameof(VibrationEncodingIndex));
+        OnPropertyChanged(nameof(MotorPowerLevelEnabled));
+        OnPropertyChanged(nameof(RumblePowerReduction));
+        OnPropertyChanged(nameof(TriggerPowerReduction));
+        OnPropertyChanged(nameof(HapticLowPassFilter));
 
         OnPropertyChanged(nameof(IsDualSenseEmulation));
         OnPropertyChanged(nameof(ForwardAudioOutputIndex));

@@ -381,4 +381,77 @@ public class ControllerInfoServiceTests
         service.SetControllerProfile("AA:BB:CC:DD:EE:FF", string.Empty, "Night Mode");
         Assert.That(eventFired, Is.True);
     }
+
+    [Test]
+    public void GetVibrationSettings_MissingEntry_ReturnsDefaults()
+    {
+        ControllerInfoService service = CreateService();
+
+        VibrationSettings settings = service.GetVibrationSettings("AA:BB:CC:DD:EE:FF", @"\\?\HID#VID_054C#1");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(settings.RumbleEncoding, Is.EqualTo(VibrationEncodingMode.Auto));
+            Assert.That(settings.MotorPowerLevelEnabled, Is.False);
+            Assert.That(settings.RumblePowerReduction, Is.Zero);
+            Assert.That(settings.TriggerPowerReduction, Is.Zero);
+            Assert.That(settings.HapticLowPassFilter, Is.False);
+        });
+    }
+
+    [Test]
+    public void SaveVibrationSettings_PersistsAcrossReload()
+    {
+        ControllerInfoService service = CreateService();
+        service.SaveVibrationSettings("AA:BB:CC:DD:EE:FF", @"\\?\HID#VID_054C#1", new VibrationSettings
+        {
+            RumbleEncoding = VibrationEncodingMode.Improved,
+            MotorPowerLevelEnabled = true,
+            RumblePowerReduction = 12,
+            TriggerPowerReduction = 8,
+            HapticLowPassFilter = true
+        });
+
+        ControllerInfoService reloaded = CreateService();
+        VibrationSettings settings = reloaded.GetVibrationSettings("AA:BB:CC:DD:EE:FF", @"\\?\HID#VID_054C#1");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(settings.RumbleEncoding, Is.EqualTo(VibrationEncodingMode.Improved));
+            Assert.That(settings.MotorPowerLevelEnabled, Is.True);
+            Assert.That(settings.RumblePowerReduction, Is.EqualTo(12));
+            Assert.That(settings.TriggerPowerReduction, Is.EqualTo(8));
+            Assert.That(settings.HapticLowPassFilter, Is.True);
+        });
+    }
+
+    [Test]
+    public void SaveVibrationSettings_CreatesRegisteredControllerEntry()
+    {
+        ControllerInfoService service = CreateService();
+        service.SaveVibrationSettings("AA:BB:CC:DD:EE:FF", string.Empty, new VibrationSettings
+        {
+            RumblePowerReduction = 4
+        });
+
+        ControllerInfo? info = service.GetControllerInfo("AA:BB:CC:DD:EE:FF", string.Empty);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(info, Is.Not.Null);
+            Assert.That(info!.Vibration.RumblePowerReduction, Is.EqualTo(4));
+            Assert.That(service.Settings.Controllers, Has.Count.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void SaveVibrationSettings_EmptyIdentifiers_IsIgnored()
+    {
+        ControllerInfoService service = CreateService();
+        service.SaveVibrationSettings(string.Empty, string.Empty, new VibrationSettings
+        {
+            MotorPowerLevelEnabled = true
+        });
+        Assert.That(service.Settings.Controllers, Is.Empty);
+    }
 }

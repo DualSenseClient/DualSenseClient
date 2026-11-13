@@ -11,6 +11,16 @@ Expand **Vibration** to control each motor independently:
 
 Enable **Rumble** for a motor and adjust its **Strength** slider from 0 – 255. Changes are sent to the controller immediately.
 
+### Rumble and haptics options
+
+The same section stores per-controller options that apply to the output reports and forwarded audio the app sends, including the manual test and DualSense emulation:
+
+- **Rumble encoding** — **Automatic** follows the controller firmware (V2 when supported, V1 otherwise). **Compatible (V1)** forces the original encoding, and **Improved (V2)** forces the improved encoding. Improved is disabled when the controller does not support it.
+- **Motor power reduction** — enable it to force the rumble and trigger motor reductions instead of leaving the game's values untouched. The rumble slider goes from 0 – 15 and the trigger slider from 0 – 10; higher values reduce the motor power more. Turning it off clears the forced reduction, then leaves the game's values untouched. When Bluetooth audio is forwarding, the app also scales the classic rumble it synthesizes into the haptics signal.
+- **Haptic low-pass filter** — enable it to smooth haptic feedback by filtering high frequencies. Turning it off clears the forced filter, then leaves the game's setting alone.
+
+These values are stored per controller and persist across reconnects. While Bluetooth audio is active, pending changes ride the next combined `0x36` report so a toggle turning off still clears the controller's retained value. Game-provided haptics and reports a game sends directly to the physical controller without emulation are not changed.
+
 ![Vibration and adaptive trigger controls on the Customization page](../assets/images/rumble.png)
 
 ## Adaptive Triggers

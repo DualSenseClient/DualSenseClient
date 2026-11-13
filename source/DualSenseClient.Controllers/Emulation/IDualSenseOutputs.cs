@@ -95,6 +95,13 @@ public interface IDualSenseAudioOutputs : IDualSenseOutputs
     /// The physical controller's shared audio lane.
     /// </summary>
     ControllerAudioLane AudioLane { get; }
+
+    /// <summary>
+    /// Amplitude multiplier (0-1) the forwarder applies to classic rumble it synthesizes
+    /// into the Bluetooth haptics lane. <c>1</c> leaves the game's rumble untouched;
+    /// lower values reflect the configured motor power reduction.
+    /// </summary>
+    float RumbleAmplitudeScale { get; }
 }
 
 /// <summary>
@@ -151,7 +158,16 @@ public sealed class DualSenseDeviceOutputs : IDualSenseAudioOutputs
     {
         get
         {
-            return _device.Lighting.NeedsStateBlock;
+            return _device.Lighting.NeedsStateBlock || _device.HasPendingVibrationState;
+        }
+    }
+
+    /// <inheritdoc/>
+    public float RumbleAmplitudeScale
+    {
+        get
+        {
+            return _device.RumbleAmplitudeScale;
         }
     }
 

@@ -289,9 +289,24 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _controllerService.RegisterController(key, controller.Info.ProductName);
         string displayName = _controllerService.GetDisplayName(key, controller.Info.ProductName);
 
+        ApplyVibrationSettings(controller, key);
         Controllers.Add(new ControllerItem(controller, displayName));
         _tracker.TrackController(controller);
         ApplyBoundProfile(controller);
+    }
+
+    /// <summary>
+    /// Applies the stored vibration and haptics options to a newly connected DualSense so
+    /// they take effect before emulation starts and before the customization page is opened.
+    /// </summary>
+    /// <param name="controller">The controller that just connected.</param>
+    /// <param name="key">The controller's normalized identity.</param>
+    private void ApplyVibrationSettings(IControllerDevice controller, ControllerKey key)
+    {
+        if (controller is DualSenseDevice device)
+        {
+            device.ApplyVibrationSettings(_controllerService.GetVibrationSettings(key));
+        }
     }
 
     /// <summary>

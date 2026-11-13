@@ -388,6 +388,64 @@ public sealed class ControllerInfoService
         SaveTouchpadMouseSettings(key.Mac, key.Path, settings);
 
     /// <summary>
+    /// Gets the vibration and haptics options stored for a controller, or the defaults
+    /// (automatic encoding, no power or filter overrides) when the controller has no
+    /// entry or no stored settings. The returned instance is the live stored object;
+    /// persist changes with <see cref="SaveVibrationSettings(ControllerKey, VibrationSettings)"/>.
+    /// </summary>
+    /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>
+    /// <param name="devicePath">The controller's HID device path, or <c>null</c>/empty when unavailable.</param>
+    public VibrationSettings GetVibrationSettings(string? mac, string? devicePath)
+    {
+        ControllerInfo? info = FindController(NormalizeMac(mac), NormalizePath(devicePath));
+        return info?.Vibration ?? new VibrationSettings();
+    }
+
+    /// <summary>
+    /// Gets the vibration and haptics options stored for a controller identified by its key.
+    /// </summary>
+    /// <param name="key">The controller key.</param>
+    /// <returns>The stored settings, or defaults when none are stored.</returns>
+    public VibrationSettings GetVibrationSettings(ControllerKey key) => GetVibrationSettings(key.Mac, key.Path);
+
+    /// <summary>
+    /// Stores the vibration and haptics options for a controller and persists the change.
+    /// The controller's entry is created if not registered yet.
+    /// </summary>
+    /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>
+    /// <param name="devicePath">The controller's HID device path, or <c>null</c>/empty when unavailable.</param>
+    /// <param name="settings">The vibration settings to store.</param>
+    public void SaveVibrationSettings(string? mac, string? devicePath, VibrationSettings settings)
+    {
+        string normalizedMac = NormalizeMac(mac);
+        string normalizedPath = NormalizePath(devicePath);
+        if (string.IsNullOrEmpty(normalizedMac) && string.IsNullOrEmpty(normalizedPath))
+        {
+            return;
+        }
+
+        ControllerInfo? info = FindController(normalizedMac, normalizedPath);
+        if (info is null)
+        {
+            info = new ControllerInfo();
+            Settings.Controllers.Add(info);
+        }
+
+        info.MacAddress = normalizedMac;
+        info.DevicePath = normalizedPath;
+        info.Vibration = settings;
+        Save();
+    }
+
+    /// <summary>
+    /// Stores the vibration and haptics options for a controller identified by its key.
+    /// </summary>
+    /// <param name="key">The controller key.</param>
+    /// <param name="settings">The vibration settings to store.</param>
+    public void SaveVibrationSettings(ControllerKey key, VibrationSettings settings) =>
+        SaveVibrationSettings(key.Mac, key.Path, settings);
+
+    /// <summary>
     /// Renames a controller (its stored display name) and persists the change.
     /// </summary>
     /// <param name="mac">The controller's Bluetooth MAC address, or <c>null</c>/empty when unavailable.</param>

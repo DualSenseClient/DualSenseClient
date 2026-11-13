@@ -1627,8 +1627,9 @@ public sealed class DualSenseAudioForwarder : IAudioPcmSink, IDisposable
             return;
         }
 
-        byte leftTarget = _rumbleLeftTarget;
-        byte rightTarget = _rumbleRightTarget;
+        float amplitudeScale = Math.Clamp(_outputs?.RumbleAmplitudeScale ?? 1f, 0f, 1f);
+        byte leftTarget = (byte)Math.Round(_rumbleLeftTarget * amplitudeScale);
+        byte rightTarget = (byte)Math.Round(_rumbleRightTarget * amplitudeScale);
 
         if (leftTarget == 0 && rightTarget == 0 && _rumbleLeftMagnitude < 0.001f && _rumbleRightMagnitude < 0.001f)
         {

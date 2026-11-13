@@ -108,6 +108,54 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     private int _manualRumble = -1;
 
     /// <summary>
+    /// Configured rumble encoding as a <see cref="VibrationEncodingMode"/> value.
+    /// </summary>
+    private int _vibrationEncoding = (int)VibrationEncodingMode.Auto;
+
+    /// <summary>
+    /// Whether the configured motor power reductions are enforced on outgoing reports.
+    /// </summary>
+    private bool _motorPowerLevelEnabled;
+
+    /// <summary>
+    /// Rumble-motor power reduction (0-15).
+    /// </summary>
+    private int _rumblePowerReduction;
+
+    /// <summary>
+    /// Trigger-motor power reduction (0-10).
+    /// </summary>
+    private int _triggerPowerReduction;
+
+    /// <summary>
+    /// Whether the haptic low-pass filter is enforced on outgoing reports.
+    /// </summary>
+    private bool _hapticLowPassFilterEnabled;
+
+    /// <summary>
+    /// Whether the per-controller vibration options have been applied at least once, so the
+    /// device has sent the controller its initial override state (including cleared values).
+    /// </summary>
+    private bool _vibrationSettingsApplied;
+
+    /// <summary>
+    /// Pending motor-power clear/apply bit in <see cref="_pendingVibrationStateMask"/>.
+    /// </summary>
+    private const int PendingMotorPowerLevel = 1 << 0;
+
+    /// <summary>
+    /// Pending haptic low-pass filter clear/apply bit in
+    /// <see cref="_pendingVibrationStateMask"/>.
+    /// </summary>
+    private const int PendingHapticLowPassFilter = 1 << 1;
+
+    /// <summary>
+    /// Fields that still need to ride a Bluetooth <c>0x36</c> state block because a
+    /// standalone output report is ignored while the audio lane is open.
+    /// </summary>
+    private int _pendingVibrationStateMask;
+
+    /// <summary>
     /// Runs the profile's animated lightbar effect.
     /// </summary>
     private readonly LightbarEffectController _lightbarEffect;
@@ -206,17 +254,277 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     }
 
     /// <summary>
-    /// Whether this controller uses the "vibration v2" rumble encoding: firmware update
-    /// version >= 2.21 for a base DualSense, always for a DualSense Edge. Mirrors the
-    /// kernel's <c>dualsense_use_vibration_v2</c> gate. When <c>false</c>, the v1
-    /// encoding (flag 0 bit 0) is used instead.
+    /// Whether this controller's firmware supports the "vibration v2" rumble encoding:
+    /// firmware update version >= 2.21 for a base DualSense, always for a DualSense Edge.
+    /// Mirrors the kernel's <c>dualsense_use_vibration_v2</c> gate. This is the hardware
+    /// capability; <see cref="UsesVibrationV2"/> is the effective encoding after applying
+    /// <see cref="RumbleEncoding"/>.
     /// </summary>
-    public bool UsesVibrationV2
+    public bool SupportsVibrationV2
     {
         get
         {
             return IsEdge ||
                    (FirmwareInfo?.IsValid == true && FirmwareInfo.Value.UpdateVersionValue >= ((2 << 8) | 21));
+        }
+    }
+
+    /// <summary>
+    /// The configured classic rumble encoding. <see cref="VibrationEncodingMode.Auto"/>
+    /// follows <see cref="SupportsVibrationV2"/>. An explicit <see cref="VibrationEncodingMode.Improved"/>
+    /// falls back to automatic when the firmware does not support it; an explicit
+    /// <see cref="VibrationEncodingMode.Compatible"/> is always available.
+    /// </summary>
+    public VibrationEncodingMode RumbleEncoding
+    {
+        get
+        {
+            return (VibrationEncodingMode)Volatile.Read(ref _vibrationEncoding);
+        }
+        set
+        {
+            VibrationEncodingMode normalized = value is VibrationEncodingMode.Compatible or VibrationEncodingMode.Improved
+                ? value
+                : VibrationEncodingMode.Auto;
+            Volatile.Write(ref _vibrationEncoding, (int)normalized);
+        }
+    }
+
+    /// <summary>
+    /// Whether this controller currently uses the "vibration v2" rumble encoding. When
+    /// <c>false</c>, the v1 encoding (flag 0 bit 0) is used instead.
+    /// </summary>
+    public bool UsesVibrationV2
+    {
+        get
+        {
+            return EffectiveRumbleEncoding switch
+            {
+                VibrationEncodingMode.Compatible => false,
+                VibrationEncodingMode.Improved => true,
+                _ => SupportsVibrationV2
+            };
+        }
+    }
+
+    /// <summary>
+    /// The configured encoding after hiding unsupported explicit V2 on firmware that does
+    /// not advertise it, so the device never forces an encoding the hardware cannot use.
+    /// </summary>
+    private VibrationEncodingMode EffectiveRumbleEncoding
+    {
+        get
+        {
+            return RumbleEncoding == VibrationEncodingMode.Improved && !SupportsVibrationV2
+                ? VibrationEncodingMode.Auto
+                : RumbleEncoding;
+        }
+    }
+
+    /// <summary>
+    /// Whether the app enforces the configured motor power reductions instead of leaving
+    /// the game's values untouched.
+    /// </summary>
+    public bool MotorPowerLevelEnabled
+    {
+        get
+        {
+            return Volatile.Read(ref _motorPowerLevelEnabled);
+        }
+        set
+        {
+            Volatile.Write(ref _motorPowerLevelEnabled, value);
+        }
+    }
+
+    /// <summary>
+    /// Rumble-motor power reduction (0-15, low nibble of output byte 36). Applied when
+    /// <see cref="MotorPowerLevelEnabled"/> is set.
+    /// </summary>
+    public int RumblePowerReduction
+    {
+        get
+        {
+            return Volatile.Read(ref _rumblePowerReduction);
+        }
+        set
+        {
+            Volatile.Write(ref _rumblePowerReduction, Math.Clamp(value, 0, VibrationSettings.MaxRumblePowerReduction));
+        }
+    }
+
+    /// <summary>
+    /// Amplitude multiplier (0-1) for classic rumble synthesized into the Bluetooth
+    /// haptics lane. Motor power reduction 0 leaves the amplitude untouched; the maximum
+    /// reduction silences it.
+    /// </summary>
+    public float RumbleAmplitudeScale
+    {
+        get
+        {
+            if (!MotorPowerLevelEnabled)
+            {
+                return 1f;
+            }
+
+            return 1f - RumblePowerReduction / (float)VibrationSettings.MaxRumblePowerReduction;
+        }
+    }
+
+    /// <summary>
+    /// Trigger-motor power reduction (0-10, high nibble of output byte 36). Applied when
+    /// <see cref="MotorPowerLevelEnabled"/> is set.
+    /// </summary>
+    public int TriggerPowerReduction
+    {
+        get
+        {
+            return Volatile.Read(ref _triggerPowerReduction);
+        }
+        set
+        {
+            Volatile.Write(ref _triggerPowerReduction, Math.Clamp(value, 0, VibrationSettings.MaxTriggerPowerReduction));
+        }
+    }
+
+    /// <summary>
+    /// Whether the app enforces the haptic low-pass filter. When <c>false</c>, the game's
+    /// own filter value passes through unchanged.
+    /// </summary>
+    public bool HapticLowPassFilterEnabled
+    {
+        get
+        {
+            return Volatile.Read(ref _hapticLowPassFilterEnabled);
+        }
+        set
+        {
+            Volatile.Write(ref _hapticLowPassFilterEnabled, value);
+        }
+    }
+
+    /// <summary>
+    /// Whether a vibration option change still needs to be carried by the next Bluetooth
+    /// audio state block because standalone output reports are ignored while the audio
+    /// lane is open.
+    /// </summary>
+    public bool HasPendingVibrationState
+    {
+        get
+        {
+            return Volatile.Read(ref _pendingVibrationStateMask) != 0;
+        }
+    }
+
+    /// <summary>
+    /// Copies the per-controller vibration options onto this device. Called on connect and
+    /// whenever the customization page changes them.
+    /// </summary>
+    /// <param name="settings">The settings to apply; values are clamped to the protocol ranges.</param>
+    public void ApplyVibrationSettings(VibrationSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        bool firstApplication = !_vibrationSettingsApplied;
+        bool motorPowerWasEnabled = MotorPowerLevelEnabled;
+        bool hapticLowPassFilterWasEnabled = HapticLowPassFilterEnabled;
+        int previousRumblePowerReduction = RumblePowerReduction;
+        int previousTriggerPowerReduction = TriggerPowerReduction;
+
+        RumbleEncoding = settings.RumbleEncoding;
+        MotorPowerLevelEnabled = settings.MotorPowerLevelEnabled;
+        RumblePowerReduction = settings.RumblePowerReduction;
+        TriggerPowerReduction = settings.TriggerPowerReduction;
+        HapticLowPassFilterEnabled = settings.HapticLowPassFilter;
+        _vibrationSettingsApplied = true;
+
+        bool applyMotorPower = firstApplication
+                               || motorPowerWasEnabled != MotorPowerLevelEnabled
+                               || (MotorPowerLevelEnabled
+                                   && (previousRumblePowerReduction != RumblePowerReduction
+                                       || previousTriggerPowerReduction != TriggerPowerReduction));
+        bool applyHapticLowPassFilter = firstApplication
+                                        || hapticLowPassFilterWasEnabled != HapticLowPassFilterEnabled;
+        if (applyMotorPower || applyHapticLowPassFilter)
+        {
+            SendVibrationSettingsState(applyMotorPower, applyHapticLowPassFilter);
+        }
+    }
+
+    /// <summary>
+    /// Sends one output state carrying the motor power and/or haptic low-pass filter fields.
+    /// Disabled fields are sent as zeroes so turning a toggle off clears the value the
+    /// controller retained from the previous forced state.
+    /// </summary>
+    /// <param name="includeMotorPowerLevel">Whether to include and clear-or-apply the motor power field.</param>
+    /// <param name="includeHapticLowPassFilter">Whether to include and clear-or-apply the filter field.</param>
+    private void SendVibrationSettingsState(bool includeMotorPowerLevel, bool includeHapticLowPassFilter)
+    {
+        ValidFlags flags = ValidFlags.None;
+        if (includeMotorPowerLevel)
+        {
+            flags |= ValidFlags.AllowMotorPowerLevel;
+        }
+
+        if (includeHapticLowPassFilter)
+        {
+            flags |= ValidFlags.AllowHapticLpf;
+        }
+
+        if (flags == ValidFlags.None)
+        {
+            return;
+        }
+
+        byte motorPower = MotorPowerLevelEnabled
+            ? (byte)((TriggerPowerReduction << 4) | RumblePowerReduction)
+            : (byte)0;
+        byte hapticLowPassFilter = HapticLowPassFilterEnabled ? (byte)0x01 : (byte)0;
+
+        int pendingMask = 0;
+        if (includeMotorPowerLevel)
+        {
+            pendingMask |= PendingMotorPowerLevel;
+        }
+
+        if (includeHapticLowPassFilter)
+        {
+            pendingMask |= PendingHapticLowPassFilter;
+        }
+
+        Interlocked.Or(ref _pendingVibrationStateMask, pendingMask);
+        try
+        {
+            SendOutputState(new SetStateData
+            {
+                ValidFlag1 = flags,
+                MotorPowerReduction = motorPower,
+                HapticLowPassFilter = hapticLowPassFilter
+            });
+        }
+        catch (HidException ex)
+        {
+            _log.Error($"Failed to apply vibration settings on {Info.ProductName}", ex);
+        }
+
+        // A standalone report is accepted only while no audio source owns the lane.
+        // Otherwise the forwarder must carry the same fields in its next 0x36 report.
+        if (_audioLane.ActivePriority is null)
+        {
+            ClearPendingVibrationState(pendingMask);
+        }
+    }
+
+    /// <summary>
+    /// Clears the given pending vibration fields after they have been carried by a
+    /// Bluetooth state report.
+    /// </summary>
+    /// <param name="mask">The pending field bits to clear.</param>
+    private void ClearPendingVibrationState(int mask)
+    {
+        if (mask != 0)
+        {
+            Interlocked.And(ref _pendingVibrationStateMask, ~mask);
         }
     }
 
@@ -800,6 +1108,8 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
                 UsesVibrationV2);
         }
 
+        payload = ApplyVibrationOverrides(payload);
+
         if ((payload.ValidFlag1 & ValidFlags.AllowLedColor) != 0
             && (payload.LedRed, payload.LedGreen, payload.LedBlue) != CurrentLightbarColor)
         {
@@ -995,6 +1305,77 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     }
 
     /// <summary>
+    /// Applies the per-controller vibration options (explicit rumble encoding, motor power
+    /// reduction, and haptic low-pass filter) to an outgoing output payload. Auto encoding
+    /// and disabled overrides leave the game's own values untouched.
+    /// </summary>
+    /// <param name="payload">The payload being sent.</param>
+    /// <param name="pendingMask">
+    /// Fields that must be carried by this report even when their override is disabled,
+    /// so a previously forced value is cleared.
+    /// </param>
+    /// <returns>The payload with the configured overrides applied.</returns>
+    private SetStateData ApplyVibrationOverrides(SetStateData payload, int pendingMask = 0)
+    {
+        ValidFlags flag0 = payload.ValidFlag0;
+        ValidFlags flag1 = payload.ValidFlag1;
+        ValidFlags flag2 = payload.ValidFlag2;
+        byte motorPower = payload.MotorPowerReduction;
+        byte hapticLowPassFilter = payload.HapticLowPassFilter;
+
+        if (MotorPowerLevelEnabled)
+        {
+            flag1 |= ValidFlags.AllowMotorPowerLevel;
+            motorPower = (byte)((TriggerPowerReduction << 4) | RumblePowerReduction);
+        }
+        else if ((pendingMask & PendingMotorPowerLevel) != 0)
+        {
+            flag1 |= ValidFlags.AllowMotorPowerLevel;
+            motorPower = 0;
+        }
+
+        if (HapticLowPassFilterEnabled)
+        {
+            flag1 |= ValidFlags.AllowHapticLpf;
+            hapticLowPassFilter |= 0x01;
+        }
+        else if ((pendingMask & PendingHapticLowPassFilter) != 0)
+        {
+            flag1 |= ValidFlags.AllowHapticLpf;
+            hapticLowPassFilter = 0;
+        }
+
+        bool rumbleSelected = (flag0 & ValidFlags.EnableRumbleEmulation) != 0
+                              || (flag2 & ValidFlags.EnableImprovedRumbleEmu) != 0;
+        if (rumbleSelected)
+        {
+            // Re-assert the effective encoding on every rumble report. This keeps Auto
+            // authoritative after the setting changed while the virtual controller was
+            // already running with the previous encoding.
+            flag0 |= ValidFlags.UseRumbleNotHaptics;
+            if (UsesVibrationV2)
+            {
+                flag0 &= ~ValidFlags.EnableRumbleEmulation;
+                flag2 |= ValidFlags.EnableImprovedRumbleEmu;
+            }
+            else
+            {
+                flag0 |= ValidFlags.EnableRumbleEmulation;
+                flag2 &= ~ValidFlags.EnableImprovedRumbleEmu;
+            }
+        }
+
+        return payload with
+        {
+            ValidFlag0 = flag0,
+            ValidFlag1 = flag1,
+            ValidFlag2 = flag2,
+            MotorPowerReduction = motorPower,
+            HapticLowPassFilter = hapticLowPassFilter
+        };
+    }
+
+    /// <summary>
     /// Sets the classic rumble motors for manual (Output Test) vibration. While either
     /// motor is on, the manual claim preempts every audio owner so the pad stops
     /// receiving audio reports and accepts the classic rumble report; releasing both
@@ -1112,10 +1493,14 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     public void SendBluetoothAudioPrime(SetStateData state)
     {
         EnsureBluetoothAudio();
+        int pendingMask = Volatile.Read(ref _pendingVibrationStateMask);
+        state = ApplyVibrationOverrides(state, pendingMask);
         lock (_audioWriteLock)
         {
             TrySendAudioReport(_bluetoothAudioReports.BuildInitPrime(state));
         }
+
+        ClearPendingVibrationState(pendingMask);
     }
 
     /// <summary>
@@ -1145,10 +1530,14 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     public void SendBluetoothAudioAndHaptics(SetStateData state, ReadOnlySpan<byte> opusFrame, ReadOnlySpan<byte> hapticsPcm, BluetoothAudioRoute route)
     {
         EnsureBluetoothAudio();
+        int pendingMask = Volatile.Read(ref _pendingVibrationStateMask);
+        state = ApplyVibrationOverrides(state, pendingMask);
         lock (_audioWriteLock)
         {
             TrySendAudioReport(_bluetoothAudioReports.BuildCombinedReport(state, opusFrame, hapticsPcm, route));
         }
+
+        ClearPendingVibrationState(pendingMask);
     }
 
     /// <summary>

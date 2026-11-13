@@ -29,6 +29,8 @@ public class DualSenseAudioForwarderTests
 
         public bool NeedsOutputStateBlock { get; set; }
 
+        public float RumbleAmplitudeScale { get; set; } = 1f;
+
         public bool ThrowOnCombinedReport { get; set; }
 
         /// <summary>
@@ -1318,6 +1320,53 @@ public class DualSenseAudioForwarderTests
             Assert.That(frame.Distinct().Count(), Is.GreaterThan(8), "the 60 Hz rumble sine must make the haptics vary across the frame");
             Assert.That(frame.Max(b => (sbyte)b), Is.GreaterThan(20), "the rumble must drive the voice coils");
         });
+
+        forwarder.Stop();
+    }
+
+    [Test]
+    public void UpdateGameOutputState_RumbleAmplitudeScaleScalesSynthesizedRumble()
+    {
+        FakeAudioOutputs fake = new FakeAudioOutputs
+        {
+            ConnectionType = ConnectionType.Bluetooth
+        };
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(fake, null);
+        forwarder.Start();
+
+        forwarder.UpdateGameOutputState(new SetStateData
+        {
+            ValidFlag0 = ValidFlags.EnableRumbleEmulation,
+            RumbleLeft = 0xFF,
+            RumbleRight = 0xFF
+        });
+
+        for (int i = 0; i < 8; i++)
+        {
+            forwarder.FeedPcm(MakeAudioBlock(0f));
+        }
+
+        WaitUntil(
+            () => fake.LastHapticsFrame.Length == BluetoothAudioReportBuilder.HapticsPayloadSize
+                  && fake.LastHapticsFrame.Any(b => b != 0),
+            TimeSpan.FromSeconds(3));
+        int fullAmplitude = fake.LastHapticsFrame.Max(b => Math.Abs((int)(sbyte)b));
+        Assert.That(fullAmplitude, Is.GreaterThan(20), "the unmuted game rumble must drive the voice coils");
+
+        fake.RumbleAmplitudeScale = 0f;
+
+        // Keep the pump fed so it keeps ticking while the smoothing decays to silence.
+        WaitUntil(
+            () =>
+            {
+                forwarder.FeedPcm(MakeAudioBlock(0f));
+                return fake.LastHapticsFrame.Length == BluetoothAudioReportBuilder.HapticsPayloadSize
+                       && fake.LastHapticsFrame.All(b => b == 0);
+            },
+            TimeSpan.FromSeconds(3));
+
+        Assert.That(fake.LastHapticsFrame.All(b => b == 0), Is.True,
+            "a zero rumble amplitude scale must silence the synthesized rumble");
 
         forwarder.Stop();
     }

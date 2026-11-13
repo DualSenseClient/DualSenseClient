@@ -335,6 +335,17 @@
     <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Right">Right Motor</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Title">Vibration</sys:String>
     <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Description">Manually control the vibration of the controller's vibration motors</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Encoding.Title">Rumble Encoding</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Encoding.Description">Choose how the classic rumble motors are encoded. Improved (V2) is only available on supported firmware.</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Encoding.Auto">Automatic</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Encoding.Compatible">Compatible (V1)</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.Encoding.Improved">Improved (V2)</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.MotorPower.Title">Motor Power Reduction</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.MotorPower.Description">Apply a power reduction to the rumble and trigger motors instead of using the game's values.</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.MotorPower.Rumble">Rumble motors</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.MotorPower.Trigger">Trigger motors</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.HapticLowPassFilter.Title">Haptic Low-Pass Filter</sys:String>
+    <sys:String x:Key="CustomizationPage.OutputTest.Vibration.HapticLowPassFilter.Description">Smooth haptic feedback by filtering high frequencies. When off, the game's setting is used.</sys:String>
     <!-- PlayerLeds -->
     <sys:String x:Key="CustomizationPage.PlayerLeds.Led1">LED 1</sys:String>
     <sys:String x:Key="CustomizationPage.PlayerLeds.Led2">LED 2</sys:String>

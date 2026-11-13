@@ -848,31 +848,90 @@
                                    IconSource="{icm:SymbolIconSource Symbol=FastAcceleration}"
                                    IsExpanded="False"
                                    IsVisible="{Binding HasDevice}">
-                <Grid ColumnDefinitions="*,16,*"
-                      Margin="0,8,0,0">
-                    <StackPanel Grid.Column="0"
-                                Spacing="8">
-                        <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Vibration.Left}"
-                                   FontWeight="SemiBold" />
-                        <controls:SliderInput Minimum="0"
-                                              Maximum="255"
-                                              Value="{Binding MonitorState.LeftMotorStrength, Mode=TwoWay}"
-                                              IsEnabled="{Binding MonitorState.LeftMotorEnabled}" />
-                        <ToggleSwitch Content="{DynamicResource CustomizationPage.OutputTest.Vibration.Enable}"
-                                      IsChecked="{Binding MonitorState.LeftMotorEnabled, Mode=TwoWay}" />
-                    </StackPanel>
-                    <StackPanel Grid.Column="2"
-                                Spacing="8">
-                        <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Vibration.Right}"
-                                   FontWeight="SemiBold" />
-                        <controls:SliderInput Minimum="0"
-                                              Maximum="255"
-                                              Value="{Binding MonitorState.RightMotorStrength, Mode=TwoWay}"
-                                              IsEnabled="{Binding MonitorState.RightMotorEnabled}" />
-                        <ToggleSwitch Content="{DynamicResource CustomizationPage.OutputTest.Vibration.Enable}"
-                                      IsChecked="{Binding MonitorState.RightMotorEnabled, Mode=TwoWay}" />
-                    </StackPanel>
-                </Grid>
+                <StackPanel Spacing="8"
+                            Margin="0,8,0,0">
+                    <Grid ColumnDefinitions="*,16,*">
+                        <StackPanel Grid.Column="0"
+                                    Spacing="8">
+                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Vibration.Left}"
+                                       FontWeight="SemiBold" />
+                            <controls:SliderInput Minimum="0"
+                                                  Maximum="255"
+                                                  Value="{Binding MonitorState.LeftMotorStrength, Mode=TwoWay}"
+                                                  IsEnabled="{Binding MonitorState.LeftMotorEnabled}" />
+                            <ToggleSwitch Content="{DynamicResource CustomizationPage.OutputTest.Vibration.Enable}"
+                                          IsChecked="{Binding MonitorState.LeftMotorEnabled, Mode=TwoWay}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2"
+                                    Spacing="8">
+                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Vibration.Right}"
+                                       FontWeight="SemiBold" />
+                            <controls:SliderInput Minimum="0"
+                                                  Maximum="255"
+                                                  Value="{Binding MonitorState.RightMotorStrength, Mode=TwoWay}"
+                                                  IsEnabled="{Binding MonitorState.RightMotorEnabled}" />
+                            <ToggleSwitch Content="{DynamicResource CustomizationPage.OutputTest.Vibration.Enable}"
+                                          IsChecked="{Binding MonitorState.RightMotorEnabled, Mode=TwoWay}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.OutputTest.Vibration.Encoding.Title}"
+                                               Description="{DynamicResource CustomizationPage.OutputTest.Vibration.Encoding.Description}">
+                        <ui:FASettingsExpanderItem.Footer>
+                            <ComboBox ItemsSource="{Binding VibrationModes}"
+                                      SelectedIndex="{Binding VibrationEncodingIndex}"
+                                      MinWidth="200">
+                                <ComboBox.ItemContainerTheme>
+                                    <ControlTheme TargetType="ComboBoxItem"
+                                                  BasedOn="{StaticResource {x:Type ComboBoxItem}}"
+                                                  x:DataType="items:VibrationModeItem">
+                                        <Setter Property="IsEnabled"
+                                                Value="{Binding IsEnabled}" />
+                                    </ControlTheme>
+                                </ComboBox.ItemContainerTheme>
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="items:VibrationModeItem">
+                                        <TextBlock Text="{Binding Name}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ui:FASettingsExpanderItem.Footer>
+                    </ui:FASettingsExpanderItem>
+
+                    <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.OutputTest.Vibration.MotorPower.Title}"
+                                               Description="{DynamicResource CustomizationPage.OutputTest.Vibration.MotorPower.Description}">
+                        <ui:FASettingsExpanderItem.Footer>
+                            <ToggleSwitch IsChecked="{Binding MotorPowerLevelEnabled, Mode=TwoWay}" />
+                        </ui:FASettingsExpanderItem.Footer>
+                    </ui:FASettingsExpanderItem>
+
+                    <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.OutputTest.Vibration.MotorPower.Rumble}"
+                                               IsEnabled="{Binding MotorPowerLevelEnabled}">
+                        <ui:FASettingsExpanderItem.Footer>
+                            <controls:SliderInput Minimum="0"
+                                                  Maximum="15"
+                                                  Width="240"
+                                                  Value="{Binding RumblePowerReduction, Mode=TwoWay}" />
+                        </ui:FASettingsExpanderItem.Footer>
+                    </ui:FASettingsExpanderItem>
+
+                    <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.OutputTest.Vibration.MotorPower.Trigger}"
+                                               IsEnabled="{Binding MotorPowerLevelEnabled}">
+                        <ui:FASettingsExpanderItem.Footer>
+                            <controls:SliderInput Minimum="0"
+                                                  Maximum="10"
+                                                  Width="240"
+                                                  Value="{Binding TriggerPowerReduction, Mode=TwoWay}" />
+                        </ui:FASettingsExpanderItem.Footer>
+                    </ui:FASettingsExpanderItem>
+
+                    <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.OutputTest.Vibration.HapticLowPassFilter.Title}"
+                                               Description="{DynamicResource CustomizationPage.OutputTest.Vibration.HapticLowPassFilter.Description}">
+                        <ui:FASettingsExpanderItem.Footer>
+                            <ToggleSwitch IsChecked="{Binding HapticLowPassFilter, Mode=TwoWay}" />
+                        </ui:FASettingsExpanderItem.Footer>
+                    </ui:FASettingsExpanderItem>
+                </StackPanel>
             </ui:FASettingsExpander>
 
             <!-- Output test: adaptive triggers (L2 | R2) -->

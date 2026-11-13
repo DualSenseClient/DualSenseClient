@@ -58,4 +58,12 @@ public class ControllerInfo
     /// </summary>
     [JsonPropertyName("touchpad_mouse")]
     public TouchpadMouseSettings TouchpadMouse { get; set; } = new TouchpadMouseSettings();
+
+    /// <summary>
+    /// Gets or sets the vibration and haptics options stored for this controller
+    /// (the Vibration section of the customization page). Defaults to automatic
+    /// encoding with no overrides.
+    /// </summary>
+    [JsonPropertyName("vibration")]
+    public VibrationSettings Vibration { get; set; } = new VibrationSettings();
 }
