@@ -2095,7 +2095,17 @@ public sealed partial class InputMonitorItem : ObservableObject, IControllerMoni
     public void ResetTestOutputs()
     {
         StopOutputDebounce();
-        _device?.ResetOutputs();
+
+        // Only write to the controller when a test output was actually applied. Page
+        // navigation disposes and rebuilds the monitor item, and unconditional resets
+        // would emit two standalone output reports into the Bluetooth report stream on
+        // every visit, disturbing forwarded audio for no reason.
+        bool outputsActive = _leftMotorEnabled || _rightMotorEnabled
+                                               || _leftTriggerModeIndex != 0 || _rightTriggerModeIndex != 0;
+        if (outputsActive)
+        {
+            _device?.ResetOutputs();
+        }
 
         SetProperty(ref _leftMotorEnabled, false, nameof(LeftMotorEnabled));
         SetProperty(ref _rightMotorEnabled, false, nameof(RightMotorEnabled));
