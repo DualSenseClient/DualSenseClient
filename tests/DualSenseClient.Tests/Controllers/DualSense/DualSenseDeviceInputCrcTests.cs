@@ -1,5 +1,4 @@
 using DualSenseClient.Controllers.Devices;
-using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.DualSense.Utilities;
 using DualSenseClient.Hid;
 
@@ -92,6 +91,84 @@ public class DualSenseDeviceInputCrcTests
         Assert.That(reports, Is.Zero);
     }
 
+    [Test]
+    public void BluetoothInput_HasMicValidPacket_RaisesMicrophoneFrame()
+    {
+        using DualSenseDevice device = CreateDevice();
+        byte[]? received = null;
+        device.MicrophoneFrameReceived += frame => received = frame;
+
+        byte[] report = CreateMicrophoneReport();
+        device.ProcessInputReport(report, report.Length);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(received, Is.Not.Null);
+            Assert.That(received, Has.Length.EqualTo(71));
+            Assert.That(received![0], Is.EqualTo(0xD4));
+        });
+    }
+
+    [Test]
+    public void BluetoothInput_HasMicMonoToc_RaisesMicrophoneFrame()
+    {
+        using DualSenseDevice device = CreateDevice();
+        byte[]? received = null;
+        device.MicrophoneFrameReceived += frame => received = frame;
+
+        byte[] report = CreateMicrophoneReport(0xD0);
+        device.ProcessInputReport(report, report.Length);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(received, Is.Not.Null, "a valid 10 ms mono Opus frame must be accepted");
+            Assert.That(received, Has.Length.EqualTo(71));
+            Assert.That(received![0], Is.EqualTo(0xD0));
+        });
+    }
+
+    [Test]
+    public void BluetoothInput_HasMicInvalidCrc_DoesNotRaiseMicrophoneFrame()
+    {
+        using DualSenseDevice device = CreateDevice();
+        int frames = 0;
+        device.MicrophoneFrameReceived += _ => frames++;
+
+        byte[] report = CreateMicrophoneReport();
+        report[74] ^= 0xFF;
+        device.ProcessInputReport(report, report.Length);
+
+        Assert.That(frames, Is.Zero);
+    }
+
+    [Test]
+    public void BluetoothInput_HasMicTwentyMillisecondToc_DoesNotRaiseMicrophoneFrame()
+    {
+        using DualSenseDevice device = CreateDevice();
+        int frames = 0;
+        device.MicrophoneFrameReceived += _ => frames++;
+
+        // 0xF8 is CELT fullband, 20 ms: valid Opus, but not the one-frame 10 ms
+        // payload this bridge consumes.
+        byte[] report = CreateMicrophoneReport(0xF8);
+        device.ProcessInputReport(report, report.Length);
+
+        Assert.That(frames, Is.Zero);
+    }
+
+    [Test]
+    public void BluetoothInput_HasHidPacket_DoesNotRaiseMicrophoneFrame()
+    {
+        using DualSenseDevice device = CreateDevice();
+        int frames = 0;
+        device.MicrophoneFrameReceived += _ => frames++;
+
+        byte[] report = CreateBluetoothReport();
+        device.ProcessInputReport(report, report.Length);
+
+        Assert.That(frames, Is.Zero);
+    }
+
     private static void UpdateCrc(byte[] report)
     {
         uint crc = DualSenseCRC32.Compute(report, 0, 74, DualSenseCRC32.InputReportSeed);
@@ -121,6 +198,22 @@ public class DualSenseDeviceInputCrcTests
         report[75] = (byte)(crc >> 8);
         report[76] = (byte)(crc >> 16);
         report[77] = (byte)(crc >> 24);
+        return report;
+    }
+
+    private static byte[] CreateMicrophoneReport(byte toc = 0xD4)
+    {
+        byte[] report = new byte[78];
+        report[0] = 0x31;
+        report[1] = 0x02; // HasMic, HasHID clear
+        for (int i = 4; i < 74; i++)
+        {
+            report[i] = (byte)(i + 1);
+        }
+
+        report[3] = toc;
+
+        UpdateCrc(report);
         return report;
     }
 

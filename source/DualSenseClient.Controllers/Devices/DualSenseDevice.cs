@@ -45,6 +45,11 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     private InputReport? _previousInputReport;
 
     /// <summary>
+    /// Maximum number of Opus payload bytes carried by one Bluetooth microphone input packet.
+    /// </summary>
+    private const int BluetoothMicrophoneMaxPayloadLength = 71;
+
+    /// <summary>
     /// Bluetooth output report sequence tag; only the low nibble is transmitted.
     /// </summary>
     private byte _outputSequence;
@@ -601,6 +606,14 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     public event EventHandler<InputReport>? InputReportReceived;
 
     /// <summary>
+    /// Raised once for every valid Bluetooth microphone (<c>0x31</c> HasMic) packet,
+    /// carrying the raw Opus payload. The payload starts at report byte 3 (its first byte
+    /// is the Opus TOC) and is at most 71 bytes long. Fires on the read thread, once per
+    /// received packet, even when no buttons or sticks changed.
+    /// </summary>
+    public event Action<byte[]>? MicrophoneFrameReceived;
+
+    /// <summary>
     /// Raised when a button transitions from released to pressed.
     /// </summary>
     public event EventHandler<ButtonEventArgs>? ButtonPressed;
@@ -884,8 +897,9 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         _log.Debug($"Read loop started for {Info.ProductName} ({ConnectionType})");
         // Size by input, not output: USB 0x01 is 64B while the USB output report is
         // 48B (DualSense) or 64B (Edge); BT 0x31 fills 78B. A 63B buffer would truncate
-        // the USB AES tail needed for verbatim raw passthrough.
-        byte[] buffer = new byte[Math.Max(MaxOutputReportLength, 78)];
+        // the USB AES tail needed for verbatim raw passthrough. The larger allocation
+        // also keeps Bluetooth microphone (HasMic) packets whole.
+        byte[] buffer = new byte[Math.Max(MaxOutputReportLength, 256)];
         while (!ct.IsCancellationRequested)
         {
             try
@@ -956,6 +970,15 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
                     if (bytesRead < 2 + 63)
                     {
                         _log.Warning($"{Info.ProductName}: dropping truncated Bluetooth input report: {bytesRead} byte(s), expected at least {2 + 63}");
+                        return;
+                    }
+
+                    // A 0x31 packet carries either controller state (HasHID, bit 0) or a
+                    // microphone frame (HasMic, bit 1). Microphone packets are validated
+                    // and forwarded to MicrophoneFrameReceived; they never update state.
+                    if ((data[1] & 0x02) != 0)
+                    {
+                        HandleBluetoothMicrophonePacket(data, bytesRead);
                         return;
                     }
 
@@ -1031,6 +1054,97 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
                                | (report[77] << 24));
         uint actual = DualSenseCRC32.Compute(report, 0, 74, DualSenseCRC32.InputReportSeed);
         return expected == actual;
+    }
+
+    /// <summary>
+    /// Validates a Bluetooth input report 0x31 flagged HasMic and raises
+    /// <see cref="MicrophoneFrameReceived"/> with its Opus payload. The payload starts at
+    /// report byte 3 (the first byte is the Opus TOC) and the CRC trailer occupies
+    /// bytes 74-77. Microphone packets never update controller state.
+    /// </summary>
+    /// <param name="data">Raw report starting with report ID 0x31.</param>
+    /// <param name="bytesRead">Valid bytes in <paramref name="data"/>.</param>
+    private void HandleBluetoothMicrophonePacket(byte[] data, int bytesRead)
+    {
+        if (bytesRead < 78)
+        {
+            return;
+        }
+
+        if (!HasValidBluetoothInputCrc(data))
+        {
+            return;
+        }
+
+        if (!IsSingleTenMillisecondOpusFrame(data[3]))
+        {
+            return;
+        }
+
+        int payloadLength = Math.Min(bytesRead - 3 - 4, BluetoothMicrophoneMaxPayloadLength);
+        if (payloadLength <= 0)
+        {
+            return;
+        }
+
+        Action<byte[]>? handler = MicrophoneFrameReceived;
+        if (handler is null)
+        {
+            return;
+        }
+
+        byte[] frame = new byte[payloadLength];
+        Array.Copy(data, 3, frame, 0, payloadLength);
+        handler(frame);
+    }
+
+    /// <summary>
+    /// Returns whether an Opus table-of-contents byte describes exactly one 10 ms frame, the
+    /// only payload geometry the bridge decodes. The controller sends CELT super-wideband
+    /// (<c>0xD4</c>), but the stereo flag and the Opus mode are not protocol requirements, so
+    /// any 10 ms single-frame configuration is accepted. The frame-count code must be zero:
+    /// a code of 1-3 packs two or more frames into one payload.
+    /// </summary>
+    /// <param name="toc">First payload byte of a Bluetooth microphone packet.</param>
+    /// <returns><see langword="true"/> for a single 10 ms Opus frame.</returns>
+    private static bool IsSingleTenMillisecondOpusFrame(byte toc)
+    {
+        if ((toc & 0x03) != 0)
+        {
+            return false;
+        }
+
+        int config = toc >> 3;
+        double durationMs;
+        if (config < 12)
+        {
+            // SILK narrow/medium/wideband: 10, 20, 40 or 60 ms.
+            durationMs = (config & 0x03) switch
+            {
+                0 => 10,
+                1 => 20,
+                2 => 40,
+                _ => 60
+            };
+        }
+        else if (config < 16)
+        {
+            // Hybrid super-wide/fullband: 10 or 20 ms.
+            durationMs = (config & 0x01) == 0 ? 10 : 20;
+        }
+        else
+        {
+            // CELT narrow/medium/super-wide/fullband: 2.5, 5, 10 or 20 ms.
+            durationMs = (config & 0x03) switch
+            {
+                0 => 2.5,
+                1 => 5,
+                2 => 10,
+                _ => 20
+            };
+        }
+
+        return durationMs == 10;
     }
 
     /// <inheritdoc/>
