@@ -1,10 +1,15 @@
 using System;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using FluentAvalonia.UI.Controls;
+using FluentAvalonia.UI.Media.Animation;
+using FluentAvalonia.UI.Navigation;
 using Microsoft.Extensions.DependencyInjection;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.GUI.ViewModels;
+using DualSenseClient.GUI.Views.Pages;
 
 namespace DualSenseClient.GUI.Views;
 
@@ -48,6 +53,34 @@ public partial class MainView : UserControl
         _navigationService.SetNavigationView(NavigationView);
 
         _ = _navigationService.NavigateToTag("DeviceInfoPage", ContentFrame);
+    }
+
+    /// <summary>
+    /// Creates and caches every page behind the splash screen so the first navigation to
+    /// each page does not pay the XAML construction and GC cost. Pages are not recorded
+    /// in the frame's navigation stack and use no transition; the frame returns to the
+    /// initial device info page when done.
+    /// </summary>
+    internal async Task PrewarmPagesAsync()
+    {
+        FAFrameNavigationOptions options = new FAFrameNavigationOptions
+        {
+            IsNavigationStackEnabled = false,
+            TransitionInfoOverride = new FASuppressNavigationTransitionInfo()
+        };
+
+        Type[] pageTypes = OperatingSystem.IsWindows()
+            ? [typeof(CustomizationPage), typeof(EmulationPage), typeof(AutoProfilePage), typeof(SettingsPage)]
+            : [typeof(CustomizationPage), typeof(EmulationPage), typeof(SettingsPage)];
+
+        foreach (Type pageType in pageTypes)
+        {
+            ContentFrame.NavigateToType(pageType, null, options);
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+        }
+
+        ContentFrame.NavigateToType(typeof(DeviceInfoPage), null, options);
+        await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Loaded);
     }
 
     /// <summary>

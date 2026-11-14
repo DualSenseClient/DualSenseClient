@@ -12,9 +12,9 @@ namespace DualSenseClient.GUI.Views.Pages;
 /// </summary>
 /// <remarks>
 /// Resolves <see cref="DeviceInfoPageViewModel"/> from the DI container and sets it as the
-/// <see cref="UserControl.DataContext"/>. The page is hosted in a frame with
-/// <c>CacheSize=0</c>, so a fresh instance (and fresh selection subscription) is created
-/// on each navigation.
+/// <see cref="UserControl.DataContext"/>. The frame caches the page so the same instance is
+/// reused across navigations; <see cref="OnLoaded"/> and <see cref="OnUnloaded"/> manage the
+/// dongle auto-refresh while the page is visible.
 /// </remarks>
 public partial class DeviceInfoPage : UserControl
 {

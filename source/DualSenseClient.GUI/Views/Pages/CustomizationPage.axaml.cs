@@ -17,10 +17,11 @@ namespace DualSenseClient.GUI.Views.Pages;
 /// </summary>
 /// <remarks>
 /// Resolves <see cref="CustomizationPageViewModel"/> from the DI container and sets it as
-/// the <see cref="UserControl.DataContext"/>. The page is hosted in a frame with
-/// <c>CacheSize=0</c>, so a fresh instance (and fresh selection subscription) is created
-/// on each navigation. <see cref="OnLoaded"/> refreshes the ViewModel so the displayed
-/// profiles match the current profile service state on every navigation.
+/// the <see cref="UserControl.DataContext"/>. The frame caches the page so the same
+/// instance is reused across navigations, which keeps its large visual tree from being
+/// rebuilt (and reallocated) on every visit. <see cref="OnLoaded"/> refreshes the
+/// ViewModel so the displayed profiles match the current profile service state on every
+/// navigation.
 /// </remarks>
 public partial class CustomizationPage : UserControl
 {

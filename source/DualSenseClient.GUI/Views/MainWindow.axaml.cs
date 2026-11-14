@@ -49,6 +49,12 @@ public partial class MainWindow : FAAppWindow
     private bool _mainContentLoaded;
 
     /// <summary>
+    /// The shell view created by <see cref="LoadMainContent"/>, used to prewarm pages
+    /// before the splash screen closes.
+    /// </summary>
+    private MainView? _mainView;
+
+    /// <summary>
     /// Logger instance.
     /// </summary>
     private readonly DualSenseClientLogger _log = DualSenseClientLogger.For("MainWindow");
@@ -178,8 +184,15 @@ public partial class MainWindow : FAAppWindow
         }
 
         _mainContentLoaded = true;
-        MainContent.Content = new MainView();
+        _mainView = new MainView();
+        MainContent.Content = _mainView;
     }
+
+    /// <summary>
+    /// Creates and caches every page behind the splash screen so the first navigation to
+    /// each page is smooth.
+    /// </summary>
+    internal Task PrewarmPagesAsync() => _mainView?.PrewarmPagesAsync() ?? Task.CompletedTask;
 
     /// <summary>
     /// Keeps <see cref="_closeToTray"/> in sync with the "close to tray" setting.

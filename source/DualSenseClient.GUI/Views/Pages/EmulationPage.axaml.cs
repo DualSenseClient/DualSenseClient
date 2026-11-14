@@ -15,10 +15,9 @@ namespace DualSenseClient.GUI.Views.Pages;
 /// </summary>
 /// <remarks>
 /// Resolves <see cref="EmulationPageViewModel"/> from the DI container and sets it as the
-/// <see cref="UserControl.DataContext"/>. The page is hosted in a frame with
-/// <c>CacheSize=0</c>, so a fresh instance (and fresh selection subscription) is created
-/// on each navigation. Clicks on the controller illustration toggle the clicked button's
-/// membership in the pending remapping selection.
+/// <see cref="UserControl.DataContext"/>. The frame caches the page so the same instance is
+/// reused across navigations. Clicks on the controller illustration toggle the clicked
+/// button's membership in the pending remapping selection.
 /// </remarks>
 public partial class EmulationPage : UserControl
 {

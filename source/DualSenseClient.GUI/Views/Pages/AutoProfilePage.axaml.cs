@@ -15,10 +15,9 @@ namespace DualSenseClient.GUI.Views.Pages;
 /// </summary>
 /// <remarks>
 /// Resolves <see cref="AutoProfilePageViewModel"/> from the DI container and sets it as
-/// the <see cref="UserControl.DataContext"/>. The page is hosted in a frame with
-/// <c>CacheSize=0</c>, so a fresh instance is created on each navigation.
-/// <see cref="OnLoaded"/> refreshes the ViewModel and <see cref="OnUnloaded"/> persists
-/// pending text edits on every navigation.
+/// the <see cref="UserControl.DataContext"/>. The frame caches the page so the same
+/// instance is reused across navigations. <see cref="OnLoaded"/> refreshes the ViewModel
+/// and <see cref="OnUnloaded"/> persists pending text edits on every navigation.
 /// </remarks>
 public partial class AutoProfilePage : UserControl
 {

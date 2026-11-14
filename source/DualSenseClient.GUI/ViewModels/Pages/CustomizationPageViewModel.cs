@@ -2335,12 +2335,11 @@ public partial class CustomizationPageViewModel : ObservableObject
         _vibrationSaveTimer.Tick += (_, _) => SaveVibrationDebounced();
         _controllerService.ControllersChanged += OnControllerInfoChanged;
         _mainViewModel.PropertyChanged += OnMainViewModelPropertyChanged;
-        Refresh();
     }
 
     /// <summary>
     /// Resynchronizes the page with the current profile service state and controller selection.
-    /// Called on construction and from the page's <c>OnLoaded</c>.
+    /// Called from the page's <c>OnLoaded</c>, which runs on construction and every navigation.
     /// </summary>
     public void Refresh()
     {

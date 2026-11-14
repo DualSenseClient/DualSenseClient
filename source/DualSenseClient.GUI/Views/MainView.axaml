@@ -162,9 +162,10 @@
                 </controls:FANavigationViewItem>
             </controls:FANavigationView.FooterMenuItems>
 
-            <!-- Hosts the active page; CacheSize=0 forces a fresh instance each navigation -->
+            <!-- Hosts the active page; one instance of each page is cached (and prewarmed
+                 behind the splash screen) so navigation does not rebuild large visual trees -->
             <controls:FAFrame x:Name="ContentFrame"
-                              CacheSize="0" />
+                              CacheSize="5" />
         </controls:FANavigationView>
     </Grid>
 </UserControl>
