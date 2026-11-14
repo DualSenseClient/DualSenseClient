@@ -1211,6 +1211,88 @@ public partial class CustomizationPageViewModel : ObservableObject
         }
     }
 
+    // ── Microphone ─────────────────────────────────────────────
+
+    /// <summary>
+    /// The physical microphone route options for the dropdown, in
+    /// <see cref="MicrophoneSource"/> order (auto, built-in, headphone, disabled).
+    /// </summary>
+    public ObservableCollection<string> MicrophoneSources { get; } = [];
+
+    /// <summary>
+    /// The physical microphone route (<see cref="MicrophoneSource"/> value) captured by
+    /// the virtual microphone. Setting it persists the change immediately.
+    /// </summary>
+    public int MicrophoneSourceIndex
+    {
+        get
+        {
+            return !HasDevice ? (int)MicrophoneSource.Auto : (int)GetEmulationSettings().Microphone.Source;
+        }
+        set
+        {
+            if (!HasDevice)
+            {
+                return;
+            }
+
+            MicrophoneSource source = (MicrophoneSource)Math.Clamp(value, (int)MicrophoneSource.Auto, (int)MicrophoneSource.Disabled);
+            EmulationSettings settings = GetEmulationSettings();
+            if (settings.Microphone.Source == source)
+            {
+                return;
+            }
+
+            _log.Debug($"Setting virtual microphone route of {CurrentMac} to {source}");
+            settings.Microphone.Source = source;
+            _controllerService.SaveEmulationSettings(CurrentKey, settings);
+            OnPropertyChanged(nameof(MicrophoneSourceIndex));
+        }
+    }
+
+    /// <summary>
+    /// The virtual microphone capture level (0-100, two-way, persisted).
+    /// </summary>
+    public int MicrophoneLevel
+    {
+        get
+        {
+            return !HasDevice ? 100 : GetEmulationSettings().Microphone.Level;
+        }
+        set
+        {
+            if (!HasDevice)
+            {
+                return;
+            }
+
+            int clamped = Math.Clamp(value, 0, 100);
+            EmulationSettings settings = GetEmulationSettings();
+            if (settings.Microphone.Level == clamped)
+            {
+                return;
+            }
+
+            settings.Microphone.Level = clamped;
+            ScheduleEmulationSave();
+            OnPropertyChanged(nameof(MicrophoneLevel));
+        }
+    }
+
+    /// <summary>
+    /// Whether the microphone section is shown: a physical DualSense is selected and it is not
+    /// a dongle. Dongles are configured separately. The route and level apply over USB and
+    /// Bluetooth independently of emulation; the virtual microphone passthrough itself
+    /// requires Bluetooth.
+    /// </summary>
+    public bool IsMicrophoneSectionVisible
+    {
+        get
+        {
+            return HasDevice && !IsDongle;
+        }
+    }
+
     /// <summary>
     /// The software gain applied to every audio source sent to the selected controller
     /// (1-8, 1 = unchanged, two-way, persisted). Values above 1 are soft-limited.
@@ -1721,6 +1803,11 @@ public partial class CustomizationPageViewModel : ObservableObject
         DongleAudioDevices.Add(LocalizationService.GetText("CustomizationPage.Dongle.Audio.BuiltIn"));
         DongleAudioDevices.Add(LocalizationService.GetText("CustomizationPage.Dongle.Audio.Headphone"));
         DongleAudioDevices.Add(LocalizationService.GetText("CustomizationPage.Dongle.Audio.Disabled"));
+
+        MicrophoneSources.Add(LocalizationService.GetText("CustomizationPage.Dongle.Audio.Auto"));
+        MicrophoneSources.Add(LocalizationService.GetText("CustomizationPage.Dongle.Audio.BuiltIn"));
+        MicrophoneSources.Add(LocalizationService.GetText("CustomizationPage.Dongle.Audio.Headphone"));
+        MicrophoneSources.Add(LocalizationService.GetText("CustomizationPage.Dongle.Audio.Disabled"));
 
         DongleVolumeLockModes.Add(LocalizationService.GetText("CustomizationPage.Dongle.LockVolume.Off"));
         DongleVolumeLockModes.Add(LocalizationService.GetText("CustomizationPage.Dongle.LockVolume.GameAndSoftware"));
@@ -2374,6 +2461,9 @@ public partial class CustomizationPageViewModel : ObservableObject
         OnPropertyChanged(nameof(ForwardHapticStrength));
         OnPropertyChanged(nameof(ForceAudioHaptics));
         OnPropertyChanged(nameof(ForwardAudioSourceIndex));
+        OnPropertyChanged(nameof(MicrophoneSourceIndex));
+        OnPropertyChanged(nameof(MicrophoneLevel));
+        OnPropertyChanged(nameof(IsMicrophoneSectionVisible));
         OnPropertyChanged(nameof(VibrationEncodingIndex));
         OnPropertyChanged(nameof(MotorPowerLevelEnabled));
         OnPropertyChanged(nameof(RumblePowerReduction));
@@ -2440,6 +2530,9 @@ public partial class CustomizationPageViewModel : ObservableObject
         OnPropertyChanged(nameof(IsForwardAudioAppEmpty));
         OnPropertyChanged(nameof(ForwardAudioAppModeIndex));
         OnPropertyChanged(nameof(ForwardAudioAppPath));
+        OnPropertyChanged(nameof(MicrophoneSourceIndex));
+        OnPropertyChanged(nameof(MicrophoneLevel));
+        OnPropertyChanged(nameof(IsMicrophoneSectionVisible));
         if (IsForwardAudioAppVisible)
         {
             _ = RefreshForwardAudioApps();

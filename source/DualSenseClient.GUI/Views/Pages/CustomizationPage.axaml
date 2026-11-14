@@ -1264,6 +1264,28 @@
                 </ui:FASettingsExpanderItem>
                 <ui:FASettingsExpanderItem Content="{DynamicResource AudioSource.NoApplications}"
                                            IsVisible="{Binding IsForwardAudioAppEmpty}" />
+                <ui:FASettingsExpander Theme="{StaticResource SettingsExpanderNoAnimationStyle}"
+                                       Header="{DynamicResource CustomizationPage.Microphone}"
+                                       Description="{DynamicResource CustomizationPage.Microphone.Description}"
+                                       IsExpanded="False"
+                                       IsVisible="{Binding IsMicrophoneSectionVisible}">
+                    <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Microphone.Source}"
+                                               Description="{DynamicResource CustomizationPage.Microphone.Source.Description}">
+                        <ui:FASettingsExpanderItem.Footer>
+                            <ComboBox ItemsSource="{Binding MicrophoneSources}"
+                                      SelectedIndex="{Binding MicrophoneSourceIndex}"
+                                      MinWidth="200" />
+                        </ui:FASettingsExpanderItem.Footer>
+                    </ui:FASettingsExpanderItem>
+                    <ui:FASettingsExpanderItem Content="{DynamicResource CustomizationPage.Microphone.Level}"
+                                               Description="{DynamicResource CustomizationPage.Microphone.Level.Description}">
+                        <ui:FASettingsExpanderItem.Footer>
+                            <controls:SliderInput Minimum="0"
+                                                  Maximum="100"
+                                                  Value="{Binding MicrophoneLevel, Mode=TwoWay}" />
+                        </ui:FASettingsExpanderItem.Footer>
+                    </ui:FASettingsExpanderItem>
+                </ui:FASettingsExpander>
             </ui:FASettingsExpander>
 
             <!-- Dongle configuration -->

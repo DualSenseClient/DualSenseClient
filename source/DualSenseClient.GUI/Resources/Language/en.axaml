@@ -302,6 +302,13 @@
     <sys:String x:Key="CustomizationPage.MicLed.Mode.On">On</sys:String>
     <sys:String x:Key="CustomizationPage.MicLed.Mode.Pulse">Pulse</sys:String>
     <sys:String x:Key="CustomizationPage.MicLed.Title">Microphone LED</sys:String>
+    <!-- Microphone -->
+    <sys:String x:Key="CustomizationPage.Microphone">Microphone</sys:String>
+    <sys:String x:Key="CustomizationPage.Microphone.Description">Configure the controller's microphone route and level. The virtual microphone passthrough requires Bluetooth.</sys:String>
+    <sys:String x:Key="CustomizationPage.Microphone.Level">Level</sys:String>
+    <sys:String x:Key="CustomizationPage.Microphone.Level.Description">Set the controller's microphone level</sys:String>
+    <sys:String x:Key="CustomizationPage.Microphone.Source">Route</sys:String>
+    <sys:String x:Key="CustomizationPage.Microphone.Source.Description">Choose the microphone route used by the controller. Disabled turns the controller microphone off.</sys:String>
     <!-- Name -->
     <sys:String x:Key="CustomizationPage.Name.Title">Name</sys:String>
     <!-- OverrideVirtualLights -->
