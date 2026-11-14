@@ -92,7 +92,7 @@ public sealed class ControllerEmulationTests
 
         Assert.That(json, Does.Contain("\"variant\":{\"dualsense\":\"Edge\",\"dualshock4\":\"V1\"}"));
         Assert.That(json, Does.Contain(
-            "\"forward\":{\"audio_output\":\"Headset\",\"volume\":149,\"software_volume_scale\":2.5,\"audio_buffer_length\":53,\"packet_mode\":\"Double\",\"haptics\":150,\"haptics_audio_only\":true,\"rumble\":false,\"triggers\":false,\"lightbar\":false,\"player_leds\":false,\"haptics_enabled\":false,\"audio_enabled\":false,\"audio_from_output\":true,\"audio_source\":\"SystemOutput\",\"audio_app\":\"\",\"audio_app_mode\":\"ExecutableFile\"}"));
+            "\"forward\":{\"audio_output\":\"Headset\",\"volume\":149,\"software_volume_scale\":2.5,\"audio_buffer_length\":53,\"packet_mode\":\"Double\",\"haptics\":150,\"haptics_audio_only\":true,\"rumble\":false,\"triggers\":false,\"lightbar\":false,\"player_leds\":false,\"haptics_enabled\":false,\"audio_enabled\":false,\"microphone_enabled\":true,\"audio_from_output\":true,\"audio_source\":\"SystemOutput\",\"audio_app\":\"\",\"audio_app_mode\":\"ExecutableFile\"},\"microphone\":{\"source\":\"Auto\",\"level\":100}"));
 
         ControllerInfo? roundTripped = JsonSerializer.Deserialize<ControllerInfo>(json, Options);
         Assert.That(roundTripped?.Emulation.Variant.DualSense, Is.EqualTo(DualSenseVariant.Edge));

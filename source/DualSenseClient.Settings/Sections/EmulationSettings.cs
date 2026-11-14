@@ -171,6 +171,79 @@ public enum EmulationAudioAppMode
 }
 
 /// <summary>
+/// The audio source captured by the virtual microphone exposed to the host.
+/// </summary>
+public enum MicrophoneSource
+{
+    /// <summary>
+    /// Use the controller's built-in microphone, or its headset microphone when one is
+    /// plugged in (the default).
+    /// </summary>
+    Auto = 0,
+
+    /// <summary>
+    /// Always use the controller's built-in microphone, even when a headset is plugged
+    /// in.
+    /// </summary>
+    BuiltIn = 1,
+
+    /// <summary>
+    /// Always use the microphone of a headset plugged into the controller's jack.
+    /// </summary>
+    Headphone = 2,
+
+    /// <summary>
+    /// No audio is captured; the virtual microphone stays silent.
+    /// </summary>
+    Disabled = 3
+}
+
+/// <summary>
+/// The virtual microphone options applied while a virtual device is active.
+/// </summary>
+public class MicrophoneSettings
+{
+    private MicrophoneSource _source = MicrophoneSource.Auto;
+
+    private int _level = 100;
+
+    /// <summary>
+    /// Gets or sets the source captured by the virtual microphone
+    /// (<see cref="MicrophoneSource.Auto"/> by default). An undefined enum value from a
+    /// hand-edited file falls back to <see cref="MicrophoneSource.Auto"/>.
+    /// </summary>
+    [JsonPropertyName("source")]
+    public MicrophoneSource Source
+    {
+        get
+        {
+            return _source;
+        }
+        set
+        {
+            _source = Enum.IsDefined(value) ? value : MicrophoneSource.Auto;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the captured microphone level as a percentage (0-100, 100 by
+    /// default). Values outside the range are clamped.
+    /// </summary>
+    [JsonPropertyName("level")]
+    public int Level
+    {
+        get
+        {
+            return _level;
+        }
+        set
+        {
+            _level = Math.Clamp(value, 0, 100);
+        }
+    }
+}
+
+/// <summary>
 /// The host-audio forwarding options applied to the physical controller while a
 /// virtual device is active.
 /// </summary>
@@ -272,6 +345,14 @@ public class ForwardSettings
     /// </summary>
     [JsonPropertyName("audio_enabled")]
     public bool AudioEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether the physical controller's microphone is forwarded to the
+    /// host as the audio of the virtual controller's microphone endpoint (true by
+    /// default). Only applies to DualSense emulation.
+    /// </summary>
+    [JsonPropertyName("microphone_enabled")]
+    public bool MicrophoneEnabled { get; set; } = true;
 
     /// <summary>
     /// Gets or sets whether the forwarded audio is captured from the system's default
@@ -376,6 +457,12 @@ public class EmulationSettings
     /// </summary>
     [JsonPropertyName("forward")]
     public ForwardSettings Forward { get; set; } = new ForwardSettings();
+
+    /// <summary>
+    /// Gets or sets the virtual microphone options exposed to the host.
+    /// </summary>
+    [JsonPropertyName("microphone")]
+    public MicrophoneSettings Microphone { get; set; } = new MicrophoneSettings();
 
     /// <summary>
     /// Gets or sets the per-mode button remapping rules.

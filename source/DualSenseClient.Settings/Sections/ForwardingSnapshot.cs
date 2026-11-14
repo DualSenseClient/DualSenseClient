@@ -17,6 +17,7 @@ namespace DualSenseClient.Settings.Sections;
 /// <param name="PlayerLeds">Whether player LEDs are forwarded.</param>
 /// <param name="HapticsEnabled">Whether game haptics are forwarded.</param>
 /// <param name="AudioEnabled">Whether controller-endpoint audio is forwarded.</param>
+/// <param name="MicrophoneEnabled">Whether the controller microphone is forwarded.</param>
 /// <param name="AudioSource">The forwarded audio source.</param>
 /// <param name="AudioApp">The captured application executable path.</param>
 /// <param name="SoftwareVolumeScale">
@@ -36,6 +37,7 @@ public readonly record struct ForwardingSnapshot(
     bool PlayerLeds,
     bool HapticsEnabled,
     bool AudioEnabled,
+    bool MicrophoneEnabled,
     EmulationAudioSource AudioSource,
     string AudioApp,
     double SoftwareVolumeScale = 1.0)
@@ -62,6 +64,7 @@ public readonly record struct ForwardingSnapshot(
             settings.PlayerLeds,
             settings.HapticsEnabled,
             settings.AudioEnabled,
+            settings.MicrophoneEnabled,
             Enum.IsDefined(settings.AudioSource) ? settings.AudioSource : EmulationAudioSource.ControllerEndpoint,
             settings.AudioApp?.Trim() ?? string.Empty,
             Math.Clamp(settings.SoftwareVolumeScale, 1.0, 8.0));
