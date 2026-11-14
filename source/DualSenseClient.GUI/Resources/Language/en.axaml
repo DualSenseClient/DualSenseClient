@@ -545,6 +545,8 @@
     <sys:String x:Key="EmulationPage.Passthroughs.GameHaptics.Description">Forward the game's own haptics to the physical controller. Audio-based haptics keep working when this is off.</sys:String>
     <sys:String x:Key="EmulationPage.Passthroughs.Lightbar">Lightbar</sys:String>
     <sys:String x:Key="EmulationPage.Passthroughs.Lightbar.Description">Forward the game's lightbar color and brightness to the physical controller.</sys:String>
+    <sys:String x:Key="EmulationPage.Passthroughs.Microphone">Microphone passthrough</sys:String>
+    <sys:String x:Key="EmulationPage.Passthroughs.Microphone.Description">Forward the physical controller's microphone to the host as the virtual controller's microphone. Only applies while the controller is connected over Bluetooth.</sys:String>
     <sys:String x:Key="EmulationPage.Passthroughs.PlayerLeds">Player LEDs</sys:String>
     <sys:String x:Key="EmulationPage.Passthroughs.PlayerLeds.Description">Forward the game's player indicator LEDs to the physical controller.</sys:String>
     <sys:String x:Key="EmulationPage.Passthroughs.Rumble">Vibration</sys:String>

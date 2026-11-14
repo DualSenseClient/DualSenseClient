@@ -15,6 +15,7 @@ using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.GUI.Models.Items;
 using DualSenseClient.GUI.Controls;
 using DualSenseClient.GUI.Services;
+using DualSenseClient.Hid;
 using SoundFlow.Abstracts;
 using DualSenseClient.Logging;
 using DualSenseClient.Settings;
@@ -297,6 +298,7 @@ public partial class EmulationPageViewModel : ObservableObject
             OnPropertyChanged(nameof(IsDualShock4Emulation));
             OnPropertyChanged(nameof(IsForwardRumbleVisible));
             OnPropertyChanged(nameof(IsForwardLightbarVisible));
+            OnPropertyChanged(nameof(IsForwardMicrophoneVisible));
             OnPropertyChanged(nameof(IsMappingEditorVisible));
             NotifyTargetPickerState();
             RefreshMappingTargets();
@@ -356,6 +358,24 @@ public partial class EmulationPageViewModel : ObservableObject
 
             EmulationMode mode = GetEmulationSettings().Mode;
             return mode is EmulationMode.DualSense or EmulationMode.DualShock4;
+        }
+    }
+
+    /// <summary>
+    /// Whether the microphone passthrough toggle applies to the selected controller: the
+    /// emulation mode has a microphone endpoint and the physical controller is connected
+    /// over Bluetooth, the only transport that carries its microphone.
+    /// </summary>
+    public bool IsForwardMicrophoneVisible
+    {
+        get
+        {
+            if (!IsForwardLightbarVisible || CurrentDevice is null)
+            {
+                return false;
+            }
+
+            return CurrentDevice.Controller.Device.ConnectionType == ConnectionType.Bluetooth;
         }
     }
 
@@ -456,6 +476,24 @@ public partial class EmulationPageViewModel : ObservableObject
         {
             SetForwardingToggle(value, nameof(ForwardAudioEnabled), forward => forward.AudioEnabled,
                 (forward, enabled) => forward.AudioEnabled = enabled);
+        }
+    }
+
+    /// <summary>
+    /// Whether the physical controller's microphone is forwarded to the host as the
+    /// virtual controller's microphone (two-way, persisted). Applies to DualSense and
+    /// DualShock 4 emulation over Bluetooth.
+    /// </summary>
+    public bool ForwardMicrophone
+    {
+        get
+        {
+            return HasDevice && GetEmulationSettings().Forward.MicrophoneEnabled;
+        }
+        set
+        {
+            SetForwardingToggle(value, nameof(ForwardMicrophone), forward => forward.MicrophoneEnabled,
+                (forward, enabled) => forward.MicrophoneEnabled = enabled);
         }
     }
 
@@ -1695,12 +1733,14 @@ public partial class EmulationPageViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDualShock4Emulation));
         OnPropertyChanged(nameof(IsForwardRumbleVisible));
         OnPropertyChanged(nameof(IsForwardLightbarVisible));
+        OnPropertyChanged(nameof(IsForwardMicrophoneVisible));
         OnPropertyChanged(nameof(ForwardRumble));
         OnPropertyChanged(nameof(ForwardTriggers));
         OnPropertyChanged(nameof(ForwardLightbar));
         OnPropertyChanged(nameof(ForwardPlayerLeds));
         OnPropertyChanged(nameof(ForwardGameHaptics));
         OnPropertyChanged(nameof(ForwardAudioEnabled));
+        OnPropertyChanged(nameof(ForwardMicrophone));
         OnPropertyChanged(nameof(IsMappingEditorVisible));
         NotifyTargetPickerState();
         OnPropertyChanged(nameof(DualSenseVariantIndex));

@@ -123,6 +123,13 @@
                                 <ToggleSwitch IsChecked="{Binding ForwardAudioEnabled, Mode=TwoWay}" />
                             </ui:FASettingsExpanderItem.Footer>
                         </ui:FASettingsExpanderItem>
+                        <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Passthroughs.Microphone}"
+                                                   Description="{DynamicResource EmulationPage.Passthroughs.Microphone.Description}"
+                                                   IsVisible="{Binding IsForwardMicrophoneVisible}">
+                            <ui:FASettingsExpanderItem.Footer>
+                                <ToggleSwitch IsChecked="{Binding ForwardMicrophone, Mode=TwoWay}" />
+                            </ui:FASettingsExpanderItem.Footer>
+                        </ui:FASettingsExpanderItem>
                     </ui:FASettingsExpander>
                 </ui:FASettingsExpanderItem>
                 <!-- Button remapping -->
