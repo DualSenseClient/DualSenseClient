@@ -92,6 +92,12 @@ public sealed class VirtualControllerSlot
     public VirtualUsbDevice? Persona;
 
     /// <summary>
+    /// The bridge feeding the persona's microphone endpoint from the physical controller's
+    /// Bluetooth microphone, when one is active.
+    /// </summary>
+    public VirtualControllerMicrophone? Microphone;
+
+    /// <summary>
     /// Whether the slot currently holds a running virtual controller.
     /// </summary>
     public bool IsRunning

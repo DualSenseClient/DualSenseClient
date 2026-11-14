@@ -550,6 +550,7 @@ public sealed class EmulationService : IEmulationService
                 DeviceSubscribe(device);
                 EmulationSettings settings = GetEmulationSettings(device);
                 entry.Device.AudioLane.SoftwareGain = (float)Math.Clamp(settings.Forward.SoftwareVolumeScale, 1.0, 8.0);
+                ApplyPhysicalMicrophoneSettings(entry, settings);
                 if (StartCreationLocked(entry))
                 {
                     toCreate.Add(entry);
@@ -754,6 +755,8 @@ public sealed class EmulationService : IEmulationService
             server.RemoveDevice(persona);
             lock (_sync)
             {
+                entry.Microphone?.Dispose();
+                entry.Microphone = null;
                 entry.Persona = null;
                 entry.Device.LightbarPassthroughEnabled = false;
                 entry.Device.PlayerLedPassthroughEnabled = false;
@@ -805,6 +808,10 @@ public sealed class EmulationService : IEmulationService
                     return;
                 }
 
+                // Create the bridge before marking the persona handled: a constructor
+                // failure must flow through the catch below, which runs
+                // CleanupAttachedPersona and its bridge disposal.
+                entry.Microphone = CreateMicrophoneBridge(entry, virtualController, emulation, forwarding.MicrophoneEnabled);
                 personaHandled = true;
                 entry.Persona = persona;
                 entry.Virtual = virtualController;
@@ -961,17 +968,7 @@ public sealed class EmulationService : IEmulationService
             if (stored.Mode != mode || stored.Variant.DualSense != dsVariant || stored.Variant.DualShock4 != ds4Variant
                 || audioChanged)
             {
-                return new EmulationSettings
-                {
-                    Mode = mode,
-                    Variant = new VariantSettings
-                    {
-                        DualSense = dsVariant,
-                        DualShock4 = ds4Variant
-                    },
-                    Forward = audioChanged ? CloneForward(stored.Forward, audioSource, audioApp) : stored.Forward,
-                    Mappings = stored.Mappings
-                };
+                return CloneWithTemporaryOverride(stored, mode, dsVariant, ds4Variant, audioSource, audioApp);
             }
         }
 
@@ -979,9 +976,43 @@ public sealed class EmulationService : IEmulationService
     }
 
     /// <summary>
+    /// Copies the stored emulation settings with the temporary mode, hardware variants and
+    /// forwarded-audio source applied. The microphone settings and the microphone passthrough
+    /// switch ride along unchanged, so an auto-profile override never disables or reconfigures the
+    /// virtual microphone. The forwarding object is copied only when the audio source changed, and
+    /// the stored object is never mutated.
+    /// </summary>
+    /// <param name="stored">The controller's stored settings.</param>
+    /// <param name="mode">The effective emulation mode.</param>
+    /// <param name="dsVariant">The effective DualSense variant.</param>
+    /// <param name="ds4Variant">The effective DualShock 4 variant.</param>
+    /// <param name="audioSource">The effective forwarded-audio source.</param>
+    /// <param name="audioApp">The effective forwarded-audio application.</param>
+    /// <returns>A copy safe to use for device creation and live updates.</returns>
+    internal static EmulationSettings CloneWithTemporaryOverride(EmulationSettings stored,
+        EmulationMode mode, DualSenseVariant dsVariant, DualShock4Variant ds4Variant,
+        EmulationAudioSource audioSource, string audioApp)
+    {
+        bool audioChanged = stored.Forward.AudioSource != audioSource
+                            || !string.Equals(stored.Forward.AudioApp, audioApp, StringComparison.Ordinal);
+        return new EmulationSettings
+        {
+            Mode = mode,
+            Variant = new VariantSettings
+            {
+                DualSense = dsVariant,
+                DualShock4 = ds4Variant
+            },
+            Forward = audioChanged ? CloneForward(stored.Forward, audioSource, audioApp) : stored.Forward,
+            Microphone = stored.Microphone,
+            Mappings = stored.Mappings
+        };
+    }
+
+    /// <summary>
     /// Copies the forwarding settings with the audio source overridden, so a temporary
-    /// override never mutates the stored (or profile-bound) object. Caller must hold
-    /// no lock for the copy itself.
+    /// override never mutates the stored (or profile-bound) object. The microphone
+    /// passthrough switch is carried over. Caller must hold no lock for the copy itself.
     /// </summary>
     private static ForwardSettings CloneForward(ForwardSettings source, EmulationAudioSource audioSource, string audioApp)
     {
@@ -999,6 +1030,7 @@ public sealed class EmulationService : IEmulationService
             PlayerLeds = source.PlayerLeds,
             HapticsEnabled = source.HapticsEnabled,
             AudioEnabled = source.AudioEnabled,
+            MicrophoneEnabled = source.MicrophoneEnabled,
             AudioSource = audioSource,
             AudioApp = audioApp
         };
@@ -1039,10 +1071,32 @@ public sealed class EmulationService : IEmulationService
         ForwardingSnapshot snapshot = ForwardingSnapshot.From(forwarding);
         entry.Virtual?.ApplyForwardingSettings(snapshot);
         entry.Forwarder?.ApplyForwardingSettings(snapshot);
+        entry.Microphone?.ApplySettings(emulation?.Microphone ?? new MicrophoneSettings(), snapshot.MicrophoneEnabled);
+        ApplyPhysicalMicrophoneSettings(entry, emulation);
         // The software volume applies to every audio owner on this device, including the
         // local player and special-action sounds that never touch the forwarder.
         entry.Device.AudioLane.SoftwareGain = (float)snapshot.SoftwareVolumeScale;
         ApplyPassthroughLocked(entry, forwarding);
+    }
+
+    /// <summary>
+    /// Applies the configured microphone route and level to the physical controller through
+    /// its normal output report, independently of emulation mode. The Bluetooth bridge
+    /// re-applies the same values while a virtual microphone stream runs. Dongles are skipped
+    /// because their own configuration surface owns the microphone route. Caller must hold
+    /// <see cref="_sync"/>.
+    /// </summary>
+    /// <param name="entry">Entry whose physical controller receives the settings.</param>
+    /// <param name="emulation">The effective emulation settings.</param>
+    private static void ApplyPhysicalMicrophoneSettings(VirtualControllerSlot entry, EmulationSettings? emulation)
+    {
+        if (entry.Device is DualSenseDongle)
+        {
+            return;
+        }
+
+        MicrophoneSettings microphone = emulation?.Microphone ?? new MicrophoneSettings();
+        entry.Device.ApplyMicrophoneSettings(microphone.Source, microphone.Level);
     }
 
     /// <summary>
@@ -1231,6 +1285,39 @@ public sealed class EmulationService : IEmulationService
     /// </summary>
     private static bool IsSpeakerBearingAdapter(IVirtualController? virtualController) =>
         virtualController is VirtualDualSenseController or VirtualDualShock4Controller;
+
+    /// <summary>
+    /// Creates the bridge feeding the persona's microphone endpoint from the physical controller's
+    /// Bluetooth microphone, or <c>null</c> when the controller is wired or the virtual controller
+    /// has no microphone endpoint. The initial source, level, and passthrough state are applied
+    /// immediately. Caller must hold <see cref="_sync"/>.
+    /// </summary>
+    /// <param name="entry">Entry whose physical controller supplies the microphone.</param>
+    /// <param name="virtualController">The committed virtual controller.</param>
+    /// <param name="emulation">The effective emulation settings used to create the device.</param>
+    /// <param name="passthroughEnabled">Whether the microphone passthrough switch is on.</param>
+    /// <returns>The bridge, or <c>null</c> when the entry cannot forward a microphone.</returns>
+    private static VirtualControllerMicrophone? CreateMicrophoneBridge(VirtualControllerSlot entry,
+        IVirtualController virtualController, EmulationSettings? emulation, bool passthroughEnabled)
+    {
+        if (entry.Device.ConnectionType != ConnectionType.Bluetooth)
+        {
+            return null;
+        }
+
+        MicrophoneSettings microphone = emulation?.Microphone ?? new MicrophoneSettings();
+        if (virtualController is VirtualDualSenseController dualSense)
+        {
+            return new VirtualControllerMicrophone(entry.Device, dualSense.Persona, microphone, passthroughEnabled);
+        }
+
+        if (virtualController is VirtualDualShock4Controller dualShock4)
+        {
+            return new VirtualControllerMicrophone(entry.Device, dualShock4.Persona, microphone, passthroughEnabled);
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// Resumes the entry's controller capture, or rebuilds it when the controller endpoint was
@@ -1601,6 +1688,8 @@ public sealed class EmulationService : IEmulationService
 
         IVirtualController virtualController = entry.Virtual;
         UnwireGameCallbacksLocked(entry);
+        entry.Microphone?.Dispose();
+        entry.Microphone = null;
         entry.Virtual = null;
         entry.Device.LightbarPassthroughEnabled = false;
         entry.Device.PlayerLedPassthroughEnabled = false;

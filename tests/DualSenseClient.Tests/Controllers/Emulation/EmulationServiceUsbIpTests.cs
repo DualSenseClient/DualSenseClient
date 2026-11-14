@@ -1,9 +1,11 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using DualSenseClient.Controllers;
 using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.DualSense.Input;
+using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Emulation;
 using DualSenseClient.Controllers.SpecialActions;
 using DualSenseClient.Hid;
@@ -46,6 +48,27 @@ public sealed class EmulationServiceUsbIpTests
     /// <summary>Size of the pairing information report.</summary>
     private const int PairingReportSize = 20;
 
+    /// <summary>Report id of the Bluetooth microphone state and status reports.</summary>
+    private const byte MicrophoneReportId = 0x32;
+
+    /// <summary>Byte offset of the microphone mask in a <c>0x32</c> report.</summary>
+    private const int MicrophoneMaskOffset = 4;
+
+    /// <summary>Microphone mask carried while the physical microphone gate is open.</summary>
+    private const byte MicrophoneStreamingMask = 0x03;
+
+    /// <summary>Microphone mask carried while the physical microphone gate is closed.</summary>
+    private const byte MicrophoneStoppedMask = 0x02;
+
+    /// <summary>Standard SET_INTERFACE request code (USB 2.0, section 9.4.10).</summary>
+    private const byte RequestSetInterface = 0x0B;
+
+    /// <summary>Host-to-device standard request addressed to an interface (bmRequestType 0x01).</summary>
+    private const byte StandardInterfaceOut = 0x01;
+
+    /// <summary>Interface number of the microphone audio streaming interface (AS IN).</summary>
+    private const byte MicrophoneInterfaceNumber = 2;
+
     private string _tempDir = null!;
     private ControllerTracker _tracker = null!;
     private FakeHidEnumerator _enumerator = null!;
@@ -57,6 +80,7 @@ public sealed class EmulationServiceUsbIpTests
     private RecordingVirtualControllerFactory _virtualFactory = null!;
     private EmulationService _service = null!;
     private readonly List<PhysicalDualSense> _devices = new List<PhysicalDualSense>();
+    private readonly Dictionary<PhysicalDualSense, StubHidDevice> _hids = new Dictionary<PhysicalDualSense, StubHidDevice>();
 
     [SetUp]
     public void Setup()
@@ -150,18 +174,24 @@ public sealed class EmulationServiceUsbIpTests
 
     private PhysicalDualSense CreateDevice(string key, ConnectionType busType = ConnectionType.Usb)
     {
-        PhysicalDualSense device = new PhysicalDualSense(new StubHidDevice(),
+        StubHidDevice hid = new StubHidDevice();
+        PhysicalDualSense device = new PhysicalDualSense(hid,
             new StubHidDeviceInfo($@"\\?\hid#emulation-test#{key}")
             {
                 BusType = busType
             });
         _devices.Add(device);
+        _hids.Add(device, hid);
         return device;
     }
 
+    /// <summary>Returns the recording HID stub of a device created by <see cref="CreateDevice"/>.</summary>
+    private StubHidDevice GetHid(PhysicalDualSense device) => _hids[device];
+
     private void SetStoredSettings(PhysicalDualSense device, EmulationMode mode,
         DualSenseVariant dsVariant = DualSenseVariant.Standard, DualShock4Variant ds4Variant = DualShock4Variant.V2,
-        EmulationAudioSource audioSource = EmulationAudioSource.ControllerEndpoint)
+        EmulationAudioSource audioSource = EmulationAudioSource.ControllerEndpoint,
+        MicrophoneSettings? microphone = null)
     {
         _controllerInfo.SaveEmulationSettings(null, device.Info.Path, new EmulationSettings
         {
@@ -174,7 +204,8 @@ public sealed class EmulationServiceUsbIpTests
             Forward = new ForwardSettings
             {
                 AudioSource = audioSource
-            }
+            },
+            Microphone = microphone ?? new MicrophoneSettings()
         });
     }
 
@@ -911,6 +942,339 @@ public sealed class EmulationServiceUsbIpTests
         });
     }
 
+    [Test]
+    public void BluetoothDualSenseEntry_CreatesMicrophoneBridge()
+    {
+        PhysicalDualSense device = CreateDevice("microphone-dualsense", ConnectionType.Bluetooth);
+        SetStoredSettings(device, EmulationMode.DualSense);
+        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
+        _tracker.TrackController(device);
+
+        _service.Start();
+        WaitForRunning(device);
+
+        object entry = GetEntry(device);
+        StubHidDevice hid = GetHid(device);
+        Assert.That(ReadField<VirtualControllerMicrophone?>(entry, "Microphone"), Is.Not.Null,
+            "a Bluetooth DualSense entry owns a microphone bridge");
+
+        SetMicrophoneInterface(_virtualFactory.Creations[0].Creation!.Persona, 1);
+
+        Assert.That(HasMicrophoneStatusWrite(hid, MicrophoneStreamingMask), Is.True,
+            "opening the persona's microphone starts the bridge and opens the physical microphone gate");
+    }
+
+    [Test]
+    public void BluetoothDualShock4Entry_CreatesMicrophoneBridge()
+    {
+        PhysicalDualSense device = CreateDevice("microphone-dualshock4", ConnectionType.Bluetooth);
+        SetStoredSettings(device, EmulationMode.DualShock4);
+        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x09CC));
+        _tracker.TrackController(device);
+
+        _service.Start();
+        WaitForRunning(device);
+
+        object entry = GetEntry(device);
+        StubHidDevice hid = GetHid(device);
+        Assert.Multiple(() =>
+        {
+            Assert.That(_virtualFactory.Creations[0].Creation!.Persona, Is.TypeOf<PersonaDualShock4>());
+            Assert.That(ReadField<VirtualControllerMicrophone?>(entry, "Microphone"), Is.Not.Null,
+                "a Bluetooth DualShock 4 entry owns a microphone bridge");
+        });
+
+        SetMicrophoneInterface(_virtualFactory.Creations[0].Creation!.Persona, 1);
+
+        Assert.That(HasMicrophoneStatusWrite(hid, MicrophoneStreamingMask), Is.True,
+            "opening the persona's microphone starts the bridge and opens the physical microphone gate");
+    }
+
+    [Test]
+    public void UsbEntry_DoesNotCreateMicrophoneBridge()
+    {
+        PhysicalDualSense device = CreateDevice("microphone-usb");
+        SetStoredSettings(device, EmulationMode.DualSense);
+        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
+        _tracker.TrackController(device);
+
+        _service.Start();
+        WaitForRunning(device);
+
+        object entry = GetEntry(device);
+        StubHidDevice hid = GetHid(device);
+        SetMicrophoneInterface(_virtualFactory.Creations[0].Creation!.Persona, 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadField<VirtualControllerMicrophone?>(entry, "Microphone"), Is.Null,
+                "a wired controller has no Bluetooth microphone to forward");
+            Assert.That(HasMicrophoneStatusWrite(hid, MicrophoneStreamingMask), Is.False,
+                "no microphone status report is written for a USB entry");
+        });
+    }
+
+    [Test]
+    public void UsbEntry_AppliesMicrophoneRouteAndLevel()
+    {
+        PhysicalDualSense device = CreateDevice("microphone-usb-route");
+        SetStoredSettings(device, EmulationMode.DualSense, microphone: new MicrophoneSettings
+        {
+            Source = MicrophoneSource.Headphone,
+            Level = 50
+        });
+        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
+        _tracker.TrackController(device);
+
+        _service.Start();
+        WaitForRunning(device);
+
+        Assert.That(HasUsbMicrophoneStateWrite(GetHid(device), AudioControl.MicSelectExternal, 32), Is.True,
+            "a wired controller receives the route and level through the USB output report");
+    }
+
+    [Test]
+    public void UsbEntry_AppliesMicrophoneRouteAndLevel_WhenEmulationOff()
+    {
+        PhysicalDualSense device = CreateDevice("microphone-usb-off-mode");
+        SetStoredSettings(device, EmulationMode.Off, microphone: new MicrophoneSettings
+        {
+            Source = MicrophoneSource.Headphone,
+            Level = 50
+        });
+        _tracker.TrackController(device);
+
+        _service.Start();
+
+        Assert.That(HasUsbMicrophoneStateWrite(GetHid(device), AudioControl.MicSelectExternal, 32), Is.True,
+            "the USB microphone settings apply without virtual controller emulation");
+    }
+
+    [Test]
+    public void BluetoothEntry_AppliesMicrophoneRouteAndLevel_WhenEmulationOff()
+    {
+        PhysicalDualSense device = CreateDevice("microphone-bluetooth-off-mode", ConnectionType.Bluetooth);
+        SetStoredSettings(device, EmulationMode.Off, microphone: new MicrophoneSettings
+        {
+            Source = MicrophoneSource.Headphone,
+            Level = 50
+        });
+        _tracker.TrackController(device);
+
+        _service.Start();
+
+        Assert.That(HasBluetoothMicrophoneStateWrite(GetHid(device), AudioControl.MicSelectExternal, 32), Is.True,
+            "the Bluetooth microphone settings apply without virtual controller emulation");
+    }
+
+    [Test]
+    public void UsbEntry_AppliesMicrophoneRouteAndLevel_WhenCreationFails()
+    {
+        PhysicalDualSense device = CreateDevice("microphone-usb-create-failure");
+        SetStoredSettings(device, EmulationMode.DualSense, microphone: new MicrophoneSettings
+        {
+            Source = MicrophoneSource.Headphone,
+            Level = 50
+        });
+        _tracker.TrackController(device);
+
+        _service.Start();
+        WaitForFailure(device);
+
+        Assert.That(HasUsbMicrophoneStateWrite(GetHid(device), AudioControl.MicSelectExternal, 32), Is.True,
+            "the physical microphone settings still apply when the virtual controller cannot start");
+    }
+
+    [Test]
+    public void Refresh_UsbAppliesMicrophoneRouteAndLevel()
+    {
+        PhysicalDualSense device = CreateDevice("microphone-usb-refresh");
+        SetStoredSettings(device, EmulationMode.DualSense);
+        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
+        _tracker.TrackController(device);
+
+        _service.Start();
+        WaitForRunning(device);
+
+        EmulationSettings settings = _controllerInfo.GetEmulationSettings(null, device.Info.Path);
+        settings.Microphone.Source = MicrophoneSource.Headphone;
+        settings.Microphone.Level = 50;
+        _controllerInfo.SaveEmulationSettings(null, device.Info.Path, settings);
+        _service.Refresh();
+
+        Assert.That(HasUsbMicrophoneStateWrite(GetHid(device), AudioControl.MicSelectExternal, 32), Is.True,
+            "a live settings change reaches the wired controller without recreating the virtual device");
+    }
+
+    [Test]
+    public void Refresh_UsbKeepsOverridingMicrophoneWhenEmulationTurnsOff()
+    {
+        PhysicalDualSense device = CreateDevice("microphone-usb-off");
+        SetStoredSettings(device, EmulationMode.DualSense, microphone: new MicrophoneSettings
+        {
+            Source = MicrophoneSource.Headphone,
+            Level = 50
+        });
+        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
+        _tracker.TrackController(device);
+
+        _service.Start();
+        WaitForRunning(device);
+
+        EmulationSettings settings = _controllerInfo.GetEmulationSettings(null, device.Info.Path);
+        settings.Mode = EmulationMode.Off;
+        _controllerInfo.SaveEmulationSettings(null, device.Info.Path, settings);
+        _service.Refresh();
+
+        StubHidDevice hid = GetHid(device);
+        device.SendOutputState(new SetStateData
+        {
+            ValidFlag0 = ValidFlags.AllowAudioControl | ValidFlags.AllowMicVolume,
+            AudioControl = AudioControl.OutputPathHeadphones | AudioControl.MicSelectInternal,
+            MicVolume = 7
+        });
+
+        byte[] write = hid.LastWrite!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(write[0], Is.EqualTo(0x02));
+            Assert.That(write[8] & 0x03, Is.EqualTo((byte)AudioControl.MicSelectExternal),
+                "the USB microphone route stays overridden when emulation turns off");
+            Assert.That(write[7], Is.EqualTo(32), "the USB microphone level stays overridden when emulation turns off");
+        });
+    }
+
+    [Test]
+    public void Xbox360Entry_DoesNotCreateMicrophoneBridge()
+    {
+        PhysicalDualSense device = CreateDevice("microphone-xbox360", ConnectionType.Bluetooth);
+        SetStoredSettings(device, EmulationMode.Xbox360);
+        _tracker.TrackController(device);
+
+        _service.Start();
+        WaitForRunning(device);
+
+        object entry = GetEntry(device);
+        StubHidDevice hid = GetHid(device);
+        Assert.Multiple(() =>
+        {
+            Assert.That(_virtualFactory.Creations[0].Creation!.Persona, Is.TypeOf<PersonaXbox360>());
+            Assert.That(ReadField<VirtualControllerMicrophone?>(entry, "Microphone"), Is.Null,
+                "the Xbox 360 persona has no microphone endpoint");
+            Assert.That(HasMicrophoneStatusWrite(hid, MicrophoneStreamingMask), Is.False,
+                "no microphone gate is opened for an Xbox 360 entry");
+            Assert.That(HasBluetoothMicrophoneStateWrite(hid, AudioControl.MicSelectAuto, 64), Is.True,
+                "the physical microphone route and level still apply");
+        });
+    }
+
+    [Test]
+    public void DisposeEntry_StopsBridge()
+    {
+        PhysicalDualSense device = CreateDevice("microphone-dispose", ConnectionType.Bluetooth);
+        SetStoredSettings(device, EmulationMode.DualSense);
+        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
+        _tracker.TrackController(device);
+
+        _service.Start();
+        WaitForRunning(device);
+
+        StubHidDevice hid = GetHid(device);
+        SetMicrophoneInterface(_virtualFactory.Creations[0].Creation!.Persona, 1);
+        Assert.That(HasMicrophoneStatusWrite(hid, MicrophoneStreamingMask), Is.True,
+            "precondition: the bridge opened the physical microphone gate");
+
+        _service.Dispose();
+
+        Assert.That(HasMicrophoneStatusWrite(hid, MicrophoneStoppedMask), Is.True,
+            "disposing the entry stops the bridge and closes the physical microphone gate");
+    }
+
+    [Test]
+    public void Refresh_MicrophonePassthrough_TogglesTheLiveBridgeWithoutRecreating()
+    {
+        PhysicalDualSense device = CreateDevice("microphone-live", ConnectionType.Bluetooth);
+        SetStoredSettings(device, EmulationMode.DualSense);
+        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
+        _tracker.TrackController(device);
+
+        _service.Start();
+        WaitForRunning(device);
+
+        StubHidDevice hid = GetHid(device);
+        SetMicrophoneInterface(_virtualFactory.Creations[0].Creation!.Persona, 1);
+        WaitForMicrophoneStatus(hid, MicrophoneStreamingMask, 1);
+
+        EmulationSettings settings = _controllerInfo.GetEmulationSettings(null, device.Info.Path);
+        int stoppedBefore = CountMicrophoneStatusWrites(hid, MicrophoneStoppedMask);
+        settings.Forward.MicrophoneEnabled = false;
+        _controllerInfo.SaveEmulationSettings(null, device.Info.Path, settings);
+        _service.Refresh();
+        WaitUntil(() => CountMicrophoneStatusWrites(hid, MicrophoneStoppedMask) > stoppedBefore,
+            "the live bridge to close the physical microphone gate when passthrough is disabled");
+
+        int streamingBefore = CountMicrophoneStatusWrites(hid, MicrophoneStreamingMask);
+        settings.Forward.MicrophoneEnabled = true;
+        _controllerInfo.SaveEmulationSettings(null, device.Info.Path, settings);
+        _service.Refresh();
+        WaitUntil(() => CountMicrophoneStatusWrites(hid, MicrophoneStreamingMask) > streamingBefore,
+            "the live bridge to reopen the physical microphone gate when passthrough is enabled again");
+
+        Assert.That(_virtualFactory.Creations, Has.Count.EqualTo(1),
+            "the passthrough toggle applies to the live bridge without recreating the virtual device");
+    }
+
+    /// <summary>
+    /// Sets the microphone streaming interface alternate setting through the same standard
+    /// SET_INTERFACE request the host sends.
+    /// </summary>
+    private static void SetMicrophoneInterface(VirtualUsbDevice persona, byte alternateSetting)
+    {
+        UsbSetupPacket setup = new UsbSetupPacket
+        {
+            RequestType = StandardInterfaceOut,
+            Request = RequestSetInterface,
+            Value = alternateSetting,
+            Index = MicrophoneInterfaceNumber,
+            Length = 0
+        };
+        Assert.That(persona.HandleControlRequest(setup, [], []), Is.Zero,
+            "the persona accepts the microphone alternate setting");
+    }
+
+    /// <summary>Whether the physical controller recorded a Bluetooth microphone state with the given route and level.</summary>
+    private static bool HasBluetoothMicrophoneStateWrite(StubHidDevice hid, AudioControl source, byte level) =>
+        hid.Writes.Any(write => write.Length > 11
+                                && write[0] == MicrophoneReportId
+                                && write[2] == 0x90
+                                && (write[11] & 0x03) == (byte)source
+                                && write[10] == level);
+
+    /// <summary>Whether the physical controller recorded a USB output report with the given microphone route and level.</summary>
+    private static bool HasUsbMicrophoneStateWrite(StubHidDevice hid, AudioControl source, byte level) =>
+        hid.Writes.Any(write => write.Length > 8
+                                && write[0] == 0x02
+                                && (write[1] & (byte)(ValidFlags.AllowAudioControl | ValidFlags.AllowMicVolume))
+                                == (byte)(ValidFlags.AllowAudioControl | ValidFlags.AllowMicVolume)
+                                && (write[8] & 0x03) == (byte)source
+                                && write[7] == level);
+
+    /// <summary>Whether the physical controller's HID stub recorded a microphone status with the given mask.</summary>
+    private static bool HasMicrophoneStatusWrite(StubHidDevice hid, byte mask) =>
+        CountMicrophoneStatusWrites(hid, mask) > 0;
+
+    /// <summary>Counts the recorded microphone status reports that carry the given mask.</summary>
+    private static int CountMicrophoneStatusWrites(StubHidDevice hid, byte mask) =>
+        hid.Writes.Count(write => write.Length > MicrophoneMaskOffset
+                                  && write[0] == MicrophoneReportId
+                                  && write[2] == 0x91
+                                  && write[MicrophoneMaskOffset] == mask);
+
+    /// <summary>Waits until the physical controller recorded at least the given number of status writes.</summary>
+    private static void WaitForMicrophoneStatus(StubHidDevice hid, byte mask, int minimumCount) =>
+        WaitUntil(() => CountMicrophoneStatusWrites(hid, mask) >= minimumCount,
+            $"the physical controller to record {minimumCount} microphone status write(s) with mask 0x{mask:X2}");
+
     /// <summary>
     /// Reads one feature report of the persona through a GET_REPORT control transfer, the same
     /// public entry point the persona conformance tests use.
@@ -1093,6 +1457,27 @@ public sealed class EmulationServiceUsbIpTests
     /// <summary>Stub HID device of the physical controller; reads always time out.</summary>
     private sealed class StubHidDevice : IHidDevice
     {
+        /// <summary>Reports written to the device, in call order; safe to read while the creator and persona threads write.</summary>
+        private readonly ConcurrentQueue<byte[]> _writes = new ConcurrentQueue<byte[]>();
+
+        /// <summary>A snapshot of every report written to the device, in call order.</summary>
+        public IReadOnlyCollection<byte[]> Writes
+        {
+            get
+            {
+                return _writes.ToArray();
+            }
+        }
+
+        /// <summary>The last report written to the device, or <c>null</c> when none was written.</summary>
+        public byte[]? LastWrite
+        {
+            get
+            {
+                return _writes.LastOrDefault();
+            }
+        }
+
         public ushort VendorId
         {
             get
@@ -1129,7 +1514,11 @@ public sealed class EmulationServiceUsbIpTests
 
         public Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken ct) => Task.FromResult(0);
 
-        public int Write(byte[] buffer, int offset, int count) => 0;
+        public int Write(byte[] buffer, int offset, int count)
+        {
+            _writes.Enqueue(buffer[offset..(offset + count)]);
+            return count;
+        }
 
         public byte[] GetFeatureReport(byte reportId, int bufferSize = 64) => [];
 
