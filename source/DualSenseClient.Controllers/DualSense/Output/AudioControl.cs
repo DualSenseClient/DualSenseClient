@@ -22,6 +22,12 @@ public enum AudioControl : byte
     MicSelectExternal = 0x02,
 
     /// <summary>
+    /// Microphone input disabled. The reference labels value 3 as unclear (it may still use the
+    /// internal microphone); this client treats it as disabled and stops the stream.
+    /// </summary>
+    MicSelectDisabled = 0x03,
+
+    /// <summary>
     /// Mask for the microphone select field (bits 0-1).
     /// </summary>
     MicSelectMask = 0x03,

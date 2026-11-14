@@ -50,6 +50,11 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     private const int BluetoothMicrophoneMaxPayloadLength = 71;
 
     /// <summary>
+    /// Highest value of the controller's microphone level field.
+    /// </summary>
+    private const int MaxMicrophoneLevel = 64;
+
+    /// <summary>
     /// Bluetooth output report sequence tag; only the low nibble is transmitted.
     /// </summary>
     private byte _outputSequence;
@@ -92,6 +97,45 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     /// Serializes writes of the Bluetooth audio/haptics report stream.
     /// </summary>
     private readonly object _audioWriteLock = new object();
+
+    /// <summary>
+    /// Guards the microphone route/level overrides and the last observed output path.
+    /// </summary>
+    private readonly Lock _microphoneSync = new Lock();
+
+    /// <summary>
+    /// Whether the virtual microphone bridge currently forces the microphone route and
+    /// level on every outgoing output state.
+    /// </summary>
+    private bool _microphoneOverridesActive;
+
+    /// <summary>
+    /// Microphone-select bits forced while <see cref="_microphoneOverridesActive"/> is set.
+    /// </summary>
+    private AudioControl _microphoneSelect = AudioControl.MicSelectAuto;
+
+    /// <summary>
+    /// Microphone volume forced while <see cref="_microphoneOverridesActive"/> is set.
+    /// </summary>
+    private byte _microphoneLevel;
+
+    /// <summary>
+    /// Last output-path bits observed in an output state whose audio-control field was
+    /// valid. The microphone override keeps this route when it rewrites the audio-control
+    /// byte, so forcing a microphone source never changes the speaker/headphone output.
+    /// </summary>
+    private AudioControl _lastObservedOutputPath;
+
+    /// <summary>
+    /// Whether <see cref="_lastObservedOutputPath"/> holds a value observed from a report.
+    /// </summary>
+    private bool _hasObservedOutputPath;
+
+    /// <summary>
+    /// Whether the Bluetooth microphone gate is open. Volatile because the audio writer
+    /// reads it while generating the <c>0x32</c>/<c>0x35</c>/<c>0x36</c> session masks.
+    /// </summary>
+    private volatile bool _bluetoothMicrophoneStreaming;
 
     /// <summary>
     /// Owns the precedence between the game output, profile lights, effects, manual edits
@@ -1223,6 +1267,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         }
 
         payload = ApplyVibrationOverrides(payload);
+        payload = NormalizeMicrophoneState(payload);
 
         if ((payload.ValidFlag1 & ValidFlags.AllowLedColor) != 0
             && (payload.LedRed, payload.LedGreen, payload.LedBlue) != CurrentLightbarColor)
@@ -1600,6 +1645,242 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
     }
 
     /// <summary>
+    /// Gets or sets whether the Bluetooth microphone gate is open. Setting the property
+    /// updates the microphone masks of the audio reports and sends a <c>0x32</c> status
+    /// report with mask <c>0x03</c> when open or <c>0x02</c> when closed. No-op on USB.
+    /// </summary>
+    public bool BluetoothMicrophoneStreaming
+    {
+        get
+        {
+            return _bluetoothMicrophoneStreaming;
+        }
+        set
+        {
+            if (ConnectionType != ConnectionType.Bluetooth)
+            {
+                return;
+            }
+
+            lock (_audioWriteLock)
+            {
+                if (_bluetoothMicrophoneStreaming == value)
+                {
+                    return;
+                }
+
+                _bluetoothMicrophoneStreaming = value;
+                _bluetoothAudioReports.MicrophoneEnabled = value;
+            }
+
+            SendMicrophoneState();
+        }
+    }
+
+    /// <summary>
+    /// Forces the microphone source and level on every outgoing output state until
+    /// <see cref="ClearMicrophoneSettings"/> is called. Sends a standalone Bluetooth
+    /// <c>0x32</c> state update or USB <c>0x02</c> output report immediately so the
+    /// controller applies the new route without waiting for the game's next report.
+    /// </summary>
+    /// <param name="microphoneSelect">The microphone-select bits to force (<see cref="AudioControl"/>).</param>
+    /// <param name="microphoneLevel">The microphone volume to force (0-255).</param>
+    public void ApplyMicrophoneSettings(AudioControl microphoneSelect, byte microphoneLevel)
+    {
+        AudioControl select = microphoneSelect & AudioControl.MicSelectMask;
+        AudioControl outputPath;
+        lock (_microphoneSync)
+        {
+            _microphoneSelect = select;
+            _microphoneLevel = microphoneLevel;
+            _microphoneOverridesActive = true;
+            outputPath = _hasObservedOutputPath ? _lastObservedOutputPath : DefaultOutputPath;
+        }
+
+        SetStateData state = new SetStateData
+        {
+            ValidFlag0 = ValidFlags.AllowAudioControl | ValidFlags.AllowMicVolume,
+            AudioControl = (AudioControl)((byte)outputPath | (byte)select),
+            MicVolume = microphoneLevel
+        };
+
+        if (ConnectionType == ConnectionType.Bluetooth)
+        {
+            lock (_audioWriteLock)
+            {
+                TrySendAudioReport(_bluetoothAudioReports.BuildStateUpdate(state));
+            }
+
+            return;
+        }
+
+        try
+        {
+            SendOutputState(state);
+        }
+        catch (HidException ex)
+        {
+            _log.Error($"Failed to apply the microphone route on {Info.ProductName}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Forces the configured microphone source and level on every outgoing output state.
+    /// </summary>
+    /// <param name="source">The configured microphone route.</param>
+    /// <param name="level">The configured level percentage (0-100).</param>
+    public void ApplyMicrophoneSettings(MicrophoneSource source, int level) => ApplyMicrophoneSettings(MapMicrophoneSource(source), MapMicrophoneLevel(level));
+
+    /// <summary>
+    /// Stops forcing the microphone route and level. The controller keeps the last applied
+    /// values until another report changes them.
+    /// </summary>
+    public void ClearMicrophoneSettings()
+    {
+        lock (_microphoneSync)
+        {
+            _microphoneOverridesActive = false;
+            _microphoneSelect = AudioControl.MicSelectAuto;
+            _microphoneLevel = 0;
+        }
+    }
+
+    /// <summary>
+    /// Maps the configured microphone source onto the controller's microphone-select bits.
+    /// </summary>
+    /// <param name="source">The configured source.</param>
+    /// <returns>The matching <see cref="AudioControl"/> microphone-select value.</returns>
+    private static AudioControl MapMicrophoneSource(MicrophoneSource source)
+    {
+        return source switch
+        {
+            MicrophoneSource.BuiltIn => AudioControl.MicSelectInternal,
+            MicrophoneSource.Headphone => AudioControl.MicSelectExternal,
+            MicrophoneSource.Disabled => AudioControl.MicSelectDisabled,
+            _ => AudioControl.MicSelectAuto
+        };
+    }
+
+    /// <summary>
+    /// Maps the percentage level onto the controller's 0-64 microphone volume field.
+    /// </summary>
+    /// <param name="level">The configured level percentage (0-100).</param>
+    /// <returns>The controller-side level, rounded to the nearest step.</returns>
+    private static byte MapMicrophoneLevel(int level)
+    {
+        int scaled = (int)Math.Round(level * (double)MaxMicrophoneLevel / 100, MidpointRounding.AwayFromZero);
+        return (byte)Math.Clamp(scaled, 0, MaxMicrophoneLevel);
+    }
+
+    /// <summary>
+    /// Sends the <c>0x32</c> microphone status report for the current
+    /// <see cref="BluetoothMicrophoneStreaming"/> state, re-asserting the gate after the
+    /// controller may have reset it. No-op on USB.
+    /// </summary>
+    public void SendMicrophoneState()
+    {
+        if (ConnectionType != ConnectionType.Bluetooth)
+        {
+            return;
+        }
+
+        lock (_audioWriteLock)
+        {
+            TrySendAudioReport(_bluetoothAudioReports.BuildMicrophoneStatus(_bluetoothMicrophoneStreaming));
+        }
+    }
+
+    /// <summary>
+    /// Rewrites the microphone-select bits and microphone volume of an outgoing output
+    /// state while the virtual microphone bridge holds overrides, and records its output
+    /// path so later standalone updates keep the active speaker/headphone route. The
+    /// payload is cloned before modification, so the caller's state is never mutated.
+    /// </summary>
+    /// <param name="payload">The output state about to be sent.</param>
+    /// <returns>The normalized state, or <paramref name="payload"/> when no overrides are active.</returns>
+    private SetStateData NormalizeMicrophoneState(SetStateData payload)
+    {
+        AudioControl outputPath;
+        AudioControl microphoneSelect;
+        byte microphoneLevel;
+        bool overridesActive;
+        lock (_microphoneSync)
+        {
+            outputPath = ResolveOutputPathLocked(payload);
+            overridesActive = _microphoneOverridesActive;
+            microphoneSelect = _microphoneSelect;
+            microphoneLevel = _microphoneLevel;
+        }
+
+        if (!overridesActive)
+        {
+            return payload;
+        }
+
+        SetStateData normalized = CloneState(payload);
+        byte preserved = (byte)((byte)normalized.AudioControl
+                                & (byte)~(AudioControl.OutputPathMask | AudioControl.MicSelectMask));
+        AudioControl audioControl = (AudioControl)(preserved
+                                                   | (byte)outputPath
+                                                   | (byte)(microphoneSelect & AudioControl.MicSelectMask));
+
+        return normalized with
+        {
+            ValidFlag0 = normalized.ValidFlag0 | ValidFlags.AllowAudioControl | ValidFlags.AllowMicVolume,
+            AudioControl = audioControl,
+            MicVolume = microphoneLevel
+        };
+    }
+
+    /// <summary>
+    /// Records and returns the output-path bits that a microphone override must preserve.
+    /// Prefers the payload's own valid audio-control field, then the last observed path,
+    /// then the connected output. Caller must hold <see cref="_microphoneSync"/>.
+    /// </summary>
+    /// <param name="payload">The output state being prepared.</param>
+    private AudioControl ResolveOutputPathLocked(SetStateData payload)
+    {
+        if ((payload.ValidFlag0 & ValidFlags.AllowAudioControl) != 0)
+        {
+            _lastObservedOutputPath = payload.AudioControl & AudioControl.OutputPathMask;
+            _hasObservedOutputPath = true;
+        }
+
+        if (_hasObservedOutputPath)
+        {
+            return _lastObservedOutputPath;
+        }
+
+        return DefaultOutputPath;
+    }
+
+    /// <summary>
+    /// The output path to assume before any report has carried a valid audio-control
+    /// field: headphones when the jack is connected, otherwise the internal speaker.
+    /// </summary>
+    private AudioControl DefaultOutputPath
+    {
+        get
+        {
+            return InputReport?.Connection.Headphone == true
+                ? AudioControl.OutputPathHeadphones
+                : AudioControl.OutputPathSpeaker;
+        }
+    }
+
+    /// <summary>
+    /// Copies an output state so a <c>with</c> expression cannot write through the shared
+    /// raw buffer and mutate the caller's payload.
+    /// </summary>
+    /// <param name="state">The state to copy.</param>
+    private static SetStateData CloneState(SetStateData state)
+    {
+        byte[] raw = new byte[SetStateData.PayloadSize];
+        state.CopyTo(raw, 0);
+        return new SetStateData(raw, 0);
+    }
+
+    /// <summary>
     /// Sends the report <c>0x32</c> init-prime that opens the Bluetooth audio/haptics
     /// stream. The stream must be primed before sending audio or haptics reports.
     /// </summary>
@@ -1609,9 +1890,17 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         EnsureBluetoothAudio();
         int pendingMask = Volatile.Read(ref _pendingVibrationStateMask);
         state = ApplyVibrationOverrides(state, pendingMask);
+        state = NormalizeMicrophoneState(state);
         lock (_audioWriteLock)
         {
             TrySendAudioReport(_bluetoothAudioReports.BuildInitPrime(state));
+
+            // The prime resets the controller's audio session, including the microphone
+            // gate, so re-open the gate immediately after the prime.
+            if (_bluetoothMicrophoneStreaming)
+            {
+                TrySendAudioReport(_bluetoothAudioReports.BuildMicrophoneStatus(true));
+            }
         }
 
         ClearPendingVibrationState(pendingMask);
@@ -1646,6 +1935,7 @@ public class DualSenseDevice : ControllerDevice, ILightSink, IControllerAudioSin
         EnsureBluetoothAudio();
         int pendingMask = Volatile.Read(ref _pendingVibrationStateMask);
         state = ApplyVibrationOverrides(state, pendingMask);
+        state = NormalizeMicrophoneState(state);
         lock (_audioWriteLock)
         {
             TrySendAudioReport(_bluetoothAudioReports.BuildCombinedReport(state, opusFrame, hapticsPcm, route));
