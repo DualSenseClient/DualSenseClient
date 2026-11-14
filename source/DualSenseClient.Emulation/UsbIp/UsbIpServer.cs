@@ -727,10 +727,11 @@ public sealed class UsbIpServer : IDisposable
         /// <summary>
         /// Creates one isochronous scheduler per distinct isochronous endpoint address of the
         /// imported device, across all alternate settings: an endpoint address that several
-        /// alternate settings declare shares one scheduler. IN schedulers produce one packet per
-        /// frame; OUT schedulers deliver one packet per frame and answer the URB after its last
-        /// packet. Each scheduler starts immediately on the session's time provider and is stopped
-        /// by the session teardown.
+        /// alternate settings declare shares one scheduler. Both directions deliver one packet per
+        /// elapsed USB frame, catching up when the operating system coalesces timer callbacks: a
+        /// lost IN frame permanently slows a continuous audio stream, and a lost OUT frame delays
+        /// the host's feedback. OUT schedulers answer the URB after its last packet. Each scheduler
+        /// starts immediately on the session's time provider and is stopped by the session teardown.
         /// </summary>
         private void StartIsoSchedulers()
         {
@@ -759,7 +760,7 @@ public sealed class UsbIpServer : IDisposable
                         isIn
                             ? (transfer, packetIndex) => ProduceIsoPacket(schedulerAddress, transfer, packetIndex)
                             : (transfer, packetIndex) => DeliverIsoOutPacket(schedulerAddress, transfer, packetIndex),
-                        !isIn);
+                        true);
                     scheduler.TransferCompleted += isIn ? OnIsoTransferCompleted : OnIsoOutTransferCompleted;
                     schedulers.Add(address, scheduler);
                     scheduler.Start();

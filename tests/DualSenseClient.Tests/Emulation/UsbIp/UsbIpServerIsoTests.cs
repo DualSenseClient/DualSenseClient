@@ -231,6 +231,70 @@ public sealed class UsbIpServerIsoTests
     }
 
     [Test]
+    public void IsoIn_CoalescedFrameClock_CompletesEveryDuePacket()
+    {
+        const int PacketCount = 8;
+        TestVirtualUsbDevice device = new TestVirtualUsbDevice(TestDevices.CreateIsoDevice());
+        using ServerHarness harness = new ServerHarness(device);
+        using UsbIpClient client = harness.Connect();
+        ImportIsoDevice(client);
+
+        IsoPacketDescriptor[] packets = new IsoPacketDescriptor[PacketCount];
+        for (int i = 0; i < PacketCount; i++)
+        {
+            device.EnqueueIsoInPacket(new byte[]
+            {
+                (byte)(0x10 + i), (byte)(0x20 + i), (byte)(0x30 + i), (byte)(0x40 + i)
+            });
+            packets[i] = new IsoPacketDescriptor
+            {
+                Offset = (uint)(i * 4),
+                Length = 4
+            };
+        }
+
+        client.Send(CreateIsoSubmitFrame(
+            260,
+            UsbIpDirection.In,
+            EndpointNumberOf(TestDevices.IsoInAddress),
+            PacketCount * 4,
+            packets));
+        SendBarrier(client, 261);
+
+        // One callback arrives eight frame periods late, as a coalesced OS timer does. An IN
+        // scheduler that serves one packet per callback stalls this transfer; catching up on the
+        // elapsed frames completes every packet.
+        harness.TimeProvider.AdvanceCoalesced(PacketCount * FrameDuration);
+
+        RetFrame ret = ReadRetFrame(client);
+        Assert.That(ret.SeqNum, Is.EqualTo(260u));
+        Assert.That(ret.Status, Is.Zero);
+        Assert.That(ret.NumberOfPackets, Is.EqualTo((uint)PacketCount));
+        Assert.That(ret.ActualLength, Is.EqualTo((uint)(PacketCount * 4)));
+        Assert.That(ret.ErrorCount, Is.Zero);
+
+        byte[] payload = client.ReadExactly(PacketCount * 4);
+        for (int i = 0; i < PacketCount; i++)
+        {
+            Assert.That(
+                payload[(i * 4)..((i + 1) * 4)],
+                Is.EqualTo(new byte[]
+                {
+                    (byte)(0x10 + i), (byte)(0x20 + i), (byte)(0x30 + i), (byte)(0x40 + i)
+                }));
+        }
+
+        IsoPacketDescriptor[] descriptors = ReadIsoDescriptors(client, PacketCount);
+        for (int i = 0; i < PacketCount; i++)
+        {
+            Assert.That(descriptors[i].ActualLength, Is.EqualTo(4u));
+            Assert.That(descriptors[i].Status, Is.Zero);
+        }
+
+        SendBarrier(client, 262);
+    }
+
+    [Test]
     public void IsoIn_ShortReadsAtPackedOffsets_RetPayloadSpansPacketOffsets()
     {
         IsoIn196Device device = new IsoIn196Device();
@@ -347,7 +411,7 @@ public sealed class UsbIpServerIsoTests
     }
 
     [Test]
-    public void IsoIn_IdleFramesBeforeSubmit_NextUrbStartsOnArrivalFrameWithoutCatchUp()
+    public void IsoIn_IdleFramesBeforeSubmit_NextUrbStartsOnArrivalFrame()
     {
         TestVirtualUsbDevice device = new TestVirtualUsbDevice(TestDevices.CreateIsoDevice());
         using ServerHarness harness = new ServerHarness(device);
@@ -392,7 +456,7 @@ public sealed class UsbIpServerIsoTests
         ReadIsoDescriptors(client, 2);
 
         harness.TimeProvider.Advance(10 * FrameDuration);
-        Assert.That(client.TryReadExactly(new byte[UsbIpProtocol.HeaderSize], SilenceProbeMilliseconds), Is.False); // no catch-up burst
+        Assert.That(client.TryReadExactly(new byte[UsbIpProtocol.HeaderSize], SilenceProbeMilliseconds), Is.False); // idle frames are not replayed
         Assert.That(harness.TimeProvider.TimerCount, Is.EqualTo(2)); // one ISO scheduler per direction
         SendBarrier(client, 212);
     }

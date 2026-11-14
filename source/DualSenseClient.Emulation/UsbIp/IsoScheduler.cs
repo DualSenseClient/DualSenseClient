@@ -6,13 +6,13 @@ namespace DualSenseClient.Emulation.UsbIp;
 /// Schedules isochronous transfers of one endpoint on the USB frame cadence. The head transfer
 /// completes one packet per frame, in packet order; when its last packet completes the transfer is
 /// raised through <see cref="TransferCompleted"/> once and the next queued transfer starts on the
-/// following frame. With catch-up enabled (the OUT path), a late timer catches up on the missed
-/// frames so the long-run packet rate stays on the USB cadence instead of drifting with the host
-/// timer resolution; the IN path keeps its original one-packet-per-callback cadence. Enqueue, cancellation
-/// and clearing may run on the session thread while the frame clock advances on a timer thread:
-/// one lock guards the queue and the current transfer, and <see cref="TransferCompleted"/> is
-/// raised outside it. A cancelled or cleared transfer never completes; <see cref="Stop"/> drops all
-/// pending work without raising events. One scheduler drives one ISO endpoint.
+/// following frame. With catch-up enabled, a late timer catches up on the missed frames so the
+/// long-run packet rate stays on the USB cadence instead of drifting with the host timer
+/// resolution; production enables it for both directions. Enqueue, cancellation and clearing may
+/// run on the session thread while the frame clock advances on a timer thread: one lock guards the
+/// queue and the current transfer, and <see cref="TransferCompleted"/> is raised outside it. A
+/// cancelled or cleared transfer never completes; <see cref="Stop"/> drops all pending work without
+/// raising events. One scheduler drives one ISO endpoint.
 /// </summary>
 /// <remarks>
 /// The packet status of a failed packet is <see cref="UsbIpStatus.Stall"/> while the transfer-level

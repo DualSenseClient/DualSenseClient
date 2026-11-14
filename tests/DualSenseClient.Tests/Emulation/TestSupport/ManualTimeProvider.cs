@@ -115,6 +115,43 @@ public sealed class ManualTimeProvider : TimeProvider
     }
 
     /// <summary>
+    /// Advances the clock by <paramref name="delta"/> and delivers at most one callback per armed
+    /// timer, the way the operating system coalesces missed periods into a single late callback:
+    /// the callback observes the final time, and a periodic timer is rearmed from that time rather
+    /// than from the missed due time. Tests use this to reproduce a frame timer that wakes less
+    /// often than its period.
+    /// </summary>
+    /// <param name="delta">Time to advance the clock by; must not be negative.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="delta"/> is negative.</exception>
+    public void AdvanceCoalesced(TimeSpan delta)
+    {
+        if (delta < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(delta), delta, "Time cannot be advanced by a negative amount.");
+        }
+
+        List<ManualTimer> due = new List<ManualTimer>();
+        lock (_lock)
+        {
+            DateTimeOffset target = _utcNow + delta;
+            _utcNow = target;
+            foreach (ManualTimer timer in _timers)
+            {
+                if (timer.DueTime is DateTimeOffset dueTime && dueTime <= target)
+                {
+                    timer.RescheduleFrom(target);
+                    due.Add(timer);
+                }
+            }
+        }
+
+        foreach (ManualTimer timer in due)
+        {
+            timer.Invoke();
+        }
+    }
+
+    /// <summary>
     /// Creates a timer tracked by this provider. The timer fires when the clock reaches its due time
     /// during an <see cref="Advance"/>; an infinite due time creates a disarmed timer and an infinite
     /// period creates a one-shot timer.
@@ -243,6 +280,13 @@ public sealed class ManualTimeProvider : TimeProvider
                 _dueTime = null;
             }
         }
+
+        /// <summary>
+        /// Rearms a periodic timer from <paramref name="now"/> after a coalesced late callback and
+        /// disarms a one-shot timer.
+        /// </summary>
+        /// <param name="now">Time at which the late callback was delivered.</param>
+        internal void RescheduleFrom(DateTimeOffset now) => _dueTime = _period is TimeSpan period ? now + period : null;
 
         /// <summary>Invokes the user callback outside the provider lock, on the draining thread.</summary>
         internal void Invoke() => _callback(_state);
