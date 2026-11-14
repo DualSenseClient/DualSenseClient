@@ -349,7 +349,7 @@ public class ForwardSettings
     /// <summary>
     /// Gets or sets whether the physical controller's microphone is forwarded to the
     /// host as the audio of the virtual controller's microphone endpoint (true by
-    /// default). Only applies to DualSense emulation.
+    /// default). Applies to DualShock 4 and DualSense emulation.
     /// </summary>
     [JsonPropertyName("microphone_enabled")]
     public bool MicrophoneEnabled { get; set; } = true;

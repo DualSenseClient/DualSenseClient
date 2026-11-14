@@ -75,7 +75,7 @@ If no mapping is desired, leave the editor empty — the default one-to-one mapp
 
 Host audio can be forwarded to your **physical controller's speaker or headset**, with hardware volume and software volume scale controls and haptic-strength controls. These settings live under **Customization → Audio Forwarding**.
 
-![Audio Forwarding settings on the Customization page](../assets/images/audio-forwarding-customization.png)
+![Audio Forwarding settings on the Customization page, including microphone route and level](../assets/images/audio-forwarding-customization.png)
 
 - **Forwarded Audio Output** — `Auto` (follows the controller's headset jack), `Speaker`, or `Headset`.
 - **Forwarded Audio Volume** — 0 – 255. The controller's hardware speaker/headset volume.
@@ -95,6 +95,9 @@ Host feedback passthroughs are configured per controller in **Emulation → Virt
 - **Player LEDs** — the game's player indicator LEDs. DualSense emulation only.
 - **Game haptics** — the game's own haptic payload. Audio-based haptics keep running when this is off. DualSense emulation only.
 - **Controller audio passthrough** — audio the game sends to the virtual controller's own audio endpoint. The system-output and specific-application sources keep working when this is off, and game haptics stay active when they are enabled. DualShock 4 and DualSense emulation.
+- **Microphone passthrough** — the physical controller's microphone, exposed as the virtual controller's microphone. DualSense and DualShock 4 emulation over Bluetooth only.
+
+![Passthroughs on the Virtual Controller page, including the Microphone passthrough switch](../assets/images/virtual-controller-passthroughs.png)
 
 ### Audio Sources
 
@@ -107,6 +110,17 @@ Choose what feeds the forwarding from the **Audio source** dropdown:
 For the specific-application source, choose the application from the list of programs currently playing audio or browse for its executable file. The sources are mutually exclusive, and you can switch between them while a game is running.
 
 Audio forwarding works in any emulation mode, including off, for the system-output and specific-application sources. It can also be overridden per program in [Auto Profiles](auto-profiles.md).
+
+### Microphone
+
+A virtual DualSense or DualShock 4 can feed the physical controller's microphone to the host as the virtual controller's microphone. The virtual DualSense exposes 48 kHz stereo; the virtual DualShock 4 exposes 16 kHz mono. Xbox 360 emulation has no microphone. See [Audio Playback](audio.md#microphone) for the full behavior.
+
+- **Route** — `Auto`, `Built-in`, `Headphone`, or `Disabled`, under **Customization → Audio Forwarding → Microphone**. `Disabled` turns the controller microphone off.
+- **Level** — 0 – 100% under the same section.
+- **Microphone passthrough** — the master on/off switch in the **Passthroughs** section above. It applies live and requires a Bluetooth connection.
+
+!!! note
+    The route and level apply over both USB and Bluetooth, independently of emulation. The **Microphone passthrough** itself needs the physical controller connected over **Bluetooth**, and it streams only while an application is recording from the virtual microphone. Over USB, the controller's own audio device already provides the microphone. Hide the physical controller while using the virtual microphone — see [Controller Hiding](controller-hiding.md) — so other applications do not misread its microphone packets as gamepad input.
 
 ## Audio Player
 

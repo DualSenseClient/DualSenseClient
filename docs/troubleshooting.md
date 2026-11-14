@@ -98,6 +98,12 @@ This happens when both the physical controller and an emulated virtual controlle
 
 The app whitelists itself automatically, so it keeps seeing the hidden controller while games no longer do. See the [Controller Hiding guide](guides/controller-hiding.md).
 
+### Phantom Input While the Virtual Microphone Is Active
+
+While a virtual microphone is active on a Bluetooth controller, the physical controller sends microphone packets alongside its normal input reports. An application that reads the physical controller directly may misparse those packets as gamepad input, producing phantom stick movement or button presses.
+
+Hide the physical controller so only DualSense Client reads it — see [Controller Hiding](guides/controller-hiding.md). See [Audio Playback: Microphone](guides/audio.md#microphone) for the microphone controls and limitations.
+
 ## Logs
 
 The app writes date-rotated log files next to the executable:
