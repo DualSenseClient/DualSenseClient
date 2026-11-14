@@ -9,15 +9,15 @@ namespace DualSenseClient.Controllers.DualSense.Output;
 /// report <c>0x36</c> that carries state, audio and haptics packets together (398 bytes),
 /// the double combined report <c>0x39</c> that carries two audio and two haptics frames
 /// without a state block (547 bytes), the report <c>0x32</c> voice-coil haptics lane
-/// (142 bytes, s8 stereo PCM), plus the <c>0x32</c> init-prime report used to open the
-/// audio stream.
+/// (142 bytes, s8 stereo PCM), the <c>0x32</c> init-prime report used to open the
+/// audio stream, and the <c>0x32</c> microphone gate status report.
 /// </summary>
 /// <remarks>
 /// <para>
 /// Every report family ends in a 4-byte CRC32 using the seeded form (seed
 /// <c>0xA2</c>, see <see cref="DualSenseCRC32"/>). The sequence tag advances with a
 /// stride of 16 (only the low nibble is transmitted) and the interval packet counter is
-/// a free-running byte that increments once per report.
+/// a free-running byte that increments once per audio/haptics report.
 /// </para>
 /// <para>
 /// Layouts follow the DualSense reference: the haptics-only <c>0x32</c> report uses the
@@ -35,8 +35,9 @@ namespace DualSenseClient.Controllers.DualSense.Output;
 /// <see cref="BuildCombinedReport"/> and <see cref="BuildDoubleCombinedReport"/>) write into
 /// a reusable buffer per report type, so the streaming path allocates nothing. Callers must
 /// not retain the returned array across builds — it is only valid until the next call.
-/// <see cref="BuildInitPrime"/> is excluded (once per stream) and still allocates a fresh
-/// report.
+/// <see cref="BuildInitPrime"/> and <see cref="BuildStateUpdate"/> are excluded (they run once
+/// per stream or on setting changes) and allocate a fresh report; <see cref="BuildMicrophoneStatus"/>
+/// reuses its own buffer.
 /// </para>
 /// </remarks>
 public sealed class BluetoothAudioReportBuilder
@@ -103,7 +104,7 @@ public sealed class BluetoothAudioReportBuilder
     private byte _reportSequence;
 
     /// <summary>
-    /// Free-running interval packet counter, incremented once per built report.
+    /// Free-running interval packet counter, incremented once per audio/haptics report.
     /// </summary>
     private byte _packetCounter;
 
@@ -112,6 +113,13 @@ public sealed class BluetoothAudioReportBuilder
     /// <see cref="BuildHapticsReport"/>. See the class remarks for the reuse contract.
     /// </summary>
     private readonly byte[] _hapticsReport = new byte[HapticsReportSize];
+
+    /// <summary>
+    /// Reusable buffer for the <c>0x32</c> microphone gate status report, returned by
+    /// <see cref="BuildMicrophoneStatus"/>. Only this method writes to it, so its zero
+    /// padding stays intact across calls.
+    /// </summary>
+    private readonly byte[] _statusReport = new byte[HapticsReportSize];
 
     /// <summary>
     /// Reusable buffer for the <c>0x35</c> audio report, returned by
@@ -148,6 +156,15 @@ public sealed class BluetoothAudioReportBuilder
     }
 
     /// <summary>
+    /// Whether the Bluetooth microphone gate is open. When <see langword="true"/>, the
+    /// session masks advertise microphone streaming (<c>0x67</c>, <c>0xFF</c>,
+    /// <c>0x7F</c>); when <see langword="false"/>, the mic-disabled masks are used
+    /// (<c>0x66</c>, <c>0xFE</c>, <c>0x7E</c>). The gate is independent of
+    /// <see cref="Reset"/> and owned by the device.
+    /// </summary>
+    public bool MicrophoneEnabled { get; set; }
+
+    /// <summary>
     /// Builds the init-prime report <c>0x32</c> (142 bytes) that opens the audio/haptics
     /// stream. Carries a state sub-packet (packet <c>0x10</c>, length 63) whose first 47
     /// bytes are the given output state; the remaining bytes stay zero, matching the
@@ -155,6 +172,57 @@ public sealed class BluetoothAudioReportBuilder
     /// </summary>
     /// <param name="state">The 47-byte output state to embed.</param>
     public byte[] BuildInitPrime(SetStateData state)
+    {
+        byte[] report = new byte[HapticsReportSize];
+        report[0] = 0x32;
+        report[1] = 0x10;
+        report[2] = 0x90;
+        report[3] = 0x3F;
+        state.CopyTo(report, 4);
+        WriteCrc(report);
+        return report;
+    }
+
+    /// <summary>
+    /// Builds the microphone gate status report <c>0x32</c> (142 bytes). The one-byte
+    /// session body carries <c>0x03</c> while the microphone streams and <c>0x02</c>
+    /// when it is idle. The report advances the sequence tag but carries no interval
+    /// counter.
+    /// </summary>
+    /// <remarks>
+    /// Writes into a reusable buffer, so the returned array is only valid until the next
+    /// call to <see cref="BuildMicrophoneStatus"/>.
+    /// </remarks>
+    /// <param name="streaming"><see langword="true"/> to open the gate; <see langword="false"/>
+    /// to close it.</param>
+    public byte[] BuildMicrophoneStatus(bool streaming)
+    {
+        byte[] report = _statusReport;
+        report[0] = 0x32;
+        report[1] = (byte)((_reportSequence & 0x0F) << 4);
+        _reportSequence = (byte)((_reportSequence + 1) & 0x0F);
+
+        // Packet 0x11 session block (sized flag set) with a one-byte microphone mask.
+        report[2] = 0x91;
+        report[3] = 0x01;
+        report[4] = streaming ? (byte)0x03 : (byte)0x02;
+
+        // Bytes 5-137 remain zero padding.
+        WriteCrc(report);
+        return report;
+    }
+
+    /// <summary>
+    /// Builds a standalone state update report <c>0x32</c> (142 bytes) carrying the
+    /// 63-byte state sub-packet (packet <c>0x10</c>) with the 47-byte output state at
+    /// offset 4. Used for microphone route and level changes outside the audio tick.
+    /// </summary>
+    /// <remarks>
+    /// Allocates a fresh report because it is called only on setting changes, never per
+    /// audio tick.
+    /// </remarks>
+    /// <param name="state">The 47-byte output state to embed.</param>
+    public byte[] BuildStateUpdate(SetStateData state)
     {
         byte[] report = new byte[HapticsReportSize];
         report[0] = 0x32;
@@ -183,11 +251,11 @@ public sealed class BluetoothAudioReportBuilder
         report[1] = (byte)((_reportSequence & 0x0F) << 4);
         _reportSequence = (byte)((_reportSequence + 1) & 0x0F);
 
-        // Packet 0x11 session block (sized flag set): mic-disabled control mask and two
-        // buffer-length bytes, per the DualSense haptics-only 0x32 layout.
+        // Packet 0x11 session block (sized flag set): microphone-gated control mask and
+        // two buffer-length bytes, per the DualSense haptics-only 0x32 layout.
         report[2] = 0x91;
         report[3] = 4;
-        report[4] = 0x66;
+        report[4] = MicrophoneEnabled ? (byte)0x67 : (byte)0x66;
         report[5] = AudioBufferLength;
         report[6] = AudioBufferLength;
         report[7] = _packetCounter++;
@@ -220,11 +288,11 @@ public sealed class BluetoothAudioReportBuilder
         report[1] = (byte)((_reportSequence & 0x0F) << 4);
         _reportSequence = (byte)((_reportSequence + 1) & 0x0F);
 
-        // Packet 0x11 session block (sized flag set): mic-disabled sections and five
+        // Packet 0x11 session block (sized flag set): microphone-gated sections and five
         // controller buffer-length bytes.
         report[2] = 0x91;
         report[3] = 0x07;
-        report[4] = 0xFE;
+        report[4] = MicrophoneEnabled ? (byte)0xFF : (byte)0xFE;
         report[5] = AudioBufferLength;
         report[6] = AudioBufferLength;
         report[7] = AudioBufferLength;
@@ -280,10 +348,10 @@ public sealed class BluetoothAudioReportBuilder
         _reportSequence = (byte)((_reportSequence + 1) & 0x0F);
 
         // Packet 0x11 session block first, per the vDS reference (sized flag set):
-        // mic-disabled sections and five controller buffer-length bytes.
+        // microphone-gated sections and five controller buffer-length bytes.
         report[2] = 0x91;
         report[3] = 0x07;
-        report[4] = 0xFE;
+        report[4] = MicrophoneEnabled ? (byte)0xFF : (byte)0xFE;
         report[5] = AudioBufferLength;
         report[6] = AudioBufferLength;
         report[7] = AudioBufferLength;
@@ -345,11 +413,11 @@ public sealed class BluetoothAudioReportBuilder
         report[1] = (byte)((_reportSequence & 0x0F) << 4);
         _reportSequence = (byte)((_reportSequence + 1) & 0x0F);
 
-        // Packet 0x11 session block (sized flag set): mic-disabled mask and four
+        // Packet 0x11 session block (sized flag set): microphone-gated mask and four
         // controller buffer-length bytes. The counter counts the two frames carried.
         report[2] = 0x91;
         report[3] = 0x06;
-        report[4] = 0x7E;
+        report[4] = MicrophoneEnabled ? (byte)0x7F : (byte)0x7E;
         report[5] = AudioBufferLength;
         report[6] = AudioBufferLength;
         report[7] = AudioBufferLength;

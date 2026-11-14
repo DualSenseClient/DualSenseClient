@@ -472,4 +472,80 @@ public class BluetoothAudioReportBuilderTests
 
         Assert.Throws<ArgumentException>(() => builder.BuildAudioReport(new byte[10], BluetoothAudioRoute.Speaker));
     }
+
+    [Test]
+    public void BuildMicrophoneStatus_Streaming_UsesMask03()
+    {
+        BluetoothAudioReportBuilder builder = new BluetoothAudioReportBuilder();
+        byte[] report = builder.BuildMicrophoneStatus(true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(report, Has.Length.EqualTo(BluetoothAudioReportBuilder.HapticsReportSize));
+            Assert.That(report[0], Is.EqualTo(0x32));
+            Assert.That(report[2], Is.EqualTo(0x91));
+            Assert.That(report[3], Is.EqualTo(1));
+            Assert.That(report[4], Is.EqualTo(0x03));
+            Assert.That(ReadCrc(report, 138), Is.EqualTo(DualSenseCRC32.Compute(report, 0, 138)));
+        });
+    }
+
+    [Test]
+    public void BuildMicrophoneStatus_Idle_UsesMask02()
+    {
+        byte[] report = new BluetoothAudioReportBuilder().BuildMicrophoneStatus(false);
+        Assert.That(report[4], Is.EqualTo(0x02));
+    }
+
+    [Test]
+    public void BuildStateUpdate_EmbedsStateAtOffset4()
+    {
+        SetStateData state = SampleState();
+        byte[] report = new BluetoothAudioReportBuilder().BuildStateUpdate(state);
+        byte[] raw = new byte[SetStateData.PayloadSize];
+        state.CopyTo(raw, 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(report[0], Is.EqualTo(0x32));
+            Assert.That(report[1], Is.EqualTo(0x10));
+            Assert.That(report[2], Is.EqualTo(0x90));
+            Assert.That(report[3], Is.EqualTo(0x3F));
+            Assert.That(report[4..(4 + SetStateData.PayloadSize)], Is.EqualTo(raw));
+            Assert.That(ReadCrc(report, 138), Is.EqualTo(DualSenseCRC32.Compute(report, 0, 138)));
+        });
+    }
+
+    [Test]
+    public void MicrophoneEnabled_UsesGatedMasks()
+    {
+        BluetoothAudioReportBuilder builder = new BluetoothAudioReportBuilder
+        {
+            MicrophoneEnabled = true
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(builder.BuildHapticsReport(HapticsPcm())[4], Is.EqualTo(0x67));
+            Assert.That(builder.BuildAudioReport(OpusFrame(), BluetoothAudioRoute.Speaker)[4], Is.EqualTo(0xFF));
+            Assert.That(builder.BuildCombinedReport(SampleState(), OpusFrame(), HapticsPcm(), BluetoothAudioRoute.Speaker)[4], Is.EqualTo(0xFF));
+            Assert.That(builder.BuildDoubleCombinedReport(FramePair(BluetoothAudioReportBuilder.AudioPayloadSize, 0xAB, 0xCD),
+                FramePair(BluetoothAudioReportBuilder.HapticsPayloadSize, 0x7F, 0x11), BluetoothAudioRoute.Speaker)[4], Is.EqualTo(0x7F));
+        });
+    }
+
+    [Test]
+    public void MicrophoneDisabled_UsesExistingMasks()
+    {
+        BluetoothAudioReportBuilder builder = new BluetoothAudioReportBuilder();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(builder.BuildHapticsReport(HapticsPcm())[4], Is.EqualTo(0x66));
+            Assert.That(builder.BuildAudioReport(OpusFrame(), BluetoothAudioRoute.Speaker)[4], Is.EqualTo(0xFE));
+            Assert.That(builder.BuildCombinedReport(SampleState(), OpusFrame(), HapticsPcm(), BluetoothAudioRoute.Speaker)[4], Is.EqualTo(0xFE));
+            Assert.That(builder.BuildDoubleCombinedReport(FramePair(BluetoothAudioReportBuilder.AudioPayloadSize, 0xAB, 0xCD),
+                FramePair(BluetoothAudioReportBuilder.HapticsPayloadSize, 0x7F, 0x11), BluetoothAudioRoute.Speaker)[4], Is.EqualTo(0x7E));
+        });
+    }
 }
