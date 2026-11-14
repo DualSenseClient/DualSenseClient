@@ -59,8 +59,8 @@ public sealed class DualSenseEdgeDescriptorSetTests
     /// <summary>wMaxPacketSize of the speaker endpoint: 48 frames of four 16-bit channels plus eight spare bytes.</summary>
     private const int SpeakerMaxPacketSize = 392;
 
-    /// <summary>wMaxPacketSize of the microphone endpoint: 48 frames of two 16-bit channels plus four spare bytes.</summary>
-    private const int MicrophoneMaxPacketSize = 196;
+    /// <summary>wMaxPacketSize of the microphone endpoint: 48 frames of two 16-bit channels.</summary>
+    private const int MicrophoneMaxPacketSize = 192;
 
     /// <summary>Index in the base report descriptor of report 2's output Report Count, 0x2F (47) to 0x3F (63) in the Edge descriptor.</summary>
     private const int BaseOutputReportCountIndex = 109;

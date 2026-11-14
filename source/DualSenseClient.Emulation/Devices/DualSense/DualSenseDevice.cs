@@ -16,7 +16,10 @@ namespace DualSenseClient.Emulation.Devices.DualSense;
 /// <see cref="RealtimeHapticsReceived"/>, accepts capture PCM through <see cref="SetMicrophonePcm"/> and
 /// drains its ring on the ISO IN endpoint, raises <see cref="SpeakerResetReceived"/> when the speaker
 /// alternate setting changes, and routes class requests of the audio interfaces to its
-/// <see cref="UsbAudioFunction"/>.
+/// <see cref="UsbAudioFunction"/>. The device implements <see cref="IVirtualMicrophoneEndpoint"/>: it
+/// tracks the microphone interface's alternate setting as <see cref="MicrophoneActive"/> (raising
+/// <see cref="MicrophoneActiveChanged"/>), publishes the fixed <see cref="MicrophoneFormat"/>, and
+/// raises <see cref="MicrophonePacketServed"/> after every served capture packet.
 /// The device owns the report counters: every provided input report increments the packet counter,
 /// the first touch counter advances once per report in which the first point is active, and the
 /// second touch counter advances once per report in which only the second point is active (the
@@ -31,7 +34,7 @@ namespace DualSenseClient.Emulation.Devices.DualSense;
 /// precedence over the synthetic builder: every pull serves its bytes verbatim and the counters
 /// freeze until <see cref="ClearRawInputReport"/> resumes them.
 /// </summary>
-public sealed class DualSenseDevice : VirtualHidDevice
+public sealed class DualSenseDevice : VirtualHidDevice, IVirtualMicrophoneEndpoint
 {
     /// <summary>Neutral stick value (center) written to an untouched device's input state.</summary>
     private const byte NeutralStick = 128;
@@ -103,6 +106,14 @@ public sealed class DualSenseDevice : VirtualHidDevice
     /// raising a duplicate <see cref="SpeakerResetReceived"/> for the same transition.
     /// </summary>
     private byte _speakerAlternateSetting;
+
+    /// <summary>
+    /// Whether the microphone streaming interface 2 is streaming (alternate setting 1) as last
+    /// observed through <see cref="OnInterfaceChanged"/>; SET_CONFIGURATION 0 returns the interface to
+    /// alternate setting 0 through the base class's interface hook, which clears it without a second
+    /// <see cref="MicrophoneActiveChanged"/> for the same transition.
+    /// </summary>
+    private bool _microphoneActive;
 
     /// <summary>
     /// Whether the device serves the Edge persona: the Edge descriptor set and the firmware report's
@@ -249,6 +260,49 @@ public sealed class DualSenseDevice : VirtualHidDevice
     public event Action? SpeakerResetReceived;
 
     /// <summary>
+    /// Raised exactly once per effective change of the microphone streaming interface 2 between
+    /// alternate settings 0 and 1, including the return to 0 that SET_CONFIGURATION performs through
+    /// the base class's interface hook; a write of the already active setting raises nothing. The
+    /// value is the new <see cref="MicrophoneActive"/> state. A subscriber that throws is logged
+    /// through the device's logger and skipped, so it cannot tear down the session.
+    /// </summary>
+    public event Action<bool>? MicrophoneActiveChanged;
+
+    /// <summary>
+    /// Raised after <see cref="ProvideIsoPacket"/> served one packet of the microphone isochronous IN
+    /// endpoint 0x82, synchronously on the thread that produced the packet. P5 uses this to pace one
+    /// capture frame per served packet. A subscriber that throws is logged through the device's
+    /// logger and skipped, so it cannot tear down the session.
+    /// </summary>
+    public event Action? MicrophonePacketServed;
+
+    /// <summary>
+    /// Whether the microphone streaming interface 2 is open: <see langword="true"/> while the host has
+    /// selected alternate setting 1, <see langword="false"/> at alternate setting 0 and after
+    /// SET_CONFIGURATION 0. Written by the session's control path; a concurrent read observes either
+    /// the old or the new value.
+    /// </summary>
+    public bool MicrophoneActive
+    {
+        get
+        {
+            return _microphoneActive;
+        }
+    }
+
+    /// <summary>
+    /// Fixed audio parameters of the persona's UAC1 function: the microphone path reports two
+    /// interleaved 16-bit channels at 48 kHz (192-byte one-millisecond frames).
+    /// </summary>
+    public AudioFunctionFormat MicrophoneFormat
+    {
+        get
+        {
+            return _audioFunction.Format;
+        }
+    }
+
+    /// <summary>
     /// Stores the input state the following input reports carry; may be called from any thread. A
     /// report built concurrently carries either the old or the new state, never a mix. The state
     /// carries the battery bytes as well, so the most recent writer of the battery fields wins: a
@@ -359,6 +413,13 @@ public sealed class DualSenseDevice : VirtualHidDevice
 
         _audioFunction.EnqueueMicrophonePcm(frame);
     }
+
+    /// <summary>
+    /// Drops every queued capture byte from the microphone ring so the next ISO IN packet starts on a
+    /// frame boundary. The alternate-setting hooks already clear the ring; a producer calls this to
+    /// discard audio queued for a stream that is no longer active. May be called from any thread.
+    /// </summary>
+    public void ClearMicrophonePcm() => _audioFunction.ClearMicrophonePcm();
 
     /// <summary>
     /// Builds the next 64-byte input report 0x01 from the stored state and advances the device's
@@ -554,8 +615,9 @@ public sealed class DualSenseDevice : VirtualHidDevice
     /// <summary>
     /// Produces the next isochronous IN packet of the microphone endpoint from the persona's audio
     /// function: queued PCM is copied up to the packet length, and an empty ring yields the nominal
-    /// 192-byte zero packet (or the whole destination when it is shorter). Every other endpoint
-    /// produces nothing.
+    /// 192-byte zero packet (or the whole destination when it is shorter). A served microphone packet
+    /// then raises <see cref="MicrophonePacketServed"/>; every other endpoint produces nothing and
+    /// raises nothing.
     /// </summary>
     /// <param name="endpointAddress">Endpoint address the packet belongs to (bEndpointAddress).</param>
     /// <param name="destination">Packet buffer the data is written to.</param>
@@ -567,14 +629,18 @@ public sealed class DualSenseDevice : VirtualHidDevice
             return 0;
         }
 
-        return _audioFunction.ReadMicrophonePcm(destination);
+        int packetLength = _audioFunction.ReadMicrophonePcm(destination);
+        RaiseMicrophonePacketServed();
+        return packetLength;
     }
 
     /// <summary>
     /// Tracks the effective alternate-setting changes of the audio streaming interfaces: a speaker
     /// change (interface 1) raises <see cref="SpeakerResetReceived"/> once when the setting really
-    /// changed, and a microphone change (interface 2) drops every queued capture byte. The base class
-    /// calls this only for an effective change and for the return to 0 that SET_CONFIGURATION issues.
+    /// changed, and a microphone change (interface 2) drops every queued capture byte and raises
+    /// <see cref="MicrophoneActiveChanged"/> once when <see cref="MicrophoneActive"/> really changed.
+    /// The base class calls this only for an effective change and for the return to 0 that
+    /// SET_CONFIGURATION issues.
     /// </summary>
     /// <param name="interfaceNumber">Interface number (bInterfaceNumber) that changed.</param>
     /// <param name="alternateSetting">The new active alternate setting (bAlternateSetting).</param>
@@ -593,14 +659,21 @@ public sealed class DualSenseDevice : VirtualHidDevice
         else if (interfaceNumber == MicrophoneInterfaceNumber)
         {
             _audioFunction.ClearMicrophonePcm();
+            bool active = alternateSetting == 1;
+            if (_microphoneActive != active)
+            {
+                _microphoneActive = active;
+                RaiseMicrophoneActiveChanged(active);
+            }
         }
     }
 
     /// <summary>
     /// Handles SET_CONFIGURATION: selecting the unconfigured state (value 0) drops queued microphone
-    /// audio and resets the tracked speaker setting. The base class already returned the interfaces to
-    /// alternate setting 0 and raised their interface hooks before this call, so no second
-    /// <see cref="SpeakerResetReceived"/> is raised for the same transition.
+    /// audio and clears <see cref="MicrophoneActive"/>, and resets the tracked speaker setting. The
+    /// base class already returned the interfaces to alternate setting 0 and raised their interface
+    /// hooks before this call, so no second <see cref="SpeakerResetReceived"/> or
+    /// <see cref="MicrophoneActiveChanged"/> is raised for the same transition.
     /// </summary>
     /// <param name="configurationValue">The new configuration value (0 selects the unconfigured state).</param>
     protected override void OnConfigurationChanged(byte configurationValue)
@@ -611,6 +684,7 @@ public sealed class DualSenseDevice : VirtualHidDevice
         }
 
         _speakerAlternateSetting = 0;
+        _microphoneActive = false;
         _audioFunction.ClearMicrophonePcm();
     }
 
@@ -726,6 +800,58 @@ public sealed class DualSenseDevice : VirtualHidDevice
             catch (Exception exception)
             {
                 _logger?.Log(EmulationLogLevel.Error, $"A SpeakerResetReceived handler failed: {exception}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Raises <see cref="MicrophoneActiveChanged"/> with the new active state, invoking every
+    /// subscriber in isolation; a throwing subscriber is logged at
+    /// <see cref="EmulationLogLevel.Error"/> and skipped.
+    /// </summary>
+    /// <param name="active">The new <see cref="MicrophoneActive"/> state.</param>
+    private void RaiseMicrophoneActiveChanged(bool active)
+    {
+        Action<bool>? handlers = MicrophoneActiveChanged;
+        if (handlers is null)
+        {
+            return;
+        }
+
+        foreach (Delegate handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                ((Action<bool>)handler)(active);
+            }
+            catch (Exception exception)
+            {
+                _logger?.Log(EmulationLogLevel.Error, $"A MicrophoneActiveChanged handler failed: {exception}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Raises <see cref="MicrophonePacketServed"/>, invoking every subscriber in isolation; a throwing
+    /// subscriber is logged at <see cref="EmulationLogLevel.Error"/> and skipped.
+    /// </summary>
+    private void RaiseMicrophonePacketServed()
+    {
+        Action? handlers = MicrophonePacketServed;
+        if (handlers is null)
+        {
+            return;
+        }
+
+        foreach (Delegate handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                ((Action)handler)();
+            }
+            catch (Exception exception)
+            {
+                _logger?.Log(EmulationLogLevel.Error, $"A MicrophonePacketServed handler failed: {exception}");
             }
         }
     }

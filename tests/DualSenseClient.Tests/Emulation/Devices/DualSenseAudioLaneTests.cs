@@ -78,8 +78,8 @@ public sealed class DualSenseAudioLaneTests
     /// <summary>Nominal microphone packet length: 48 one-millisecond frames of two 16-bit channels.</summary>
     private const int MicrophonePacketBytes = 192;
 
-    /// <summary>wMaxPacketSize of the microphone endpoint (196 bytes; 192 nominal plus four spare).</summary>
-    private const int MicrophoneMaxPacketBytes = 196;
+    /// <summary>wMaxPacketSize of the microphone endpoint: one nominal 192-byte frame.</summary>
+    private const int MicrophoneMaxPacketBytes = 192;
 
     [Test]
     public void OnIsoPacketReceived_FourChannelPacket_RaisesExactAudioOutAndHaptics()
@@ -187,6 +187,58 @@ public sealed class DualSenseAudioLaneTests
     }
 
     [Test]
+    public void MicrophoneActive_FollowsInterface2AlternateSetting()
+    {
+        DualSenseDevice device = CreateDevice();
+        bool? observed = null;
+        device.MicrophoneActiveChanged += active => observed = active;
+
+        Assert.That(SendSetInterface(device, MicrophoneInterfaceNumber, 1), Is.Zero);
+        Assert.That(device.MicrophoneActive, Is.True);
+        Assert.That(observed, Is.True);
+
+        Assert.That(SendSetInterface(device, MicrophoneInterfaceNumber, 0), Is.Zero);
+        Assert.That(device.MicrophoneActive, Is.False);
+        Assert.That(observed, Is.False);
+    }
+
+    [Test]
+    public void ProvideIsoPacket_MicrophoneEndpoint_RaisesPacketServed()
+    {
+        DualSenseDevice device = CreateDevice();
+        int served = 0;
+        device.MicrophonePacketServed += () => served++;
+
+        device.ProvideIsoPacket(AudioInEndpointAddress, new byte[MicrophonePacketBytes]);
+
+        Assert.That(served, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void ProvideIsoPacket_SpeakerEndpoint_DoesNotRaisePacketServed()
+    {
+        DualSenseDevice device = CreateDevice();
+        int served = 0;
+        device.MicrophonePacketServed += () => served++;
+
+        device.ProvideIsoPacket(AudioOutEndpointAddress, new byte[MicrophonePacketBytes]);
+
+        Assert.That(served, Is.Zero);
+    }
+
+    [Test]
+    public void MicrophoneFormat_MatchesPersona()
+    {
+        DualSenseDevice device = CreateDevice();
+        Assert.Multiple(() =>
+        {
+            Assert.That(device.MicrophoneFormat.MicrophoneChannels, Is.EqualTo(2));
+            Assert.That(device.MicrophoneFormat.MicrophoneSampleRateHz, Is.EqualTo(48000));
+            Assert.That(device.MicrophoneFormat.MicrophoneFrameBytes, Is.EqualTo(MicrophonePacketBytes));
+        });
+    }
+
+    [Test]
     public void OnInterfaceChanged_SpeakerAltChanges_RaisesResetExactlyOnce()
     {
         DualSenseDevice device = CreateDevice();
@@ -243,6 +295,25 @@ public sealed class DualSenseAudioLaneTests
         {
             Assert.That(count, Is.EqualTo(MicrophonePacketBytes));
             Assert.That(destination, Is.All.Zero); // the queued frame is gone; only the nominal zero packet remains
+        });
+    }
+
+    [Test]
+    public void OnConfigurationChanged_ConfigZero_ClearsMicrophoneActive()
+    {
+        DualSenseDevice device = CreateDevice();
+        bool? observed = null;
+        device.MicrophoneActiveChanged += active => observed = active;
+
+        Assert.That(SendSetInterface(device, MicrophoneInterfaceNumber, 1), Is.Zero);
+        Assert.That(device.MicrophoneActive, Is.True);
+
+        Assert.That(SendSetConfiguration(device, 0), Is.Zero);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(device.MicrophoneActive, Is.False);
+            Assert.That(observed, Is.False);
         });
     }
 
@@ -341,6 +412,29 @@ public sealed class DualSenseAudioLaneTests
         {
             Assert.That(resets, Is.EqualTo(1)); // the second subscriber still observed the reset
             Assert.That(logger.ErrorEntries, Has.Count.EqualTo(1)); // the fault was logged at Error
+        });
+    }
+
+    [Test]
+    public void MicrophoneEvents_ThrowingSubscribers_AreLoggedAndOthersRun()
+    {
+        RecordingLogger logger = new RecordingLogger();
+        DualSenseDevice device = new DualSenseDevice(new DualSenseIdentity(), logger);
+        int activeChanges = 0;
+        int served = 0;
+        device.MicrophoneActiveChanged += _ => throw new InvalidOperationException("microphone active subscriber fault");
+        device.MicrophoneActiveChanged += _ => activeChanges++;
+        device.MicrophonePacketServed += () => throw new InvalidOperationException("microphone packet subscriber fault");
+        device.MicrophonePacketServed += () => served++;
+
+        Assert.That(SendSetInterface(device, MicrophoneInterfaceNumber, 1), Is.Zero);
+        device.ProvideIsoPacket(AudioInEndpointAddress, new byte[MicrophonePacketBytes]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(activeChanges, Is.EqualTo(1)); // the second subscriber still observed the activation
+            Assert.That(served, Is.EqualTo(1)); // the second packet subscriber still observed the served packet
+            Assert.That(logger.ErrorEntries, Has.Count.EqualTo(2)); // both faults were logged at Error
         });
     }
 

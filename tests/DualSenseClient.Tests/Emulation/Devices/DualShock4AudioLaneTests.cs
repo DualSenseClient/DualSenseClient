@@ -73,8 +73,8 @@ public sealed class DualShock4AudioLaneTests
     /// <summary>Number of samples in one microphone PCM frame.</summary>
     private const int MicrophoneSamples = 16;
 
-    /// <summary>wMaxPacketSize of the microphone endpoint (34 bytes; 32 nominal plus two spare).</summary>
-    private const int MicrophoneMaxPacketBytes = 34;
+    /// <summary>wMaxPacketSize of the microphone endpoint: one nominal 32-byte frame.</summary>
+    private const int MicrophoneMaxPacketBytes = 32;
 
     [Test]
     public void OnIsoPacketReceived_128BytePacket_RaisesExactAudioOut()
@@ -157,6 +157,58 @@ public sealed class DualShock4AudioLaneTests
     }
 
     [Test]
+    public void MicrophoneActive_FollowsInterface2AlternateSetting()
+    {
+        DualShock4Device device = CreateDevice();
+        bool? observed = null;
+        device.MicrophoneActiveChanged += active => observed = active;
+
+        Assert.That(SendSetInterface(device, MicrophoneInterfaceNumber, 1), Is.Zero);
+        Assert.That(device.MicrophoneActive, Is.True);
+        Assert.That(observed, Is.True);
+
+        Assert.That(SendSetInterface(device, MicrophoneInterfaceNumber, 0), Is.Zero);
+        Assert.That(device.MicrophoneActive, Is.False);
+        Assert.That(observed, Is.False);
+    }
+
+    [Test]
+    public void ProvideIsoPacket_MicrophoneEndpoint_RaisesPacketServed()
+    {
+        DualShock4Device device = CreateDevice();
+        int served = 0;
+        device.MicrophonePacketServed += () => served++;
+
+        device.ProvideIsoPacket(AudioInEndpointAddress, new byte[MicrophoneFrameBytes]);
+
+        Assert.That(served, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void ProvideIsoPacket_SpeakerEndpoint_DoesNotRaisePacketServed()
+    {
+        DualShock4Device device = CreateDevice();
+        int served = 0;
+        device.MicrophonePacketServed += () => served++;
+
+        device.ProvideIsoPacket(AudioOutEndpointAddress, new byte[MicrophoneFrameBytes]);
+
+        Assert.That(served, Is.Zero);
+    }
+
+    [Test]
+    public void MicrophoneFormat_MatchesPersona()
+    {
+        DualShock4Device device = CreateDevice();
+        Assert.Multiple(() =>
+        {
+            Assert.That(device.MicrophoneFormat.MicrophoneChannels, Is.EqualTo(1));
+            Assert.That(device.MicrophoneFormat.MicrophoneSampleRateHz, Is.EqualTo(16000));
+            Assert.That(device.MicrophoneFormat.MicrophoneFrameBytes, Is.EqualTo(MicrophoneFrameBytes));
+        });
+    }
+
+    [Test]
     public void OnInterfaceChanged_SpeakerAltChanges_RaisesResetExactlyOnce()
     {
         DualShock4Device device = CreateDevice();
@@ -216,6 +268,25 @@ public sealed class DualShock4AudioLaneTests
         {
             Assert.That(count, Is.EqualTo(MicrophoneFrameBytes));
             Assert.That(destination, Is.All.Zero); // the queued frame is gone; only the nominal zero packet remains
+        });
+    }
+
+    [Test]
+    public void OnConfigurationChanged_ConfigZero_ClearsMicrophoneActive()
+    {
+        DualShock4Device device = CreateDevice();
+        bool? observed = null;
+        device.MicrophoneActiveChanged += active => observed = active;
+
+        Assert.That(SendSetInterface(device, MicrophoneInterfaceNumber, 1), Is.Zero);
+        Assert.That(device.MicrophoneActive, Is.True);
+
+        Assert.That(SendSetConfiguration(device, 0), Is.Zero);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(device.MicrophoneActive, Is.False);
+            Assert.That(observed, Is.False);
         });
     }
 
@@ -331,6 +402,29 @@ public sealed class DualShock4AudioLaneTests
         {
             Assert.That(resets, Is.EqualTo(1)); // the second subscriber still observed the reset
             Assert.That(logger.ErrorEntries, Has.Count.EqualTo(1)); // the fault was logged at Error
+        });
+    }
+
+    [Test]
+    public void MicrophoneEvents_ThrowingSubscribers_AreLoggedAndOthersRun()
+    {
+        RecordingLogger logger = new RecordingLogger();
+        DualShock4Device device = new DualShock4Device(new DualShock4Identity(), logger);
+        int activeChanges = 0;
+        int served = 0;
+        device.MicrophoneActiveChanged += _ => throw new InvalidOperationException("microphone active subscriber fault");
+        device.MicrophoneActiveChanged += _ => activeChanges++;
+        device.MicrophonePacketServed += () => throw new InvalidOperationException("microphone packet subscriber fault");
+        device.MicrophonePacketServed += () => served++;
+
+        Assert.That(SendSetInterface(device, MicrophoneInterfaceNumber, 1), Is.Zero);
+        device.ProvideIsoPacket(AudioInEndpointAddress, new byte[MicrophoneFrameBytes]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(activeChanges, Is.EqualTo(1)); // the second subscriber still observed the activation
+            Assert.That(served, Is.EqualTo(1)); // the second packet subscriber still observed the served packet
+            Assert.That(logger.ErrorEntries, Has.Count.EqualTo(2)); // both faults were logged at Error
         });
     }
 

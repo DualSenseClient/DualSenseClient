@@ -55,8 +55,8 @@ public sealed class DualShock4DescriptorSetTests
     /// <summary>wMaxPacketSize of the speaker endpoint: 32 frames of two 16-bit channels plus four spare bytes.</summary>
     private const int SpeakerMaxPacketSize = 132;
 
-    /// <summary>wMaxPacketSize of the microphone endpoint: 16 frames of one 16-bit channel plus two spare bytes.</summary>
-    private const int MicrophoneMaxPacketSize = 34;
+    /// <summary>wMaxPacketSize of the microphone endpoint: 16 frames of one 16-bit channel.</summary>
+    private const int MicrophoneMaxPacketSize = 32;
 
     /// <summary>
     /// Product id of the reference DualShock 4 v1 persona (the v1 reference's constructor default);

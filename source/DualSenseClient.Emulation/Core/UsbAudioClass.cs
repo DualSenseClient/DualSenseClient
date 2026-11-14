@@ -26,9 +26,16 @@ public static class UsbAudioClass
     /// with the 73-byte class-specific set (4-channel speaker path and 2-channel microphone path),
     /// audio streaming interface 1 with alternate settings 0/1 for the speaker (isochronous OUT EP1,
     /// 392 bytes per frame) and audio streaming interface 2 with alternate settings 0/1 for the
-    /// microphone (isochronous IN EP2, 196 bytes per frame). Both formats are 16-bit PCM at 48 kHz.
+    /// microphone (isochronous IN EP2, 192 bytes per frame). Both formats are 16-bit PCM at 48 kHz.
     /// </summary>
-    /// <returns>The audio block bytes, exactly as served by the reference.</returns>
+    /// <remarks>
+    /// The reference advertises a 196-byte microphone maximum (a 49-frame margin). The virtual
+    /// endpoint always serves exactly 48 frames, and the USB/IP host audio stack treats the
+    /// maximum as nominal: a 196-byte maximum makes it insert a frame per millisecond, lowering
+    /// pitch by 48/49. Advertising the nominal 192 bytes makes the host consume exactly the
+    /// 48-frame packets the bridge produces.
+    /// </remarks>
+    /// <returns>The audio block bytes, derived from the reference descriptor.</returns>
     public static byte[] CreateDualSenseAudioBlock()
     {
         return
@@ -188,7 +195,7 @@ public static class UsbAudioClass
             0x05, // bDescriptorType: ENDPOINT
             0x82, // bEndpointAddress: IN EP2
             0x05, // bmAttributes: isochronous, asynchronous
-            0xC4, 0x00, // wMaxPacketSize: 196 bytes
+            0xC0, 0x00, // wMaxPacketSize: 192 bytes (48 nominal frames)
             0x01, // bInterval: 1 frame
             0x00, // bRefresh: none
             0x00, // bSynchAddress: none
@@ -206,9 +213,14 @@ public static class UsbAudioClass
     /// with the 71-byte class-specific set (2-channel speaker path and 1-channel microphone path),
     /// audio streaming interface 1 with alternate settings 0/1 for the speaker (isochronous OUT EP1,
     /// 132 bytes per frame at 32 kHz) and audio streaming interface 2 with alternate settings 0/1
-    /// for the microphone (isochronous IN EP2, 34 bytes per frame at 16 kHz).
+    /// for the microphone (isochronous IN EP2, 32 bytes per frame at 16 kHz).
     /// </summary>
-    /// <returns>The audio block bytes, exactly as served by the reference.</returns>
+    /// <remarks>
+    /// The reference advertises a 34-byte microphone maximum (a 17-frame margin). The virtual
+    /// endpoint serves exactly 16 frames, so the maximum is the nominal 32 bytes for the same
+    /// reason as the DualSense microphone block.
+    /// </remarks>
+    /// <returns>The audio block bytes, derived from the reference descriptor.</returns>
     public static byte[] CreateDualShock4AudioBlock()
     {
         return
@@ -368,7 +380,7 @@ public static class UsbAudioClass
             0x05, // bDescriptorType: ENDPOINT
             0x82, // bEndpointAddress: IN EP2
             0x05, // bmAttributes: isochronous, asynchronous
-            0x22, 0x00, // wMaxPacketSize: 34 bytes
+            0x20, 0x00, // wMaxPacketSize: 32 bytes (16 nominal frames)
             0x01, // bInterval: 1 frame
             0x00, // bRefresh: none
             0x00, // bSynchAddress: none

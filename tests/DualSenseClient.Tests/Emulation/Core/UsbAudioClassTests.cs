@@ -8,7 +8,7 @@ namespace DualSenseClient.Tests.Emulation.Core;
 public sealed class UsbAudioClassTests
 {
     [Test]
-    public void CreateDualSenseAudioBlock_MatchesReferenceBytes()
+    public void CreateDualSenseAudioBlock_MatchesExpectedBytes()
     {
         byte[] block = UsbAudioClass.CreateDualSenseAudioBlock();
 
@@ -82,17 +82,36 @@ public sealed class UsbAudioClassTests
         Assert.That(block[166], Is.EqualTo((byte)0x01)); // bSamFreqType: one discrete frequency
         Assert.That(ReadSampleFrequency(block, 167), Is.EqualTo(48000));
 
-        // Microphone endpoint (offset 170): isochronous IN EP2, 196 bytes per packet, every frame.
+        // Microphone endpoint (offset 170): isochronous IN EP2, 192 bytes per packet, every frame.
         Assert.That(block[170], Is.EqualTo((byte)0x09)); // bLength
         Assert.That(block[171], Is.EqualTo((byte)0x05)); // bDescriptorType: ENDPOINT
         Assert.That(block[172], Is.EqualTo((byte)0x82)); // bEndpointAddress: IN EP2
         Assert.That(block[173], Is.EqualTo((byte)0x05)); // bmAttributes: isochronous, asynchronous
-        Assert.That(BinaryPrimitives.ReadUInt16LittleEndian(block.AsSpan(174)), Is.EqualTo((ushort)196));
+        Assert.That(BinaryPrimitives.ReadUInt16LittleEndian(block.AsSpan(174)), Is.EqualTo((ushort)192));
         Assert.That(block[176], Is.EqualTo((byte)0x01)); // bInterval: 1 frame
     }
 
     [Test]
-    public void CreateDualShock4AudioBlock_MatchesReferenceBytes()
+    public void MicrophoneEndpoint_MaxPacketMatchesNominalStreamFrame()
+    {
+        byte[] dualSense = UsbAudioClass.CreateDualSenseAudioBlock();
+        byte[] dualShock4 = UsbAudioClass.CreateDualShock4AudioBlock();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                BinaryPrimitives.ReadUInt16LittleEndian(dualSense.AsSpan(174)),
+                Is.EqualTo((ushort)AudioFunctionFormat.DualSense.MicrophoneFrameBytes),
+                "the host must not pad a 192-byte microphone frame to a 196-byte packet");
+            Assert.That(
+                BinaryPrimitives.ReadUInt16LittleEndian(dualShock4.AsSpan(172)),
+                Is.EqualTo((ushort)AudioFunctionFormat.DualShock4.MicrophoneFrameBytes),
+                "the host must not pad a 32-byte microphone frame to a 34-byte packet");
+        });
+    }
+
+    [Test]
+    public void CreateDualShock4AudioBlock_MatchesExpectedBytes()
     {
         byte[] block = UsbAudioClass.CreateDualShock4AudioBlock();
 
@@ -157,12 +176,12 @@ public sealed class UsbAudioClassTests
         Assert.That(block[164], Is.EqualTo((byte)0x01)); // bSamFreqType: one discrete frequency
         Assert.That(ReadSampleFrequency(block, 165), Is.EqualTo(16000));
 
-        // Microphone endpoint (offset 168): isochronous IN EP2, 34 bytes per packet, every frame.
+        // Microphone endpoint (offset 168): isochronous IN EP2, 32 bytes per packet, every frame.
         Assert.That(block[168], Is.EqualTo((byte)0x09)); // bLength
         Assert.That(block[169], Is.EqualTo((byte)0x05)); // bDescriptorType: ENDPOINT
         Assert.That(block[170], Is.EqualTo((byte)0x82)); // bEndpointAddress: IN EP2
         Assert.That(block[171], Is.EqualTo((byte)0x05)); // bmAttributes: isochronous, asynchronous
-        Assert.That(BinaryPrimitives.ReadUInt16LittleEndian(block.AsSpan(172)), Is.EqualTo((ushort)34));
+        Assert.That(BinaryPrimitives.ReadUInt16LittleEndian(block.AsSpan(172)), Is.EqualTo((ushort)32));
         Assert.That(block[174], Is.EqualTo((byte)0x01)); // bInterval: 1 frame
     }
 
@@ -276,7 +295,7 @@ public sealed class UsbAudioClassTests
         Assert.That(microphone.Endpoints, Has.Count.EqualTo(1));
         Assert.That(microphone.Endpoints[0].Address, Is.EqualTo((byte)0x82));
         Assert.That(microphone.Endpoints[0].Type, Is.EqualTo(UsbEndpointType.Isochronous));
-        Assert.That(microphone.Endpoints[0].MaxPacketSize, Is.EqualTo((ushort)196));
+        Assert.That(microphone.Endpoints[0].MaxPacketSize, Is.EqualTo((ushort)192));
         Assert.That(microphone.Endpoints[0].Interval, Is.EqualTo((byte)1));
 
         Assert.That(descriptors.TryGetInterface(3, 0, out UsbInterfaceInfo hid), Is.True);
@@ -335,11 +354,11 @@ public sealed class UsbAudioClassTests
         ];
     }
 
-    // Second, independent transcription of the 186-byte reference audio block, used as the golden
-    // copy of CreateDualSenseAudioBlock_MatchesReferenceBytes: the audio block of the reference
-    // configuration descriptor with the serial interface association disabled (4-channel speaker
-    // and 2-channel microphone at 48 kHz). The production builder holds its
-    // own copy of these bytes; the test compares the two byte-for-byte and adds structural checks.
+    // Second, independent transcription of the 186-byte audio block, used as the golden copy of
+    // CreateDualSenseAudioBlock_MatchesExpectedBytes: the reference audio block with the serial
+    // interface association disabled (4-channel speaker and 2-channel microphone at 48 kHz), and
+    // the microphone maximum narrowed to the nominal 192-byte frame. The production builder holds
+    // its own copy of these bytes; the test compares the two byte-for-byte and adds structural checks.
     private static byte[] ExpectedDualSenseAudioBlock()
     {
         return
@@ -362,16 +381,16 @@ public sealed class UsbAudioClassTests
             0x09, 0x04, 0x02, 0x01, 0x01, 0x01, 0x02, 0x00, 0x00, // AS IN (2.1)
             0x07, 0x24, 0x01, 0x06, 0x01, 0x01, 0x00, // AS general: terminal link 6, PCM
             0x0B, 0x24, 0x02, 0x01, 0x02, 0x02, 0x10, 0x01, 0x80, 0xBB, 0x00, // format: 2 ch, 16-bit, 48 kHz
-            0x09, 0x05, 0x82, 0x05, 0xC4, 0x00, 0x01, 0x00, 0x00, // EP IN 2: isochronous asynchronous, 196 bytes, interval 1
+            0x09, 0x05, 0x82, 0x05, 0xC0, 0x00, 0x01, 0x00, 0x00, // EP IN 2: isochronous asynchronous, 192 bytes, interval 1
             0x07, 0x25, 0x01, 0x00, 0x00, 0x00, 0x00 // CS endpoint: no controls
         ];
     }
 
-    // Second, independent transcription of the 184-byte reference audio block, used as the golden
-    // copy of CreateDualShock4AudioBlock_MatchesReferenceBytes: the audio block of the reference
-    // configuration descriptor with the serial interface association disabled (2-channel speaker at
-    // 32 kHz and 1-channel microphone at 16 kHz). The production builder holds its own copy of
-    // these bytes; the test compares the two byte-for-byte and adds structural checks.
+    // Second, independent transcription of the 184-byte audio block, used as the golden copy of
+    // CreateDualShock4AudioBlock_MatchesExpectedBytes: the reference audio block with the serial
+    // interface association disabled (2-channel speaker at 32 kHz and 1-channel microphone at
+    // 16 kHz), and the microphone maximum narrowed to the nominal 32-byte frame. The production
+    // builder holds its own copy of these bytes; the test compares the two byte-for-byte.
     private static byte[] ExpectedDualShock4AudioBlock()
     {
         return
@@ -394,7 +413,7 @@ public sealed class UsbAudioClassTests
             0x09, 0x04, 0x02, 0x01, 0x01, 0x01, 0x02, 0x00, 0x00, // AS IN (2.1)
             0x07, 0x24, 0x01, 0x06, 0x01, 0x01, 0x00, // AS general: terminal link 6, PCM
             0x0B, 0x24, 0x02, 0x01, 0x01, 0x02, 0x10, 0x01, 0x80, 0x3E, 0x00, // format: 1 ch, 16-bit, 16 kHz
-            0x09, 0x05, 0x82, 0x05, 0x22, 0x00, 0x01, 0x00, 0x00, // EP IN 2: isochronous asynchronous, 34 bytes, interval 1
+            0x09, 0x05, 0x82, 0x05, 0x20, 0x00, 0x01, 0x00, 0x00, // EP IN 2: isochronous asynchronous, 32 bytes, interval 1
             0x07, 0x25, 0x01, 0x00, 0x00, 0x00, 0x00 // CS endpoint: no controls
         ];
     }

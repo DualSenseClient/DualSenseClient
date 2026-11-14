@@ -49,8 +49,8 @@ public sealed class DualSenseDescriptorSetTests
     /// <summary>wMaxPacketSize of the speaker endpoint: 48 frames of four 16-bit channels plus eight spare bytes.</summary>
     private const int SpeakerMaxPacketSize = 392;
 
-    /// <summary>wMaxPacketSize of the microphone endpoint: 48 frames of two 16-bit channels plus four spare bytes.</summary>
-    private const int MicrophoneMaxPacketSize = 196;
+    /// <summary>wMaxPacketSize of the microphone endpoint: 48 frames of two 16-bit channels.</summary>
+    private const int MicrophoneMaxPacketSize = 192;
 
     [Test]
     public void NewIdentity_Defaults_MatchTheReferenceDescriptorSet()
