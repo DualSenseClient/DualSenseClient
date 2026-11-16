@@ -154,18 +154,20 @@
                                 </ui:FASettingsExpanderItem.Footer>
                             </ui:FASettingsExpanderItem>
                             <ui:FASettingsExpanderItem>
-                                <StackPanel Orientation="Horizontal"
-                                            Spacing="8">
-                                    <ic:FluentIcon Icon="Info"
+                                <Grid ColumnDefinitions="Auto,*"
+                                      ColumnSpacing="8">
+                                    <ic:FluentIcon Grid.Column="0"
+                                                   Icon="Info"
                                                    IconVariant="Regular"
                                                    IconSize="Size16"
                                                    VerticalAlignment="Top"
                                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock Text="{DynamicResource AutoProfilesPage.Patterns.Hint}"
+                                    <TextBlock Grid.Column="1"
+                                               Text="{DynamicResource AutoProfilesPage.Patterns.Hint}"
                                                FontSize="12"
                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                TextWrapping="Wrap" />
-                                </StackPanel>
+                                </Grid>
                             </ui:FASettingsExpanderItem>
                         </ui:FASettingsExpander>
                         <!-- What the rule changes while it matches -->
