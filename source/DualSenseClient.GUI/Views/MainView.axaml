@@ -111,7 +111,7 @@
                                    IsSettingsVisible="False"
                                    PaneDisplayMode="Left"
                                    IsPaneOpen="False"
-                                   IsPaneToggleButtonVisible="True"
+                                   IsPaneToggleButtonVisible="False"
                                    ItemInvoked="NavigationView_OnItemInvoked">
             <!-- Navigation items – add new pages here with a unique Tag -->
             <controls:FANavigationView.MenuItems>
