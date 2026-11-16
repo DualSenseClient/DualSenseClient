@@ -649,6 +649,22 @@ public sealed class DualSenseControllerView : Canvas
     public event EventHandler<ButtonType>? ButtonClicked;
 
     /// <summary>
+    /// Re-subscribes to the bound state when the view returns to the visual tree. The
+    /// content frame caches pages, so the same view is detached and reattached across
+    /// navigations; without this, live updates (including animated lightbar frames) stop
+    /// after the first navigation away and back.
+    /// </summary>
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (State is { } state)
+        {
+            AttachState(state);
+            UpdatePositions();
+        }
+    }
+
+    /// <summary>
     /// Releases the state subscription when the view leaves the visual tree.
     /// </summary>
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -736,8 +752,7 @@ public sealed class DualSenseControllerView : Canvas
         _l3Label.IsVisible = true;
         _r3Label.IsVisible = true;
 
-        _state = state;
-        state.PropertyChanged += OnStatePropertyChanged;
+        AttachState(state);
         UpdatePositions();
         UpdateSelectionHighlights();
     }
@@ -1165,6 +1180,21 @@ public sealed class DualSenseControllerView : Canvas
         SetTop(image, top);
         Children.Add(image);
         return image;
+    }
+
+    /// <summary>
+    /// Subscribes to the given state's notifications, replacing any previous subscription.
+    /// </summary>
+    private void AttachState(IControllerMonitorState state)
+    {
+        if (ReferenceEquals(_state, state))
+        {
+            return;
+        }
+
+        DetachState();
+        _state = state;
+        state.PropertyChanged += OnStatePropertyChanged;
     }
 
     /// <summary>
