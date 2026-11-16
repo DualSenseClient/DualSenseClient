@@ -105,352 +105,374 @@
                     <!-- Editor for the selected rule -->
                     <StackPanel IsVisible="{Binding HasSelectedRule}"
                                 Spacing="4">
-                        <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Name.Title}"
-                                                   Description="{DynamicResource AutoProfilesPage.Name.Description}">
-                            <ui:FASettingsExpanderItem.Footer>
-                                <TextBox Text="{Binding SelectedRuleName}"
-                                         Width="280" />
-                            </ui:FASettingsExpanderItem.Footer>
-                        </ui:FASettingsExpanderItem>
-                        <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Scope.Title}"
-                                                   Description="{DynamicResource AutoProfilesPage.Scope.Description}">
-                            <ui:FASettingsExpanderItem.Footer>
-                                <ComboBox x:Name="ScopeCombo"
-                                          ItemsSource="{Binding MatchScopeOptions}"
-                                          SelectedIndex="{Binding SelectedMatchScopeIndex}"
-                                          MinWidth="220" />
-                            </ui:FASettingsExpanderItem.Footer>
-                        </ui:FASettingsExpanderItem>
-                        <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Exe.Title}"
-                                                   Description="{DynamicResource AutoProfilesPage.Exe.Description}"
-                                                   IsVisible="{Binding IsExeVisible}">
-                            <ui:FASettingsExpanderItem.Footer>
+                        <!-- How the rule finds the focused program -->
+                        <ui:FASettingsExpander Theme="{StaticResource SettingsExpanderNoAnimationStyle}"
+                                               Header="{DynamicResource AutoProfilesPage.Rules.Match.Title}"
+                                               IsExpanded="True">
+                            <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Name.Title}"
+                                                       Description="{DynamicResource AutoProfilesPage.Name.Description}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <TextBox Text="{Binding SelectedRuleName}"
+                                             Width="280" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Scope.Title}"
+                                                       Description="{DynamicResource AutoProfilesPage.Scope.Description}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ComboBox x:Name="ScopeCombo"
+                                              ItemsSource="{Binding MatchScopeOptions}"
+                                              SelectedIndex="{Binding SelectedMatchScopeIndex}"
+                                              MinWidth="220" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Exe.Title}"
+                                                       Description="{DynamicResource AutoProfilesPage.Exe.Description}"
+                                                       IsVisible="{Binding IsExeVisible}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <StackPanel Orientation="Horizontal"
+                                                Spacing="8">
+                                        <TextBox Text="{Binding SelectedExePattern}"
+                                                 ToolTip.Tip="{Binding SelectedExePattern}"
+                                                 Width="220" />
+                                        <Button Click="OnBrowseExeClick"
+                                                ToolTip.Tip="{DynamicResource AutoProfilesPage.Exe.Browse}"
+                                                Padding="6,4"
+                                                VerticalAlignment="Center">
+                                            <ic:FluentIcon Icon="FolderOpen"
+                                                           IconVariant="Regular"
+                                                           IconSize="Size16" />
+                                        </Button>
+                                    </StackPanel>
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.RuleTitle.Title}"
+                                                       Description="{DynamicResource AutoProfilesPage.RuleTitle.Description}"
+                                                       IsVisible="{Binding IsTitleVisible}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <TextBox Text="{Binding SelectedWindowTitle}"
+                                             Width="280" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem>
                                 <StackPanel Orientation="Horizontal"
                                             Spacing="8">
-                                    <TextBox Text="{Binding SelectedExePattern}"
-                                             ToolTip.Tip="{Binding SelectedExePattern}"
-                                             Width="220" />
-                                    <Button Click="OnBrowseExeClick"
-                                            ToolTip.Tip="{DynamicResource AutoProfilesPage.Exe.Browse}"
-                                            Padding="6,4"
-                                            VerticalAlignment="Center">
-                                        <ic:FluentIcon Icon="FolderOpen"
-                                                       IconVariant="Regular"
-                                                       IconSize="Size16" />
-                                    </Button>
-                                </StackPanel>
-                            </ui:FASettingsExpanderItem.Footer>
-                        </ui:FASettingsExpanderItem>
-                        <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.RuleTitle.Title}"
-                                                   Description="{DynamicResource AutoProfilesPage.RuleTitle.Description}"
-                                                   IsVisible="{Binding IsTitleVisible}">
-                            <ui:FASettingsExpanderItem.Footer>
-                                <TextBox Text="{Binding SelectedWindowTitle}"
-                                         Width="280" />
-                            </ui:FASettingsExpanderItem.Footer>
-                        </ui:FASettingsExpanderItem>
-                        <ui:FASettingsExpanderItem>
-                            <TextBlock Text="{DynamicResource AutoProfilesPage.Patterns.Hint}"
-                                       FontSize="12"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                       TextWrapping="Wrap" />
-                        </ui:FASettingsExpanderItem>
-                        <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Controller.Title}"
-                                                   Description="{DynamicResource AutoProfilesPage.Controller.Description}">
-                            <ui:FASettingsExpanderItem.Footer>
-                                <ComboBox x:Name="ControllerCombo"
-                                          ItemsSource="{Binding ControllerOptions}"
-                                          SelectedIndex="{Binding SelectedControllerIndex}"
-                                          MinWidth="220" />
-                            </ui:FASettingsExpanderItem.Footer>
-                        </ui:FASettingsExpanderItem>
-                        <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Profile.Title}"
-                                                   Description="{DynamicResource AutoProfilesPage.Profile.Description}">
-                            <ui:FASettingsExpanderItem.Footer>
-                                <ComboBox x:Name="ProfileCombo"
-                                          ItemsSource="{Binding ProfileOptions}"
-                                          SelectedIndex="{Binding SelectedProfileIndex}"
-                                          MinWidth="220" />
-                            </ui:FASettingsExpanderItem.Footer>
-                        </ui:FASettingsExpanderItem>
-                        <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Emulation.Title}"
-                                                   Description="{DynamicResource AutoProfilesPage.Emulation.Description}">
-                            <ui:FASettingsExpanderItem.Footer>
-                                <ComboBox ItemsSource="{Binding EmulationOptions}"
-                                          SelectedIndex="{Binding SelectedEmulationIndex}"
-                                          MinWidth="220" />
-                            </ui:FASettingsExpanderItem.Footer>
-                        </ui:FASettingsExpanderItem>
-                        <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.DeviceType}"
-                                                   Description="{DynamicResource EmulationPage.Emulation.DeviceType.Description}"
-                                                   IsVisible="{Binding IsDualSenseVariantVisible}">
-                            <ui:FASettingsExpanderItem.Footer>
-                                <ComboBox ItemsSource="{Binding DualSenseVariantOptions}"
-                                          SelectedIndex="{Binding SelectedDualSenseVariantIndex}"
-                                          MinWidth="220" />
-                            </ui:FASettingsExpanderItem.Footer>
-                        </ui:FASettingsExpanderItem>
-                        <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.Ds4Variant}"
-                                                   Description="{DynamicResource EmulationPage.Emulation.Ds4Variant.Description}"
-                                                   IsVisible="{Binding IsDualShock4VariantVisible}">
-                            <ui:FASettingsExpanderItem.Footer>
-                                <ComboBox ItemsSource="{Binding DualShock4VariantOptions}"
-                                          SelectedIndex="{Binding SelectedDualShock4VariantIndex}"
-                                          MinWidth="220" />
-                            </ui:FASettingsExpanderItem.Footer>
-                        </ui:FASettingsExpanderItem>
-                        <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.AudioSource.Title}"
-                                                   Description="{DynamicResource AutoProfilesPage.AudioSource.Description}"
-                                                   IsVisible="{Binding IsAudioSourceVisible}">
-                            <ui:FASettingsExpanderItem.Footer>
-                                <ComboBox ItemsSource="{Binding AudioSourceOptions}"
-                                          SelectedIndex="{Binding SelectedAudioSourceIndex}"
-                                          MinWidth="220" />
-                            </ui:FASettingsExpanderItem.Footer>
-                        </ui:FASettingsExpanderItem>
-                        <ui:FASettingsExpanderItem Content="{DynamicResource AudioSource.Executable.Title}"
-                                                   Description="{DynamicResource AudioSource.Executable.Description}"
-                                                   IsVisible="{Binding IsAudioAppVisible}">
-                            <ui:FASettingsExpanderItem.Footer>
-                                <StackPanel Orientation="Horizontal"
-                                            Spacing="8">
-                                    <TextBox Text="{Binding AudioAppPath, Mode=OneWay}"
-                                             IsReadOnly="True"
-                                             PlaceholderText="{DynamicResource AudioSource.Executable.Placeholder}"
-                                             ToolTip.Tip="{Binding AudioAppPath}"
-                                             Width="220" />
-                                    <Button Click="OnBrowseAudioAppClick"
-                                            ToolTip.Tip="{DynamicResource AudioSource.Executable.Browse}"
-                                            Padding="6,4"
-                                            VerticalAlignment="Center">
-                                        <ic:FluentIcon Icon="FolderOpen"
-                                                       IconVariant="Regular"
-                                                       IconSize="Size16" />
-                                    </Button>
-                                </StackPanel>
-                            </ui:FASettingsExpanderItem.Footer>
-                        </ui:FASettingsExpanderItem>
-                        <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Hiding.Title}"
-                                                   Description="{DynamicResource AutoProfilesPage.Hiding.Description}"
-                                                   IsVisible="{Binding HidingAvailable}">
-                            <ui:FASettingsExpanderItem.Footer>
-                                <ComboBox ItemsSource="{Binding HideOptions}"
-                                          SelectedIndex="{Binding SelectedHideIndex}"
-                                          MinWidth="220" />
-                            </ui:FASettingsExpanderItem.Footer>
-                        </ui:FASettingsExpanderItem>
-
-                        <!-- Adaptive triggers -->
-                        <ui:FASettingsExpanderItem>
-                            <StackPanel Spacing="8">
-                                <StackPanel Spacing="2">
-                                    <TextBlock Text="{DynamicResource AutoProfilesPage.Trigger.Title}"
-                                               FontWeight="SemiBold" />
-                                    <TextBlock Text="{DynamicResource AutoProfilesPage.Trigger.Description}"
+                                    <ic:FluentIcon Icon="Info"
+                                                   IconVariant="Regular"
+                                                   IconSize="Size16"
+                                                   VerticalAlignment="Top"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Text="{DynamicResource AutoProfilesPage.Patterns.Hint}"
                                                FontSize="12"
                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                TextWrapping="Wrap" />
                                 </StackPanel>
-                                <Grid ColumnDefinitions="*,16,*">
-                                    <StackPanel Grid.Column="0"
+                            </ui:FASettingsExpanderItem>
+                        </ui:FASettingsExpander>
+                        <!-- What the rule changes while it matches -->
+                        <ui:FASettingsExpander Theme="{StaticResource SettingsExpanderNoAnimationStyle}"
+                                               Header="{DynamicResource AutoProfilesPage.Rules.Apply.Title}"
+                                               IsExpanded="True">
+                            <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Controller.Title}"
+                                                       Description="{DynamicResource AutoProfilesPage.Controller.Description}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ComboBox x:Name="ControllerCombo"
+                                              ItemsSource="{Binding ControllerOptions}"
+                                              SelectedIndex="{Binding SelectedControllerIndex}"
+                                              MinWidth="220" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Profile.Title}"
+                                                       Description="{DynamicResource AutoProfilesPage.Profile.Description}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ComboBox x:Name="ProfileCombo"
+                                              ItemsSource="{Binding ProfileOptions}"
+                                              SelectedIndex="{Binding SelectedProfileIndex}"
+                                              MinWidth="220" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Emulation.Title}"
+                                                       Description="{DynamicResource AutoProfilesPage.Emulation.Description}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ComboBox ItemsSource="{Binding EmulationOptions}"
+                                              SelectedIndex="{Binding SelectedEmulationIndex}"
+                                              MinWidth="220" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.DeviceType}"
+                                                       Description="{DynamicResource EmulationPage.Emulation.DeviceType.Description}"
+                                                       IsVisible="{Binding IsDualSenseVariantVisible}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ComboBox ItemsSource="{Binding DualSenseVariantOptions}"
+                                              SelectedIndex="{Binding SelectedDualSenseVariantIndex}"
+                                              MinWidth="220" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.Ds4Variant}"
+                                                       Description="{DynamicResource EmulationPage.Emulation.Ds4Variant.Description}"
+                                                       IsVisible="{Binding IsDualShock4VariantVisible}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ComboBox ItemsSource="{Binding DualShock4VariantOptions}"
+                                              SelectedIndex="{Binding SelectedDualShock4VariantIndex}"
+                                              MinWidth="220" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.AudioSource.Title}"
+                                                       Description="{DynamicResource AutoProfilesPage.AudioSource.Description}"
+                                                       IsVisible="{Binding IsAudioSourceVisible}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ComboBox ItemsSource="{Binding AudioSourceOptions}"
+                                              SelectedIndex="{Binding SelectedAudioSourceIndex}"
+                                              MinWidth="220" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource AudioSource.Executable.Title}"
+                                                       Description="{DynamicResource AudioSource.Executable.Description}"
+                                                       IsVisible="{Binding IsAudioAppVisible}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <StackPanel Orientation="Horizontal"
                                                 Spacing="8">
-                                        <TextBlock Text="{DynamicResource AutoProfilesPage.Trigger.Left}"
-                                                   FontWeight="SemiBold" />
-                                        <ComboBox ItemsSource="{Binding TriggerEffectOptions}"
-                                                  SelectedIndex="{Binding SelectedLeftTriggerIndex}"
-                                                  HorizontalAlignment="Stretch" />
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding LeftTriggerStartVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Start}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="{Binding LeftTriggerStartMinimum}"
-                                                                  Maximum="{Binding LeftTriggerStartMaximum}"
-                                                                  Value="{Binding LeftTriggerStart, Mode=TwoWay}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding LeftTriggerEndVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.End}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="{Binding LeftTriggerEndMinimum}"
-                                                                  Maximum="{Binding LeftTriggerEndMaximum}"
-                                                                  Value="{Binding LeftTriggerEnd, Mode=TwoWay}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding LeftTriggerForceVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Force}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="0"
-                                                                  Maximum="{Binding LeftTriggerForceMaximum}"
-                                                                  Value="{Binding LeftTriggerForce, Mode=TwoWay}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding LeftTriggerFrequencyVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Frequency}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="0"
-                                                                  Maximum="255"
-                                                                  Value="{Binding LeftTriggerFrequency, Mode=TwoWay}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding LeftTriggerSnapForceVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.SnapForce}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="0"
-                                                                  Maximum="8"
-                                                                  Value="{Binding LeftTriggerSnapForce, Mode=TwoWay}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding LeftTriggerFirstFootVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.FirstFoot}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="0"
-                                                                  Maximum="6"
-                                                                  Value="{Binding LeftTriggerFirstFoot, Mode=TwoWay}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding LeftTriggerSecondFootVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.SecondFoot}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="{Binding LeftTriggerSecondFootMinimum}"
-                                                                  Maximum="7"
-                                                                  Value="{Binding LeftTriggerSecondFoot, Mode=TwoWay}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding LeftTriggerAmplitudeBVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.AmplitudeB}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="0"
-                                                                  Maximum="7"
-                                                                  Value="{Binding LeftTriggerAmplitudeB, Mode=TwoWay}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding LeftTriggerPeriodVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Period}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="0"
-                                                                  Maximum="255"
-                                                                  Value="{Binding LeftTriggerPeriod, Mode=TwoWay}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding LeftTriggerEndStrengthVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.EndStrength}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="0"
-                                                                  Maximum="8"
-                                                                  Value="{Binding LeftTriggerEndStrength, Mode=TwoWay}" />
-                                        </StackPanel>
+                                        <TextBox Text="{Binding AudioAppPath, Mode=OneWay}"
+                                                 IsReadOnly="True"
+                                                 PlaceholderText="{DynamicResource AudioSource.Executable.Placeholder}"
+                                                 ToolTip.Tip="{Binding AudioAppPath}"
+                                                 Width="220" />
+                                        <Button Click="OnBrowseAudioAppClick"
+                                                ToolTip.Tip="{DynamicResource AudioSource.Executable.Browse}"
+                                                Padding="6,4"
+                                                VerticalAlignment="Center">
+                                            <ic:FluentIcon Icon="FolderOpen"
+                                                           IconVariant="Regular"
+                                                           IconSize="Size16" />
+                                        </Button>
                                     </StackPanel>
-                                    <StackPanel Grid.Column="2"
-                                                Spacing="8">
-                                        <TextBlock Text="{DynamicResource AutoProfilesPage.Trigger.Right}"
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+                            <ui:FASettingsExpanderItem Content="{DynamicResource AutoProfilesPage.Hiding.Title}"
+                                                       Description="{DynamicResource AutoProfilesPage.Hiding.Description}"
+                                                       IsVisible="{Binding HidingAvailable}">
+                                <ui:FASettingsExpanderItem.Footer>
+                                    <ComboBox ItemsSource="{Binding HideOptions}"
+                                              SelectedIndex="{Binding SelectedHideIndex}"
+                                              MinWidth="220" />
+                                </ui:FASettingsExpanderItem.Footer>
+                            </ui:FASettingsExpanderItem>
+
+                        </ui:FASettingsExpander>
+                        <!-- Trigger effects applied while the rule matches -->
+                        <ui:FASettingsExpander Theme="{StaticResource SettingsExpanderNoAnimationStyle}"
+                                               Header="{DynamicResource AutoProfilesPage.Rules.Triggers.Title}"
+                                               IsExpanded="False">
+                            <ui:FASettingsExpanderItem>
+                                <StackPanel Spacing="8">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="{DynamicResource AutoProfilesPage.Trigger.Title}"
                                                    FontWeight="SemiBold" />
-                                        <ComboBox ItemsSource="{Binding TriggerEffectOptions}"
-                                                  SelectedIndex="{Binding SelectedRightTriggerIndex}"
-                                                  HorizontalAlignment="Stretch" />
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding RightTriggerStartVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Start}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="{Binding RightTriggerStartMinimum}"
-                                                                  Maximum="{Binding RightTriggerStartMaximum}"
-                                                                  Value="{Binding RightTriggerStart, Mode=TwoWay}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding RightTriggerEndVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.End}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="{Binding RightTriggerEndMinimum}"
-                                                                  Maximum="{Binding RightTriggerEndMaximum}"
-                                                                  Value="{Binding RightTriggerEnd, Mode=TwoWay}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding RightTriggerForceVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Force}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="0"
-                                                                  Maximum="{Binding RightTriggerForceMaximum}"
-                                                                  Value="{Binding RightTriggerForce, Mode=TwoWay}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding RightTriggerFrequencyVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Frequency}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="0"
-                                                                  Maximum="255"
-                                                                  Value="{Binding RightTriggerFrequency, Mode=TwoWay}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding RightTriggerSnapForceVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.SnapForce}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="0"
-                                                                  Maximum="8"
-                                                                  Value="{Binding RightTriggerSnapForce, Mode=TwoWay}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding RightTriggerFirstFootVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.FirstFoot}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="0"
-                                                                  Maximum="6"
-                                                                  Value="{Binding RightTriggerFirstFoot, Mode=TwoWay}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding RightTriggerSecondFootVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.SecondFoot}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="{Binding RightTriggerSecondFootMinimum}"
-                                                                  Maximum="7"
-                                                                  Value="{Binding RightTriggerSecondFoot, Mode=TwoWay}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding RightTriggerAmplitudeBVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.AmplitudeB}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="0"
-                                                                  Maximum="7"
-                                                                  Value="{Binding RightTriggerAmplitudeB, Mode=TwoWay}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding RightTriggerPeriodVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Period}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="0"
-                                                                  Maximum="255"
-                                                                  Value="{Binding RightTriggerPeriod, Mode=TwoWay}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="2"
-                                                    IsVisible="{Binding RightTriggerEndStrengthVisible}">
-                                            <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.EndStrength}"
-                                                       FontSize="12"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                            <controls:SliderInput Minimum="0"
-                                                                  Maximum="8"
-                                                                  Value="{Binding RightTriggerEndStrength, Mode=TwoWay}" />
-                                        </StackPanel>
+                                        <TextBlock Text="{DynamicResource AutoProfilesPage.Trigger.Description}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                   TextWrapping="Wrap" />
                                     </StackPanel>
-                                </Grid>
-                            </StackPanel>
-                        </ui:FASettingsExpanderItem>
+                                    <Grid ColumnDefinitions="*,16,*">
+                                        <StackPanel Grid.Column="0"
+                                                    Spacing="8">
+                                            <TextBlock Text="{DynamicResource AutoProfilesPage.Trigger.Left}"
+                                                       FontWeight="SemiBold" />
+                                            <ComboBox ItemsSource="{Binding TriggerEffectOptions}"
+                                                      SelectedIndex="{Binding SelectedLeftTriggerIndex}"
+                                                      HorizontalAlignment="Stretch" />
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding LeftTriggerStartVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Start}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="{Binding LeftTriggerStartMinimum}"
+                                                                      Maximum="{Binding LeftTriggerStartMaximum}"
+                                                                      Value="{Binding LeftTriggerStart, Mode=TwoWay}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding LeftTriggerEndVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.End}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="{Binding LeftTriggerEndMinimum}"
+                                                                      Maximum="{Binding LeftTriggerEndMaximum}"
+                                                                      Value="{Binding LeftTriggerEnd, Mode=TwoWay}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding LeftTriggerForceVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Force}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="0"
+                                                                      Maximum="{Binding LeftTriggerForceMaximum}"
+                                                                      Value="{Binding LeftTriggerForce, Mode=TwoWay}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding LeftTriggerFrequencyVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Frequency}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="0"
+                                                                      Maximum="255"
+                                                                      Value="{Binding LeftTriggerFrequency, Mode=TwoWay}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding LeftTriggerSnapForceVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.SnapForce}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="0"
+                                                                      Maximum="8"
+                                                                      Value="{Binding LeftTriggerSnapForce, Mode=TwoWay}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding LeftTriggerFirstFootVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.FirstFoot}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="0"
+                                                                      Maximum="6"
+                                                                      Value="{Binding LeftTriggerFirstFoot, Mode=TwoWay}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding LeftTriggerSecondFootVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.SecondFoot}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="{Binding LeftTriggerSecondFootMinimum}"
+                                                                      Maximum="7"
+                                                                      Value="{Binding LeftTriggerSecondFoot, Mode=TwoWay}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding LeftTriggerAmplitudeBVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.AmplitudeB}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="0"
+                                                                      Maximum="7"
+                                                                      Value="{Binding LeftTriggerAmplitudeB, Mode=TwoWay}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding LeftTriggerPeriodVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Period}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="0"
+                                                                      Maximum="255"
+                                                                      Value="{Binding LeftTriggerPeriod, Mode=TwoWay}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding LeftTriggerEndStrengthVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.EndStrength}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="0"
+                                                                      Maximum="8"
+                                                                      Value="{Binding LeftTriggerEndStrength, Mode=TwoWay}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2"
+                                                    Spacing="8">
+                                            <TextBlock Text="{DynamicResource AutoProfilesPage.Trigger.Right}"
+                                                       FontWeight="SemiBold" />
+                                            <ComboBox ItemsSource="{Binding TriggerEffectOptions}"
+                                                      SelectedIndex="{Binding SelectedRightTriggerIndex}"
+                                                      HorizontalAlignment="Stretch" />
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding RightTriggerStartVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Start}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="{Binding RightTriggerStartMinimum}"
+                                                                      Maximum="{Binding RightTriggerStartMaximum}"
+                                                                      Value="{Binding RightTriggerStart, Mode=TwoWay}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding RightTriggerEndVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.End}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="{Binding RightTriggerEndMinimum}"
+                                                                      Maximum="{Binding RightTriggerEndMaximum}"
+                                                                      Value="{Binding RightTriggerEnd, Mode=TwoWay}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding RightTriggerForceVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Force}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="0"
+                                                                      Maximum="{Binding RightTriggerForceMaximum}"
+                                                                      Value="{Binding RightTriggerForce, Mode=TwoWay}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding RightTriggerFrequencyVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Frequency}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="0"
+                                                                      Maximum="255"
+                                                                      Value="{Binding RightTriggerFrequency, Mode=TwoWay}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding RightTriggerSnapForceVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.SnapForce}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="0"
+                                                                      Maximum="8"
+                                                                      Value="{Binding RightTriggerSnapForce, Mode=TwoWay}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding RightTriggerFirstFootVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.FirstFoot}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="0"
+                                                                      Maximum="6"
+                                                                      Value="{Binding RightTriggerFirstFoot, Mode=TwoWay}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding RightTriggerSecondFootVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.SecondFoot}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="{Binding RightTriggerSecondFootMinimum}"
+                                                                      Maximum="7"
+                                                                      Value="{Binding RightTriggerSecondFoot, Mode=TwoWay}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding RightTriggerAmplitudeBVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.AmplitudeB}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="0"
+                                                                      Maximum="7"
+                                                                      Value="{Binding RightTriggerAmplitudeB, Mode=TwoWay}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding RightTriggerPeriodVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.Period}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="0"
+                                                                      Maximum="255"
+                                                                      Value="{Binding RightTriggerPeriod, Mode=TwoWay}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="2"
+                                                        IsVisible="{Binding RightTriggerEndStrengthVisible}">
+                                                <TextBlock Text="{DynamicResource CustomizationPage.OutputTest.Triggers.EndStrength}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                <controls:SliderInput Minimum="0"
+                                                                      Maximum="8"
+                                                                      Value="{Binding RightTriggerEndStrength, Mode=TwoWay}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </ui:FASettingsExpanderItem>
+                        </ui:FASettingsExpander>
 
                         <ui:FASettingsExpanderItem IsVisible="{Binding IsRuleActionless}">
                             <TextBlock Text="{DynamicResource AutoProfilesPage.Rules.NoAction}"

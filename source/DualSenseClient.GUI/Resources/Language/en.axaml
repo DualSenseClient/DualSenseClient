@@ -612,12 +612,15 @@
     <sys:String x:Key="AutoProfilesPage.RuleTitle.Description">Title of the focused window, or empty for any title</sys:String>
     <sys:String x:Key="AutoProfilesPage.RuleTitle.Title">Window title</sys:String>
     <!-- Rules -->
+    <sys:String x:Key="AutoProfilesPage.Rules.Apply.Title">Apply</sys:String>
     <sys:String x:Key="AutoProfilesPage.Rules.Delete">Delete rule</sys:String>
     <sys:String x:Key="AutoProfilesPage.Rules.Description">First matching rule wins; empty patterns match anything of that kind</sys:String>
     <sys:String x:Key="AutoProfilesPage.Rules.Empty">No rules yet. Add one to switch profiles per program.</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Rules.Match.Title">Match</sys:String>
     <sys:String x:Key="AutoProfilesPage.Rules.New">Add rule</sys:String>
     <sys:String x:Key="AutoProfilesPage.Rules.NoAction">This rule leaves profile, virtual controller, triggers, and hiding unchanged, so it does nothing.</sys:String>
     <sys:String x:Key="AutoProfilesPage.Rules.Title">Rules</sys:String>
+    <sys:String x:Key="AutoProfilesPage.Rules.Triggers.Title">Adaptive triggers</sys:String>
     <!-- Scope -->
     <sys:String x:Key="AutoProfilesPage.Scope.Both">Program and window title</sys:String>
     <sys:String x:Key="AutoProfilesPage.Scope.Description">Which filters must match the focused program</sys:String>
