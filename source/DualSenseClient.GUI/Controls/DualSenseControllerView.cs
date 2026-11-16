@@ -177,6 +177,28 @@ public sealed class DualSenseControllerView : Canvas
     private const double MicLedHeight = 28;
 
     /// <summary>
+    /// Number of player LEDs shown on the band below the touchpad (LED 1 = leftmost).
+    /// </summary>
+    private const int PlayerLedCount = 5;
+
+    /// <summary>
+    /// Asset-space horizontal offsets of the five player LEDs from the row's center. The
+    /// outer LEDs sit further out than the inner pair, matching the physical layout.
+    /// </summary>
+    private static readonly double[] PlayerLedOffsets = [-144, -56, 0, 56, 144];
+
+    /// <summary>
+    /// Asset-space center offset of the player LED row from the base image center.
+    /// </summary>
+    private const double PlayerLedCenterOffsetX = 2.0;
+
+    /// <summary>
+    /// Asset-space center offset of the player LED sprites (the middle of the band below the
+    /// touchpad) from the base image center.
+    /// </summary>
+    private const double PlayerLedCenterOffsetY = 67.0;
+
+    /// <summary>
     /// Lowest opacity reached while the microphone LED is pulsing.
     /// </summary>
     private const double MicLedPulseMinOpacity = 0.15;
@@ -406,9 +428,19 @@ public sealed class DualSenseControllerView : Canvas
     private Image? _baseImage;
 
     /// <summary>
-    /// The lightbar color and player LED layout the base image was last tinted with.
+    /// The lightbar color the base image was last tinted with.
     /// </summary>
-    private (byte Red, byte Green, byte Blue, byte Leds)? _baseState;
+    private (byte Red, byte Green, byte Blue)? _baseState;
+
+    /// <summary>
+    /// The five player LED sprites drawn on the band below the touchpad.
+    /// </summary>
+    private Image[]? _playerLeds;
+
+    /// <summary>
+    /// The player LED mask last applied to the sprites (-1 forces the first pass).
+    /// </summary>
+    private int _lastPlayerLeds = -1;
 
     /// <summary>
     /// The microphone LED glow sprite, animated by opacity for the steady and pulse modes.
@@ -636,6 +668,8 @@ public sealed class DualSenseControllerView : Canvas
         _selectionHighlights.Clear();
         _baseImage = null;
         _baseState = null;
+        _playerLeds = null;
+        _lastPlayerLeds = -1;
         StopMicLedPulse();
         _micLed = null;
         _micLedMode = -1;
@@ -661,9 +695,10 @@ public sealed class DualSenseControllerView : Canvas
         AddSprite(skin, "R2", 464.0, -333.1, 202, 149, out _rightTrigger);
         AddSprite(skin, "R2_Active", 464.0, -333.1, 202, 149, out _rightTriggerActive);
 
-        (byte red, byte green, byte blue, byte leds) color = BaseState(state);
+        (byte red, byte green, byte blue) color = LightbarColor(state);
         _baseState = color;
-        _baseImage = AddImage(_illustrations.GetMonitorBase(skin, color.red, color.green, color.blue, color.leds), 0, 0, BaseWidth, BaseHeight);
+        _baseImage = AddImage(_illustrations.GetMonitorBase(skin, color.red, color.green, color.blue), 0, 0, BaseWidth, BaseHeight);
+        AddPlayerLeds();
 
         AddOverlay(skin, "L1_Active", -471.9, -260.8, 221, 130, s => s.L1);
         AddOverlay(skin, "R1_Active", 471.9, -262.2, 221, 130, s => s.R1);
@@ -787,11 +822,24 @@ public sealed class DualSenseControllerView : Canvas
 
         if (_baseImage is { } baseImage)
         {
-            (byte red, byte green, byte blue, byte leds) color = ShowLightbarLeds ? BaseState(state) : ((byte)0, (byte)0, (byte)0, (byte)0);
+            (byte red, byte green, byte blue) color = ShowLightbarLeds ? LightbarColor(state) : ((byte)0, (byte)0, (byte)0);
             if (_baseState is not { } current || current != color)
             {
                 _baseState = color;
-                baseImage.Source = _illustrations.GetMonitorBase(SkinName, color.red, color.green, color.blue, color.leds);
+                baseImage.Source = _illustrations.GetMonitorBase(SkinName, color.red, color.green, color.blue);
+            }
+        }
+
+        if (_playerLeds is { } playerLeds)
+        {
+            int mask = ShowLightbarLeds ? Math.Clamp(state.PlayerLeds, 0, 31) : 0;
+            if (mask != _lastPlayerLeds)
+            {
+                _lastPlayerLeds = mask;
+                for (int led = 0; led < playerLeds.Length; led++)
+                {
+                    playerLeds[led].IsVisible = (mask & (1 << led)) != 0;
+                }
             }
         }
 
@@ -1044,16 +1092,6 @@ public sealed class DualSenseControllerView : Canvas
             (byte)Math.Clamp(state.LightbarBlue, 0, 255));
 
     /// <summary>
-    /// Reads the state's lightbar RGB and player LED layout as bytes, clamped to the valid
-    /// ranges.
-    /// </summary>
-    private static (byte Red, byte Green, byte Blue, byte Leds) BaseState(IControllerMonitorState state)
-    {
-        (byte red, byte green, byte blue) color = LightbarColor(state);
-        return (color.red, color.green, color.blue, (byte)Math.Clamp(state.PlayerLeds, 0, 31));
-    }
-
-    /// <summary>
     /// Left position of a sprite centered at the given asset-space offset, plus a travel offset.
     /// </summary>
     private double CenteredX(double offsetX, double width, double travelX, double scale)
@@ -1083,6 +1121,31 @@ public sealed class DualSenseControllerView : Canvas
     }
 
     /// <summary>
+    /// Adds the five player LED sprites on the band below the touchpad, hidden until the
+    /// state lights them.
+    /// </summary>
+    private void AddPlayerLeds()
+    {
+        double spriteWidth = ControllerIllustrationService.PlayerLedSpriteWidth;
+        double spriteHeight = ControllerIllustrationService.PlayerLedSpriteHeight;
+        Bitmap? sprite = _illustrations.GetPlayerLedSprite();
+        Image[] leds = new Image[PlayerLedCount];
+        for (int led = 0; led < leds.Length; led++)
+        {
+            Image image = AddImage(sprite,
+                CenteredX(PlayerLedCenterOffsetX + PlayerLedOffsets[led], spriteWidth, 0, _scale),
+                CenteredY(PlayerLedCenterOffsetY, spriteHeight, 0, _scale),
+                spriteWidth,
+                spriteHeight);
+            image.IsVisible = false;
+            leds[led] = image;
+        }
+
+        _playerLeds = leds;
+        _lastPlayerLeds = -1;
+    }
+
+    /// <summary>
     /// Creates an image child at the given scaled position and size.
     /// </summary>
     private Image AddImage(Bitmap? bitmap, double left, double top, double width, double height)
@@ -1094,6 +1157,10 @@ public sealed class DualSenseControllerView : Canvas
             Height = height * _scale,
             Stretch = Stretch.Fill
         };
+
+        // The monitor bases are rendered at their native resolution and scaled down to fit the
+        // layout, so filter them properly or the thin touchpad lines alias into stair steps.
+        RenderOptions.SetBitmapInterpolationMode(image, BitmapInterpolationMode.HighQuality);
         SetLeft(image, left);
         SetTop(image, top);
         Children.Add(image);

@@ -89,20 +89,19 @@ public sealed class ControllerIllustrationService
     private readonly object _monitorBaseTintLock = new object();
 
     /// <summary>
-    /// Lightbar-tinted monitor base bitmaps, cached by file name, lightbar color, and
-    /// player LED layout.
+    /// Lightbar-tinted monitor base bitmaps, cached by file name and lightbar color.
     /// </summary>
     private readonly
-        Dictionary<(string File, byte R, byte G, byte B, byte Leds), LinkedListNode<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)>>
+        Dictionary<(string File, byte R, byte G, byte B), LinkedListNode<((string File, byte R, byte G, byte B) Key, Bitmap Value)>>
         _monitorBaseTintCache =
-            new Dictionary<(string File, byte R, byte G, byte B, byte Leds),
-                LinkedListNode<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)>>();
+            new Dictionary<(string File, byte R, byte G, byte B),
+                LinkedListNode<((string File, byte R, byte G, byte B) Key, Bitmap Value)>>();
 
     /// <summary>
     /// LRU tracking order for tinted monitor base cache entries.
     /// </summary>
-    private readonly LinkedList<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)> _monitorBaseTintLru =
-        new LinkedList<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)>();
+    private readonly LinkedList<((string File, byte R, byte G, byte B) Key, Bitmap Value)> _monitorBaseTintLru =
+        new LinkedList<((string File, byte R, byte G, byte B) Key, Bitmap Value)>();
 
     /// <summary>
     /// Raw un-tinted BGRA base pixel buffers cached by file name so that tinting does not repeatedly re-read the source bitmap.
@@ -149,6 +148,17 @@ public sealed class ControllerIllustrationService
     /// Synchronizes lazy generation of <see cref="_micLedSprite"/>.
     /// </summary>
     private static readonly object _micLedSpriteLock = new object();
+
+    /// <summary>
+    /// The player LED sprite (a lit capsule with its light beam), generated once and shared
+    /// by every controller view.
+    /// </summary>
+    private static Bitmap? _playerLedSprite;
+
+    /// <summary>
+    /// Synchronizes lazy generation of <see cref="_playerLedSprite"/>.
+    /// </summary>
+    private static readonly object _playerLedSpriteLock = new object();
 
     /// <summary>
     /// Scan band of the baked microphone LED dot on the monitor base (just below the
@@ -198,48 +208,97 @@ public sealed class ControllerIllustrationService
     private const double MicLedPeakIntensity = 0.9;
 
     /// <summary>
-    /// Number of player LEDs rendered on the lightbar line below the touchpad (LED 1 = leftmost).
+    /// Plastic color of the monitor bases around the player LED band, used both to fill the
+    /// band and to fade the lightbar's side strips into it.
     /// </summary>
-    private const int PlayerLedCount = 5;
+    private const byte BandRed = 23;
 
     /// <summary>
-    /// Spacing between the inner player LEDs (LED 2-3 and 3-4) in asset pixels.
+    /// Plastic color of the monitor bases around the player LED band (green channel).
     /// </summary>
-    private const int PlayerLedInnerSpacing = 48;
+    private const byte BandGreen = 25;
 
     /// <summary>
-    /// Spacing between the outer and inner player LEDs (LED 1-2 and 4-5) in asset pixels,
-    /// wider so the outer LEDs sit further from the center.
+    /// Plastic color of the monitor bases around the player LED band (blue channel).
     /// </summary>
-    private const int PlayerLedOuterSpacing = 96;
+    private const byte BandBlue = 30;
 
     /// <summary>
-    /// Horizontal offset of the whole player LED row from the lightbar line's center, in
-    /// asset pixels (positive moves the row right).
+    /// Number of asset rows above the player LED band over which the lightbar's side strips
+    /// fade into the band's plastic instead of ending in a hard edge.
     /// </summary>
-    private const int PlayerLedCenterOffsetX = -32;
+    private const int LightbarFadeRows = 44;
 
     /// <summary>
-    /// Vertical offset of the whole player LED row from the lightbar line's center, in
-    /// asset pixels (positive moves the row down).
+    /// Width of one player LED sprite in asset pixels: the light beam plus its transparent
+    /// side margins.
     /// </summary>
-    private const int PlayerLedCenterOffsetY = 0;
+    public const int PlayerLedSpriteWidth = 68;
 
     /// <summary>
-    /// Radius of the bright core of each player LED light effect, in asset pixels.
+    /// Height of one player LED sprite in asset pixels. The sprite covers exactly the rows of
+    /// the band below the touchpad, so its top row sits on the touchpad line and its bottom
+    /// row on the line below the band.
     /// </summary>
-    private const int PlayerLedCoreRadius = 8;
+    public const int PlayerLedSpriteHeight = 14;
 
     /// <summary>
-    /// Radius of the soft glow halo around each player LED core, in asset pixels.
+    /// Horizontal radius of the light beam rising out of a player LED, in asset pixels.
     /// </summary>
-    private const int PlayerLedGlowRadius = 20;
+    private const double PlayerLedBeamRadiusX = 28;
 
     /// <summary>
-    /// Number of pixel rows above the lightbar mask's bottom edge that make up the
-    /// horizontal lightbar segment right below the touchpad, on which the player LEDs sit.
+    /// Vertical radius of the light beam, in asset pixels: the beam stops at the touchpad line.
     /// </summary>
-    private const int PlayerLedLineHeight = 1;
+    private const double PlayerLedBeamRadiusY = 14;
+
+    /// <summary>
+    /// Opacity of the light beam at the player LED.
+    /// </summary>
+    private const double PlayerLedBeamPeak = 1.0;
+
+    /// <summary>
+    /// Falloff exponent of the light beam: lower values keep the beam brighter further out.
+    /// </summary>
+    private const double PlayerLedBeamFalloff = 0.55;
+
+    /// <summary>
+    /// Width of the lit capsule in asset pixels.
+    /// </summary>
+    private const double PlayerLedCapsuleWidth = 28;
+
+    /// <summary>
+    /// Height of the lit capsule in asset pixels: half its full capsule height, so the shape
+    /// is the top half of a capsule resting on the line below the band.
+    /// </summary>
+    private const double PlayerLedCapsuleHeight = 6;
+
+    /// <summary>
+    /// Opacity of the lit capsule.
+    /// </summary>
+    private const double PlayerLedCapsuleOpacity = 0.97;
+
+    /// <summary>
+    /// Red channel of a lit player LED (near-white, like the physical indicator LEDs).
+    /// </summary>
+    private const byte PlayerLedRed = 252;
+
+    /// <summary>
+    /// Green channel of a lit player LED.
+    /// </summary>
+    private const byte PlayerLedGreen = 253;
+
+    /// <summary>
+    /// Blue channel of a lit player LED.
+    /// </summary>
+    private const byte PlayerLedBlue = 255;
+
+    /// <summary>
+    /// Resolution multiplier of the generated player LED sprite. The sprite is rendered this
+    /// many times larger than its asset-space footprint so the view can scale it down without
+    /// aliasing the capsule edge or banding the beam gradient.
+    /// </summary>
+    private const int PlayerLedSpriteRenderScale = 4;
 
     /// <summary>
     /// Minimum number of mask pixels a row needs to count as part of the lightbar's
@@ -330,25 +389,25 @@ public sealed class ControllerIllustrationService
 
     /// <summary>
     /// Gets the monitor base bitmap for a skin with its baked lightbar recolored to the
-    /// given RGB and its lit player LEDs drawn as bright dots on the lightbar segment
-    /// below the touchpad, or <c>null</c> when it cannot be loaded. The lightbar pixels
-    /// are found through the shared mask (see <see cref="GetLightbarMask"/>) and recolored
-    /// while preserving the baked luminance, so the U-shape and its glow match the original
-    /// render. Tinted bitmaps are cached by file name, color, and LED layout.
+    /// given RGB, or <c>null</c> when it cannot be loaded. The lightbar pixels are found
+    /// through the shared mask (see <see cref="GetLightbarMask"/>) and recolored while
+    /// preserving the baked falloff, normalized to the skin's brightest strip pixel so the
+    /// requested color renders at full strength. The segment below the touchpad is filled
+    /// with the body plastic instead, because the physical controller shows the player LEDs
+    /// there rather than the lightbar. Tinted bitmaps are cached by file name and color.
     /// </summary>
     /// <param name="skin">The skin name (e.g. "Midnight Black"), falling back to the default skin.</param>
     /// <param name="red">Lightbar red channel (0-255).</param>
     /// <param name="green">Lightbar green channel (0-255).</param>
     /// <param name="blue">Lightbar blue channel (0-255).</param>
-    /// <param name="playerLeds">Player LED mask: bit 0 = LED 1 (leftmost) through bit 4 = LED 5.</param>
-    public Bitmap? GetMonitorBase(string? skin, byte red, byte green, byte blue, byte playerLeds)
+    public Bitmap? GetMonitorBase(string? skin, byte red, byte green, byte blue)
     {
         string file = GetBaseFile(skin);
 
-        (string file, byte red, byte green, byte blue, byte playerLeds) key = (file, red, green, blue, playerLeds);
+        (string file, byte red, byte green, byte blue) key = (file, red, green, blue);
         lock (_monitorBaseTintLock)
         {
-            if (_monitorBaseTintCache.TryGetValue(key, out LinkedListNode<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)>? node))
+            if (_monitorBaseTintCache.TryGetValue(key, out LinkedListNode<((string File, byte R, byte G, byte B) Key, Bitmap Value)>? node))
             {
                 _monitorBaseTintLru.Remove(node);
                 _monitorBaseTintLru.AddFirst(node);
@@ -358,13 +417,13 @@ public sealed class ControllerIllustrationService
 
         Bitmap? original = GetMonitorBase(skin ?? string.Empty);
         bool dev = string.Equals(skin, DevModeSkin, StringComparison.OrdinalIgnoreCase);
-        Bitmap? tinted = original is null ? null : TintLightbar(file, original, red, green, blue, playerLeds, dev);
+        Bitmap? tinted = original is null ? null : TintLightbar(file, original, red, green, blue, dev);
         if (tinted is not null)
         {
             lock (_monitorBaseTintLock)
             {
                 if (_monitorBaseTintCache.TryGetValue(key,
-                        out LinkedListNode<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)>? existingNode))
+                        out LinkedListNode<((string File, byte R, byte G, byte B) Key, Bitmap Value)>? existingNode))
                 {
                     tinted.Dispose();
                     _monitorBaseTintLru.Remove(existingNode);
@@ -380,8 +439,8 @@ public sealed class ControllerIllustrationService
                     _monitorBaseTintLru.RemoveLast();
                 }
 
-                LinkedListNode<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)> newNode =
-                    new LinkedListNode<((string File, byte R, byte G, byte B, byte Leds) Key, Bitmap Value)>((key, tinted));
+                LinkedListNode<((string File, byte R, byte G, byte B) Key, Bitmap Value)> newNode =
+                    new LinkedListNode<((string File, byte R, byte G, byte B) Key, Bitmap Value)>((key, tinted));
                 _monitorBaseTintLru.AddFirst(newNode);
                 _monitorBaseTintCache[key] = newNode;
             }
@@ -392,15 +451,16 @@ public sealed class ControllerIllustrationService
 
     /// <summary>
     /// Returns a copy of <paramref name="source"/> whose lightbar pixels are recolored to
-    /// the given RGB (preserving luminance and alpha) and whose lit player LEDs are drawn
-    /// as bright dots on the lightbar segment below the touchpad, or <c>null</c> when the
-    /// mask or the pixel format are unavailable. Only the two vertical side segments are
-    /// recolored: the horizontal line below the touchpad is blacked out instead, erasing
-    /// its baked glow, because the physical controller only glows on the touchpad's sides
-    /// there. Dev Mode bases render the lightbar in black, so they are recolored from the
-    /// default render's luminance instead.
+    /// the given RGB, or <c>null</c> when the mask or the pixel format are unavailable. Only
+    /// the two vertical side segments carry the lightbar color: the segment right below the
+    /// touchpad is filled with the body plastic, because the physical controller shows the
+    /// player LEDs there rather than the lightbar. Each skin bakes the strip at its own
+    /// brightness, so the baked luminance is normalized to that skin's peak and the
+    /// requested color renders at full strength. The side strips fade into the plastic band
+    /// instead of ending in a hard edge. Dev Mode bases render the lightbar in black, so they
+    /// are recolored from the default render's luminance instead.
     /// </summary>
-    private Bitmap? TintLightbar(string file, Bitmap source, byte red, byte green, byte blue, byte playerLeds, bool useSharedLuminance)
+    private Bitmap? TintLightbar(string file, Bitmap source, byte red, byte green, byte blue, bool useSharedLuminance)
     {
         List<(int X, int Y, byte Luminance)> mask = GetLightbarMask();
         if (mask.Count == 0 || source.Format != PixelFormat.Bgra8888)
@@ -426,11 +486,37 @@ public sealed class ControllerIllustrationService
 
         byte[] buffer = new byte[template.Length];
         Buffer.BlockCopy(template, 0, buffer, 0, template.Length);
-        int bottomSegmentStart = BottomSegmentStartRow(mask);
+        int bandStart = BottomSegmentStartRow(mask);
 
+        // First pass: the luminance of every lightbar pixel above the band, so the skin's
+        // peak can be found and the requested color scales to exactly its full value there.
+        double[] luminances = new double[mask.Count];
+        int peak = 0;
         for (int i = 0; i < mask.Count; i++)
         {
             (int x, int y, byte luminance) = mask[i];
+            if ((uint)x >= (uint)width || (uint)y >= (uint)height || y >= bandStart)
+            {
+                continue;
+            }
+
+            if (!useSharedLuminance)
+            {
+                int offset = y * rowBytes + x * 4;
+                luminance = (byte)((buffer[offset] + buffer[offset + 1] + buffer[offset + 2]) / 3);
+            }
+
+            luminances[i] = luminance;
+            if (luminance > peak)
+            {
+                peak = luminance;
+            }
+        }
+
+        double normalization = peak > 0 ? 255.0 / peak : 0;
+        for (int i = 0; i < mask.Count; i++)
+        {
+            (int x, int y, _) = mask[i];
             if ((uint)x >= (uint)width || (uint)y >= (uint)height)
             {
                 continue;
@@ -438,29 +524,21 @@ public sealed class ControllerIllustrationService
 
             int offset = y * rowBytes + x * 4;
 
-            // The line below the touchpad is dark like the physical strip; only the
-            // player LEDs drawn on top of it later light it up.
-            if (y >= bottomSegmentStart)
+            // The segment below the touchpad is body plastic on the physical controller; the
+            // player LED sprites are drawn on top of it by the view.
+            if (y >= bandStart)
             {
-                buffer[offset] = 0;
-                buffer[offset + 1] = 0;
-                buffer[offset + 2] = 0;
+                buffer[offset] = BandBlue;
+                buffer[offset + 1] = BandGreen;
+                buffer[offset + 2] = BandRed;
                 continue;
             }
 
-            if (!useSharedLuminance)
-            {
-                luminance = (byte)((buffer[offset] + buffer[offset + 1] + buffer[offset + 2]) / 3);
-            }
-
-            buffer[offset] = (byte)(luminance * blue / 255);
-            buffer[offset + 1] = (byte)(luminance * green / 255);
-            buffer[offset + 2] = (byte)(luminance * red / 255);
-        }
-
-        if (playerLeds != 0)
-        {
-            DrawPlayerLeds(buffer, width, height, rowBytes, mask, playerLeds);
+            double intensity = luminances[i] * normalization / 255.0;
+            double fade = LightbarFade(bandStart - y);
+            buffer[offset] = BlendChannel(BandBlue, blue * intensity, fade);
+            buffer[offset + 1] = BlendChannel(BandGreen, green * intensity, fade);
+            buffer[offset + 2] = BlendChannel(BandRed, red * intensity, fade);
         }
 
         foreach ((int x, int y) in GetMicLedMask())
@@ -484,6 +562,34 @@ public sealed class ControllerIllustrationService
 
         return tinted;
     }
+
+    /// <summary>
+    /// Fade factor of a lightbar pixel at the given distance above the player LED band: 1 far
+    /// from the band and 0 on its top edge, with a smooth ramp in between so the side strips
+    /// taper into the plastic instead of ending in a hard line.
+    /// </summary>
+    private static double LightbarFade(int rowsAboveBand)
+    {
+        if (rowsAboveBand >= LightbarFadeRows)
+        {
+            return 1;
+        }
+
+        if (rowsAboveBand <= 0)
+        {
+            return 0;
+        }
+
+        double t = rowsAboveBand / (double)LightbarFadeRows;
+        return t * t * (3 - 2 * t);
+    }
+
+    /// <summary>
+    /// Blends one lightbar channel from the body plastic at <paramref name="fade"/> 0 to the
+    /// given lit value at 1.
+    /// </summary>
+    private static byte BlendChannel(byte plastic, double lit, double fade)
+        => (byte)Math.Clamp(plastic + (lit - plastic) * fade, 0, 255);
 
     /// <summary>
     /// Finds the first row of the lightbar's horizontal bottom segment (the line below the
@@ -510,107 +616,6 @@ public sealed class ControllerIllustrationService
         }
 
         return start;
-    }
-
-    /// <summary>
-    /// Draws the lit player LEDs as semicircular white light effects on the lightbar's
-    /// bottom segment (the horizontal line right below the touchpad): a bright core with a
-    /// soft glow halo fading into the surrounding pixels, the flat side resting on the
-    /// line. The segment's geometry is derived from the lightbar mask; the inner LEDs sit
-    /// 28px apart and the outer ones 42px from their neighbors, all centered on the line.
-    /// </summary>
-    private static void DrawPlayerLeds(byte[] buffer, int width, int height, int rowBytes, List<(int X, int Y, byte Luminance)> mask, byte playerLeds)
-    {
-        int maxY = 0;
-        int minX = int.MaxValue;
-        int maxX = 0;
-        long sumY = 0;
-        int count = 0;
-        int lineYStart = mask.Max(p => p.Y) - PlayerLedLineHeight + 1;
-
-        foreach ((int x, int y, _) in mask)
-        {
-            if (y < lineYStart)
-            {
-                continue;
-            }
-
-            if (x < minX)
-            {
-                minX = x;
-            }
-
-            if (x > maxX)
-            {
-                maxX = x;
-            }
-
-            if (y > maxY)
-            {
-                maxY = y;
-            }
-
-            sumY += y;
-            count++;
-        }
-
-        if (count == 0)
-        {
-            return;
-        }
-
-        int centerX = (int)Math.Round((minX + maxX) / 2.0) + PlayerLedCenterOffsetX;
-        int centerY = (int)Math.Round(sumY / (double)count) + PlayerLedCenterOffsetY;
-        int[] ledOffsets =
-        {
-            -PlayerLedOuterSpacing - PlayerLedInnerSpacing, -PlayerLedInnerSpacing, 0, PlayerLedInnerSpacing, PlayerLedOuterSpacing + PlayerLedInnerSpacing
-        };
-
-        for (int led = 0; led < PlayerLedCount; led++)
-        {
-            if ((playerLeds & (1 << led)) == 0)
-            {
-                continue;
-            }
-
-            int cx = centerX + ledOffsets[led];
-            int cy = centerY;
-            int coreSquared = PlayerLedCoreRadius * PlayerLedCoreRadius;
-            int glowSquared = PlayerLedGlowRadius * PlayerLedGlowRadius;
-
-            for (int y = cy - PlayerLedGlowRadius; y <= cy; y++)
-            {
-                if ((uint)y >= (uint)height)
-                {
-                    continue;
-                }
-
-                int dy = y - cy;
-                for (int x = cx - PlayerLedGlowRadius; x <= cx + PlayerLedGlowRadius; x++)
-                {
-                    if ((uint)x >= (uint)width)
-                    {
-                        continue;
-                    }
-
-                    int dx = x - cx;
-                    int distanceSquared = dx * dx + dy * dy;
-                    if (distanceSquared > glowSquared)
-                    {
-                        continue;
-                    }
-
-                    double intensity = distanceSquared <= coreSquared
-                        ? 1.0
-                        : 1.0 - (Math.Sqrt(distanceSquared) - PlayerLedCoreRadius) / (PlayerLedGlowRadius - PlayerLedCoreRadius);
-
-                    int offset = y * rowBytes + x * 4;
-                    buffer[offset] = (byte)(buffer[offset] + (255 - buffer[offset]) * intensity);
-                    buffer[offset + 1] = (byte)(buffer[offset + 1] + (255 - buffer[offset + 1]) * intensity);
-                    buffer[offset + 2] = (byte)(buffer[offset + 2] + (255 - buffer[offset + 2]) * intensity);
-                }
-            }
-        }
     }
 
     /// <summary>
@@ -811,6 +816,104 @@ public sealed class ControllerIllustrationService
         }
 
         return sprite;
+    }
+
+    /// <summary>
+    /// Gets the shared player LED sprite: a lit capsule resting on the line below the band,
+    /// with a half-ellipse of light rising from it that stops at the touchpad line. Generated
+    /// once; the view shows one copy per lit LED.
+    /// </summary>
+    public Bitmap GetPlayerLedSprite()
+    {
+        Bitmap? sprite = _playerLedSprite;
+        if (sprite is not null)
+        {
+            return sprite;
+        }
+
+        lock (_playerLedSpriteLock)
+        {
+            if (_playerLedSprite is null)
+            {
+                _playerLedSprite = CreatePlayerLedSprite();
+            }
+
+            return _playerLedSprite;
+        }
+    }
+
+    /// <summary>
+    /// Renders the player LED sprite: the top half of a capsule sitting on the sprite's
+    /// bottom row, plus a half-ellipse of light rising from it that stops at the sprite's
+    /// top row (the touchpad line). Supersampled for smooth edges.
+    /// </summary>
+    private static Bitmap CreatePlayerLedSprite()
+    {
+        int scale = PlayerLedSpriteRenderScale;
+        int assetWidth = PlayerLedSpriteWidth;
+        int assetHeight = PlayerLedSpriteHeight;
+        int width = assetWidth * scale;
+        int height = assetHeight * scale;
+        int rowBytes = width * 4;
+        byte[] buffer = new byte[rowBytes * height];
+
+        for (int y = 0; y < height; y++)
+        {
+            double dy = (y + 0.5) / scale - assetHeight;
+            for (int x = 0; x < width; x++)
+            {
+                double dx = (x + 0.5) / scale - assetWidth / 2.0;
+                int alpha = (int)Math.Round(PlayerLedAlpha(dx, dy) * 255);
+                int offset = y * rowBytes + x * 4;
+                buffer[offset] = (byte)(PlayerLedBlue * alpha / 255);
+                buffer[offset + 1] = (byte)(PlayerLedGreen * alpha / 255);
+                buffer[offset + 2] = (byte)(PlayerLedRed * alpha / 255);
+                buffer[offset + 3] = (byte)alpha;
+            }
+        }
+
+        WriteableBitmap sprite = new WriteableBitmap(new PixelSize(width, height), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
+        using (ILockedFramebuffer target = sprite.Lock())
+        {
+            Marshal.Copy(buffer, 0, target.Address, buffer.Length);
+        }
+
+        return sprite;
+    }
+
+    /// <summary>
+    /// Opacity of one point of the player LED sprite, taken as an offset from the middle of
+    /// the capsule's base line; <paramref name="dy"/> is negative above that line.
+    /// </summary>
+    private static double PlayerLedAlpha(double dx, double dy)
+    {
+        double alpha = 0;
+        double beamX = dx / PlayerLedBeamRadiusX;
+        double beamY = dy / PlayerLedBeamRadiusY;
+
+        if (dy <= 0)
+        {
+            double distance = Math.Sqrt(beamX * beamX + beamY * beamY);
+            if (distance < 1)
+            {
+                alpha = PlayerLedBeamPeak * Math.Pow(1 - distance, PlayerLedBeamFalloff);
+            }
+        }
+
+        // Top half of a capsule: flat base on the line, rounded top corners, so the lit window
+        // reads as cut off by the seam instead of floating inside the band.
+        if (dy >= -PlayerLedCapsuleHeight && dy <= 0)
+        {
+            double radius = PlayerLedCapsuleHeight;
+            double absX = Math.Abs(dx);
+            double overhang = absX - (PlayerLedCapsuleWidth / 2 - radius);
+            if (overhang <= 0 || overhang * overhang + dy * dy <= radius * radius)
+            {
+                alpha = Math.Max(alpha, PlayerLedCapsuleOpacity);
+            }
+        }
+
+        return Math.Min(alpha, 1);
     }
 
     /// <summary>
