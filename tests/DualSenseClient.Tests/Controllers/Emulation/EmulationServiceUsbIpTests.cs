@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using DualSenseClient.Controllers;
+using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Audio;
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.DualSense.Output;
@@ -185,6 +186,19 @@ public sealed class EmulationServiceUsbIpTests
         return device;
     }
 
+    private PhysicalDualSense CreateDongle(string key)
+    {
+        StubHidDevice hid = new StubHidDevice();
+        DualSenseDongle device = new DualSenseDongle(hid,
+            new StubHidDeviceInfo($@"\\?\hid#emulation-test#{key}")
+            {
+                BusType = ConnectionType.Usb
+            });
+        _devices.Add(device);
+        _hids.Add(device, hid);
+        return device;
+    }
+
     /// <summary>Returns the recording HID stub of a device created by <see cref="CreateDevice"/>.</summary>
     private StubHidDevice GetHid(PhysicalDualSense device) => _hids[device];
 
@@ -302,7 +316,9 @@ public sealed class EmulationServiceUsbIpTests
     public void Creation_CreatesTheModePersonaAdapterAndAttachesIt(EmulationMode mode, DualSenseVariant dsVariant,
         DualShock4Variant ds4Variant, ushort vendorId, ushort productId)
     {
-        PhysicalDualSense device = CreateDevice("mode");
+        // Virtual DualSense runs only over Bluetooth; the other modes also run over USB.
+        ConnectionType busType = mode == EmulationMode.DualSense ? ConnectionType.Bluetooth : ConnectionType.Usb;
+        PhysicalDualSense device = CreateDevice("mode", busType);
         SetStoredSettings(device, mode, dsVariant, ds4Variant);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, vendorId, productId));
         _tracker.TrackController(device);
@@ -348,9 +364,103 @@ public sealed class EmulationServiceUsbIpTests
     }
 
     [Test]
+    public void UsbEntry_TurnsOffDualSenseEmulation()
+    {
+        PhysicalDualSense device = CreateDevice("dualsense-usb-mode");
+        SetStoredSettings(device, EmulationMode.DualSense);
+        _tracker.TrackController(device);
+
+        _service.Start();
+
+        EmulationStatus status = _service.GetStatus(device);
+        Assert.Multiple(() =>
+        {
+            Assert.That(status.Mode, Is.EqualTo(EmulationMode.Off),
+                "the USB controller uses Off instead of DualSense emulation");
+            Assert.That(status.Detail, Is.EqualTo("Emulation is disabled for this controller"));
+            Assert.That(_virtualFactory.Creations, Is.Empty,
+                "no virtual DualSense is created for a USB controller");
+        });
+    }
+
+    [Test]
+    public void DongleEntry_TurnsOffDualSenseEmulation()
+    {
+        PhysicalDualSense device = CreateDongle("dualsense-dongle-mode");
+        SetStoredSettings(device, EmulationMode.DualSense);
+        _tracker.TrackController(device);
+
+        _service.Start();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_service.GetStatus(device).Mode, Is.EqualTo(EmulationMode.Off),
+                "the dongle controller uses Off instead of DualSense emulation");
+            Assert.That(_virtualFactory.Creations, Is.Empty,
+                "no virtual DualSense is created for a dongle controller");
+        });
+    }
+
+    [Test]
+    public void BluetoothEntry_KeepsDualSenseEmulation()
+    {
+        PhysicalDualSense device = CreateDevice("dualsense-bluetooth-mode", ConnectionType.Bluetooth);
+        SetStoredSettings(device, EmulationMode.DualSense);
+        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
+        _tracker.TrackController(device);
+
+        _service.Start();
+        WaitForRunning(device);
+
+        Assert.That(_controllerInfo.GetEmulationSettings(null, device.Info.Path).Mode,
+            Is.EqualTo(EmulationMode.DualSense), "Bluetooth keeps the saved DualSense mode");
+    }
+
+    [Test]
+    public void Refresh_UsbTurnsOffDualSenseEmulation()
+    {
+        PhysicalDualSense device = CreateDevice("dualsense-usb-refresh-mode");
+        SetStoredSettings(device, EmulationMode.Off);
+        _tracker.TrackController(device);
+        _service.Start();
+
+        EmulationSettings settings = _controllerInfo.GetEmulationSettings(null, device.Info.Path);
+        settings.Mode = EmulationMode.DualSense;
+        _controllerInfo.SaveEmulationSettings(null, device.Info.Path, settings);
+        _service.Refresh();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_service.GetStatus(device).Mode, Is.EqualTo(EmulationMode.Off),
+                "a live DualSense selection is ignored over USB");
+            Assert.That(_virtualFactory.Creations, Is.Empty,
+                "a live DualSense selection cannot create a virtual device over USB");
+        });
+    }
+
+    [Test]
+    public void UsbEntry_TemporaryDualSenseOverride_StaysOff()
+    {
+        PhysicalDualSense device = CreateDevice("dualsense-usb-override");
+        SetStoredSettings(device, EmulationMode.Off);
+        _tracker.TrackController(device);
+        _service.Start();
+
+        _service.SetTemporaryOverride(device, new EmulationOverride(EmulationMode.DualSense));
+        _service.Refresh();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_service.GetStatus(device).Mode, Is.EqualTo(EmulationMode.Off));
+            Assert.That(_virtualFactory.Creations, Is.Empty,
+                "a temporary override cannot create a virtual DualSense over USB");
+        });
+    }
+
+    [Test]
     public void Creation_DualSensePersona_ServesTheOwnershipMacOverThePairingReport()
     {
-        PhysicalDualSense device = CreateDevice("mac");
+        PhysicalDualSense device = CreateDevice("mac", ConnectionType.Bluetooth);
         SetStoredSettings(device, EmulationMode.DualSense);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _tracker.TrackController(device);
@@ -375,7 +485,7 @@ public sealed class EmulationServiceUsbIpTests
     {
         _attachStrategy.AttachResult = false;
         _attachStrategy.AttachError = "synthetic attach failure";
-        PhysicalDualSense device = CreateDevice("attach-failure");
+        PhysicalDualSense device = CreateDevice("attach-failure", ConnectionType.Bluetooth);
         SetStoredSettings(device, EmulationMode.DualSense);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _tracker.TrackController(device);
@@ -400,7 +510,7 @@ public sealed class EmulationServiceUsbIpTests
     [Test]
     public void Creation_AmbiguousDiscovery_DetachesAndUnregistersThePersona()
     {
-        PhysicalDualSense device = CreateDevice("ambiguous");
+        PhysicalDualSense device = CreateDevice("ambiguous", ConnectionType.Bluetooth);
         SetStoredSettings(device, EmulationMode.DualSense);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(@"\\?\hid#emulation-virtual#2", 0x054C, 0x0CE6));
@@ -434,7 +544,7 @@ public sealed class EmulationServiceUsbIpTests
             _service.Dispose();
             _service = CreateService(() => CreateEmulationServer((IPEndPoint)blocker.LocalEndpoint));
 
-            PhysicalDualSense device = CreateDevice("server-start-failure");
+            PhysicalDualSense device = CreateDevice("server-start-failure", ConnectionType.Bluetooth);
             SetStoredSettings(device, EmulationMode.DualSense);
             _tracker.TrackController(device);
 
@@ -458,7 +568,7 @@ public sealed class EmulationServiceUsbIpTests
     [Test]
     public void Refresh_EngineOff_TearsDownTheEmulationServerAndReEntryCreatesAFreshOne()
     {
-        PhysicalDualSense device = CreateDevice("switch");
+        PhysicalDualSense device = CreateDevice("switch", ConnectionType.Bluetooth);
         SetStoredSettings(device, EmulationMode.DualSense);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _tracker.TrackController(device);
@@ -499,7 +609,7 @@ public sealed class EmulationServiceUsbIpTests
     [Test]
     public void TemporaryModeOverride_CreatesWithoutChangingStoredSettings()
     {
-        PhysicalDualSense device = CreateDevice("temporary");
+        PhysicalDualSense device = CreateDevice("temporary", ConnectionType.Bluetooth);
         SetStoredSettings(device, EmulationMode.Off);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _tracker.TrackController(device);
@@ -526,7 +636,7 @@ public sealed class EmulationServiceUsbIpTests
     [Test]
     public void Refresh_ModeChangeWithinEmulation_RebuildsTheAdapterOnTheSameServer()
     {
-        PhysicalDualSense device = CreateDevice("mode-change");
+        PhysicalDualSense device = CreateDevice("mode-change", ConnectionType.Bluetooth);
         SetStoredSettings(device, EmulationMode.DualSense);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _tracker.TrackController(device);
@@ -556,7 +666,7 @@ public sealed class EmulationServiceUsbIpTests
     [Test]
     public void Dispose_DetachesAndDisposesTheServerAndTheAdapter()
     {
-        PhysicalDualSense device = CreateDevice("dispose");
+        PhysicalDualSense device = CreateDevice("dispose", ConnectionType.Bluetooth);
         SetStoredSettings(device, EmulationMode.DualSense);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _tracker.TrackController(device);
@@ -587,7 +697,7 @@ public sealed class EmulationServiceUsbIpTests
     {
         PhysicalDualSense offDevice = CreateDevice("off");
         SetStoredSettings(offDevice, EmulationMode.Off);
-        PhysicalDualSense emulationDevice = CreateDevice("emulation");
+        PhysicalDualSense emulationDevice = CreateDevice("emulation", ConnectionType.Bluetooth);
         SetStoredSettings(emulationDevice, EmulationMode.DualSense);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _tracker.TrackController(offDevice);
@@ -608,8 +718,8 @@ public sealed class EmulationServiceUsbIpTests
     [Test]
     public void TwoEmulationEntries_ShareOneServer_AndItStopsWhenTheLastOneLeaves()
     {
-        PhysicalDualSense firstDevice = CreateDevice("first");
-        PhysicalDualSense secondDevice = CreateDevice("second");
+        PhysicalDualSense firstDevice = CreateDevice("first", ConnectionType.Bluetooth);
+        PhysicalDualSense secondDevice = CreateDevice("second", ConnectionType.Bluetooth);
         SetStoredSettings(firstDevice, EmulationMode.DualSense);
         SetStoredSettings(secondDevice, EmulationMode.DualSense);
         _enumerator.VirtualDevicesProvider = () => _attachStrategy.AttachCallCount switch
@@ -662,7 +772,7 @@ public sealed class EmulationServiceUsbIpTests
     [Test]
     public void Refresh_DuringAnInFlightCreation_KeepsTheServerUntilThePersonaIsDetached()
     {
-        PhysicalDualSense device = CreateDevice("in-flight");
+        PhysicalDualSense device = CreateDevice("in-flight", ConnectionType.Bluetooth);
         SetStoredSettings(device, EmulationMode.DualSense);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _tracker.TrackController(device);
@@ -716,7 +826,9 @@ public sealed class EmulationServiceUsbIpTests
     public void Creation_ControllerEndpoint_StoresThePersonaCaptureAndKeepsTheForwarder(
         EmulationMode mode, DualSenseVariant dsVariant, ushort productId, Type expectedCapture)
     {
-        PhysicalDualSense device = CreateDevice($"audio-{mode}");
+        // Virtual DualSense runs only over Bluetooth; DualShock 4 also runs over USB.
+        ConnectionType busType = mode == EmulationMode.DualSense ? ConnectionType.Bluetooth : ConnectionType.Usb;
+        PhysicalDualSense device = CreateDevice($"audio-{mode}", busType);
         SetStoredSettings(device, mode, dsVariant);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, productId));
         _tracker.TrackController(device);
@@ -743,7 +855,7 @@ public sealed class EmulationServiceUsbIpTests
     [Test]
     public void Creation_ControllerEndpoint_RoutesSpeakerHapticsIntoTheForwarderUntilUnwired()
     {
-        PhysicalDualSense device = CreateDevice("audio-haptics");
+        PhysicalDualSense device = CreateDevice("audio-haptics", ConnectionType.Bluetooth);
         SetStoredSettings(device, EmulationMode.DualSense);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _tracker.TrackController(device);
@@ -784,7 +896,7 @@ public sealed class EmulationServiceUsbIpTests
     [Test]
     public void DeactivateDirectAudioLocked_RebuildsTheControllerCaptureAndKeepsTheLiveForwarder()
     {
-        PhysicalDualSense device = CreateDevice("audio-direct");
+        PhysicalDualSense device = CreateDevice("audio-direct", ConnectionType.Bluetooth);
         SetStoredSettings(device, EmulationMode.DualSense,
             audioSource: EmulationAudioSource.SystemOutput);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
@@ -825,7 +937,7 @@ public sealed class EmulationServiceUsbIpTests
     [Test]
     public void Refresh_ForwardingSettings_AreAppliedToTheLiveAdapterAndForwarder()
     {
-        PhysicalDualSense device = CreateDevice("audio-forwarding-live");
+        PhysicalDualSense device = CreateDevice("audio-forwarding-live", ConnectionType.Bluetooth);
         SetStoredSettings(device, EmulationMode.DualSense);
         _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
         _tracker.TrackController(device);
@@ -994,8 +1106,8 @@ public sealed class EmulationServiceUsbIpTests
     public void UsbEntry_DoesNotCreateMicrophoneBridge()
     {
         PhysicalDualSense device = CreateDevice("microphone-usb");
-        SetStoredSettings(device, EmulationMode.DualSense);
-        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
+        SetStoredSettings(device, EmulationMode.DualShock4);
+        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x09CC));
         _tracker.TrackController(device);
 
         _service.Start();
@@ -1018,12 +1130,12 @@ public sealed class EmulationServiceUsbIpTests
     public void UsbEntry_AppliesMicrophoneRouteAndLevel()
     {
         PhysicalDualSense device = CreateDevice("microphone-usb-route");
-        SetStoredSettings(device, EmulationMode.DualSense, microphone: new MicrophoneSettings
+        SetStoredSettings(device, EmulationMode.DualShock4, microphone: new MicrophoneSettings
         {
             Source = MicrophoneSource.Headphone,
             Level = 50
         });
-        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
+        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x09CC));
         _tracker.TrackController(device);
 
         _service.Start();
@@ -1071,7 +1183,7 @@ public sealed class EmulationServiceUsbIpTests
     public void UsbEntry_AppliesMicrophoneRouteAndLevel_WhenCreationFails()
     {
         PhysicalDualSense device = CreateDevice("microphone-usb-create-failure");
-        SetStoredSettings(device, EmulationMode.DualSense, microphone: new MicrophoneSettings
+        SetStoredSettings(device, EmulationMode.DualShock4, microphone: new MicrophoneSettings
         {
             Source = MicrophoneSource.Headphone,
             Level = 50
@@ -1089,8 +1201,8 @@ public sealed class EmulationServiceUsbIpTests
     public void Refresh_UsbAppliesMicrophoneRouteAndLevel()
     {
         PhysicalDualSense device = CreateDevice("microphone-usb-refresh");
-        SetStoredSettings(device, EmulationMode.DualSense);
-        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
+        SetStoredSettings(device, EmulationMode.DualShock4);
+        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x09CC));
         _tracker.TrackController(device);
 
         _service.Start();
@@ -1110,12 +1222,12 @@ public sealed class EmulationServiceUsbIpTests
     public void Refresh_UsbKeepsOverridingMicrophoneWhenEmulationTurnsOff()
     {
         PhysicalDualSense device = CreateDevice("microphone-usb-off");
-        SetStoredSettings(device, EmulationMode.DualSense, microphone: new MicrophoneSettings
+        SetStoredSettings(device, EmulationMode.DualShock4, microphone: new MicrophoneSettings
         {
             Source = MicrophoneSource.Headphone,
             Level = 50
         });
-        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x0CE6));
+        _enumerator.VirtualDevices.Add(CreateVirtualDeviceInfo(VirtualDevicePath, 0x054C, 0x09CC));
         _tracker.TrackController(device);
 
         _service.Start();

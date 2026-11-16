@@ -15,6 +15,9 @@ The **Emulation** page creates a **virtual controller** that mirrors your physic
 
 The virtual device **mirrors the physical controller's input**, while rumble, lightbar, and trigger feedback from the host is **forwarded back** to your physical controller. DualShock 4 emulation also offers a V1/V2 hardware variant; DualSense emulation offers Standard/Edge.
 
+!!! note
+    DualSense emulation is unavailable while the physical controller is connected over USB or through a DS5Dongle. The controller already presents itself as a DualSense, so the option is hidden and the mode turns off automatically. Choose Xbox 360 or DualShock 4 to emulate over USB, or connect the controller over Bluetooth to use DualSense emulation.
+
 ## Requirements
 
 The app's built-in emulation engine attaches virtual devices through the **USB/IP driver**, so that is the only requirement:

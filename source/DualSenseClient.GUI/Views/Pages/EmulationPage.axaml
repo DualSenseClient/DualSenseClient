@@ -45,7 +45,7 @@
                                            IsEnabled="{Binding CanChangeEmulation}">
                     <ui:FASettingsExpanderItem.Footer>
                         <ComboBox ItemsSource="{Binding EmulationModes}"
-                                  SelectedIndex="{Binding EmulationModeIndex}"
+                                  SelectedIndex="{Binding EmulationModeListIndex}"
                                   MinWidth="200" />
                     </ui:FASettingsExpanderItem.Footer>
                 </ui:FASettingsExpanderItem>

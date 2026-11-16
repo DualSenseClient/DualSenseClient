@@ -166,6 +166,53 @@ public partial class EmulationPageViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Whether the selected controller is connected over USB or through a dongle, where a
+    /// virtual DualSense is redundant because the physical controller already presents itself
+    /// as one.
+    /// </summary>
+    private bool IsVirtualDualSenseUnavailable
+    {
+        get
+        {
+            return CurrentDualSenseDevice is { ConnectionType: ConnectionType.Usb };
+        }
+    }
+
+    /// <summary>
+    /// Applies the connection availability rule to a mode for the selected controller.
+    /// </summary>
+    /// <param name="mode">The requested mode.</param>
+    /// <returns>The mode that can run on the controller's connection.</returns>
+    private EmulationMode NormalizeMode(EmulationMode mode)
+    {
+        return CurrentDualSenseDevice is { } device
+            ? EmulationModePolicy.Normalize(mode, device.ConnectionType)
+            : mode;
+    }
+
+    /// <summary>
+    /// Turns a stored DualSense mode off when the selected controller is connected over USB or
+    /// through a dongle. The emulation service enforces the same rule on connection; doing it
+    /// here keeps the picker in sync as soon as the controller is selected.
+    /// </summary>
+    private void NormalizeUnsupportedMode()
+    {
+        if (!IsVirtualDualSenseUnavailable)
+        {
+            return;
+        }
+
+        EmulationSettings settings = GetEmulationSettings();
+        if (settings.Mode != EmulationMode.DualSense)
+        {
+            return;
+        }
+
+        settings.Mode = EmulationMode.Off;
+        _controllerService.SaveEmulationSettings(CurrentKey, settings);
+    }
+
     // ── Controller illustration ────────────────────────────────
 
     /// <summary>
@@ -220,15 +267,21 @@ public partial class EmulationPageViewModel : ObservableObject
 
     /// <summary>
     /// Virtual controller emulation mode options for the dropdown, in
-    /// <see cref="EmulationMode"/> order (off, Xbox 360, DualShock 4, DualSense).
+    /// <see cref="EmulationMode"/> order. DualSense is omitted for USB and dongle
+    /// connections because the physical controller already presents itself as one.
     /// </summary>
-    public ObservableCollection<string> EmulationModes { get; } =
-    [
-        LocalizationService.GetText("EmulationPage.Emulation.Mode.Off"),
-        LocalizationService.GetText("EmulationPage.Emulation.Mode.Xbox360"),
-        LocalizationService.GetText("EmulationPage.Emulation.Mode.DualShock4"),
-        LocalizationService.GetText("EmulationPage.Emulation.Mode.DualSense")
-    ];
+    public ObservableCollection<string> EmulationModes { get; } = [];
+
+    /// <summary>
+    /// The <see cref="EmulationMode"/> behind each entry in <see cref="EmulationModes"/>.
+    /// </summary>
+    private readonly List<EmulationMode> _emulationModeValues = new List<EmulationMode>();
+
+    /// <summary>
+    /// Set while <see cref="EmulationModes"/> is rebuilt so the ComboBox's transient
+    /// selection changes cannot overwrite the stored mode.
+    /// </summary>
+    private bool _refreshingEmulationModes;
 
     /// <summary>
     /// DualSense hardware variant options for the dropdown, in
@@ -259,6 +312,76 @@ public partial class EmulationPageViewModel : ObservableObject
         => _controllerService.GetEmulationSettings(CurrentKey);
 
     /// <summary>
+    /// Rebuilds <see cref="EmulationModes"/> from the selected controller's connection.
+    /// </summary>
+    private void RefreshEmulationModes()
+    {
+        _refreshingEmulationModes = true;
+        try
+        {
+            EmulationModes.Clear();
+            _emulationModeValues.Clear();
+            if (CurrentDualSenseDevice is not { } device)
+            {
+                return;
+            }
+
+            foreach (EmulationMode mode in EmulationModePolicy.GetAvailableModes(device.ConnectionType))
+            {
+                EmulationModes.Add(GetModeName(mode));
+                _emulationModeValues.Add(mode);
+            }
+        }
+        finally
+        {
+            _refreshingEmulationModes = false;
+        }
+    }
+
+    /// <summary>
+    /// Returns the localized name of an emulation mode.
+    /// </summary>
+    /// <param name="mode">The mode to name.</param>
+    /// <returns>The localized mode name.</returns>
+    private static string GetModeName(EmulationMode mode)
+    {
+        return mode switch
+        {
+            EmulationMode.Xbox360 => LocalizationService.GetText("EmulationPage.Emulation.Mode.Xbox360"),
+            EmulationMode.DualShock4 => LocalizationService.GetText("EmulationPage.Emulation.Mode.DualShock4"),
+            EmulationMode.DualSense => LocalizationService.GetText("EmulationPage.Emulation.Mode.DualSense"),
+            _ => LocalizationService.GetText("EmulationPage.Emulation.Mode.Off")
+        };
+    }
+
+    /// <summary>
+    /// The selected entry in the filtered <see cref="EmulationModes"/> list. Setting it
+    /// applies the mode behind the entry.
+    /// </summary>
+    public int EmulationModeListIndex
+    {
+        get
+        {
+            if (!HasDevice || !EmulationService.IsSupported)
+            {
+                return 0;
+            }
+
+            int index = _emulationModeValues.IndexOf(NormalizeMode(GetEmulationSettings().Mode));
+            return index >= 0 ? index : 0;
+        }
+        set
+        {
+            if (_refreshingEmulationModes || value < 0 || value >= _emulationModeValues.Count)
+            {
+                return;
+            }
+
+            EmulationModeIndex = (int)_emulationModeValues[value];
+        }
+    }
+
+    /// <summary>
     /// The virtual controller emulation mode (<see cref="EmulationMode"/> value) of the
     /// selected controller. Setting it persists the change immediately, recreates the
     /// virtual controller through <see cref="IEmulationService"/>, and refreshes the
@@ -273,7 +396,7 @@ public partial class EmulationPageViewModel : ObservableObject
                 return 0;
             }
 
-            return (int)GetEmulationSettings().Mode;
+            return (int)NormalizeMode(GetEmulationSettings().Mode);
         }
         set
         {
@@ -282,10 +405,18 @@ public partial class EmulationPageViewModel : ObservableObject
                 return;
             }
 
-            EmulationMode mode = (EmulationMode)Math.Clamp(value, 0, (int)EmulationMode.DualSense);
+            EmulationMode requested = (EmulationMode)Math.Clamp(value, 0, (int)EmulationMode.DualSense);
+            EmulationMode mode = NormalizeMode(requested);
             EmulationSettings settings = GetEmulationSettings();
             if (settings.Mode == mode)
             {
+                if (mode != requested)
+                {
+                    // The picker somehow selected the unavailable mode; snap it back.
+                    OnPropertyChanged(nameof(EmulationModeIndex));
+                    OnPropertyChanged(nameof(EmulationModeListIndex));
+                }
+
                 return;
             }
 
@@ -293,6 +424,7 @@ public partial class EmulationPageViewModel : ObservableObject
             settings.Mode = mode;
             _controllerService.SaveEmulationSettings(CurrentKey, settings);
             OnPropertyChanged(nameof(EmulationModeIndex));
+            OnPropertyChanged(nameof(EmulationModeListIndex));
             OnPropertyChanged(nameof(IsEmulationEnabled));
             OnPropertyChanged(nameof(IsDualSenseEmulation));
             OnPropertyChanged(nameof(IsDualShock4Emulation));
@@ -548,7 +680,9 @@ public partial class EmulationPageViewModel : ObservableObject
 
             if (value)
             {
-                EmulationModeIndex = (int)(_lastEnabledMode == EmulationMode.Off ? EmulationMode.Xbox360 : _lastEnabledMode);
+                EmulationMode restore = _lastEnabledMode == EmulationMode.Off ? EmulationMode.Xbox360 : _lastEnabledMode;
+                restore = NormalizeMode(restore);
+                EmulationModeIndex = (int)(restore == EmulationMode.Off ? EmulationMode.Xbox360 : restore);
             }
             else
             {
@@ -657,7 +791,7 @@ public partial class EmulationPageViewModel : ObservableObject
                 return LocalizationService.GetText("EmulationPage.Emulation.Status.RunningEdge");
             }
 
-            string mode = EmulationModes[Math.Clamp((int)status.Mode, 0, EmulationModes.Count - 1)];
+            string mode = GetModeName(status.Mode);
             return LocalizationService.GetText("EmulationPage.Emulation.Status.Running").Replace("{mode}", mode);
         }
     }
@@ -1688,6 +1822,14 @@ public partial class EmulationPageViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(EmulationStatusText));
         OnPropertyChanged(nameof(CanChangeEmulation));
+        OnPropertyChanged(nameof(EmulationModeIndex));
+        OnPropertyChanged(nameof(EmulationModeListIndex));
+        OnPropertyChanged(nameof(IsEmulationEnabled));
+        OnPropertyChanged(nameof(IsDualSenseEmulation));
+        OnPropertyChanged(nameof(IsDualShock4Emulation));
+        OnPropertyChanged(nameof(IsForwardRumbleVisible));
+        OnPropertyChanged(nameof(IsForwardLightbarVisible));
+        OnPropertyChanged(nameof(IsForwardMicrophoneVisible));
         OnPropertyChanged(nameof(IsMappingEditorVisible));
         NotifyTargetPickerState();
     }
@@ -1704,6 +1846,8 @@ public partial class EmulationPageViewModel : ObservableObject
         ControllerItem? selected = _mainViewModel.SelectedItem;
         CurrentDevice = selected is not null ? new DeviceInfoItem(selected) : null;
         _previousItem = CurrentDevice;
+        NormalizeUnsupportedMode();
+        RefreshEmulationModes();
         MonitorState = selected is not null ? new InputMonitorItem(selected, _audioEngine) : null;
         _previousMonitorState = MonitorState;
 
@@ -1728,6 +1872,7 @@ public partial class EmulationPageViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(EmulationModeIndex));
+        OnPropertyChanged(nameof(EmulationModeListIndex));
         OnPropertyChanged(nameof(IsEmulationEnabled));
         OnPropertyChanged(nameof(IsDualSenseEmulation));
         OnPropertyChanged(nameof(IsDualShock4Emulation));

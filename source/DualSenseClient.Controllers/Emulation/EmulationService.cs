@@ -956,20 +956,30 @@ public sealed class EmulationService : IEmulationService
     private EmulationSettings GetEmulationSettings(DualSenseDevice device)
     {
         EmulationSettings stored = _controllerInfo.GetEmulationSettings(device.Key);
+        EmulationMode mode = stored.Mode;
+        DualSenseVariant dsVariant = stored.Variant.DualSense;
+        DualShock4Variant ds4Variant = stored.Variant.DualShock4;
+        EmulationAudioSource audioSource = stored.Forward.AudioSource;
+        string audioApp = stored.Forward.AudioApp;
+
         if (_temporaryModes.TryGetValue(device, out EmulationOverride? temp))
         {
-            EmulationMode mode = temp.Mode ?? stored.Mode;
-            DualSenseVariant dsVariant = temp.DualSenseVariant ?? stored.Variant.DualSense;
-            DualShock4Variant ds4Variant = temp.DualShock4Variant ?? stored.Variant.DualShock4;
-            EmulationAudioSource audioSource = temp.AudioSource ?? stored.Forward.AudioSource;
-            string audioApp = temp.AudioApp ?? stored.Forward.AudioApp;
-            bool audioChanged = stored.Forward.AudioSource != audioSource
-                                || !string.Equals(stored.Forward.AudioApp, audioApp, StringComparison.Ordinal);
-            if (stored.Mode != mode || stored.Variant.DualSense != dsVariant || stored.Variant.DualShock4 != ds4Variant
-                || audioChanged)
-            {
-                return CloneWithTemporaryOverride(stored, mode, dsVariant, ds4Variant, audioSource, audioApp);
-            }
+            mode = temp.Mode ?? mode;
+            dsVariant = temp.DualSenseVariant ?? dsVariant;
+            ds4Variant = temp.DualShock4Variant ?? ds4Variant;
+            audioSource = temp.AudioSource ?? audioSource;
+            audioApp = temp.AudioApp ?? audioApp;
+        }
+
+        // A temporary override must not bypass the connection rule either.
+        mode = EmulationModePolicy.Normalize(mode, device.ConnectionType);
+
+        bool audioChanged = stored.Forward.AudioSource != audioSource
+                            || !string.Equals(stored.Forward.AudioApp, audioApp, StringComparison.Ordinal);
+        if (stored.Mode != mode || stored.Variant.DualSense != dsVariant || stored.Variant.DualShock4 != ds4Variant
+            || audioChanged)
+        {
+            return CloneWithTemporaryOverride(stored, mode, dsVariant, ds4Variant, audioSource, audioApp);
         }
 
         return stored;
