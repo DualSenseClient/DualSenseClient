@@ -267,6 +267,10 @@
     <sys:String x:Key="CustomizationPage.Dongle.GpioMode.Pulse">200 ms connect pulse</sys:String>
     <!-- Forwarding -->
     <sys:String x:Key="CustomizationPage.Forwarding.Description">Forward desktop audio to the controller's speaker, headset, and haptics</sys:String>
+    <sys:String x:Key="CustomizationPage.Forwarding.Haptics.Title">Haptics</sys:String>
+    <sys:String x:Key="CustomizationPage.Forwarding.Latency.Title">Latency &amp; format</sys:String>
+    <sys:String x:Key="CustomizationPage.Forwarding.Output.Title">Output</sys:String>
+    <sys:String x:Key="CustomizationPage.Forwarding.Source.Title">Source</sys:String>
     <sys:String x:Key="CustomizationPage.Forwarding.Title">Audio Forwarding</sys:String>
     <!-- Lightbar -->
     <sys:String x:Key="CustomizationPage.Lightbar.Audio.Hint">Follows the audio being forwarded to the controller. Audio forwarding must be active.</sys:String>

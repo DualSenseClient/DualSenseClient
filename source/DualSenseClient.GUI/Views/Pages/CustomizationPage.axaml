@@ -1145,125 +1145,145 @@
                                    IconSource="{icm:SymbolIconSource Symbol=DesktopSpeaker}"
                                    IsExpanded="False"
                                    IsVisible="{Binding HasDevice}">
-                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.AudioOutput}"
-                                           Description="{DynamicResource EmulationPage.Emulation.AudioOutput.Description}">
-                    <ui:FASettingsExpanderItem.Footer>
-                        <ComboBox ItemsSource="{Binding EmulationAudioOutputs}"
-                                  SelectedIndex="{Binding ForwardAudioOutputIndex}"
-                                  MinWidth="200" />
-                    </ui:FASettingsExpanderItem.Footer>
-                </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.ForwardVolume}"
-                                           Description="{DynamicResource EmulationPage.Emulation.ForwardVolume.Description}">
-                    <ui:FASettingsExpanderItem.Footer>
-                        <controls:SliderInput Minimum="0"
-                                              Maximum="255"
-                                              Value="{Binding ForwardVolume, Mode=TwoWay}" />
-                    </ui:FASettingsExpanderItem.Footer>
-                </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.ForwardSoftwareVolumeScale}"
-                                           Description="{DynamicResource EmulationPage.Emulation.ForwardSoftwareVolumeScale.Description}">
-                    <ui:FASettingsExpanderItem.Footer>
-                        <NumericUpDown Minimum="1"
-                                       Maximum="8"
-                                       Increment="0.1"
-                                       FormatString="0.#'x'"
-                                       ClipValueToMinMax="True"
-                                       Value="{Binding ForwardSoftwareVolumeScale, Mode=TwoWay}"
-                                       Width="160" />
-                    </ui:FASettingsExpanderItem.Footer>
-                </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.ForwardAudioBufferLength}"
-                                           Description="{DynamicResource EmulationPage.Emulation.ForwardAudioBufferLength.Description}">
-                    <ui:FASettingsExpanderItem.Footer>
-                        <controls:SliderInput Minimum="16"
-                                              Maximum="128"
-                                              Value="{Binding ForwardAudioBufferLength, Mode=TwoWay}" />
-                    </ui:FASettingsExpanderItem.Footer>
-                </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.ForwardAudioPacketMode}"
-                                           Description="{DynamicResource EmulationPage.Emulation.ForwardAudioPacketMode.Description}">
-                    <ui:FASettingsExpanderItem.Footer>
-                        <ComboBox ItemsSource="{Binding EmulationAudioPacketModes}"
-                                  SelectedIndex="{Binding ForwardAudioPacketModeIndex}"
-                                  MinWidth="200" />
-                    </ui:FASettingsExpanderItem.Footer>
-                </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.ForwardHaptics}"
-                                           Description="{DynamicResource EmulationPage.Emulation.ForwardHaptics.Description}">
-                    <ui:FASettingsExpanderItem.Footer>
-                        <controls:SliderInput Minimum="0"
-                                              Maximum="200"
-                                              Value="{Binding ForwardHapticStrength, Mode=TwoWay}" />
-                    </ui:FASettingsExpanderItem.Footer>
-                </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.ForceAudioHaptics}"
-                                           Description="{DynamicResource EmulationPage.Emulation.ForceAudioHaptics.Description}"
-                                           IsVisible="{Binding IsDualSenseEmulation}">
-                    <ui:FASettingsExpanderItem.Footer>
-                        <ToggleSwitch IsChecked="{Binding ForceAudioHaptics, Mode=TwoWay}" />
-                    </ui:FASettingsExpanderItem.Footer>
-                </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.AudioSource}"
-                                           Description="{DynamicResource EmulationPage.Emulation.AudioSource.Description}">
-                    <ui:FASettingsExpanderItem.Footer>
-                        <ComboBox ItemsSource="{Binding ForwardAudioSources}"
-                                  SelectedIndex="{Binding ForwardAudioSourceIndex}"
-                                  MinWidth="200" />
-                    </ui:FASettingsExpanderItem.Footer>
-                </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource AudioSource.Mode.Title}"
-                                           Description="{DynamicResource AudioSource.Mode.Description}"
-                                           IsVisible="{Binding IsForwardAudioAppVisible}">
-                    <ui:FASettingsExpanderItem.Footer>
-                        <ComboBox ItemsSource="{Binding ForwardAudioAppModes}"
-                                  SelectedIndex="{Binding ForwardAudioAppModeIndex}"
-                                  MinWidth="200" />
-                    </ui:FASettingsExpanderItem.Footer>
-                </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.AudioSource.Application}"
-                                           Description="{DynamicResource EmulationPage.Emulation.AudioSource.Application.Description}"
-                                           IsVisible="{Binding IsForwardAudioAppListVisible}">
-                    <ui:FASettingsExpanderItem.Footer>
-                        <StackPanel Orientation="Horizontal"
-                                    Spacing="8">
-                            <ComboBox ItemsSource="{Binding ForwardAudioApps}"
-                                      SelectedIndex="{Binding ForwardAudioAppIndex}"
+                <!-- Where the forwarded audio is played and how loud -->
+                <ui:FASettingsExpander Theme="{StaticResource SettingsExpanderNoAnimationStyle}"
+                                       Header="{DynamicResource CustomizationPage.Forwarding.Output.Title}"
+                                       IsExpanded="True">
+                    <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.AudioOutput}"
+                                               Description="{DynamicResource EmulationPage.Emulation.AudioOutput.Description}">
+                        <ui:FASettingsExpanderItem.Footer>
+                            <ComboBox ItemsSource="{Binding EmulationAudioOutputs}"
+                                      SelectedIndex="{Binding ForwardAudioOutputIndex}"
                                       MinWidth="200" />
-                            <Button Command="{Binding RefreshForwardAudioAppsCommand}"
-                                    ToolTip.Tip="{DynamicResource EmulationPage.Emulation.AudioSource.Refresh}"
-                                    Padding="6,4"
-                                    VerticalAlignment="Center">
-                                <ic:FluentIcon Icon="ArrowClockwise"
-                                               IconVariant="Regular"
-                                               IconSize="Size16" />
-                            </Button>
-                        </StackPanel>
-                    </ui:FASettingsExpanderItem.Footer>
-                </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource AudioSource.Executable.Title}"
-                                           Description="{DynamicResource AudioSource.Executable.Description}"
-                                           IsVisible="{Binding IsForwardAudioAppBrowseVisible}">
-                    <ui:FASettingsExpanderItem.Footer>
-                        <StackPanel Orientation="Horizontal"
-                                    Spacing="8">
-                            <TextBox Text="{Binding ForwardAudioAppPath, Mode=OneWay}"
-                                     IsReadOnly="True"
-                                     PlaceholderText="{DynamicResource AudioSource.Executable.Placeholder}"
-                                     ToolTip.Tip="{Binding ForwardAudioAppPath}"
-                                     Width="200" />
-                            <Button Click="OnBrowseAudioAppClick"
-                                    ToolTip.Tip="{DynamicResource AudioSource.Executable.Browse}"
-                                    Padding="6,4">
-                                <ic:FluentIcon Icon="FolderOpen"
-                                               IconVariant="Regular"
-                                               IconSize="Size16" />
-                            </Button>
-                        </StackPanel>
-                    </ui:FASettingsExpanderItem.Footer>
-                </ui:FASettingsExpanderItem>
-                <ui:FASettingsExpanderItem Content="{DynamicResource AudioSource.NoApplications}"
-                                           IsVisible="{Binding IsForwardAudioAppEmpty}" />
+                        </ui:FASettingsExpanderItem.Footer>
+                    </ui:FASettingsExpanderItem>
+                    <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.ForwardVolume}"
+                                               Description="{DynamicResource EmulationPage.Emulation.ForwardVolume.Description}">
+                        <ui:FASettingsExpanderItem.Footer>
+                            <controls:SliderInput Minimum="0"
+                                                  Maximum="255"
+                                                  Value="{Binding ForwardVolume, Mode=TwoWay}" />
+                        </ui:FASettingsExpanderItem.Footer>
+                    </ui:FASettingsExpanderItem>
+                    <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.ForwardSoftwareVolumeScale}"
+                                               Description="{DynamicResource EmulationPage.Emulation.ForwardSoftwareVolumeScale.Description}">
+                        <ui:FASettingsExpanderItem.Footer>
+                            <NumericUpDown Minimum="1"
+                                           Maximum="8"
+                                           Increment="0.1"
+                                           FormatString="0.#'x'"
+                                           ClipValueToMinMax="True"
+                                           Value="{Binding ForwardSoftwareVolumeScale, Mode=TwoWay}"
+                                           Width="160" />
+                        </ui:FASettingsExpanderItem.Footer>
+                    </ui:FASettingsExpanderItem>
+                </ui:FASettingsExpander>
+                <!-- Buffer sizing and Bluetooth report shape -->
+                <ui:FASettingsExpander Theme="{StaticResource SettingsExpanderNoAnimationStyle}"
+                                       Header="{DynamicResource CustomizationPage.Forwarding.Latency.Title}"
+                                       IsExpanded="False">
+                    <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.ForwardAudioBufferLength}"
+                                               Description="{DynamicResource EmulationPage.Emulation.ForwardAudioBufferLength.Description}">
+                        <ui:FASettingsExpanderItem.Footer>
+                            <controls:SliderInput Minimum="16"
+                                                  Maximum="128"
+                                                  Value="{Binding ForwardAudioBufferLength, Mode=TwoWay}" />
+                        </ui:FASettingsExpanderItem.Footer>
+                    </ui:FASettingsExpanderItem>
+                    <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.ForwardAudioPacketMode}"
+                                               Description="{DynamicResource EmulationPage.Emulation.ForwardAudioPacketMode.Description}">
+                        <ui:FASettingsExpanderItem.Footer>
+                            <ComboBox ItemsSource="{Binding EmulationAudioPacketModes}"
+                                      SelectedIndex="{Binding ForwardAudioPacketModeIndex}"
+                                      MinWidth="200" />
+                        </ui:FASettingsExpanderItem.Footer>
+                    </ui:FASettingsExpanderItem>
+                </ui:FASettingsExpander>
+                <!-- Haptic feedback generated from the forwarded audio -->
+                <ui:FASettingsExpander Theme="{StaticResource SettingsExpanderNoAnimationStyle}"
+                                       Header="{DynamicResource CustomizationPage.Forwarding.Haptics.Title}"
+                                       IsExpanded="False">
+                    <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.ForwardHaptics}"
+                                               Description="{DynamicResource EmulationPage.Emulation.ForwardHaptics.Description}">
+                        <ui:FASettingsExpanderItem.Footer>
+                            <controls:SliderInput Minimum="0"
+                                                  Maximum="200"
+                                                  Value="{Binding ForwardHapticStrength, Mode=TwoWay}" />
+                        </ui:FASettingsExpanderItem.Footer>
+                    </ui:FASettingsExpanderItem>
+                    <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.ForceAudioHaptics}"
+                                               Description="{DynamicResource EmulationPage.Emulation.ForceAudioHaptics.Description}"
+                                               IsVisible="{Binding IsDualSenseEmulation}">
+                        <ui:FASettingsExpanderItem.Footer>
+                            <ToggleSwitch IsChecked="{Binding ForceAudioHaptics, Mode=TwoWay}" />
+                        </ui:FASettingsExpanderItem.Footer>
+                    </ui:FASettingsExpanderItem>
+                </ui:FASettingsExpander>
+                <!-- Which audio is captured and forwarded -->
+                <ui:FASettingsExpander Theme="{StaticResource SettingsExpanderNoAnimationStyle}"
+                                       Header="{DynamicResource CustomizationPage.Forwarding.Source.Title}"
+                                       IsExpanded="False">
+                    <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.AudioSource}"
+                                               Description="{DynamicResource EmulationPage.Emulation.AudioSource.Description}">
+                        <ui:FASettingsExpanderItem.Footer>
+                            <ComboBox ItemsSource="{Binding ForwardAudioSources}"
+                                      SelectedIndex="{Binding ForwardAudioSourceIndex}"
+                                      MinWidth="200" />
+                        </ui:FASettingsExpanderItem.Footer>
+                    </ui:FASettingsExpanderItem>
+                    <ui:FASettingsExpanderItem Content="{DynamicResource AudioSource.Mode.Title}"
+                                               Description="{DynamicResource AudioSource.Mode.Description}"
+                                               IsVisible="{Binding IsForwardAudioAppVisible}">
+                        <ui:FASettingsExpanderItem.Footer>
+                            <ComboBox ItemsSource="{Binding ForwardAudioAppModes}"
+                                      SelectedIndex="{Binding ForwardAudioAppModeIndex}"
+                                      MinWidth="200" />
+                        </ui:FASettingsExpanderItem.Footer>
+                    </ui:FASettingsExpanderItem>
+                    <ui:FASettingsExpanderItem Content="{DynamicResource EmulationPage.Emulation.AudioSource.Application}"
+                                               Description="{DynamicResource EmulationPage.Emulation.AudioSource.Application.Description}"
+                                               IsVisible="{Binding IsForwardAudioAppListVisible}">
+                        <ui:FASettingsExpanderItem.Footer>
+                            <StackPanel Orientation="Horizontal"
+                                        Spacing="8">
+                                <ComboBox ItemsSource="{Binding ForwardAudioApps}"
+                                          SelectedIndex="{Binding ForwardAudioAppIndex}"
+                                          MinWidth="200" />
+                                <Button Command="{Binding RefreshForwardAudioAppsCommand}"
+                                        ToolTip.Tip="{DynamicResource EmulationPage.Emulation.AudioSource.Refresh}"
+                                        Padding="6,4"
+                                        VerticalAlignment="Center">
+                                    <ic:FluentIcon Icon="ArrowClockwise"
+                                                   IconVariant="Regular"
+                                                   IconSize="Size16" />
+                                </Button>
+                            </StackPanel>
+                        </ui:FASettingsExpanderItem.Footer>
+                    </ui:FASettingsExpanderItem>
+                    <ui:FASettingsExpanderItem Content="{DynamicResource AudioSource.Executable.Title}"
+                                               Description="{DynamicResource AudioSource.Executable.Description}"
+                                               IsVisible="{Binding IsForwardAudioAppBrowseVisible}">
+                        <ui:FASettingsExpanderItem.Footer>
+                            <StackPanel Orientation="Horizontal"
+                                        Spacing="8">
+                                <TextBox Text="{Binding ForwardAudioAppPath, Mode=OneWay}"
+                                         IsReadOnly="True"
+                                         PlaceholderText="{DynamicResource AudioSource.Executable.Placeholder}"
+                                         ToolTip.Tip="{Binding ForwardAudioAppPath}"
+                                         Width="200" />
+                                <Button Click="OnBrowseAudioAppClick"
+                                        ToolTip.Tip="{DynamicResource AudioSource.Executable.Browse}"
+                                        Padding="6,4">
+                                    <ic:FluentIcon Icon="FolderOpen"
+                                                   IconVariant="Regular"
+                                                   IconSize="Size16" />
+                                </Button>
+                            </StackPanel>
+                        </ui:FASettingsExpanderItem.Footer>
+                    </ui:FASettingsExpanderItem>
+                    <ui:FASettingsExpanderItem Content="{DynamicResource AudioSource.NoApplications}"
+                                               IsVisible="{Binding IsForwardAudioAppEmpty}" />
+                </ui:FASettingsExpander>
                 <ui:FASettingsExpander Theme="{StaticResource SettingsExpanderNoAnimationStyle}"
                                        Header="{DynamicResource CustomizationPage.Microphone}"
                                        Description="{DynamicResource CustomizationPage.Microphone.Description}"
