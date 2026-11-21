@@ -25,7 +25,9 @@ public sealed class AudioApplicationInfo
     public string DisplayName { get; }
 
     /// <summary>
-    /// The full executable path, the durable selector stored in the settings.
+    /// The full executable path, the durable selector stored in the settings. On Linux a
+    /// native PipeWire client with no process metadata stores an application or binary name
+    /// instead.
     /// </summary>
     public string ExecutablePath { get; }
 

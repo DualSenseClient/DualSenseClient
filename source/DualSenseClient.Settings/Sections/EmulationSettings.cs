@@ -144,7 +144,8 @@ public enum EmulationAudioSource
     /// <summary>
     /// A loopback capture of a single application's audio (its process tree), so only
     /// that app drives the controller. Routed directly to the physical controller and
-    /// needs no virtual device. Windows 10 build 20348 (Windows 11) or later only.
+    /// needs no virtual device. Windows 10 build 20348 (Windows 11) or later, or Linux
+    /// with the PipeWire command-line tools.
     /// </summary>
     Application = 2
 }
@@ -165,7 +166,8 @@ public enum EmulationAudioAppMode
 
     /// <summary>
     /// Choose with the platform file picker, so an executable that is not currently
-    /// playing audio can be captured too.
+    /// playing audio can be captured too. Linux allows selecting any file because the
+    /// matching is by path or file name, not by an executable extension.
     /// </summary>
     ExecutableFile = 1
 }
@@ -391,7 +393,8 @@ public class ForwardSettings
     /// Gets or sets the executable path of the application captured when
     /// <see cref="AudioSource"/> is <see cref="EmulationAudioSource.Application"/>
     /// (empty by default). The path (not a process id) is stored so it survives app
-    /// restarts.
+    /// restarts; Linux stores an application or binary name when a native stream exposes no
+    /// process metadata.
     /// </summary>
     [JsonPropertyName("audio_app")]
     public string AudioApp { get; set; } = string.Empty;
