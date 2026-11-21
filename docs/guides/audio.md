@@ -40,7 +40,7 @@ Open the **Emulation** page and expand **Audio Player**.
 !!! note
     The per-controller **Software Volume Scale** under **Customization → Audio Forwarding** also applies to the audio player. It is shared with forwarded audio and special-action sounds; `1x` leaves the audio unchanged, and values above `1x` are soft-limited to prevent clipping.
 
-Audio played by other applications can also be forwarded to the controller's speaker or headset. That is configured separately under [Audio Forwarding](virtual-controller.md#audio-forwarding).
+Audio played by other applications can also be forwarded to the controller's speaker or headset. That is configured separately under [Audio Forwarding](virtual-controller.md#audio-forwarding). On Linux the direct forwarding sources use PipeWire; see the [Audio Sources](virtual-controller.md#audio-sources) section for the requirements.
 
 ## Microphone
 

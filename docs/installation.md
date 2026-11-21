@@ -11,6 +11,7 @@
 
     - No .NET installation required (self-contained build)
     - HIDAPI system library for controller access (Ubuntu/Debian: `sudo apt install libhidapi-hidraw0`)
+    - PipeWire for forwarded system and application audio, with `pw-record`, `pw-dump`, and `pw-link` on `PATH` (usually present on a PipeWire desktop; CachyOS/Arch: `sudo pacman -S pipewire pipewire-audio`)
 
 Optional components:
 

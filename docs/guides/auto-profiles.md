@@ -34,7 +34,7 @@ The rule editor has separate **L2** and **R2** trigger controls under **Adaptive
 
 - **Virtual controller audio** — audio the game plays through the virtual controller
 - **System output (loopback)** — whatever plays on the system's default output device
-- **Specific application** — one selected application, with an executable picker (Windows 11)
+- **Specific application** — one selected application, with an executable picker (Windows 11; Linux with PipeWire)
 
 The system-output and specific-application sources work without a virtual controller; see [Audio Forwarding](virtual-controller.md#audio-forwarding).
 

@@ -108,9 +108,12 @@ Choose what feeds the forwarding from the **Audio source** dropdown:
 
 - **Virtual controller audio** — audio a game plays through the virtual controller. The game must select the virtual controller's audio output.
 - **System output (loopback)** — whatever plays on your system's default output device. Works without a virtual controller.
-- **Specific application** (Windows 11) — capture only one application's audio, including its child processes. Works without a virtual controller.
+- **Specific application** (Windows 11; Linux with PipeWire) — capture only one application's audio, including its child processes. Works without a virtual controller.
 
 For the specific-application source, choose the application from the list of programs currently playing audio or browse for its executable file. The sources are mutually exclusive, and you can switch between them while a game is running.
+
+!!! note
+    On Linux the direct sources use **PipeWire**. The system source captures the default sink's monitor; it follows the default sink at the moment it starts, so reselect the source after changing the default output. The application source links the selected program's output streams, including child processes, without rerouting its audio. `pw-record`, `pw-dump`, and `pw-link` must be installed. Keep a normal desktop output as the default sink — selecting the controller's own USB audio sink would feed the forwarded audio back into itself. Virtual controller emulation itself remains Windows-only.
 
 Audio forwarding works in any emulation mode, including off, for the system-output and specific-application sources. It can also be overridden per program in [Auto Profiles](auto-profiles.md).
 
