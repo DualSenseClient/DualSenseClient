@@ -70,6 +70,10 @@ If Windows reports a missing `dotnet` runtime when launching:
 - Install the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
 - Make sure you installed the **Desktop** runtime (not just the base runtime), since the app has a graphical interface
 
+### Linux Audio Forwarding Does Not Start
+
+The system-output and specific-application sources are PipeWire-backed. Verify that `pw-record`, `pw-dump`, and `pw-link` are installed and that a default sink exists in the graph. The application picker only lists programs with an active output stream; start playback in the program and use the refresh button. Logs at **Debug** level include the `pw-dump`/`pw-link` failure reason.
+
 ## Virtual Controller Emulation
 
 ### Virtual Controller Does Not Appear

@@ -109,7 +109,7 @@ See the [DS5Dongle Bridge guide](https://dualsenseclient.github.io/DualSenseClie
 - Create a virtual **Xbox 360**, **DualShock 4**, or **DualSense** (Standard or Edge) controller that mirrors the physical controller's input, with rumble, lightbar, and trigger feedback forwarded back
 - Per-controller emulation settings applied on connection, adjustable from the **Emulation** page or the tray menu (currently Windows-only)
 - DualSense output exposes haptics, adaptive triggers, and audio interfaces to the host; host audio can be forwarded to the physical controller's speaker or headset with volume and haptic-strength controls
-- Choose the forwarded audio source: virtual controller audio, system-output loopback, or a specific application (Windows 11)
+- Choose the forwarded audio source: virtual controller audio, system-output loopback, or a specific application (Windows 11; Linux system output and application capture use PipeWire)
 - Use the DualSense touchpad as a Windows mouse (pointer, tap-to-click, two-finger right-click and scrolling)
 - Powered by the built-in **Emulation** engine, which only requires the USB/IP driver on the host system
 
@@ -125,6 +125,7 @@ See the [DS5Dongle Bridge guide](https://dualsenseclient.github.io/DualSenseClie
 
 - **Windows 10 or later** with the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) installed (the Windows build is framework-dependent)
 - **Linux** — no .NET installation required (self-contained build)
+- **PipeWire** (Linux audio forwarding) — required for the system-output and specific-application sources; install the standard PipeWire packages so `pw-record`, `pw-dump`, and `pw-link` are on `PATH`
 - **PlayStation 5 DualSense controller** (wired USB, Bluetooth, or DS5Dongle USB bridge)
 - **DS5Dongle** (optional) — USB Bluetooth bridge; use the latest official firmware, no extra driver required
 - **HidHide** (optional, Windows only) — driver for hiding physical controllers from other applications; see [nefarius/HidHide](https://github.com/nefarius/HidHide)

@@ -59,6 +59,14 @@ dotnet test tests/DualSenseClient.Tests/DualSenseClient.Tests.csproj --filter "F
 
 Unlike the hardware suites, an attach failure is reported as a test failure because the tests are explicitly opted in.
 
+### PipeWire audio capture
+
+`PipeWireAudioIntegrationTests` starts `pw-record`, links the default sink or a `pw-play` output stream, verifies that the capture node has a live link, and checks that the capture recovers after its child exits. It requires `pw-record`, `pw-dump`, `pw-link`, and `pw-play` on `PATH`.
+
+```bash
+PIPEWIRE_INTEGRATION=1 dotnet test tests/DualSenseClient.Tests/DualSenseClient.Tests.csproj --filter "FullyQualifiedName~PipeWireAudioIntegrationTests"
+```
+
 ## Project Structure
 
 The solution follows a multi-project layout: each distinct concern lives in its own project under `source/`, named `DualSenseClient.<Area>` (for example `DualSenseClient.Core`, `DualSenseClient.Hid`, `DualSenseClient.Settings`). **DualSenseClient.GUI** is the main application project containing Views, ViewModels, and UI-related logic.
