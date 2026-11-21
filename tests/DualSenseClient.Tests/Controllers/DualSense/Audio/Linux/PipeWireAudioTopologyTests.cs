@@ -48,6 +48,41 @@ public class PipeWireAudioTopologyTests
         });
     }
 
+    [Test]
+    public void ContainsLink_CaptureNodeLinked_ReturnsTrue()
+    {
+        const string listing = """
+                               60 alsa_output.test:monitor_FL
+                               78   |->   73 review-link-test:input_FL
+                               61 alsa_output.test:monitor_FR
+                               79   |->   74 review-link-test:input_FR
+                               """;
+
+        Assert.That(PipeWireAudioTopology.ContainsLink(listing, "review-link-test"), Is.True);
+    }
+
+    [Test]
+    public void ContainsLink_SimilarNodeName_ReturnsFalse()
+    {
+        const string listing = """
+                               60 alsa_output.test:monitor_FL
+                               78   |->   73 review-link-test:input_FL
+                               """;
+
+        Assert.That(PipeWireAudioTopology.ContainsLink(listing, "review-link"), Is.False);
+    }
+
+    [Test]
+    public void ContainsLink_NoLinks_ReturnsFalse()
+    {
+        const string listing = """
+                               60 alsa_output.test:monitor_FL
+                               61 alsa_output.test:monitor_FR
+                               """;
+
+        Assert.That(PipeWireAudioTopology.ContainsLink(listing, "review-link-test"), Is.False);
+    }
+
     private static PipeWireGraph ParseGraph()
     {
         PipeWireGraph? graph = PipeWireDump.TryParse(GraphJson);

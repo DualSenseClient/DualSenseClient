@@ -158,7 +158,7 @@ public sealed class ApplicationLoopbackAudioCapture : IForwardedAudioCapture, ID
                 return true;
             }
 
-            if (!AudioApplicationService.IsProcessLoopbackSupported)
+            if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 20348))
             {
                 _log.Debug("Application audio capture requires Windows 10 build 20348 (Windows 11) or later; capture not started");
                 return false;

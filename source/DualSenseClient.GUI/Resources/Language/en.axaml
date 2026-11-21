@@ -492,7 +492,7 @@
     <sys:String x:Key="EmulationPage.Emulation.AudioOutput.Speaker">Speaker</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.AudioSource">Audio source</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.AudioSource.Application">Specific application</sys:String>
-    <sys:String x:Key="EmulationPage.Emulation.AudioSource.Application.Description">Capture only the selected application's audio, its child processes included. Requires Windows 11.</sys:String>
+    <sys:String x:Key="EmulationPage.Emulation.AudioSource.Application.Description">Capture only the selected application's audio, its child processes included. Requires Windows 11 or PipeWire on Linux.</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.AudioSource.Controller">Virtual controller audio</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.AudioSource.Description">Where the forwarded speaker audio and haptics come from. The system output and application sources work without a virtual controller.</sys:String>
     <sys:String x:Key="EmulationPage.Emulation.AudioSource.Refresh">Refresh app list</sys:String>

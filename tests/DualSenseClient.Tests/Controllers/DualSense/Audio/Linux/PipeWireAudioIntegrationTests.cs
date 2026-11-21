@@ -56,8 +56,32 @@ public sealed class PipeWireAudioIntegrationTests
 
         Assert.That(capture.Start(), Is.True, "the default sink should be linkable");
         Assert.That(capture.IsActive, Is.True);
+        AssertCaptureLinked(capture.CaptureNodeName);
         capture.Stop();
         Assert.That(capture.IsActive, Is.False);
+    }
+
+    [Test]
+    public void SystemOutputCapture_RecoversAfterItsChildExits()
+    {
+        using DualSenseAudioForwarder forwarder = new DualSenseAudioForwarder(null, null);
+        using PipeWireSystemOutputAudioCapture capture = new PipeWireSystemOutputAudioCapture(forwarder);
+
+        Assert.That(capture.Start(), Is.True, "the default sink should be linkable");
+        int childProcessId = capture.ChildProcessId;
+        Assert.That(childProcessId, Is.GreaterThan(0), "the capture must own a pw-record child");
+
+        using (Process child = Process.GetProcessById(childProcessId))
+        {
+            child.Kill(true);
+        }
+
+        Assert.That(SpinWait.SpinUntil(() => !capture.IsActive, 3000), Is.True,
+            "the capture must report inactive after its child exits");
+        Assert.That(capture.Start(), Is.True, "a dead pw-record must not poison a later start");
+        Assert.That(capture.IsActive, Is.True);
+        AssertCaptureLinked(capture.CaptureNodeName);
+        capture.Stop();
     }
 
     [Test]
@@ -89,6 +113,21 @@ public sealed class PipeWireAudioIntegrationTests
             using PipeWireApplicationAudioCapture capture = new PipeWireApplicationAudioCapture("pw-play", forwarder);
             Assert.That(capture.Start(), Is.True, "the playing stream should be linkable");
             Assert.That(capture.IsActive, Is.True);
+            AssertCaptureLinked(capture.CaptureNodeName);
+
+            int childProcessId = capture.ChildProcessId;
+            Assert.That(childProcessId, Is.GreaterThan(0), "the capture must own a pw-record child");
+            using (Process child = Process.GetProcessById(childProcessId))
+            {
+                child.Kill(true);
+            }
+
+            Assert.That(SpinWait.SpinUntil(() => !capture.IsActive, 3000), Is.True,
+                "the capture must report inactive after its child exits");
+            Assert.That(capture.Start(), Is.True, "a dead pw-record must not poison a later start");
+            Assert.That(capture.IsActive, Is.True);
+            AssertCaptureLinked(capture.CaptureNodeName);
+
             capture.Stop();
             Assert.That(capture.IsActive, Is.False);
         }
@@ -96,6 +135,19 @@ public sealed class PipeWireAudioIntegrationTests
         {
             File.Delete(tonePath);
         }
+    }
+
+    private static void AssertCaptureLinked(string nodeName)
+    {
+        Assert.That(nodeName, Is.Not.Empty, "the capture must expose its node name");
+        Assert.That(
+            PipeWireTool.TryRun("pw-link", ["-l", "-I"], 2000, out string listing, out string error),
+            Is.True,
+            error);
+        Assert.That(
+            PipeWireAudioTopology.ContainsLink(listing, nodeName),
+            Is.True,
+            $"the capture node '{nodeName}' must have at least one link");
     }
 
     private static IReadOnlyList<AudioApplicationInfo> WaitForPlayingApplication(

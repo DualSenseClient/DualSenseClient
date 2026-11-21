@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -143,7 +144,7 @@ public partial class AutoProfilePage : UserControl
             [
                 new FilePickerFileType(LocalizationService.GetText("AudioSource.Executable.FileType"))
                 {
-                    Patterns = ["*.exe"]
+                    Patterns = OperatingSystem.IsWindows() ? ["*.exe"] : ["*"]
                 }
             ]
         });

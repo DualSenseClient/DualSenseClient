@@ -218,12 +218,41 @@ internal static class PipeWireAudioTopology
         => TryGetGraph()?.FindNodeId(nodeName);
 
     /// <summary>
-    /// Links every compatible output port of a source node to a capture node. Linking a sink
-    /// node captures its monitor; linking an application stream node captures that stream.
+    /// Whether a <c>pw-link -l -I</c> listing contains a link into the named node.
+    /// </summary>
+    /// <param name="listing">The captured listing.</param>
+    /// <param name="inputNodeName">The capture node's <c>node.name</c>.</param>
+    internal static bool ContainsLink(string listing, string inputNodeName)
+    {
+        if (string.IsNullOrEmpty(listing) || string.IsNullOrEmpty(inputNodeName))
+        {
+            return false;
+        }
+
+        string marker = inputNodeName + ":";
+        foreach (string line in listing.Split('\n'))
+        {
+            foreach (string token in line.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (token.StartsWith(marker, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Links every compatible output port of a source node to a capture node and verifies
+    /// that at least one link exists. Linking a sink node captures its monitor; linking an
+    /// application stream node captures that stream.
     /// </summary>
     /// <param name="outputNodeId">The source node id.</param>
     /// <param name="inputNodeId">The capture node id.</param>
-    public static bool TryLinkNodes(int outputNodeId, int inputNodeId)
+    /// <param name="inputNodeName">The capture node's <c>node.name</c>, used to verify the link.</param>
+    public static bool TryLinkNodes(int outputNodeId, int inputNodeId, string inputNodeName)
     {
         string[] arguments =
         [
@@ -231,11 +260,26 @@ internal static class PipeWireAudioTopology
             inputNodeId.ToString(CultureInfo.InvariantCulture)
         ];
         bool linked = PipeWireTool.TryRun("pw-link", arguments, 1500, out _, out string error);
-        if (!linked)
+        if (!PipeWireTool.TryRun("pw-link", ["-l", "-I"], 1500, out string listing, out string listError))
         {
+            if (linked)
+            {
+                _log.Debug(
+                    $"pw-link {outputNodeId} -> {inputNodeId} reported success but its links could not be listed: {listError.Trim()}");
+                return true;
+            }
+
             _log.Debug($"pw-link {outputNodeId} -> {inputNodeId} failed: {error.Trim()}");
+            return false;
         }
 
-        return linked;
+        bool verified = ContainsLink(listing, inputNodeName);
+        if (!verified)
+        {
+            _log.Debug(
+                $"pw-link {outputNodeId} -> {inputNodeId} created no link for '{inputNodeName}': {error.Trim()}");
+        }
+
+        return verified;
     }
 }

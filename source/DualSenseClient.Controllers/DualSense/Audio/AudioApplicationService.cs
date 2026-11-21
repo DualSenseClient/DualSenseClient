@@ -1,18 +1,20 @@
 using System.Diagnostics;
+using DualSenseClient.Controllers.DualSense.Audio.Linux;
 using DualSenseClient.Controllers.DualSense.Audio.Windows;
 using DualSenseClient.Logging;
 
 namespace DualSenseClient.Controllers.DualSense.Audio;
 
 /// <summary>
-/// Enumerates the applications currently rendering audio on the default output device
-/// and resolves a stored executable path back to a running process, backing the
-/// per-application forwarded-audio source.
+/// Enumerates the applications currently rendering audio on the default output device and
+/// resolves a stored executable path back to a running process, backing the per-application
+/// forwarded-audio source.
 /// </summary>
 /// <remarks>
-/// Apps are identified by executable path (not by process id) so a stored selection
-/// survives restarts; the process id is resolved at capture time and can change between
-/// sessions. All Windows-only paths are guarded, so the service is inert elsewhere.
+/// Apps are identified by executable path (not by process id) so a stored selection survives
+/// restarts; the process id is resolved at capture time and can change between sessions. On
+/// Linux a native PipeWire client may expose no process id, so the selection falls back to an
+/// application or binary name. Unsupported platforms return an empty list and resolve nothing.
 /// </remarks>
 public sealed class AudioApplicationService
 {
@@ -22,25 +24,40 @@ public sealed class AudioApplicationService
     private static readonly DualSenseClientLogger _log = DualSenseClientLogger.For("AudioApplicationService");
 
     /// <summary>
-    /// Whether per-application (process) loopback capture is available on this machine:
-    /// Windows 10 build 20348 (Windows 11) or later.
+    /// Whether per-application capture is available on this machine: WASAPI process loopback
+    /// on Windows 10 build 20348 (Windows 11) or later, or the PipeWire command-line tools on
+    /// Linux.
     /// </summary>
-    public static bool IsProcessLoopbackSupported
+    public static bool IsApplicationCaptureSupported
     {
         get
         {
-            return OperatingSystem.IsWindowsVersionAtLeast(10, 0, 20348);
+            if (OperatingSystem.IsWindows())
+            {
+                return OperatingSystem.IsWindowsVersionAtLeast(10, 0, 20348);
+            }
+
+            return OperatingSystem.IsLinux() && PipeWireAudioTopology.IsAvailable;
         }
     }
 
     /// <summary>
     /// Returns the applications with a live audio session on the default output device,
-    /// de-duplicated by executable path and sorted by display name.
+    /// de-duplicated by executable path and sorted by display name. On Linux the output
+    /// streams of the PipeWire graph are used instead of WASAPI sessions.
     /// </summary>
     public IReadOnlyList<AudioApplicationInfo> GetPlayingApplications()
     {
         List<AudioApplicationInfo> applications = new List<AudioApplicationInfo>();
-        if (!IsProcessLoopbackSupported)
+        if (OperatingSystem.IsLinux())
+        {
+            PipeWireGraph? graph = PipeWireAudioTopology.TryGetGraph();
+            return graph is null
+                ? applications
+                : LinuxAudioApplications.GetPlayingApplications(graph);
+        }
+
+        if (!IsApplicationCaptureSupported)
         {
             return applications;
         }
@@ -69,14 +86,26 @@ public sealed class AudioApplicationService
     /// Resolves the executable path of a stored application selection to a live process
     /// id. Prefers a process that is currently rendering audio, then any process with a
     /// matching executable path, then a matching process name (so a selection stored as a
-    /// bare file name still resolves). Returns <c>false</c> when nothing matches.
+    /// bare file name still resolves). Returns <c>false</c> when nothing matches. On Linux a
+    /// matching stream that exposes no process metadata returns <c>true</c> with id zero.
     /// </summary>
     /// <param name="executablePath">The stored executable path or process name.</param>
     /// <param name="processId">Receives the resolved process id.</param>
     public bool TryResolveProcessId(string executablePath, out uint processId)
     {
         processId = 0;
-        if (string.IsNullOrWhiteSpace(executablePath) || !IsProcessLoopbackSupported)
+        if (string.IsNullOrWhiteSpace(executablePath))
+        {
+            return false;
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            return LinuxAudioApplications.TryResolveProcessId(
+                executablePath, LinuxProcessTable.Read(), PipeWireAudioTopology.TryGetGraph(), out processId);
+        }
+
+        if (!IsApplicationCaptureSupported)
         {
             return false;
         }

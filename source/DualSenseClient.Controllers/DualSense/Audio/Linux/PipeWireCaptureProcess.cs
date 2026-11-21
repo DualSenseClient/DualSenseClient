@@ -119,6 +119,44 @@ internal sealed class PipeWireCaptureProcess : IDisposable
     public int NodeId { get; private set; }
 
     /// <summary>
+    /// The unique PipeWire node name used to find and link the capture stream.
+    /// </summary>
+    public string NodeName
+    {
+        get
+        {
+            return _nodeName;
+        }
+    }
+
+    /// <summary>
+    /// The running <c>pw-record</c> process id, or zero when no child is owned. Used by the
+    /// opt-in integration tests to simulate a child exit.
+    /// </summary>
+    internal int ChildProcessId
+    {
+        get
+        {
+            lock (_sync)
+            {
+                if (_process is null)
+                {
+                    return 0;
+                }
+
+                try
+                {
+                    return _process.Id;
+                }
+                catch (InvalidOperationException)
+                {
+                    return 0;
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Starts <c>pw-record</c>, waits for its node to appear, and starts the reader. Returns
     /// <c>false</c> when the platform or tools are unavailable or the child exits early.
     /// Safe to call repeatedly; an active capture is left untouched.
@@ -374,6 +412,30 @@ internal sealed class PipeWireCaptureProcess : IDisposable
             if (unexpected)
             {
                 _log.Warning($"PipeWire capture node {NodeId} stopped unexpectedly");
+
+                // A dead child must not poison a later Start: clear the owned process and
+                // reap it so the capture source can open a fresh one.
+                Process? dead;
+                lock (_sync)
+                {
+                    dead = _process;
+                    _process = null;
+                    _readerThread = null;
+                }
+
+                if (dead is not null)
+                {
+                    try
+                    {
+                        dead.WaitForExit(1000);
+                    }
+                    catch (Exception ex) when (ex is InvalidOperationException or Win32Exception)
+                    {
+                        // The process was already reaped by Stop.
+                    }
+
+                    dead.Dispose();
+                }
             }
         }
     }

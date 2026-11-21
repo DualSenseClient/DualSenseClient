@@ -82,6 +82,36 @@ internal sealed class PipeWireApplicationAudioCapture : IForwardedAudioCapture, 
         }
     }
 
+    /// <summary>
+    /// The active capture node's PipeWire name, or empty when stopped. Used by the opt-in
+    /// integration tests to verify the application-stream link.
+    /// </summary>
+    internal string CaptureNodeName
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _capture?.NodeName ?? string.Empty;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The running <c>pw-record</c> process id, or zero when stopped. Used by the opt-in
+    /// integration tests to simulate a child exit.
+    /// </summary>
+    internal int ChildProcessId
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _capture?.ChildProcessId ?? 0;
+            }
+        }
+    }
+
     /// <inheritdoc/>
     public bool Start()
     {
@@ -89,6 +119,23 @@ internal sealed class PipeWireApplicationAudioCapture : IForwardedAudioCapture, 
         {
             _log.Debug("PipeWire application audio capture is only available on Linux; capture not started");
             return false;
+        }
+
+        bool restart;
+        lock (_sync)
+        {
+            restart = _capture is not null && (!_running || !_capture.IsActive);
+            if (_capture is not null && !restart)
+            {
+                return true;
+            }
+        }
+
+        if (restart)
+        {
+            // The child died (for example after a PipeWire restart): tear down the poll
+            // thread and stale capture, then open a fresh one.
+            Stop();
         }
 
         lock (_sync)
@@ -130,7 +177,7 @@ internal sealed class PipeWireApplicationAudioCapture : IForwardedAudioCapture, 
             _linkedNodeIds.Clear();
             foreach (int nodeId in nodes)
             {
-                if (PipeWireAudioTopology.TryLinkNodes(nodeId, capture.NodeId))
+                if (PipeWireAudioTopology.TryLinkNodes(nodeId, capture.NodeId, capture.NodeName))
                 {
                     _linkedNodeIds.Add(nodeId);
                 }
@@ -265,7 +312,7 @@ internal sealed class PipeWireApplicationAudioCapture : IForwardedAudioCapture, 
                         break;
                     }
 
-                    if (!PipeWireAudioTopology.TryLinkNodes(nodeId, capture.NodeId))
+                    if (!PipeWireAudioTopology.TryLinkNodes(nodeId, capture.NodeId, capture.NodeName))
                     {
                         continue;
                     }

@@ -53,6 +53,36 @@ internal sealed class PipeWireSystemOutputAudioCapture : IForwardedAudioCapture,
         }
     }
 
+    /// <summary>
+    /// The active capture node's PipeWire name, or empty when stopped. Used by the opt-in
+    /// integration tests to verify the sink link.
+    /// </summary>
+    internal string CaptureNodeName
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _capture?.NodeName ?? string.Empty;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The running <c>pw-record</c> process id, or zero when stopped. Used by the opt-in
+    /// integration tests to simulate a child exit.
+    /// </summary>
+    internal int ChildProcessId
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _capture?.ChildProcessId ?? 0;
+            }
+        }
+    }
+
     /// <inheritdoc/>
     public bool Start()
     {
@@ -66,7 +96,15 @@ internal sealed class PipeWireSystemOutputAudioCapture : IForwardedAudioCapture,
         {
             if (_capture is not null)
             {
-                return _capture.IsActive;
+                if (_capture.IsActive)
+                {
+                    return true;
+                }
+
+                // The child died (for example after a PipeWire restart); drop the stale
+                // handle and open a fresh capture instead of refusing every later start.
+                _capture.Dispose();
+                _capture = null;
             }
 
             if (!PipeWireAudioTopology.TryGetDefaultSink(out string sinkName, out int sinkNodeId))
@@ -82,7 +120,7 @@ internal sealed class PipeWireSystemOutputAudioCapture : IForwardedAudioCapture,
                 return false;
             }
 
-            if (!PipeWireAudioTopology.TryLinkNodes(sinkNodeId, capture.NodeId))
+            if (!PipeWireAudioTopology.TryLinkNodes(sinkNodeId, capture.NodeId, capture.NodeName))
             {
                 _log.Warning($"Could not link the default sink '{sinkName}' to the capture stream; forwarded system audio is unavailable");
                 capture.Dispose();

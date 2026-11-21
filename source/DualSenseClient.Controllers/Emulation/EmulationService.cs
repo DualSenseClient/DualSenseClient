@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Audio;
+using DualSenseClient.Controllers.DualSense.Audio.Linux;
 using DualSenseClient.Controllers.DualSense.Audio.Windows;
 using DualSenseClient.Controllers.DualSense.Events;
 using DualSenseClient.Controllers.DualSense.Input;
@@ -1190,7 +1191,13 @@ public sealed class EmulationService : IEmulationService
         if (entry.DirectAudioActive && entry.DirectSource == audioSource
                                     && string.Equals(entry.DirectApp, audioApp, StringComparison.OrdinalIgnoreCase))
         {
-            return;
+            if (entry.DirectCapture is { IsActive: true })
+            {
+                return;
+            }
+
+            _log.Warning(entry.Device.Info.ProductName + ": the forwarded audio capture stopped; restarting");
+            StopDirectCaptureLocked(entry);
         }
 
         if (entry.DirectAudioActive)
@@ -1226,7 +1233,11 @@ public sealed class EmulationService : IEmulationService
         IForwardedAudioCapture capture;
         if (audioSource == EmulationAudioSource.Application)
         {
-            if (!_audioApplications.TryResolveProcessId(audioApp, out uint processId))
+            // Linux resolves the application and its streams inside the PipeWire capture
+            // (one process-table scan + one graph read). The WASAPI process loopback needs
+            // a process id up front, so only that path performs the pre-check.
+            uint processId = 0;
+            if (!OperatingSystem.IsLinux() && !_audioApplications.TryResolveProcessId(audioApp, out processId))
             {
                 // Nothing to capture yet: leave the controller's own audio running rather
                 // than streaming silence. Re-selecting the application retries.
@@ -1244,11 +1255,15 @@ public sealed class EmulationService : IEmulationService
                 return;
             }
 
-            capture = new ApplicationLoopbackAudioCapture(processId, audioApp, forwarder);
+            capture = OperatingSystem.IsLinux()
+                ? new PipeWireApplicationAudioCapture(audioApp, forwarder)
+                : new ApplicationLoopbackAudioCapture(processId, audioApp, forwarder);
         }
         else
         {
-            capture = new SystemOutputAudioCapture(_audioEngine, forwarder);
+            capture = OperatingSystem.IsLinux()
+                ? new PipeWireSystemOutputAudioCapture(forwarder)
+                : new SystemOutputAudioCapture(_audioEngine, forwarder);
         }
 
         // Suspend the controller capture before the direct capture starts feeding: the

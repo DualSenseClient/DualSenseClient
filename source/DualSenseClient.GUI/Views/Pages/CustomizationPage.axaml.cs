@@ -84,7 +84,7 @@ public partial class CustomizationPage : UserControl
             [
                 new FilePickerFileType(LocalizationService.GetText("AudioSource.Executable.FileType"))
                 {
-                    Patterns = ["*.exe"]
+                    Patterns = OperatingSystem.IsWindows() ? ["*.exe"] : ["*"]
                 }
             ]
         });
