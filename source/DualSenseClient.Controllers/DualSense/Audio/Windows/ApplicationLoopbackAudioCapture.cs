@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using DualSenseClient.Logging;
 
-namespace DualSenseClient.Controllers.DualSense.Audio;
+namespace DualSenseClient.Controllers.DualSense.Audio.Windows;
 
 /// <summary>
 /// Captures the audio a single application (and its child processes) renders, using the

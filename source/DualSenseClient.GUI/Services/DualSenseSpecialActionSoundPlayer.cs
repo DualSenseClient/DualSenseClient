@@ -1,5 +1,6 @@
 using System;
 using DualSenseClient.Controllers.DualSense.Audio;
+using DualSenseClient.Controllers.DualSense.Audio.Windows;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.SpecialActions;

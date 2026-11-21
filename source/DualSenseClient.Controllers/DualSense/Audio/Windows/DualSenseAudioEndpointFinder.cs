@@ -2,7 +2,7 @@ using DualSenseClient.Logging;
 using SoundFlow.Abstracts;
 using SoundFlow.Structs;
 
-namespace DualSenseClient.Controllers.DualSense.Audio;
+namespace DualSenseClient.Controllers.DualSense.Audio.Windows;
 
 /// <summary>
 /// Locates the Windows audio render endpoint exposed by a connected DualSense

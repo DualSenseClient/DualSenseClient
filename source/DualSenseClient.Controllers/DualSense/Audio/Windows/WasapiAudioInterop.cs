@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace DualSenseClient.Controllers.DualSense.Audio;
+namespace DualSenseClient.Controllers.DualSense.Audio.Windows;
 
 /// <summary>
 /// Minimal WASAPI COM interop for application (process) loopback capture: the official

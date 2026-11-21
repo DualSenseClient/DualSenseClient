@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace DualSenseClient.Controllers.DualSense.Audio;
+namespace DualSenseClient.Controllers.DualSense.Audio.Windows;
 
 /// <summary>
 /// Minimal WASAPI device/session interop used to list the applications currently

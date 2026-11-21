@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using DualSenseClient.Controllers.DualSense.Audio.Windows;
 using DualSenseClient.Logging;
 
 namespace DualSenseClient.Controllers.DualSense.Audio;

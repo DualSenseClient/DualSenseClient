@@ -8,7 +8,7 @@ using SoundFlow.Enums;
 using SoundFlow.Providers;
 using SoundFlow.Structs;
 
-namespace DualSenseClient.Controllers.DualSense.Audio;
+namespace DualSenseClient.Controllers.DualSense.Audio.Windows;
 
 /// <summary>
 /// Renders 4-channel 48 kHz PCM to the physical DualSense's UAC1 render endpoint

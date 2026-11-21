@@ -6,7 +6,7 @@ using SoundFlow.Backends.MiniAudio.Devices;
 using SoundFlow.Enums;
 using SoundFlow.Structs;
 
-namespace DualSenseClient.Controllers.DualSense.Audio;
+namespace DualSenseClient.Controllers.DualSense.Audio.Windows;
 
 /// <summary>
 /// Captures the audio the host plays to its default output device (WASAPI loopback) and

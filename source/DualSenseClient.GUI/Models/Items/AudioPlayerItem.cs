@@ -5,6 +5,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DualSenseClient.Controllers.DualSense.Audio;
+using DualSenseClient.Controllers.DualSense.Audio.Windows;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.GUI.Services;
 using DualSenseClient.Logging;

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using DualSenseClient.Controllers.DualSense.Audio.Windows;
 using DualSenseClient.Controllers.DualSense.Output;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Core.Utilities;

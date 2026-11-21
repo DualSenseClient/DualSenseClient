@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using DualSenseClient.Controllers.Devices;
 using DualSenseClient.Controllers.DualSense.Audio;
+using DualSenseClient.Controllers.DualSense.Audio.Windows;
 using DualSenseClient.Controllers.DualSense.Events;
 using DualSenseClient.Controllers.DualSense.Input;
 using DualSenseClient.Controllers.DualSense.Output;

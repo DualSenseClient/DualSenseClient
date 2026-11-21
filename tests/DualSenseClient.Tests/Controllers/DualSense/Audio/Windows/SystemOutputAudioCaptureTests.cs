@@ -1,6 +1,6 @@
-using DualSenseClient.Controllers.DualSense.Audio;
+using DualSenseClient.Controllers.DualSense.Audio.Windows;
 
-namespace DualSenseClient.Tests.Controllers.DualSense.Audio;
+namespace DualSenseClient.Tests.Controllers.DualSense.Audio.Windows;
 
 public class SystemOutputAudioCaptureTests
 {
