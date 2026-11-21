@@ -154,6 +154,15 @@ public sealed class EmulationService : IEmulationService
     private readonly Dictionary<DualSenseDevice, VirtualControllerSlot> _entries = new Dictionary<DualSenseDevice, VirtualControllerSlot>();
 
     /// <summary>
+    /// Devices whose HID input is consumed by a live virtual controller. The input reader
+    /// checks this without taking <see cref="_sync"/>, so a slow audio source switch that
+    /// holds the emulation lock cannot stall the HID read loop and push the Bluetooth link
+    /// into flow control.
+    /// </summary>
+    private readonly ConcurrentDictionary<DualSenseDevice, byte> _inputForwardingDevices =
+        new ConcurrentDictionary<DualSenseDevice, byte>();
+
+    /// <summary>
     /// Temporary per-controller emulation overrides (foreground-app auto profiles).
     /// Consulted by <see cref="GetEmulationSettings"/> before the stored settings; a
     /// <c>null</c> entry leaves that setting at its stored value.
@@ -263,6 +272,7 @@ public sealed class EmulationService : IEmulationService
 
                 _entries.Clear();
                 _temporaryModes.Clear();
+                _inputForwardingDevices.Clear();
                 // Every creation has finished by now (the gate was drained above); never leave
                 // the in-flight persona spotlight behind.
                 _inFlightEmulationPersonas.Clear();
@@ -531,6 +541,7 @@ public sealed class EmulationService : IEmulationService
 
                 _entries.Remove(pair.Key);
                 _temporaryModes.TryRemove(pair.Key, out _);
+                _inputForwardingDevices.TryRemove(pair.Key, out _);
                 pair.Value.StatusChanged -= OnSlotStatusChanged;
                 pair.Value.MarkStopped();
                 DeviceDisposeUnsubscribe(pair.Key);
@@ -815,6 +826,7 @@ public sealed class EmulationService : IEmulationService
                 personaHandled = true;
                 entry.Persona = persona;
                 entry.Virtual = virtualController;
+                _inputForwardingDevices[entry.Device] = 0;
                 ApplyPassthroughLocked(entry, forwarding);
                 _inFlightEmulationPersonas.Remove(persona);
 
@@ -1701,6 +1713,7 @@ public sealed class EmulationService : IEmulationService
         entry.Microphone?.Dispose();
         entry.Microphone = null;
         entry.Virtual = null;
+        _inputForwardingDevices.TryRemove(entry.Device, out _);
         entry.Device.LightbarPassthroughEnabled = false;
         entry.Device.PlayerLedPassthroughEnabled = false;
 
@@ -1775,7 +1788,7 @@ public sealed class EmulationService : IEmulationService
     /// </summary>
     private void OnInputReportReceived(object? sender, InputReport report)
     {
-        if (sender is not DualSenseDevice device)
+        if (sender is not DualSenseDevice device || !_inputForwardingDevices.ContainsKey(device))
         {
             return;
         }
@@ -1794,7 +1807,7 @@ public sealed class EmulationService : IEmulationService
     /// </summary>
     private void OnBatteryChanged(object? sender, BatteryStateEventArgs e)
     {
-        if (sender is not DualSenseDevice device)
+        if (sender is not DualSenseDevice device || !_inputForwardingDevices.ContainsKey(device))
         {
             return;
         }
@@ -1813,7 +1826,7 @@ public sealed class EmulationService : IEmulationService
     /// </summary>
     private void OnConnectionStatusChanged(object? sender, ConnectionStatusEventArgs e)
     {
-        if (sender is not DualSenseDevice device)
+        if (sender is not DualSenseDevice device || !_inputForwardingDevices.ContainsKey(device))
         {
             return;
         }

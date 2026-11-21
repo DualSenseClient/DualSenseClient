@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
@@ -891,6 +892,39 @@ public sealed class EmulationServiceUsbIpTests
                 "an unwired lane no longer updates the forwarder");
             Assert.That(ReadField<bool>(entry, "AudioCallbacksWired"), Is.False);
         });
+    }
+
+    [Test]
+    public void InputReport_WithoutAVirtualController_DoesNotWaitForTheEmulationLock()
+    {
+        PhysicalDualSense device = CreateDevice("input-no-virtual-lock", ConnectionType.Bluetooth);
+        _tracker.TrackController(device);
+        _service.Start();
+        GetEntry(device);
+
+        Lock emulationLock = ReadField<Lock>(_service, "_sync");
+        ManualResetEventSlim held = new ManualResetEventSlim(false);
+        Thread holder = new Thread(() =>
+        {
+            lock (emulationLock)
+            {
+                held.Set();
+                Thread.Sleep(1000);
+            }
+        })
+        {
+            IsBackground = true
+        };
+        holder.Start();
+        Assert.That(held.Wait(1000), Is.True, "the test must acquire the emulation lock");
+
+        Stopwatch watch = Stopwatch.StartNew();
+        InvokeService(_service, "OnInputReportReceived", device, null);
+        watch.Stop();
+        holder.Join(2000);
+
+        Assert.That(watch.ElapsedMilliseconds, Is.LessThan(250),
+            "an HID report must not wait for the emulation lock when no virtual controller consumes input");
     }
 
     [Test]
