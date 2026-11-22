@@ -537,7 +537,7 @@ public partial class DeviceInfoPageViewModel : ObservableObject
     {
         get
         {
-            return OperatingSystem.IsWindows();
+            return OperatingSystem.IsWindows() || OperatingSystem.IsLinux();
         }
     }
 
@@ -551,10 +551,14 @@ public partial class DeviceInfoPageViewModel : ObservableObject
         {
             if (!HidingAvailable)
             {
-                return LocalizationService.GetText("DeviceInfoPage.Hiding.Description.NotInstalled");
+                return LocalizationService.GetText(OperatingSystem.IsLinux()
+                    ? "DeviceInfoPage.Hiding.Description.LinuxUnavailable"
+                    : "DeviceInfoPage.Hiding.Description.NotInstalled");
             }
 
-            return LocalizationService.GetText("DeviceInfoPage.Hiding.HideController.Description");
+            return LocalizationService.GetText(OperatingSystem.IsLinux()
+                ? "DeviceInfoPage.Hiding.HideController.Description.Linux"
+                : "DeviceInfoPage.Hiding.HideController.Description");
         }
     }
 

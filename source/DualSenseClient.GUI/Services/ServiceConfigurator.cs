@@ -93,7 +93,14 @@ public abstract class ServiceConfigurator
         }));
         services.AddSingleton<IEmulationService, EmulationService>();
         services.AddSingleton<SpecialActionEngineRegistry>();
-        services.AddSingleton<IControllerHidingService, HidHideService>();
+        if (OperatingSystem.IsLinux())
+        {
+            services.AddSingleton<IControllerHidingService, LinuxControllerHidingService>();
+        }
+        else
+        {
+            services.AddSingleton<IControllerHidingService, HidHideService>();
+        }
 
         // Platform
         services.AddSingleton<IForegroundAppProvider, WindowsForegroundAppProvider>();

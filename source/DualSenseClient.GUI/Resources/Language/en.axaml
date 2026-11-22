@@ -138,8 +138,10 @@
     <sys:String x:Key="DeviceInfoPage.Firmware.SblVersion">SBL Firmware</sys:String>
     <sys:String x:Key="DeviceInfoPage.Firmware.Title">Firmware</sys:String>
     <!-- Hiding -->
+    <sys:String x:Key="DeviceInfoPage.Hiding.Description.LinuxUnavailable">Linux controller hiding is unavailable. Install or update the hiding helper, or start the app from the application menu. See the Controller Hiding guide.</sys:String>
     <sys:String x:Key="DeviceInfoPage.Hiding.Description.NotInstalled">The HidHide driver is not installed. Install it to hide controllers.</sys:String>
     <sys:String x:Key="DeviceInfoPage.Hiding.HideController.Description">Blocks other applications from seeing this physical controller</sys:String>
+    <sys:String x:Key="DeviceInfoPage.Hiding.HideController.Description.Linux">Blocks other applications from using this physical controller</sys:String>
     <sys:String x:Key="DeviceInfoPage.Hiding.Title">Hide this controller</sys:String>
     <!-- Monitor -->
     <sys:String x:Key="DeviceInfoPage.Monitor.Button.FnL">FnL</sys:String>
