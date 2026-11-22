@@ -32,6 +32,7 @@ The app uses the controller's standard HID protocol — the same interfaces used
 No driver is required just to connect a controller over USB or Bluetooth — HID access is provided through HIDAPI (bundled on Windows; system libhidapi-hidraw on Linux). Optional components that do need drivers or packages:
 
 - **[HidHide](https://github.com/nefarius/HidHide)** (Windows only) for [controller hiding](guides/controller-hiding.md)
+- **Linux hiding helper** (Linux only) for [controller hiding](guides/controller-hiding.md#linux-setup)
 - **[USB/IP](https://github.com/vadimgrn/usbip-win2)** for [virtual controller emulation](guides/virtual-controller.md)
 
 ### Why does Windows need the .NET runtime?
@@ -42,7 +43,7 @@ The Windows build is framework-dependent to keep downloads small. Install the [.
 
 Normally no:
 
-- On **Linux**, install the [udev rule](installation.md#linux-controller-access-without-root) instead of running as root.
+- On **Linux**, install the [udev rule](installation.md#linux-controller-access-without-root) instead of running as root. The optional hiding helper is installed once with `sudo`; the GUI itself stays unprivileged.
 - On **Windows**, the app itself runs unprivileged; only installing the optional HidHide/USB/IP drivers requires admin (once per driver).
 
 ---
@@ -75,7 +76,7 @@ Games that only recognize certain controller types (or that handle rumble/trigge
 
 ### My game sees two controllers / inputs are doubled
 
-Enable [controller hiding](guides/controller-hiding.md) so games only see the virtual controller while the app keeps access to the real one.
+Enable [controller hiding](guides/controller-hiding.md) so games only use the virtual controller while the app keeps access to the real one. On Linux this requires the one-time hiding-helper install.
 
 ### What are Special Actions?
 

@@ -27,7 +27,7 @@ A toggle lets you switch between the percentage text and a battery icon. The tra
 
 ## Controller Hiding
 
-The **Hide this controller** row blocks other applications from seeing the physical controller. It is available on Windows and requires the [HidHide driver](controller-hiding.md); when the driver is missing, the row explains that it is not installed.
+The **Hide this controller** row blocks other applications from using the physical controller. On Windows it requires the [HidHide driver](controller-hiding.md); on Linux it requires the [hiding helper](controller-hiding.md#linux-setup) and the app started through the hiding launcher. When the backend is missing, the row explains that it is unavailable.
 
 ## Connection Status
 

@@ -4,7 +4,7 @@ Guidance for AI coding agents working in this repository.
 
 ## Project Overview
 
-DualSense Client is an unofficial open-source management tool for the PlayStation 5 DualSense controller on Windows and Linux. It controls lighting, player/mic LEDs, profiles, rumble, adaptive triggers, and audio playback to the controller's speaker, headset jack, and haptics. It also provides virtual controller emulation (DualSense, DualShock 4, Xbox 360) and controller hiding through HidHide; both are Windows-only for now.
+DualSense Client is an unofficial open-source management tool for the PlayStation 5 DualSense controller on Windows and Linux. It controls lighting, player/mic LEDs, profiles, rumble, adaptive triggers, and audio playback to the controller's speaker, headset jack, and haptics. It also provides virtual controller emulation (DualSense, DualShock 4, Xbox 360), which is Windows-only for now, and controller hiding through HidHide on Windows or a udev/group helper on Linux.
 
 - **Stack:** C# / .NET 10, Avalonia 12, FluentAvalonia, CommunityToolkit.Mvvm, Microsoft.Extensions.DependencyInjection
 - **Testing:** NUnit 5 with NUnit3TestAdapter
@@ -86,20 +86,22 @@ On Linux/macOS, set the same variables inline, e.g. `DUALSENSE_HARDWARE=1 dotnet
 
 ## Repository Layout
 
-| Path                                 | Responsibility                                                                                                                                     |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `source/DualSenseClient.GUI`         | Avalonia desktop app: entry point, Views/ViewModels, DI composition, themes, localization resources                                                |
-| `source/DualSenseClient.Controllers` | DualSense protocol, input/output reports, triggers, lightbar, audio forwarding, profiles, special actions, touchpad mouse, emulation orchestration |
-| `source/DualSenseClient.Emulation`   | USB/IP virtual controller engine: device descriptors, HID/audio lanes, DualSense/DualShock 4/Xbox 360 personas, VHCI attach                        |
-| `source/DualSenseClient.Hid`         | HIDAPI P/Invoke wrapper, device enumeration and handles; embeds the Windows native library                                                         |
-| `source/DualSenseClient.Bluetooth`   | Bluetooth integration: native Windows radio driver vs. BlueZ over Tmds.DBus on Linux                                                               |
-| `source/DualSenseClient.Settings`    | JSON settings, profiles, auto-profiles, controller info, special actions; lenient deserialization and backup recovery                              |
-| `source/DualSenseClient.Core`        | Shared models and utilities: paths, updates, changelog, foreground app detection, timer resolution                                                 |
-| `source/DualSenseClient.Logging`     | Custom logging infrastructure and sink implementations                                                                                             |
-| `source/DualSenseClient.HidHide`     | HidHide driver integration (Windows only)                                                                                                          |
-| `tests/DualSenseClient.Tests`        | NUnit tests, one folder per tested source area, plus emulation conformance/integration suites                                                      |
-| `scripts/`                           | Lint, localization, native-library, changelog, and translation-progress tooling                                                                    |
-| `docs/`                              | Zensical documentation sources; `site/` is generated and gitignored                                                                                |
+| Path                                        | Responsibility                                                                                                                                     |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `source/DualSenseClient.GUI`                | Avalonia desktop app: entry point, Views/ViewModels, DI composition, themes, localization resources                                                |
+| `source/DualSenseClient.Controllers`        | DualSense protocol, input/output reports, triggers, lightbar, audio forwarding, profiles, special actions, touchpad mouse, emulation orchestration |
+| `source/DualSenseClient.Emulation`          | USB/IP virtual controller engine: device descriptors, HID/audio lanes, DualSense/DualShock 4/Xbox 360 personas, VHCI attach                        |
+| `source/DualSenseClient.Hid`                | HIDAPI P/Invoke wrapper, device enumeration and handles; embeds the Windows native library                                                         |
+| `source/DualSenseClient.Bluetooth`          | Bluetooth integration: native Windows radio driver vs. BlueZ over Tmds.DBus on Linux                                                               |
+| `source/DualSenseClient.Settings`           | JSON settings, profiles, auto-profiles, controller info, special actions; lenient deserialization and backup recovery                              |
+| `source/DualSenseClient.Core`               | Shared models and utilities: paths, updates, changelog, foreground app detection, timer resolution                                                 |
+| `source/DualSenseClient.Logging`            | Custom logging infrastructure and sink implementations                                                                                             |
+| `source/DualSenseClient.HidHide`            | Windows HidHide driver integration and the Linux hiding client protocol/service                                                                    |
+| `extras/`                                   | Optional standalone projects outside the .NET solution                                                                                             |
+| `extras/HidHideLinux`                       | Standalone native Linux hiding helper: C sources, udev/systemd assets, scripts, and tests                                                          |
+| `tests/DualSenseClient.Tests`               | NUnit tests, one folder per tested source area, plus emulation conformance/integration suites                                                      |
+| `scripts/`                                  | Lint, localization, native-library, Linux hiding build/glibc checks, changelog, and translation-progress tooling                                   |
+| `docs/`                                     | Zensical documentation sources; `site/` is generated and gitignored                                                                                |
 
 Dependency direction: most libraries depend on `Core`/`Logging`; `Controllers` composes `Core`, `Emulation`, `Hid`, `Settings`, and `Bluetooth`; `GUI` composes the application through DI. Put shared logic in the library matching its concern. When a new concern appears, ask the user before adding a new `DualSenseClient.<Area>` project.
 
@@ -143,6 +145,7 @@ The root `.editorconfig` is authoritative; the main rules are:
 
 - NUnit 5 and constraint-based assertions (`Assert.That(...)`).
 - Put tests in the folder matching the source area (`tests/DualSenseClient.Tests/<Area>/`); name files `{ClassName}Tests.cs`.
+- Native/shell/root tests for the Linux hiding helper live in `extras/HidHideLinux/tests/`. Build with `python scripts/build_linux_hiding.py --tests` and run `bash extras/HidHideLinux/tests/test_linux_hiding.sh`.
 - Use `MethodName_Scenario_ExpectedResult` names when clarity benefits. Prefer small fakes/hand-written test doubles already present under `Emulation/TestSupport/`, `Controllers/TouchpadMouse/RecordingMouseInjector.cs`, etc.
 - Cover public behavior, edge cases (null/empty/boundary/invalid JSON), error and fallback paths, disposal, and thread safety where relevant.
 - File-based tests: create a unique directory under `Path.GetTempPath()` and delete it recursively in `[TearDown]`, tolerating cleanup failures.

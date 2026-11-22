@@ -93,10 +93,42 @@ If the driver is installed but no device appears, check the application logs —
 
 This happens when both the physical controller and an emulated virtual controller are visible to the same game.
 
-1. Install the [HidHide](https://github.com/nefarius/HidHide) driver (Windows only)
-2. Open the physical controller's Device Info page and enable the hide toggle
+=== "Windows"
 
-The app whitelists itself automatically, so it keeps seeing the hidden controller while games no longer do. See the [Controller Hiding guide](guides/controller-hiding.md).
+    1. Install the [HidHide](https://github.com/nefarius/HidHide) driver
+    2. Open the physical controller's Device Info page and enable the hide toggle
+
+    The app whitelists itself automatically, so it keeps seeing the hidden controller while games no longer do.
+
+=== "Linux"
+
+    1. Install the Linux hiding helper once — see [Controller Hiding](guides/controller-hiding.md#linux-setup)
+    2. Start DualSense Client from the application menu or the hiding launcher
+    3. Open the physical controller's Device Info page and enable the hide toggle
+
+    If the toggle says hiding is unavailable, see [Linux hiding is unavailable](#linux-hiding-is-unavailable).
+
+See the [Controller Hiding guide](guides/controller-hiding.md).
+
+## Linux Hiding Is Unavailable
+
+The Linux hiding row always appears, but the toggle is disabled when the backend cannot be used. The application log records the exact cause; the common ones are:
+
+- **Helper not installed or outdated.** Run the installer from the `DualSenseClient-linux-hiding` release asset or source build output with `sudo`, then restart the app. If the helper protocol is too old, hiding stays unavailable until you re-run the installer.
+- **App started without the `dualsenseclient` group.** Start it from the application menu or `/usr/libexec/dualsenseclient/launch`. Check the effective group with `id`; the process should show `dualsenseclient` as its effective group, not just a supplementary group.
+- **Helper socket missing.** Check `systemctl status dualsense-hiding.socket` and `ls -l /run/dualsenseclient/hiding.sock`. The socket must be group `dualsenseclient` and mode `0660`.
+- **Kernel too old for the no-reset path.** Linux 6.12+ uses `HIDIOCREVOKE`; older kernels fall back to rebinding the HID driver, which briefly reconnects the controller. This is slower but should still hide the device.
+- **Installer rejects the app path.** `--app-path` must resolve to an absolute regular executable that is not writable by group or other users, and its parent directories must not be group/other writable unless they are sticky. For a source build, publish to a private directory such as `~/.local/opt/dualsenseclient` and pass `~/.local/opt/dualsenseclient/DualSenseClient`; otherwise use the AppImage.
+- **Helper fails with `GLIBC_2.xx not found`.** The release helper targets x86_64 Linux with glibc 2.35 or newer (Ubuntu 22.04, Debian 12, or newer). Use the matching release asset or build the helper from source on that machine.
+- **Uninstall stops during cleanup.** The cleanup script could not restore a controller node, so the uninstaller leaves the helper installed. Fix the node permissions, then retry the uninstall.
+
+### The Controller Still Appears in a Game
+
+Access is denied, but the device may still be listed by some applications because this is not a kernel filter driver. If the game reacts to a ghost entry, make sure the entry cannot be opened (it should fail with `EACCES`) and that the game is using the virtual controller. True enumeration removal is not implemented on Linux.
+
+### The Controller Reconnects or Its Lights Reset When Hiding
+
+That is expected on kernels older than 6.12, where the helper rebinds the HID driver to revoke existing handles. Update to Linux 6.12+ to use the no-reset `HIDIOCREVOKE` path.
 
 ### Phantom Input While the Virtual Microphone Is Active
 

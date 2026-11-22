@@ -59,11 +59,36 @@ dotnet test tests/DualSenseClient.Tests/DualSenseClient.Tests.csproj --filter "F
 
 Unlike the hardware suites, an attach failure is reported as a test failure because the tests are explicitly opted in.
 
+## Linux Controller Hiding
+
+The Linux hiding backend lives in `extras/HidHideLinux/`:
+
+- `source/` — the C helper daemon, launcher, protocol, device, permission, and revocation code.
+- `assets/` — udev rules and systemd units.
+- `scripts/` — the installer, uninstaller, udev check, and crash cleanup scripts.
+
+Its native, shell, and root integration tests live in `extras/HidHideLinux/tests/`. The build and glibc-check utilities live in `scripts/`.
+
+Build the native artifacts and run the non-root test gate:
+
+```bash
+uv run python scripts/build_linux_hiding.py --output /tmp/opencode/dualsenseclient-hiding-build
+bash extras/HidHideLinux/tests/test_linux_hiding.sh
+```
+
+The root integration test needs `DUALSENSE_HIDING_INTEGRATION=1`, root, a connected controller, and no running app/Steam instance holding the device:
+
+```bash
+sudo env "PATH=$PATH" DUALSENSE_HIDING_INTEGRATION=1 uv run python extras/HidHideLinux/tests/test_linux_hiding_integration.py
+```
+
+It verifies group/mode/ACL changes, app-handle survival, revocation of another process's handle, duplicate hides, shared hides, and restoration after unhide. The forced-rebind fallback is not covered by this test: setting `HIDING_FORCE_REBIND=1` makes the helper revoke every open handle, including the app's own, and can renumber nodes. Verify that fallback separately on a spare controller and expect the app to reconnect.
+
 ## Project Structure
 
-The solution follows a multi-project layout: each distinct concern lives in its own project under `source/`, named `DualSenseClient.<Area>` (for example `DualSenseClient.Core`, `DualSenseClient.Hid`, `DualSenseClient.Settings`). **DualSenseClient.GUI** is the main application project containing Views, ViewModels, and UI-related logic.
+The solution follows a multi-project layout: each distinct .NET concern lives in its own project under `source/`, named `DualSenseClient.<Area>` (for example `DualSenseClient.Core`, `DualSenseClient.Hid`, `DualSenseClient.Settings`). The native Linux hiding helper is the standalone `extras/HidHideLinux/` project. **DualSenseClient.GUI** is the main application project containing Views, ViewModels, and UI-related logic.
 
-Tests live in `tests/DualSenseClient.Tests/`, organized into one folder per tested source project.
+Tests live in `tests/DualSenseClient.Tests/`, organized into one folder per tested source project. The Linux hiding helper’s native, shell, and root integration tests live in `extras/HidHideLinux/tests/`.
 
 ## Contributing
 
