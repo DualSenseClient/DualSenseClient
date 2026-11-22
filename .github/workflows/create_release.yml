@@ -52,6 +52,12 @@ jobs:
           name: "DualSenseClient-linux-appimage"
           path: ./publish/appimage
 
+      - name: Download Linux hiding helper artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: "DualSenseClient-linux-hiding"
+          path: ./publish/hiding
+
       - name: Create ZIP archives
         run: |
           Compress-Archive -Path .\publish\desktop\* -DestinationPath .\DualSenseClient.zip
@@ -66,6 +72,8 @@ jobs:
           }
           $h = (Get-FileHash .\publish\appimage\DualSenseClient.AppImage -Algorithm SHA256).Hash.ToLower()
           "$h  DualSenseClient.AppImage" | Out-File -FilePath "DualSenseClient.AppImage.sha256" -Encoding ascii -NoNewline
+          $h = (Get-FileHash .\publish\hiding\DualSenseClient-linux-hiding.tar.gz -Algorithm SHA256).Hash.ToLower()
+          "$h  DualSenseClient-linux-hiding.tar.gz" | Out-File -FilePath "DualSenseClient-linux-hiding.tar.gz.sha256" -Encoding ascii -NoNewline
 
       - name: Get latest release info
         id: latest_release
@@ -177,7 +185,7 @@ jobs:
           $tag = "$versionPrefix$($maxN + 1).$shaShort"
 
           Write-Host "Creating pre-release $tag ..."
-          gh release create $tag DualSenseClient.zip DualSenseClient-linux.zip .\publish\appimage\DualSenseClient.AppImage DualSenseClient.zip.sha256 DualSenseClient-linux.zip.sha256 DualSenseClient.AppImage.sha256 --prerelease --title "DualSenseClient ($tag)" --notes "$notes" --target $branch
+          gh release create $tag DualSenseClient.zip DualSenseClient-linux.zip .\publish\appimage\DualSenseClient.AppImage .\publish\hiding\DualSenseClient-linux-hiding.tar.gz DualSenseClient.zip.sha256 DualSenseClient-linux.zip.sha256 DualSenseClient.AppImage.sha256 DualSenseClient-linux-hiding.tar.gz.sha256 --prerelease --title "DualSenseClient ($tag)" --notes "$notes" --target $branch
 
       - name: Create stable release
         id: create_stable
@@ -195,7 +203,7 @@ jobs:
           $notesArgs = if ([string]::IsNullOrEmpty($changelog)) { @("--generate-notes") } else { @("--notes", $changelog) }
 
           Write-Host "Creating stable draft release..."
-          gh release create $tag DualSenseClient.zip DualSenseClient-linux.zip .\publish\appimage\DualSenseClient.AppImage DualSenseClient.zip.sha256 DualSenseClient-linux.zip.sha256 DualSenseClient.AppImage.sha256 --draft @notesArgs --title "DualSenseClient ($tag)" --target $branch
+          gh release create $tag DualSenseClient.zip DualSenseClient-linux.zip .\publish\appimage\DualSenseClient.AppImage .\publish\hiding\DualSenseClient-linux-hiding.tar.gz DualSenseClient.zip.sha256 DualSenseClient-linux.zip.sha256 DualSenseClient.AppImage.sha256 DualSenseClient-linux-hiding.tar.gz.sha256 --draft @notesArgs --title "DualSenseClient ($tag)" --target $branch
           Write-Host "Stable draft release created! Go to GitHub to publish it."
 
       - name: Trigger changelog data update

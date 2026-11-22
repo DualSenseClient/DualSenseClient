@@ -123,11 +123,37 @@ jobs:
 
           ./appimagetool --appimage-extract-and-run AppDir DualSenseClient.AppImage
 
+      - name: Build Linux hiding helper
+        shell: bash
+        run: |
+          set -e
+          mkdir -p publish/hiding/DualSenseClient-linux-hiding
+          python scripts/build_linux_hiding.py --output publish/hiding/DualSenseClient-linux-hiding
+          tar -czf DualSenseClient-linux-hiding.tar.gz -C publish/hiding DualSenseClient-linux-hiding
+
+      - name: Test Linux hiding helper
+        shell: bash
+        run: bash extras/HidHideLinux/tests/test_linux_hiding.sh
+
+      - name: Check Linux hiding helper glibc baseline
+        shell: bash
+        run: >
+          python3 scripts/check_linux_hiding_glibc.py
+          publish/hiding/DualSenseClient-linux-hiding/dualsense-hiding-helper
+          publish/hiding/DualSenseClient-linux-hiding/dualsense-hiding-launch
+          publish/hiding/DualSenseClient-linux-hiding/dualsense-hiding-acl-fix
+
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v7
         with:
           name: DualSenseClient-linux
           path: publish/desktop/DualSenseClient
+
+      - name: Upload Linux hiding helper artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: DualSenseClient-linux-hiding
+          path: DualSenseClient-linux-hiding.tar.gz
 
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v7
