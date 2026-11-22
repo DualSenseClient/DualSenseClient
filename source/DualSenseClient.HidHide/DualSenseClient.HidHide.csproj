@@ -14,4 +14,8 @@
       <ProjectReference Include="..\DualSenseClient.Logging\DualSenseClient.Logging.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="DualSenseClient.Tests"/>
+    </ItemGroup>
+
 </Project>
