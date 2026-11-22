@@ -1,0 +1,14 @@
+[Unit]
+Description=DualSense Client controller hiding helper
+Requires=dualsense-hiding.socket
+After=dualsense-hiding.socket
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/dualsenseclient/dualsense-hiding-helper
+ExecStopPost=/usr/libexec/dualsenseclient/hiding-cleanup
+Restart=on-failure
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+# Remove the seat-user ACL after 73-seat-late.rules has run. The 72 rule removes
+# the uaccess tag, but an existing ACL is not removed by a tag change alone.
+# Re-check the marker inside RUN because a queued hide event can execute after
+# an unhide has already cleared it.
+ACTION=="add|change", SUBSYSTEM=="hidraw", KERNELS=="????:054C:*", \
+  RUN+="/bin/sh -c '/usr/libexec/dualsenseclient/udev-check %p && /usr/libexec/dualsenseclient/dualsense-hiding-acl-fix %E{DEVNAME}'"
+
+ACTION=="add|change", SUBSYSTEM=="input", KERNEL=="event*|js*|mouse*", KERNELS=="????:054C:*", \
+  RUN+="/bin/sh -c '/usr/libexec/dualsenseclient/udev-check %p && /usr/libexec/dualsenseclient/dualsense-hiding-acl-fix %E{DEVNAME}'"

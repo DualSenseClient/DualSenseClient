@@ -1,0 +1,19 @@
+# While a controller is hidden, its HID child nodes are group-only and carry no
+# uaccess ACL. The helper writes one marker per controller ID; udev-check exits
+# 0 only when that marker exists.
+#
+# Filename 72-: after the controller rules such as 71-sony-controllers.rules and
+# before 73-seat-late.rules, which turns uaccess into a seat-user ACL.
+#
+# GROUP/MODE are applied by RUN rather than the udev properties so the marker is
+# rechecked when the command actually runs. A change event queued while hiding
+# must not re-hide a node after unhide has already cleared the marker.
+ACTION=="add|change", SUBSYSTEM=="hidraw", KERNELS=="????:054C:*", \
+  PROGRAM="/usr/libexec/dualsenseclient/udev-check %p", \
+  TAG-="uaccess", \
+  RUN+="/bin/sh -c '/usr/libexec/dualsenseclient/udev-check %p && /usr/bin/chown root:dualsenseclient %E{DEVNAME} && /usr/bin/chmod 0660 %E{DEVNAME}'"
+
+ACTION=="add|change", SUBSYSTEM=="input", KERNEL=="event*|js*|mouse*", KERNELS=="????:054C:*", \
+  PROGRAM="/usr/libexec/dualsenseclient/udev-check %p", \
+  TAG-="uaccess", \
+  RUN+="/bin/sh -c '/usr/libexec/dualsenseclient/udev-check %p && /usr/bin/chown root:dualsenseclient %E{DEVNAME} && /usr/bin/chmod 0660 %E{DEVNAME}'"

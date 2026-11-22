@@ -1,0 +1,12 @@
+[Unit]
+Description=DualSense Client controller hiding socket
+
+[Socket]
+ListenStream=/run/dualsenseclient/hiding.sock
+SocketMode=0660
+SocketUser=root
+SocketGroup=dualsenseclient
+DirectoryMode=0755
+
+[Install]
+WantedBy=sockets.target
