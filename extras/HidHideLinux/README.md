@@ -45,6 +45,12 @@ This archive is distributed under GPL-3.0; the `LICENSE` file is included. The
 corresponding source is the DualSense Client repository at
 <https://github.com/DualSenseClient/DualSenseClient>.
 
+## Development
+
+See `DEVELOPMENT.md` in the DualSense Client source repository for the build,
+test, debugging, and release workflow used by contributors. The release archive
+does not include that file.
+
 ## Uninstall
 
 ```bash

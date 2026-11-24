@@ -84,6 +84,8 @@ sudo env "PATH=$PATH" DUALSENSE_HIDING_INTEGRATION=1 uv run python extras/HidHid
 
 It verifies group/mode/ACL changes, app-handle survival, revocation of another process's handle, duplicate hides, shared hides, and restoration after unhide. The forced-rebind fallback is not covered by this test: setting `HIDING_FORCE_REBIND=1` makes the helper revoke every open handle, including the app's own, and can renumber nodes. Verify that fallback separately on a spare controller and expect the app to reconnect.
 
+See `extras/HidHideLinux/DEVELOPMENT.md` for prerequisites, the full test matrix, manual install checks, debugging commands, and release expectations.
+
 ## Project Structure
 
 The solution follows a multi-project layout: each distinct .NET concern lives in its own project under `source/`, named `DualSenseClient.<Area>` (for example `DualSenseClient.Core`, `DualSenseClient.Hid`, `DualSenseClient.Settings`). The native Linux hiding helper is the standalone `extras/HidHideLinux/` project. **DualSenseClient.GUI** is the main application project containing Views, ViewModels, and UI-related logic.

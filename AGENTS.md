@@ -145,7 +145,7 @@ The root `.editorconfig` is authoritative; the main rules are:
 
 - NUnit 5 and constraint-based assertions (`Assert.That(...)`).
 - Put tests in the folder matching the source area (`tests/DualSenseClient.Tests/<Area>/`); name files `{ClassName}Tests.cs`.
-- Native/shell/root tests for the Linux hiding helper live in `extras/HidHideLinux/tests/`. Build with `python scripts/build_linux_hiding.py --tests` and run `bash extras/HidHideLinux/tests/test_linux_hiding.sh`.
+- Native/shell/root tests for the Linux hiding helper live in `extras/HidHideLinux/tests/`. Build with `python scripts/build_linux_hiding.py --tests` and run `bash extras/HidHideLinux/tests/test_linux_hiding.sh`. See `extras/HidHideLinux/DEVELOPMENT.md` for the full contributor workflow.
 - Use `MethodName_Scenario_ExpectedResult` names when clarity benefits. Prefer small fakes/hand-written test doubles already present under `Emulation/TestSupport/`, `Controllers/TouchpadMouse/RecordingMouseInjector.cs`, etc.
 - Cover public behavior, edge cases (null/empty/boundary/invalid JSON), error and fallback paths, disposal, and thread safety where relevant.
 - File-based tests: create a unique directory under `Path.GetTempPath()` and delete it recursively in `[TearDown]`, tolerating cleanup failures.
